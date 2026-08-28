@@ -5,6 +5,7 @@ import {
   CAMPAIGN_STORAGE_KEY,
   CHARACTER_IDS,
   EVENT_IDS,
+  ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
   TIME_EVENT_IDS,
@@ -12,7 +13,6 @@ import {
 } from '../src/core/campaign.js';
 import {
   BIG_NIGHT_BOOSKI_CALL,
-  DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
   SPECIAL_MEETING_BOOSKI_CALL,
@@ -20,6 +20,7 @@ import {
 import {
   LUXURY_APARTMENT_PHASES,
   createLuxuryApartmentStory,
+  margoDateScheduled,
 } from '../src/core/luxury-apartment-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { createSilverStory } from '../src/core/silver-story.js';
@@ -55,6 +56,9 @@ function afterTheHandover(storage = new MemoryStorage()) {
     state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
     state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
     state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+    state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+    state.story.timeEvents.push(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
+    state.inventory.carried.push(ITEM_IDS.PHONE);
   });
   campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT);
   campaign.enter(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'arrival' });
@@ -67,7 +71,6 @@ function walkToPhase(campaign, target, { cameHome = true } = {}) {
   if (target === 'get_ready') return story;
   story.completeGetReady();
   if (target === 'date') return story;
-  story.callAnswered(DATE_MARGO_CALL);
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
   campaign.enter(SCENE_IDS.SILVER_ROOM, { spawn: 'kerb' });
   const silver = createSilverStory({ campaign });
@@ -119,7 +122,7 @@ test('the four visits happen in the bible’s order and nothing skips ahead', ()
   assert.deepEqual(seen, [...LUXURY_APARTMENT_PHASES]);
 });
 
-test('beat 14 gates the door on getting ready, then on her call', () => {
+test('beat 14 gates only on getting ready for the date scheduled at the cabin', () => {
   const campaign = afterTheHandover();
   const story = createLuxuryApartmentStory({ campaign });
 
@@ -136,44 +139,57 @@ test('beat 14 gates the door on getting ready, then on her call', () => {
   assert.deepEqual(story.completeGetReady(), { ok: true });
   assert.equal(campaign.state.story.timeMinutes, 12 * 60 + 30);
   assert.deepEqual(story.completeGetReady(), { ok: false, reason: 'wrong_phase' });
-
-  assert.deepEqual(story.tryLeave(), {
-    kind: 'call',
-    id: EVENT_IDS.MARGO_DATE_CALL,
-    line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
-    vo: 'door.refusal.date_call',
-  });
+  assert.deepEqual(story.tryLeave(), { kind: 'go', destination: SCENE_IDS.SILVER_ROOM });
+  assert.equal(story.pendingCall(), null, 'the apartment must not schedule the date twice');
+  assert.equal(campaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL),
+    false,
+    'the retired apartment call charged five minutes',
+  );
 });
 
-test('Margo rings once in the new flat and unlocks Front & Center', () => {
-  const storage = new MemoryStorage();
-  const campaign = afterTheHandover(storage);
+test('the cabin appointment unlocks Front & Center with no duplicate phone call', () => {
+  const campaign = afterTheHandover();
   const story = walkToPhase(campaign, 'date');
 
-  assert.equal(story.pendingCall(), DATE_MARGO_CALL);
-  /* She is a civilian and she is not on the family's radio station, so she
-   * carries her own character id, her own voice profile, and her own bank.
-   * The lines are the ones already recorded: she names the Silver Room and
-   * the hour and nothing about where he is standing, which is why the move
-   * from the starter flat cost no re-record. */
-  assert.equal(DATE_MARGO_CALL.characterId, CHARACTER_IDS.MARGO);
-  assert.equal(DATE_MARGO_CALL.from, 'Margo');
-  assert.equal(DATE_MARGO_CALL.voiceProfile, 'margo');
-  assert.equal(DATE_MARGO_CALL.vo, 'call.margo.date');
-  assert.equal(DATE_MARGO_CALL.targetSceneId, SCENE_IDS.SILVER_ROOM);
-  assert.notEqual(DATE_MARGO_CALL.eventId, BIG_NIGHT_BOOSKI_CALL.eventId);
-
-  assert.equal(story.callAnswered(DATE_MARGO_CALL), true);
-  const answered = createCampaign({ storage }).state;
-  assert.equal(answered.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
-  assert.equal(answered.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
-  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL));
-  assert.equal(story.callAnswered(DATE_MARGO_CALL), false, 'she does not ring twice');
+  assert.equal(margoDateScheduled(campaign.state), true);
   assert.equal(story.pendingCall(), null);
-
   assert.deepEqual(story.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_ROOM,
   });
+});
+
+test('a pre-cabin save between getting ready and the retired call is reconciled without recovery', () => {
+  const storage = new MemoryStorage();
+  const campaign = afterTheHandover(storage);
+  campaign.update((state) => {
+    state.story.timeEvents.push(TIME_EVENT_IDS.LUXURY_GET_READY);
+    state.story.timeEvents = state.story.timeEvents
+      .filter((eventId) => eventId !== TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
+    state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'pending';
+    state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'answered';
+    state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+    state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'pending';
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'locked';
+  });
+
+  const reloadedCampaign = createCampaign({ storage });
+  assert.equal(reloadedCampaign.recoveredNow, false);
+  assert.equal(reloadedCampaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'pending');
+  const story = createLuxuryApartmentStory({ campaign: reloadedCampaign });
+
+  assert.equal(reloadedCampaign.recoveredNow, false);
+  assert.equal(reloadedCampaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
+  assert.equal(reloadedCampaign.state.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
+  assert.equal(
+    reloadedCampaign.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL),
+    false,
+  );
+  assert.equal(story.pendingCall(), null);
+  assert.deepEqual(story.tryLeave(), { kind: 'go', destination: SCENE_IDS.SILVER_ROOM });
 });
 
 test('beats 16 and 17: she comes home, the night passes, and only then a telephone', () => {
@@ -312,6 +328,29 @@ test('beat 27 rings in the luxury apartment and leaves for the existing pickup',
   });
 });
 
+test('beat 27 direct-entry tooling preserves the persistent phone that receives the call', () => {
+  const priorLocation = globalThis.location;
+  delete globalThis.__squatchLifePreviewRuntime;
+  globalThis.location = {
+    pathname: '/game/luxury-apartment.html',
+    search: '?preview=1&beat=special_meeting_call',
+  };
+  try {
+    const campaign = createCampaign();
+    assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' });
+    assert.equal(
+      campaign.state.inventory.carried.filter((id) => id === ITEM_IDS.PHONE).length,
+      1,
+    );
+    assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status, 'pending');
+    assert.equal(createLuxuryApartmentStory({ campaign }).pendingCall(), SPECIAL_MEETING_BOOSKI_CALL);
+  } finally {
+    if (priorLocation === undefined) delete globalThis.location;
+    else globalThis.location = priorLocation;
+    delete globalThis.__squatchLifePreviewRuntime;
+  }
+});
+
 test('the v21 Palace landing migration survives the v23 clock repair without eating the call', () => {
   const storage = new MemoryStorage();
   const current = afterTheHandover(storage);
@@ -395,7 +434,8 @@ test('the objective panel says exactly what the door is waiting on', () => {
   assert.deepEqual(ready.items.map((item) => item.id), [TIME_EVENT_IDS.LUXURY_GET_READY]);
 
   const waiting = walkToPhase(afterTheHandover(), 'date').objectives();
-  assert.deepEqual(waiting.items.map((item) => item.id), [EVENT_IDS.MARGO_DATE_CALL]);
+  assert.deepEqual(waiting.items.map((item) => item.id), [`depart.${SCENE_IDS.SILVER_ROOM}`]);
+  assert.deepEqual(waiting.items.map((item) => item.label), ['Leave for Front & Center']);
 
   const quiet = walkToPhase(afterTheHandover(), 'return').objectives();
   assert.deepEqual(quiet.items.map((item) => item.id), [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]);

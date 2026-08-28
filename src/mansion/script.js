@@ -254,7 +254,7 @@ export const SEQUENCES = Object.freeze({
   /* performed at him. Their `.idle` twin fires if he hangs around.       */
   /* =================================================================== */
   arrivalProspect: Object.freeze([
-    { speaker: 'PROSPECT', text: 'Whatever’s in here has been humming since the car.', cue: cue('arrival', 'prospect.humming'), hold: 3.0 },
+    { speaker: 'PROSPECT', text: 'First time at Lou’s place. Whatever’s in this case has been humming since the car.', cue: cue('arrival', 'prospect.firstvisitcase'), hold: 4.2 },
   ]),
   rippinBar: Object.freeze([
     // spec
@@ -307,7 +307,7 @@ export const SEQUENCES = Object.freeze({
     // spec
     { speaker: 'PROSPECT', text: 'What’s inside?', cue: cue('office', 'prospect.whatsinside'), hold: 1.6 },
     // spec
-    { speaker: 'LOU', text: 'You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.', cue: cue('office', 'lou.soonenough'), hold: 2.6 },
+    { speaker: 'LOU', text: 'Squatchanium. Booski will show you what that means downstairs. Then you’ll wish I hadn’t named it.', cue: cue('office', 'lou.namesquatchanium'), hold: 4.4 },
     { speaker: 'HUD', stage: 'case.close', hold: 1.6 },
     // spec
     { speaker: 'LOU', text: 'Go deliver it to Booski. He’s in the basement.', cue: cue('office', 'lou.deliverittobooski'), hold: 3.2 },
@@ -742,7 +742,7 @@ export const SEQUENCES = Object.freeze({
    * epilogue: the player walks back to Lou and presses E on Lou's body. Only
    * after this exchange does the mission become the quiet mansion evening. */
   louAfterLab: Object.freeze([
-    { speaker: 'LOU', text: 'You’re staying here tonight.', cue: cue('exit', 'lou.stayingtonight'), hold: 2.2 },
+    { speaker: 'LOU', text: 'Things are hot right now. You’re staying here tonight.', cue: cue('exit', 'lou.hotstayingtonight'), hold: 3.2 },
     { speaker: 'LOU', text: 'Guest room’s downstairs, off the cellar hall. It’s made up.', cue: cue('exit', 'lou.guestroomdownstairs'), hold: 3.8 },
     { speaker: 'LOU', text: 'Look around if you want. Have a drink, watch a picture. Then get some sleep.', cue: cue('exit', 'lou.enjoythehouse'), hold: 4.8 },
   ]),
@@ -987,7 +987,7 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'LOU', text: 'Every pound of it. Squatchbourg is a crater. The A-Team’s desert compound is still exactly where it was.', cue: cue('return', 'briefing.lou.compoundstanding'), hold: 5.2 },
     { speaker: 'LOU', text: 'While we were admiring the hole, Sauce went missing.', cue: cue('return', 'briefing.lou.saucemissing'), hold: 3.2 },
     { speaker: 'PROSPECT', text: 'They took him?', cue: cue('return', 'briefing.prospect.tookhim'), hold: 1.8 },
-    { speaker: 'LOU', text: 'We traced it to an A-Team leadership estate. You are going there tonight. We are done guessing at maps.', cue: cue('return', 'briefing.lou.estate'), hold: 5.0 },
+    { speaker: 'LOU', text: 'His restaurant burner and one of their estate gate logs put his name at an A-Team leadership estate. Could be a prisoner, could be a guest. You are going there tonight and finding out.', cue: cue('return', 'briefing.lou.estate'), hold: 7.2 },
   ]),
 
   guardPathReturn: Object.freeze([

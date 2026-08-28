@@ -54,6 +54,29 @@ function horizontalClearance(point, box3) {
   return Math.hypot(dx, dz);
 }
 
+function minimumRouteClearance(path, box3, sampleSpacing = 0.06) {
+  let minimum = Infinity;
+  for (let index = 0; index < path.length - 1; index++) {
+    const from = path[index];
+    const to = path[index + 1];
+    const distance = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+    const samples = Math.max(1, Math.ceil(distance / sampleSpacing));
+    for (let sample = 0; sample <= samples; sample++) {
+      const t = sample / samples;
+      const point = new THREE.Vector3(
+        THREE.MathUtils.lerp(from[0], to[0], t),
+        THREE.MathUtils.lerp(from[1], to[1], t),
+        THREE.MathUtils.lerp(from[2], to[2], t),
+      );
+      const feetY = point.y - 0.87;
+      const headY = point.y + 0.87;
+      if (headY < box3.min.y || feetY > box3.max.y) continue;
+      minimum = Math.min(minimum, horizontalClearance(point, box3));
+    }
+  }
+  return minimum;
+}
+
 function colliderNamed(world, name) {
   return world.colliders.find((entry) => entry.name === name);
 }
@@ -205,6 +228,82 @@ test('Margo’s authored lift-to-bed route stays on the live floors and inside t
         `Margo clips a stair rail at x=${x}`);
     }
   }
+  world.dispose();
+});
+
+test('the stair-top Sasquatch is a lit luxury focal piece outside Margo’s route', async () => {
+  const { world } = await build();
+  world.root.updateMatrixWorld(true);
+
+  const focal = world.root.getObjectByName('luxury-top-stair-focal');
+  const focalCollider = colliderNamed(world, 'luxury-top-stair-focal-collider');
+  assert.ok(focal?.isGroup && focalCollider, 'the focal piece and its authored collider both exist');
+  assert.deepEqual(focal.userData.focalPiece, {
+    subject: 'Sasquatch guardian',
+    finish: 'patinated bronze',
+    pedestal: 'veined marble and brass',
+    faces: 'top stair landing',
+  });
+
+  for (const name of [
+    'luxury-top-stair-focal-pedestal-base',
+    'luxury-top-stair-focal-pedestal-core',
+    'luxury-top-stair-focal-pedestal-brass-reveal',
+    'luxury-top-stair-focal-pedestal-vein-a',
+    'luxury-top-stair-focal-pedestal-vein-b',
+    'luxury-top-stair-focal-left-leg',
+    'luxury-top-stair-focal-right-leg',
+    'luxury-top-stair-focal-torso',
+    'luxury-top-stair-focal-shoulders',
+    'luxury-top-stair-focal-left-forearm',
+    'luxury-top-stair-focal-right-forearm',
+    'luxury-top-stair-focal-head',
+    'luxury-top-stair-focal-brow',
+    'luxury-top-stair-focal-muzzle',
+    'luxury-top-stair-focal-brass-halo',
+  ]) assert.ok(focal.getObjectByName(name)?.isMesh, `${name} supplies intentional sculpted detail`);
+
+  const meshes = [];
+  focal.traverse((object) => { if (object.isMesh) meshes.push(object); });
+  assert.ok(meshes.length >= 25, 'the former three-primitive placeholder has a complete silhouette and pedestal');
+  assert.equal(meshes.filter(({ name }) => !name).length, 0, 'every focal mesh remains geometry-gate addressable');
+  const materials = new Set(meshes.map(({ material }) => material));
+  for (const material of [
+    world.materials.marble,
+    world.materials.marbleDark,
+    world.materials.marbleVein,
+    world.materials.trim,
+    world.materials.sculptureBronze,
+    world.materials.sculpturePatina,
+  ]) assert.ok(materials.has(material), 'the focal piece uses stone variation, brass and patinated bronze');
+  assert.equal(world.root.getObjectByName('luxury-top-stair-focal-body'), undefined,
+    'the unfinished sphere body placeholder was removed at the source');
+
+  const light = focal.getObjectByName('luxury-top-stair-focal-light');
+  assert.ok(light?.isSpotLight && light.intensity >= 34, 'a dedicated warm museum wash lights the sculpture');
+  assert.equal(light.color.getHex(), 0xffd7a4);
+  assert.equal(light.target, focal.getObjectByName('luxury-top-stair-focal-light-target'));
+
+  const visualBounds = new THREE.Box3().setFromObject(focal);
+  const size = visualBounds.getSize(new THREE.Vector3());
+  assert.ok(size.x <= 0.90 && size.z <= 0.90 && size.y >= 1.60 && size.y <= 1.80,
+    `the focal piece stays compact but legible (${size.toArray().map((value) => value.toFixed(2)).join(' × ')}m)`);
+  assert.ok(focalCollider.containsBox(visualBounds), 'the collider contains the complete visible sculpture and pedestal');
+
+  const worldPosition = focal.getWorldPosition(new THREE.Vector3());
+  const facing = new THREE.Vector3(0, 0, -1)
+    .applyQuaternion(focal.getWorldQuaternion(new THREE.Quaternion()))
+    .setY(0)
+    .normalize();
+  const towardLanding = new THREE.Vector3(-8.72, LUXURY_APARTMENT.loftY, -0.82)
+    .sub(worldPosition)
+    .setY(0)
+    .normalize();
+  assert.ok(facing.dot(towardLanding) > 0.995, 'the guardian deliberately faces players reaching the landing');
+
+  const routeClearance = minimumRouteClearance(margoModule.LUXURY_MARGO_ENTRY_PATH, focalCollider);
+  assert.ok(routeClearance >= 0.70,
+    `Margo keeps ${routeClearance.toFixed(2)}m horizontal clearance from the focal collider`);
   world.dispose();
 });
 
@@ -370,8 +469,10 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   const railRadius = world.poker.rail.geometry.parameters.tube;
   assert.ok(world.poker.rail.position.y - railRadius < feltTop);
   assert.ok(world.poker.rail.position.y > feltTop, 'poker trim nests into the felt without floating');
-  assert.equal(world.poker.rail.scale.z, world.poker.felt.scale.z,
-    'outer dark-wood rail follows the same oval as the felt');
+  assert.equal(world.poker.rail.scale.z, 1,
+    'the outer dark-wood rail is a true circle');
+  assert.equal(world.poker.felt.scale.z, 1,
+    'the source felt is a true circle rather than an oval hidden underneath');
 
   assert.equal(world.deskChair.group.userData.workstationMaterial, 'dark');
   assert.equal(world.deskZyn.group.userData.desktopHalf, 'front');

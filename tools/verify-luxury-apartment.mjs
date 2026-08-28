@@ -760,7 +760,8 @@ try {
       && authored.pokerPolish.seats === 4
       && authored.pokerPolish.railPresent
       && authored.pokerPolish.feltPresent
-      && authored.pokerPolish.railOval === authored.pokerPolish.feltOval
+      && authored.pokerPolish.railOval === 1
+      && authored.pokerPolish.feltOval === 1
       && authored.dartsPolish.board
       && authored.dartsPolish.numberedFace === 'luxury-darts-numbered-face'
       && authored.dartsPolish.faceTexture
@@ -1180,6 +1181,12 @@ try {
 
     return {
       serviceDoor,
+      persistentPhone: {
+        campaignOwned: runtime.campaign.hasItem('phone'),
+        hotbarCopies: home.inventory.items.filter((id) => id === 'phone').length,
+        held: home.inventory.held,
+        tablePropHidden: home.phoneProp?.group?.visible === false,
+      },
       initialObjective,
       earlyLabel,
       elevatorBlocked,
@@ -1193,7 +1200,11 @@ try {
       && doorFlows.serviceDoor.locked
       && !doorFlows.serviceDoor.open
       && !doorFlows.serviceDoor.stateOpen
-      && /0\/3/.test(doorFlows.initialObjective)
+      && doorFlows.persistentPhone.campaignOwned
+      && doorFlows.persistentPhone.hotbarCopies === 1
+      && doorFlows.persistentPhone.held === null
+      && doorFlows.persistentPhone.tablePropHidden
+      && /1\/3/.test(doorFlows.initialObjective)
       && /get ready/i.test(doorFlows.earlyLabel)
       && !doorFlows.elevatorBlocked.open
       && !doorFlows.elevatorBlocked.stateOpen

@@ -406,10 +406,10 @@ if (wakingOnDayTwo) {
     'Day Four, 10:00 AM. Tonight is the big night. Booskibro will call about it.';
 } else if (wakingOnGolfMorning) {
   overlay.querySelector('.tag').textContent =
-    'Day Four, 7:00 AM. Margo is still here. Lou has plans for the quiet part of the morning.';
+    'Day Six, 7:00 AM. Silver Pines at eight. Lou gave you the time last night.';
 } else if (wakingOnHeistDay) {
   overlay.querySelector('.tag').textContent =
-    'Day Four, 10:00 AM. Margo is still here. Lou will call when she leaves.';
+    'Day Five, 12:00 PM. THE TAKE is today. Lou said he would call.';
 }
 // One station, several physical receivers. The running order follows the
 // campaign while this apartment keeps its own power switch.
@@ -703,6 +703,9 @@ let browserInput = null;
  * lock for those apps is intentional and must not pause the apartment. */
 const arcade = createArcade({
   audio,
+  // The Beef Run is Tony's first Sasole meeting. Only later apartment visits
+  // may show Sasole's follow-up email in the otherwise static inbox.
+  sasoleKnown: campaignAtLoad.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status === 'complete',
   onInputModeChange(mode) {
     browserInput?.refresh(`arcade-input-${mode}`);
     if (mode === 'dom') document.exitPointerLock?.();
@@ -911,7 +914,7 @@ async function boot() {
     apartment.toiletCollider,
   );
 
-  // Third way to find out about the meeting: leave the radio on.
+  // Third way to find out about the routine weekly meeting: leave the radio on.
   /* One place decides what the hands look like. Both the row of slots and the
    * card naming the selected thing come from the same change event, so they
    * cannot disagree about what he is holding. */
@@ -978,7 +981,7 @@ async function boot() {
         : returningFromNoWake
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
-          ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
+          ? 'Back from the Jerky Motel. It is half six in the morning. Go to bed.'
           : returningFromInitiation
             ? 'Home from the Initiation. The campaign is complete.'
             : 'Back from the restaurant. The business is settled.';
@@ -3240,7 +3243,7 @@ function learnAboutMeeting(source) {
     state.story.meetingLearnedFrom = source;
   });
   audio.play('ui.select', { volume: 0.4 });
-  hud.toast('Wednesday, 7 PM', 'good');
+  hud.toast('Crew meeting · Wednesday, 7 PM', 'good');
   // The radio reads the notice out; he answers it, the way you answer a radio.
   audio.say('notice', { delay: source === 'radio' ? 2.4 : 1.0 });
   narrator.note('meeting');
@@ -3590,7 +3593,6 @@ function tryLeave() {
   const res = apartmentStory.tryLeave(activityContext());
 
   if (res.kind === 'go') {
-    audio.say('door.leave', { delay: 0.2 });
     leaveForMission(res.destination);
     return res;
   }
@@ -3755,8 +3757,8 @@ function leaveForMission(destination) {
 function missedIt() {
   if (game.left || goals.missed) return;
   goals.missed = true;
-  hud.say('<em>Eight o\'clock.</em> That will have started without you.', 6000);
-  hud.toast('You missed it', 'bad');
+  hud.say('<em>Eight o\'clock.</em> The weekly meeting started without you.', 6000);
+  hud.toast('Missed the weekly meeting', 'bad');
 }
 
 function showEnding(kind) {
@@ -4428,11 +4430,12 @@ function playNews(station, { onStart = null } = {}) {
 }
 
 /* ------------------------------------------------------------------ */
-/* THE SPECIAL MEETING — ACT ONE                                       */
+/* THE SPECIAL MEETING — LEGACY STARTER-FLAT COMPATIBILITY             */
 /* ------------------------------------------------------------------ */
 
 /**
- * Everything the flat does on the night three men come for him.
+ * Compatibility staging for saves created before Beat 27 moved to the luxury
+ * apartment. Fresh campaign saves do not return to this flat after the Palace.
  *
  * `docs/SPECIAL-MEETING-SCRIPT.md`, beats SM-010 to SM-090. The words and
  * their cue names are all authored elsewhere -- `src/specialmeeting/script.js`,
@@ -5550,9 +5553,9 @@ const CHAPTER_DONE = Object.freeze({
   day_two: 'Day One is done',
   no_wake: 'Day Two is done',
   date: 'The harbor is behind you',
-  golf_morning: 'The Silver Room is behind you',
+  golf_morning: 'THE TAKE is behind you',
   big_night: 'The Silver Room is behind you',
-  heist_day: 'The Silver Room is behind you',
+  heist_day: 'The Jerky Motel is behind you',
 });
 
 /** And what the morning it opened onto is for. */
@@ -5560,9 +5563,9 @@ const WAKE_LINES = Object.freeze({
   day_two: 'Booskibro said he would call.',
   no_wake: 'Grey out. Lou said he would call.',
   date: 'Nothing on today. She said she would ring.',
-  golf_morning: 'Margo is still here. Lou can wait until she leaves.',
+  golf_morning: 'Silver Pines at eight. Lou gave you the time last night.',
   big_night: 'Tonight is the thing. Booskibro said he would call.',
-  heist_day: 'Margo is still here. Lou can wait until she leaves.',
+  heist_day: 'THE TAKE is today. Lou said he would call.',
 });
 
 /**

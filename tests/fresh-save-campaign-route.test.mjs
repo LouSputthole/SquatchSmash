@@ -11,7 +11,6 @@ import {
   navigateCampaign,
 } from '../src/core/campaign.js';
 import {
-  DATE_MARGO_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
@@ -134,19 +133,19 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     state.missions[MISSION_IDS.BADA_BING_ONE].ending = 'warned';
     state.missions[MISSION_IDS.SQUATCHFATHER].status = 'available';
   });
-  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+  /* Beat 2 ends in the Family driver's car. The production route goes
+   * directly to the restaurant; Apartment remains only a legacy whitelist
+   * fallback and is exercised in apartment-story.test.mjs. */
+  route(campaign, SCENE_IDS.SQUATCHFATHER, 'restaurant_exterior', 'squatchfather.html');
 
-  // A browser reload at home must retain Lou's parcel and first-visit result.
+  // A browser reload at the restaurant must retain the parcel and Bing result.
   campaign = reload(storage);
   assert.equal(campaign.hasItem(ITEM_IDS.LOU_PACKAGE), true);
   assert.equal(campaign.state.missions[MISSION_IDS.BADA_BING_ONE].status, 'complete');
-  apartment = createApartmentStory({ campaign, ring: () => true });
-  assert.equal(apartmentExit(apartment, campaign).id, 'whiskeyRelaxed');
-  campaign.update((state) => { state.activities.whiskeyRelaxed = true; });
-  assert.deepEqual(apartmentExit(apartment, campaign), {
-    kind: 'go', destination: SCENE_IDS.SQUATCHFATHER,
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.SQUATCHFATHER,
+    spawn: 'restaurant_exterior',
   });
-  route(campaign, SCENE_IDS.SQUATCHFATHER, 'restaurant_exterior', 'squatchfather.html');
 
   const squatchfather = createSquatchfatherStory({ campaign });
   assert.deepEqual(squatchfather.begin(), { ok: true, resumed: false });
@@ -375,8 +374,13 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
     'the bible\'s beat-14 objective gates the door',
   );
   assert.deepEqual(luxury.completeGetReady(), { ok: true });
-  assert.equal(luxury.tryLeave().id, EVENT_IDS.MARGO_DATE_CALL);
-  assert.equal(luxury.callAnswered(DATE_MARGO_CALL), true);
+  assert.equal(luxury.pendingCall(), null, 'the cabin already scheduled Front & Center');
+  assert.equal(campaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL),
+    false,
+    'the retired apartment call must not advance the clock',
+  );
   assert.deepEqual(luxury.tryLeave(), {
     kind: 'go', destination: SCENE_IDS.SILVER_ROOM,
   });

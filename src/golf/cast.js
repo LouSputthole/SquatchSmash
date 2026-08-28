@@ -415,6 +415,69 @@ export function makeBag(scene, x, z, yaw = 0) {
   return g;
 }
 
+/**
+ * The physical reward at the end of Beat 13.
+ *
+ * This is deliberately a house key ring, not the escape-car fob from THE
+ * TAKE. Two cut brass keys and a heavy address tag make Lou's spoken handover
+ * readable before the route changes homes. The caller owns the parent because
+ * the same object moves from Lou's free hand into the first-person view.
+ */
+export function makeApartmentKeys() {
+  const keys = new THREE.Group();
+  keys.name = 'silver-pines-apartment-keys';
+  keys.userData.storyProp = 'luxury-apartment-keys';
+
+  const brass = mat({ color: 0xc8a24c, roughness: 0.30, metalness: 0.82 });
+  const steel = mat({ color: 0xb9c0c8, roughness: 0.24, metalness: 0.88 });
+  const leather = mat({ color: 0x3e1711, roughness: 0.78, metalness: 0.02 });
+
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.004, 6, 18), steel);
+  ring.name = 'apartment-key-ring';
+  ring.rotation.x = Math.PI / 2;
+  keys.add(ring);
+
+  for (const [index, angle] of [-0.24, 0.22].entries()) {
+    const key = new THREE.Group();
+    key.name = `apartment-key-${index + 1}`;
+    key.rotation.z = angle;
+    key.position.set((index ? 1 : -1) * 0.008, -0.024, 0);
+
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(0.014, 0.0045, 6, 14), brass);
+    bow.name = 'apartment-key-bow';
+    bow.rotation.x = Math.PI / 2;
+    key.add(bow);
+
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.065, 0.004), brass);
+    blade.name = 'apartment-key-blade';
+    blade.position.y = -0.044;
+    key.add(blade);
+
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.020, 0.010, 0.004), brass);
+    tooth.name = 'apartment-key-tooth';
+    tooth.position.set(index ? 0.004 : -0.004, -0.073, 0);
+    key.add(tooth);
+    keys.add(key);
+  }
+
+  const tag = new THREE.Mesh(new THREE.BoxGeometry(0.094, 0.052, 0.010), leather);
+  tag.name = 'apartment-address-tag';
+  tag.position.set(0.060, -0.004, 0);
+  tag.rotation.z = -0.18;
+  keys.add(tag);
+
+  const tagPlate = new THREE.Mesh(new THREE.BoxGeometry(0.066, 0.026, 0.004), brass);
+  tagPlate.name = 'apartment-address-plate';
+  tagPlate.position.set(0.060, -0.004, 0.007);
+  tagPlate.rotation.z = -0.18;
+  keys.add(tagPlate);
+
+  keys.traverse((object) => {
+    if (object.isMesh) object.castShadow = true;
+  });
+  return keys;
+}
+
 /** The ball itself. Small, white, and the only thing anybody is looking at. */
 export function makeBall(scene, colour = 0xf4f6f8) {
   const m = new THREE.Mesh(

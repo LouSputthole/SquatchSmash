@@ -236,19 +236,19 @@ const IN_075 = beat('IN-075', 1, 'after_one', [
  * ACT TWO — THE NUCLEAR OPTION
  *
  * The first killing was a failed answer. What follows is policy: post-Palace
- * evidence has cleared Willy, confirmed Sauce as the rat, and proved that
- * Sauce had inside help. With one place left and the family at quota, every
- * remaining prospect is ordered down until Lou makes the only exception.
+ * evidence has separated Willy's proven strip leak from Sauce's later betrayal
+ * and proved that Sauce had inside help among tonight's prospects. Five stand
+ * for one open place, so every remaining prospect is ordered down until Lou
+ * makes the only exception.
  * ====================================================================== */
 
 const IN_100 = beat('IN-100', 2, 'conspiracy_reveal', [
-  l('LOU', 'Willy wasn’t the rat.', {
-    direction: 'Plain fact. No absolution and no attempt to soften what the family did.',
+  l('LOU', 'Willy gave them the strip. He did not give them this house.', {
+    direction: 'Plain distinction. No absolution and no attempt to soften what the family did.',
   }),
-  l('LOU', 'We killed the wrong man.'),
-  l('BOOSKIBRO', 'Sauce was the rat. The palace proved that.'),
-  l('BOOSKIBRO', 'It also proved he had help on the inside.'),
-  l('LOU', 'There is one place left. We are at quota.'),
+  l('BOOSKIBRO', 'Sauce did. The palace proved it.'),
+  l('BOOSKIBRO', 'Short Bus. Sauce signed it. One of tonight’s prospects countersigned the breach.'),
+  l('LOU', 'There is one place left. Five prospects are standing for it.'),
   l('BOOSKIBRO', 'We don’t put a question inside this family.'),
   l('BOOSKIBRO', 'Nuclear option.', {
     direction: 'A standing order, not a joke or a movie reference.',
@@ -581,6 +581,9 @@ const IN_340 = beat('IN-340', 4, 'ceremony', [
     verbatim: true,
     direction: 'A list being confirmed, not a compliment being paid.',
   }),
+  l('BOOSKIBRO', 'You carried Lou’s case. You held his house when they came for it. You walked into their palace alone and ended the war.', {
+    direction: 'The compact second half of the record. Each clause is a campaign deed, not praise.',
+  }),
 ]);
 
 const IN_350 = beat('IN-350', 4, 'ceremony', [
@@ -773,8 +776,9 @@ const IN_465 = beat('IN-465', 5, 'made', [
  *
  * It has to sound like fifteen men, not five. The moment the bandana is tied
  * the room breaks open, then almost every person gets one quick, readable
- * acknowledgment. The runtime queues these short lines against delivered VO
- * and poses the matching body; no two named subtitles occupy the same floor.
+ * acknowledgment. The runtime schedules these short lines against delivered
+ * VO as a controlled crowd burst, poses every matching body, and protects the
+ * two payoff lines after the room settles enough to hear them.
  * ====================================================================== */
 
 const salute = (who, text, opts = {}) => l(who, text, opts);

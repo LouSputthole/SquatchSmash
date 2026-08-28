@@ -105,7 +105,7 @@ import {
  * AUBBIE is not imported for the same reason, found by the owner on the
  * 2026-08-13 playtest: *"Voice lines from Aubbie in the siege? he should be
  * dead."* He is -- PROJECT SILENT SQUATCH ends with Booski's "Eliminate
- * Aubbie" objective on Day 5 at 8:10 PM, and this siege starts eight hours
+ * Aubbie" objective on Day 8 at 8:10 PM, and this siege starts six hours
  * later. GRATIN inherits his post: an established Family member with a landed
  * face photograph (`src/mansion/cast.js` already runs him in the
  * interrogation area) who has no death anywhere in the campaign. A test in

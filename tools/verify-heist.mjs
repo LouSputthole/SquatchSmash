@@ -1041,7 +1041,7 @@ try {
   state = await snapshot();
   check('a real left-click ballistic hit neutralizes the guard and plays the requested Prospect line',
     state.guardThreat.state === 'neutralized'
-      && state.voice.spoken.includes('prospect_counterstrike'),
+      && state.voice.spoken.includes('prospect_lobby_quiet'),
     JSON.stringify({ threat: state.guardThreat, spoken: state.voice.spoken.slice(-6) }));
 
   /* ---- owner note: "if I shoot people nothing happens" ---- */

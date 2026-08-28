@@ -25,7 +25,7 @@ const seg = (line, cue = null) => ({ line, cue });
 
 /**
  * The community notice. 97.8 reads it out every so often because the station
- * and the meeting share about nine people, and it is the third way the game
+ * and the weekly club meeting share about nine people, and it is the third way the game
  * will tell you where you are supposed to be tomorrow night -- after the note
  * on the corkboard and the messages on the second monitor. If you have the
  * radio on at all, you cannot really miss it, which is the point: the game
@@ -38,7 +38,7 @@ const seg = (line, cue = null) => ({ line, cue });
 export const MEETING_NOTICE_ID = 'notice.meeting.day_one';
 export const MEETING_NOTICE = [
   {
-    line: 'ANNOUNCER: The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.',
+    line: 'ANNOUNCER: The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.',
     cue: 'radio.jingle',
     notice: true,
     bulletinId: MEETING_NOTICE_ID,

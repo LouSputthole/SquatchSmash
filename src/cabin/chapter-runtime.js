@@ -18,6 +18,24 @@ export const STORY_TO_CLEANUP_BODY = Object.freeze({
   [CABIN_HOSTAGE_IDS.ATEAM_MEMBER]: 'a-team-member',
 });
 
+/**
+ * One authored feel profile per tangible table tool.
+ *
+ * The cue/rate pairs intentionally reuse recordings already in the shared
+ * manifest; no Cabin-local audio framework or generated asset is needed. The
+ * runtime owns duration so a second interaction cannot land while the first
+ * visible tool motion and impact are still resolving.
+ */
+export const CABIN_TORTURE_TOOL_PROFILES = Object.freeze({
+  pliers: Object.freeze({ duration: 0.48, flinch: 0.58, cue: 'punch.light', rate: 1.34, volume: 0.44 }),
+  saw: Object.freeze({ duration: 0.72, flinch: 0.82, cue: 'swing.whiff', rate: 0.84, volume: 0.50 }),
+  battery: Object.freeze({ duration: 0.78, flinch: 1.00, cue: 'stunprod.arc', rate: 0.96, volume: 0.58 }),
+  syringes: Object.freeze({ duration: 0.42, flinch: 0.44, cue: 'switch.click', rate: 1.62, volume: 0.38 }),
+  towels: Object.freeze({ duration: 0.62, flinch: 0.68, cue: 'cloth.snap', rate: 0.82, volume: 0.48 }),
+  leads: Object.freeze({ duration: 0.70, flinch: 0.90, cue: 'stunprod.arc', rate: 0.72, volume: 0.55 }),
+  bucket: Object.freeze({ duration: 0.68, flinch: 0.94, cue: 'punch.heavy', rate: 0.74, volume: 0.55 }),
+});
+
 const CLEANUP_TO_STORY_BODY = Object.freeze(Object.fromEntries(
   Object.entries(STORY_TO_CLEANUP_BODY).map(([storyId, cleanupId]) => [cleanupId, storyId]),
 ));
@@ -68,6 +86,7 @@ export class CabinChapterRuntime {
     this.currentCallId = null;
     this.beatQueue = [];
     this.selectedTool = null;
+    this.toolUseRemaining = 0;
     this.toolsIntroduced = false;
     this.searchSeconds = 0;
     this.searchHintPlayed = false;
@@ -146,6 +165,7 @@ export class CabinChapterRuntime {
     this.choice.close?.();
     this.beatQueue.length = 0;
     this.executionClock = null;
+    this.returnTool('stop');
     this.pendingConsume = null;
     this._margoSetupPending = false;
     this._returnLinePending = false;
@@ -157,6 +177,7 @@ export class CabinChapterRuntime {
 
   _restorePhase() {
     const phase = this.story.phase();
+    if (phase !== 'interrogation') this.returnTool('restore');
     if (this.story.nightfallComplete()) {
       this.callbacks.onNightfall?.({ restored: true });
       if (phase === 'wrap_bodies' && !this.story.nightfallBriefingComplete()) {
@@ -204,8 +225,8 @@ export class CabinChapterRuntime {
       this.story.completeMorningWake();
       this.callbacks.onSync?.();
     } else if (phase === 'billy_call') {
-      /* Upright, ash on the ground outside, and one call still to come. */
-      this.callbacks.onWakeMorning?.({ restored: true });
+      /* Fresh Act One wakes into the single canonical Booski/Billy call. */
+      this._restoreMorning();
     } else if (phase === 'complete') {
       this.callbacks.onWakeMorning?.({ restored: true });
       this.callbacks.onChapterComplete?.({ restored: true });
@@ -244,6 +265,26 @@ export class CabinChapterRuntime {
     return rang;
   }
 
+  /**
+   * Tony deliberately calls Margo from the held handset.
+   *
+   * This is not part of the incoming-call scheduler: the objective waits on
+   * the real player phone interaction, and `Phone.startOutgoing` supplies no
+   * ringtone or decline state. The durable date marker is still awarded only
+   * when the authored conversation ends naturally in `_callEnded`.
+   */
+  startMargoCall() {
+    const definition = CABIN_PHONE_CALLS.MARGO_FIRST_CALL;
+    if (!this.active || this.phone.call || !this.story.margoCallReady()) return false;
+    this.callbacks.ensurePhone?.(definition);
+    const started = this.phone.startOutgoing?.(definition) === true;
+    if (!started) return false;
+    this.currentCallId = definition.id;
+    this.callRetry = 0;
+    this.callbacks.onCallOutgoing?.(definition);
+    return true;
+  }
+
   _callEnded(definition) {
     if (this._suppressCallEnd || !this.active) return;
     const id = definition?.id;
@@ -263,8 +304,8 @@ export class CabinChapterRuntime {
         this.searchHintPlayed = false;
       }
     } else if (id === CABIN_PHONE_CALLS.APE_MORNING.id) {
-      /* Ape gets him upright. He does NOT end the chapter any more -- Booski
-       * does, one call later, and that is what unlocks the car for town. */
+      /* Compatibility only: retired post-heist saves can still owe Ape's old
+       * wake gate. Fresh Act One never rings this definition. */
       this.story.completeMorningCall();
       this.story.completeMorningWake();
     } else if (id === CABIN_PHONE_CALLS.BOOSKI_BILLY.id) {
@@ -279,10 +320,11 @@ export class CabinChapterRuntime {
   /**
    * THE PHONE, IN THE ORDER THE BIBLE RINGS IT.
    *
-   * Lou when he wakes up. Margo when he has walked all four corners of the
-   * property. Booski about the Captain, which ends visit one. Gratin on the
-   * second morning, which starts the dungeon. Ape after the blackout. Booski
-   * about Billy, which ends the chapter and the cabin.
+   * Lou when he wakes up. Tony places Margo's call from the objective after
+   * he has walked all four corners. Booski about the Captain ends visit one. Gratin on the
+   * second morning, which starts the dungeon. Booski about Billy after the
+   * blackout, which owns the wake-up and ends the chapter. Ape is retained
+   * only for retired post-heist saves already parked in his old wake phase.
    *
    * Nothing rings before the bed: the opening call gate is
    * `arrivalRestComplete`, and ringing at half five in the morning to tell a
@@ -297,10 +339,6 @@ export class CabinChapterRuntime {
       if (!this._ring(CABIN_PHONE_CALLS.LOU_ARRIVAL)) this.callRetry = 2;
       return;
     }
-    if (this.story.margoCallReady()) {
-      if (!this._ring(CABIN_PHONE_CALLS.MARGO_FIRST_CALL)) this.callRetry = 2;
-      return;
-    }
     if (this.story.booskiSasoleCallReady()) {
       if (!this._ring(CABIN_PHONE_CALLS.BOOSKI_SASOLE)) this.callRetry = 2;
       return;
@@ -311,11 +349,12 @@ export class CabinChapterRuntime {
     }
     if (this.story.blackedOut()
       && !this._blackoutTransitionPending
+      && this.story.legacySilverCaseRoute()
       && !this.story.morningCallComplete()) {
       if (!this._ring(CABIN_PHONE_CALLS.APE_MORNING)) this.callRetry = 2;
       return;
     }
-    if (this.story.billyCallReady()) {
+    if (!this._blackoutTransitionPending && this.story.billyCallReady()) {
       if (!this._ring(CABIN_PHONE_CALLS.BOOSKI_BILLY)) this.callRetry = 2;
     }
   }
@@ -326,6 +365,7 @@ export class CabinChapterRuntime {
   } = {}) {
     if (!this.active) return this.snapshot();
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
+    this.toolUseRemaining = Math.max(0, this.toolUseRemaining - step);
     this.dialogue.update(step);
     this.choice.update(step);
     this._updateCalls(step);
@@ -431,16 +471,28 @@ export class CabinChapterRuntime {
   }
 
   selectTool(id) {
-    this.selectedTool = id || 'hands';
+    if (id !== null && id !== undefined && !CABIN_TORTURE_TOOL_PROFILES[id]) return null;
+    const next = id && id !== this.selectedTool ? id : null;
+    this.selectedTool = next;
+    this.toolUseRemaining = 0;
     this.introduceTools();
     this.callbacks.onToolSelected?.(this.selectedTool);
     return this.selectedTool;
   }
 
+  returnTool(reason = 'player') {
+    const prior = this.selectedTool;
+    this.selectedTool = null;
+    this.toolUseRemaining = 0;
+    if (prior) this.callbacks.onToolSelected?.(null, { prior, reason });
+    return prior;
+  }
+
   canTorture() {
     return this.story.phase() === 'interrogation'
       && !this.dialogue.running
-      && !this.choice.active;
+      && !this.choice.active
+      && this.toolUseRemaining <= 0;
   }
 
   torture(id) {
@@ -451,10 +503,13 @@ export class CabinChapterRuntime {
       this.introduceTools();
       return { ok: false, reason: 'tool_required' };
     }
+    if (this.toolUseRemaining > 0) return { ok: false, reason: 'tool_busy' };
     if (!this.canTorture()) return { ok: false, reason: 'interrogation_busy' };
     const result = this.story.hitHostage(hostageId);
     if (!result.ok || !result.applied) return result;
-    this.callbacks.onTortureHit?.(hostageId, result.hostage, this.selectedTool);
+    const profile = CABIN_TORTURE_TOOL_PROFILES[this.selectedTool];
+    this.toolUseRemaining = profile.duration;
+    this.callbacks.onTortureHit?.(hostageId, result.hostage, this.selectedTool, profile);
     const hits = result.hostage.hits;
     if (hostageId === CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER) {
       this.queueBeat(hits === 1 ? 'BAITER_FIRST_HIT' : hits === 2 ? 'BAITER_SECOND_HIT' : 'BAITER_PRESSURE');
@@ -464,7 +519,10 @@ export class CabinChapterRuntime {
       this.queueBeat('ATEAM_MID_HIT');
     }
     this.callbacks.onSync?.();
-    if (this.story.interrogationComplete()) this._beginIntelReveal();
+    if (this.story.interrogationComplete()) {
+      this.returnTool('interrogation-complete');
+      this._beginIntelReveal();
+    }
     return result;
   }
 
@@ -788,6 +846,7 @@ export class CabinChapterRuntime {
       queuedBeats: Object.freeze(this.beatQueue.map((entry) => entry.id)),
       choice: this.choice.snapshot?.() || null,
       selectedTool: this.selectedTool,
+      toolUseRemaining: this.toolUseRemaining,
       pendingConsume: this.pendingConsume ? Object.freeze({ ...this.pendingConsume }) : null,
       intoxication: this.intoxication,
       executionRunning: Boolean(this.executionClock),

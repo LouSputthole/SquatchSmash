@@ -19,7 +19,7 @@ three internal tools (below the table) that aren't story scenes.
 | **The Silver Case** ([`silvercase.html`](./silvercase.html)) | Opens the final chapter: a car ride over, a knock, and a retrieval that turns violent, carrying the Squatchanium case out to Lou's mansion. |
 | **Lou's Mansion / PROJECT SILENT SQUATCH** ([`mansion.html`](./mansion.html)) | The mansion, staffed and walkable. The ordinary campaign visit hosts PROJECT SILENT SQUATCH — the case reaches the hidden lab, the weapon gets finished, the lab gets cleaned up — and the same file later serves the repaired-mansion return briefing after the siege. |
 | **Mansion Under Siege** ([`mansion-siege.html`](./mansion-siege.html)) | A damage-state overlay on that same mansion, not a second copy of it: he wakes to a cartel attack already in progress, arms up in the basement, and fights up through the house alongside everyone he's met there. |
-| **The Enola Squatch** ([`enolasquatch.html`](./enolasquatch.html)) | Captain Lou Sasole's retaliation bombing run: an on-foot boarding walkaround, then flight to the target, a gunner defending against interceptors, and the drop. |
+| **SQUATCHOLA GAY** ([`enolasquatch.html`](./enolasquatch.html)) | Captain Lou Sasole's retaliation bombing run: an on-foot boarding walkaround, then flight to the target, a gunner defending against interceptors, and the drop. |
 | **Cartel Palace** ([`cartel-palace.html`](./cartel-palace.html)) | The last combat mission — a quiet, deliberate infiltration of Mark's estate to "rescue" Sauce, and the discovery on site that it isn't a rescue at all. |
 | **The Special Meeting** ([`specialmeeting.html`](./specialmeeting.html)) | The bridge to Initiation: three Squatches collect the Prospect in a car and drive him to the woods, playing the whole ten minutes completely straight. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved terminal scene, reached through The Special Meeting after Cartel Palace. Its authored ceremony and outcome remain frozen pending the owner's playtest; it uses the shared inventory bar. |
@@ -48,7 +48,7 @@ npm start        # the apartment -> http://localhost:5173
                  # Silver Case   -> http://localhost:5173/silvercase.html
                  # the Mansion   -> http://localhost:5173/mansion.html
                  # Mansion Siege -> http://localhost:5173/mansion-siege.html
-                 # Enola Squatch -> http://localhost:5173/enolasquatch.html
+                 # SQUATCHOLA GAY -> http://localhost:5173/enolasquatch.html
                  # Cartel Palace -> http://localhost:5173/cartel-palace.html
                  # Special Meeting -> http://localhost:5173/specialmeeting.html
                  # Initiation    -> http://localhost:5173/initiation.html
@@ -64,7 +64,7 @@ completely self-contained; every other page shares `vendor/three.module.min.js`
 and everything in `src/core`. The campground stays isolated; the apartment,
 Bing, Squatchfather, Beef Run, graveyard, Motel, NO WAKE, Silver Room, Silver
 Pines, THE TAKE, Silver Case, the Mansion (and its Siege and return visits),
-Enola Squatch, Cartel Palace, The Special Meeting, and Initiation share
+SQUATCHOLA GAY, Cartel Palace, The Special Meeting, and Initiation share
 campaign identities and reusable story-scene foundations — see
 [`docs/SHARED-SYSTEMS-BANK.md`](./docs/SHARED-SYSTEMS-BANK.md) for the
 catalog of what's actually shared and
@@ -115,7 +115,7 @@ damage-state overlay (`clean`, `alert`, `under_attack`, `damaged`,
 `post_battle`, `repaired`) rather than a second copy of the house. He wakes to
 a cartel attack already underway, arms up in the basement, and fights back
 through four checkpoints alongside everyone he's met in that house for an
-evening. Regrouping afterward routes to [The Enola Squatch](./enolasquatch.html)
+evening. Regrouping afterward routes to [SQUATCHOLA GAY](./enolasquatch.html)
 — Captain Lou Sasole's retaliation bombing run — and completing it returns to
 the mansion in its `repaired` state for Lou's briefing: they hit the wrong
 city, Sauce was taken during the operation, and the cartel is holding him at
@@ -803,7 +803,7 @@ naming (**Squatchanium**, **Silent Squatch**, **Silent Night**) and the full
 tone brief.
 
 Sleeping in the guest room is the load seam into the siege. The same file
-later serves the **repaired-mansion return briefing** after Enola Squatch,
+later serves the **repaired-mansion return briefing** after SQUATCHOLA GAY,
 using the identical geometry with a story flag rather than a rebuilt house —
 this is the same technical decision the siege overlay makes, applied once
 more.
@@ -833,7 +833,7 @@ The beat chain, its objectives, and four checkpoints live in
 
 ---
 
-## The Enola Squatch
+## SQUATCHOLA GAY
 
 > `npm start`, then <http://localhost:5173/enolasquatch.html>
 

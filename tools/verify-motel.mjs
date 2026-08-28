@@ -976,26 +976,27 @@ try {
   check('aiming at Tony\'s case selects the case rather than a cabin neighbour',
     moneyCaseAim.active === 'moneyCase' && /case/i.test(moneyCaseAim.prompt),
     JSON.stringify(moneyCaseAim));
-  const gloveboxAim = await aimPublicInteract(previewPage, 'glovebox');
-  /* The glovebox answers with one of two authored labels (src/motel/main.js):
-   * 'Check your weapon' before the .45 has been looked at, and 'The .45 is
-   * checked and put away' after. This used to test for /weapon/i, which only
-   * matched the first one -- and the arrival now draws the .45, looks at it
-   * and holsters it before Tony can reach a door handle, so the first label
-   * is never the one a player sees here. The scene's own comment says as
-   * much: "in practice this is always the second label". The check went red
-   * on a scene doing exactly what it was rebuilt to do.
-   *
-   * Pinned to the label the beat actually produces, which is a stronger
-   * statement than "the word weapon appears somewhere": the crosshair has to
-   * resolve to the GLOVEBOX, the prompt has to be the already-checked line,
-   * and it must not read as either of the neighbours this check exists to
-   * rule out -- the passenger door beside it and the case on the seat. */
-  check('aiming at the glovebox selects the checked .45 rather than the door or case',
-    gloveboxAim.active === 'glovebox'
-      && /the \.45 is checked and put away/i.test(gloveboxAim.prompt)
-      && !/passenger door|case/i.test(gloveboxAim.prompt),
-    JSON.stringify(gloveboxAim));
+  const gloveboxRetired = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const glovebox = motel.interactableList.find((entry) => entry.id === 'glovebox');
+    return {
+      weaponChecked: motel.S.weaponChecked,
+      enabled: glovebox.enabled(),
+      inventoryText: motel.inventory.find((entry) => entry.id === 'weapon:revolver')?.text || '',
+      pickupCue: motel.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
+    };
+  });
+  /* The arrival now owns the one real glovebox check. Leaving its already-done
+   * prompt active made it compete with the case and passenger door for no new
+   * state. The gun must still exist in the authoritative inventory; only the
+   * dead interaction retires. */
+  check('the automatically checked glovebox retires before the car becomes playable',
+    gloveboxRetired.weaponChecked
+      && !gloveboxRetired.enabled
+      && gloveboxRetired.inventoryText.includes('Compact revolver')
+      && gloveboxRetired.inventoryText.includes('PUT AWAY')
+      && gloveboxRetired.inventoryText.includes('6/6'),
+    JSON.stringify(gloveboxRetired));
   const earlyDoorAim = await aimPublicInteract(previewPage, 'exitCar');
   check('aiming at the passenger door selects the exit without stealing other cabin targets',
     earlyDoorAim.active === 'exitCar' && /passenger door/i.test(earlyDoorAim.prompt),
@@ -1020,17 +1021,6 @@ try {
    * the .45 is the shared catalog revolver, right-side up in the frame, has
    * moved with the gun -- see the betrayal below, where the scene itself
    * says it "appears at the lens". */
-  await aimPublicInteract(previewPage, 'glovebox');
-  await previewPage.keyboard.press('KeyE');
-  /* The answer shares the real dialogue floor. Snow's decoded opening take
-   * may still own it here, so a fixed 240 ms sampled the previous subtitle
-   * and falsely called the correctly queued reply missing. Observe the line
-   * this press owes instead of racing the recording already in progress. */
-  await previewPage.waitForFunction(
-    () => /still six/i.test(document.getElementById('subtitle')?.textContent || ''),
-    null,
-    { timeout: SCENE_WAIT_MS, polling: 120 },
-  );
   const gloveboxAgain = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
@@ -1041,10 +1031,9 @@ try {
       hud: motel.weapons.hud,
       inventoryText: item?.text || '',
       selected: item?.selected === true,
-      subtitle: document.getElementById('subtitle').textContent,
     };
   });
-  check('the glovebox does not put the .45 back in his hands once the arrival has put it away',
+  check('retiring the glovebox does not put the .45 back in his hands',
     /* Holstering releases the shared rack as well as the lens -- `equipped`
      * is null and there is no weapon HUD, which is the whole point of playing
      * the transaction unarmed: there is nothing to fire, not merely nothing
@@ -1059,49 +1048,29 @@ try {
       && gloveboxAgain.inventoryText.includes('Compact revolver')
       && gloveboxAgain.inventoryText.includes('PUT AWAY')
       && gloveboxAgain.inventoryText.includes('6/6')
-      && !gloveboxAgain.selected
-      && /still six/i.test(gloveboxAgain.subtitle),
+      && !gloveboxAgain.selected,
     JSON.stringify(gloveboxAgain));
 
   /* Owner: "I check revolver and he just keeps saying the voice line over and
-   * over." The pickup line is delivered exactly once; every later press gets
-   * a different, throttled sentence and no re-equip. Pressed here the way a
-   * player does it — real [E], twice more, on the same prompt — and only
-   * after the recording is decoded, so a repeat would be COUNTED rather than
-   * lost to a download race. */
+   * over." There is no later [E] target now, so the pickup line can only belong
+   * to the automatic arrival beat once. */
   await previewPage.waitForFunction(() => window.MOTEL.voiceReadyFor(
     window.MOTEL.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
   ), null, { timeout: SCENE_WAIT_MS, polling: 120 });
-  await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(150);
-  await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(150);
   const gloveboxRepeat = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const pickupCue = motel.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.');
     const glovebox = motel.interactableList.find((entry) => entry.id === 'glovebox');
     return {
       weaponChecked: motel.S.weaponChecked,
-      label: glovebox.label(),
+      enabled: glovebox.enabled(),
       pickupPlays: motel.voice.played.filter((entry) => entry.cue === pickupCue).length,
     };
   });
-  check('the glovebox pickup line refuses to repeat, however many times [E] lands',
-    /* <= 1, not === 1: the FIRST press may have beaten the download, in which
-     * case the line was subtitled silent. What a regression produces here is
-     * 2+, because the decoded take replays on the later presses.
-     *
-     * The label test used to read /already out/i, which was the second
-     * glovebox label before the arrival started drawing and holstering the
-     * .45 for him. The gun is not out any more once that beat has finished,
-     * so the authored second label now says so: 'The .45 is checked and put
-     * away' (src/motel/main.js). Same statement, current words -- the point
-     * was always that a second press gets the OTHER label, not the pickup
-     * one, and it still is. */
+  check('the retired glovebox cannot replay its pickup line',
     gloveboxRepeat.weaponChecked
-      && gloveboxRepeat.pickupPlays <= 1
-      && /checked and put away/i.test(gloveboxRepeat.label)
-      && !/check your weapon/i.test(gloveboxRepeat.label),
+      && !gloveboxRepeat.enabled
+      && gloveboxRepeat.pickupPlays <= 1,
     JSON.stringify(gloveboxRepeat));
   const clerkSpawn = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -1305,9 +1274,7 @@ try {
     await qPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
     await qPage.evaluate(() => window.MOTEL.completeArrival());
     await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: SCENE_WAIT_MS });
-    /* Take the .45 with him: this context is closed after the probes below,
-     * so it is the safe place to actually pull a trigger. */
-    await qPage.evaluate(() => window.MOTEL.forceInteract('glovebox'));
+    /* The automatic arrival beat already put the .45 under his coat. */
     const beforeQ = await qPage.evaluate(() => ({
       phase: window.MOTEL.phase,
       snowExitedCar: window.MOTEL.arrival.snowExitedCar,

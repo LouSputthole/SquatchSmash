@@ -310,6 +310,36 @@ export class EnolaMissionAudio extends MissionAudio {
     this._windLevel = -1;
     this._siren = false;
     this.lastNarrativeMusic = null;
+    this._pendingNarrativeMusic = null;
+  }
+
+  /**
+   * Restore the phase that was requested before the audio graph existed.
+   *
+   * Owner QA, 2026-08-28: "The song that previously played during takeoff no
+   * longer plays." Ordinary play spends minutes on the apron before takeoff,
+   * but a preview/checkpoint restore enters `takeoff` synchronously and only
+   * then starts the asynchronous audio bank. Shared `MissionAudio.setPhase`
+   * records that phase while unready and deliberately returns; without this
+   * replay, the transition never happens a second time and the anthem stays
+   * silent for the whole attempt.
+   */
+  init() {
+    const wasReady = this.ready;
+    const requestedPhase = this.phase;
+    super.init();
+    if (wasReady || !this.ready) return;
+
+    if (requestedPhase) {
+      this.phase = null;
+      this.setPhase(requestedPhase);
+    }
+
+    const pending = this._pendingNarrativeMusic;
+    if (pending) {
+      this._pendingNarrativeMusic = null;
+      this._playNarrativeMusic(pending.kind, { restart: pending.restart });
+    }
   }
 
   /**
@@ -397,8 +427,18 @@ export class EnolaMissionAudio extends MissionAudio {
       ambience: false,
     };
     const url = `${MUSIC_DIR}${score.file}`;
-    if (restart && engine.replaceMusicLoop) engine.replaceMusicLoop(score.key, url, options);
-    else engine.startMusicLoop(score.key, url, options);
+    const handle = restart && engine.replaceMusicLoop
+      ? engine.replaceMusicLoop(score.key, url, options)
+      : engine.startMusicLoop(score.key, url, options);
+    if (!handle) {
+      /* A checkpoint can request the record before AudioEngine.init() has
+       * completed. Keep one bounded request, then replay it from `init()`;
+       * returning true means the mission's once-gate will not hammer the
+       * player every frame while the audio bank comes up. */
+      this._pendingNarrativeMusic = { kind, restart };
+      return true;
+    }
+    this._pendingNarrativeMusic = null;
     this.lastNarrativeMusic = {
       kind,
       key: score.key,
@@ -421,6 +461,7 @@ export class EnolaMissionAudio extends MissionAudio {
    */
   stopBombApproachMusic(fade = 0.06) {
     const score = ENOLA_NARRATIVE_MUSIC.approach;
+    if (this._pendingNarrativeMusic?.kind === 'approach') this._pendingNarrativeMusic = null;
     this.engine?.stopLoop?.(score.key, Math.max(0, Number(fade) || 0));
     if (this.lastNarrativeMusic?.key === score.key) {
       this.lastNarrativeMusic.stoppedAt = this.ctx?.currentTime ?? null;
@@ -436,6 +477,7 @@ export class EnolaMissionAudio extends MissionAudio {
   /** Remove both records when an attempt is rewound or the page is disposed. */
   stopNarrativeMusic(fade = 0.2) {
     const seconds = Math.max(0, Number(fade) || 0);
+    this._pendingNarrativeMusic = null;
     for (const score of Object.values(ENOLA_NARRATIVE_MUSIC)) {
       this.engine?.stopLoop?.(score.key, seconds);
     }

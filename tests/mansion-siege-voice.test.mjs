@@ -51,14 +51,15 @@ test('every siege line is on the vo. prefix, which is what drives the mouths', (
   assert.equal(new Set(lines.map((l) => l.name)).size, lines.length, 'two lines share one recording');
 });
 
-test('the little friend is a vo. cue now, and it is the one the scene plays', () => {
+test('the staircase threat is an original vo. cue and the scene plays it once', () => {
   /* It used to be `siege.prospect.little_friend`: not on the vo. prefix, so
    * no AnalyserNode and every mouth in the room on a synthetic envelope
    * (ENGINE-TRAPS #8); and in no manifest, so unrecordable (#3). */
   const names = new Set(siegeVoiceCueNames());
   assert.ok(names.has('vo.siege.prospect.little_friend'));
   assert.equal(SEQUENCES.little_friend.length, 1, 'it is one line, said once, ever');
-  assert.equal(SEQUENCES.little_friend[0].say, 'Say hello to my little friend.');
+  assert.equal(SEQUENCES.little_friend[0].say,
+    "Fine. Everybody at once. Let's find out how many of you this thing was designed for.");
   assert.equal(SEQUENCES.little_friend[0].protected, true);
   assert.equal(SEQUENCES.little_friend[0].priority, 'hero');
   assert.ok(SEQUENCES.little_friend[0].gain >= 1.4,
@@ -95,7 +96,7 @@ test('every speaker resolves to a voice profile the manifest actually has', () =
 
 test('no dead character speaks in the siege', () => {
   /* Owner, playtest 2026-08-13: "Voice lines from Aubbie in the siege? he
-   * should be dead." He is -- SILENT SQUATCH executes him eight hours before
+   * should be dead." He is -- SILENT SQUATCH executes him six hours before
    * the siege -- and so are Willy (NO WAKE) and Billy HotDog. None of the
    * three may own a speaker slot, a voice profile or a line here. */
   const DEAD = ['aubbie', 'willy', 'billy', 'hotdog'];
@@ -129,14 +130,17 @@ test('the aftermath contains the original A-Team phone threat before the Sasole 
   const caller = lines.filter((line) => line.speaker === 'ateam_caller');
   const callStart = lines.findIndex((line) => line.id === 'aftermath.call.lou.answer');
   const callEnd = lines.findIndex((line) => line.id === 'aftermath.call.lou.not-home');
+  const routePackage = lines.findIndex((line) => line.id === 'aftermath.lou.route-package');
   const handoff = lines.findIndex((line) => line.id === 'aftermath.lou.sasole');
 
   assert.ok(callStart === 0, 'the post-siege phone rings before Lou debriefs the landing');
   assert.ok(caller.length >= 3, 'one bark is not a phone confrontation');
   assert.ok(caller.every((line) => line.remote === true && line.voice === 'ateam3'),
     'the A-Team caller must remain one cold remote voice');
-  assert.ok(callEnd > callStart && handoff > callEnd,
-    'Lou must finish the call before he hands the Prospect to Sasole');
+  assert.ok(callEnd > callStart && routePackage > callEnd && handoff > routePackage,
+    'Lou must finish the call, name the recovered target source, then hand the Prospect to Sasole');
+  assert.match(lines[routePackage].say, /route package.+desert compound.+Sasole/i,
+    'the counterstrike needs a reachable source and concrete target before the airfield handoff');
   assert.match(lines.map((line) => line.say).join(' '), /A-Team/,
     'the caller never establishes who attacked the house');
 
@@ -272,7 +276,7 @@ test('the recording sheet shows the siege as its own section', () => {
     legacyQueue: {},
   });
   assert.match(markdown, /MANSION UNDER SIEGE/);
-  assert.match(markdown, /Say hello to my little friend\./);
+  assert.match(markdown, /Fine\. Everybody at once\. Let's find out how many of you this thing was designed for\./);
 });
 
 /* ================================================================== */
@@ -460,7 +464,8 @@ test('the runner holds a line for its recording when there is one', () => {
 
   const guessed = new SiegeDialogue({ audio: { play() {}, sampleDuration: () => null } });
   guessed.play('little_friend');
-  assert.equal(guessed.hold, readingSeconds('Say hello to my little friend.'));
+  assert.equal(guessed.hold,
+    readingSeconds("Fine. Everybody at once. Let's find out how many of you this thing was designed for."));
 });
 
 test('every beat the mission cannot leave on its own has a sequence that leaves it', () => {

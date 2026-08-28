@@ -301,7 +301,7 @@ export async function buildLuxuryApartment(ctx = {}) {
     shower: pose([-9.92, MAIN_Y + 1.64, -2.80], [-9.92, MAIN_Y + 1.85, -3.48], -0.05, [-8.70, MAIN_Y, -1.56]),
     wardrobe: pose([9.02, LOFT_Y + 1.10, -3.65], [9.65, LOFT_Y + 1.2, -4.25], -0.02, [8.05, LOFT_Y, -3.80]),
     arcade: pose([-5.42, 1.62, 2.13], [-5.42, 1.67, 1.46], 0.075, [-4.55, MAIN_Y, 2.72]),
-    poker: pose([-2.45, 1.12, 4.82], [-2.45, 0.76, 3.80], -0.15, [-1.45, MAIN_Y, 5.08]),
+    poker: pose([-2.45, 1.12, 4.82], [-2.45, 0.76, 3.80], -0.15, [-1.45, MAIN_Y, 5.50]),
     darts: pose([-6.78, 1.60, 1.70], [-6.78, 1.72, -0.83], 0.048, [-6.78, MAIN_Y, 1.70]),
     console: pose([3.18, 1.12, 3.25], [7.72, 0.92, 3.25], -0.03, [1.85, MAIN_Y, 3.25]),
   });
@@ -802,6 +802,9 @@ function makeLuxuryMaterials(M) {
   M.pillow = mat({ color: 0xe8dfd2, roughness: 0.98 });
   M.rug = mat({ color: 0x6e6054, roughness: 1 });
   M.bronze = mat({ color: 0x9c7745, roughness: 0.25, metalness: 0.80 });
+  M.sculptureBronze = mat({ color: 0x76502f, roughness: 0.30, metalness: 0.76 });
+  M.sculpturePatina = mat({ color: 0x31584f, roughness: 0.46, metalness: 0.54 });
+  M.marbleVein = mat({ color: 0x88827c, roughness: 0.42, metalness: 0.04 });
   M.velvet = mat({ color: 0x24483f, roughness: 0.98 });
   M.cityWindow = new THREE.MeshBasicMaterial({
     color: 0xffd58a,
@@ -822,6 +825,248 @@ function makeLuxuryMaterials(M) {
   M.bathGlass.roughness = 0.08;
   if ('transmission' in M.bathGlass) M.bathGlass.transmission = 0.92;
   return M;
+}
+
+function makeLuxuryTopStairFocal(M) {
+  /* Owner QA: "The statue at the top of the stairs still looks
+   * underdeveloped." The old silver bust was three primitives sitting on
+   * Margo's first loft waypoint. This compact, patinated-bronze guardian has
+   * a readable long-armed Sasquatch silhouette, a veined stone-and-brass
+   * pedestal, and its own museum wash. It faces the top landing from a
+   * recessed display bay instead of occupying the circulation route. */
+  const focal = group('luxury-top-stair-focal');
+  const position = new THREE.Vector3(-6.55, 0, -3.20);
+  const landing = new THREE.Vector3(-8.72, 0, -0.82);
+  focal.position.copy(position);
+  focal.rotation.y = yawToward(position, landing);
+  focal.userData.focalPiece = Object.freeze({
+    subject: 'Sasquatch guardian',
+    finish: 'patinated bronze',
+    pedestal: 'veined marble and brass',
+    faces: 'top stair landing',
+  });
+
+  const pedestal = group('luxury-top-stair-focal-pedestal');
+  pedestal.add(
+    box({
+      name: 'luxury-top-stair-focal-pedestal-base',
+      size: [0.64, 0.08, 0.52],
+      pos: [0, 0.04, 0],
+      mat: M.marbleDark,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-brass-reveal',
+      size: [0.58, 0.025, 0.46],
+      pos: [0, 0.0925, 0],
+      mat: M.trim,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-core',
+      size: [0.48, 0.36, 0.38],
+      pos: [0, 0.285, 0],
+      mat: M.marble,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-cap-reveal',
+      size: [0.54, 0.025, 0.44],
+      pos: [0, 0.4775, 0],
+      mat: M.trim,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-cap',
+      size: [0.58, 0.06, 0.48],
+      pos: [0, 0.52, 0],
+      mat: M.marbleDark,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-vein-a',
+      size: [0.31, 0.012, 0.008],
+      pos: [-0.035, 0.34, -0.194],
+      rotZ: 0.32,
+      mat: M.marbleVein,
+      cast: false,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-vein-b',
+      size: [0.22, 0.010, 0.008],
+      pos: [0.055, 0.205, -0.194],
+      rotZ: -0.23,
+      mat: M.marbleVein,
+      cast: false,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-pedestal-plaque',
+      size: [0.22, 0.095, 0.018],
+      pos: [0, 0.285, -0.202],
+      mat: M.sculptureBronze,
+    }),
+  );
+  focal.add(pedestal);
+
+  const guardian = group('luxury-top-stair-focal-guardian');
+  guardian.add(
+    cylinder({
+      name: 'luxury-top-stair-focal-left-leg',
+      rTop: 0.062,
+      rBottom: 0.078,
+      h: 0.39,
+      pos: [-0.105, 0.735, 0],
+      rotZ: -0.08,
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-right-leg',
+      rTop: 0.062,
+      rBottom: 0.078,
+      h: 0.39,
+      pos: [0.105, 0.735, 0],
+      rotZ: 0.08,
+      mat: M.sculptureBronze,
+    }),
+    sphere({
+      name: 'luxury-top-stair-focal-pelvis',
+      r: 0.17,
+      ry: 0.105,
+      rz: 0.11,
+      pos: [0, 0.945, 0],
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-shoulders',
+      rTop: 0.072,
+      rBottom: 0.078,
+      h: 0.48,
+      pos: [0, 1.315, 0.005],
+      rotZ: Math.PI / 2,
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-left-upper-arm',
+      rTop: 0.060,
+      rBottom: 0.052,
+      h: 0.27,
+      pos: [-0.226, 1.205, -0.004],
+      rotZ: -0.15,
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-left-forearm',
+      rTop: 0.052,
+      rBottom: 0.043,
+      h: 0.30,
+      pos: [-0.265, 0.955, -0.018],
+      rotZ: 0.11,
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-right-upper-arm',
+      rTop: 0.060,
+      rBottom: 0.052,
+      h: 0.27,
+      pos: [0.226, 1.205, -0.004],
+      rotZ: 0.15,
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-right-forearm',
+      rTop: 0.052,
+      rBottom: 0.043,
+      h: 0.30,
+      pos: [0.265, 0.955, -0.018],
+      rotZ: -0.11,
+      mat: M.sculptureBronze,
+    }),
+    cylinder({
+      name: 'luxury-top-stair-focal-neck',
+      rTop: 0.058,
+      rBottom: 0.068,
+      h: 0.09,
+      pos: [0, 1.405, 0],
+      mat: M.sculpturePatina,
+    }),
+    sphere({
+      name: 'luxury-top-stair-focal-head',
+      r: 0.125,
+      ry: 0.145,
+      rz: 0.115,
+      pos: [0, 1.515, 0],
+      mat: M.sculptureBronze,
+    }),
+    box({
+      name: 'luxury-top-stair-focal-brow',
+      size: [0.205, 0.052, 0.054],
+      pos: [0, 1.565, -0.105],
+      mat: M.sculpturePatina,
+    }),
+    sphere({
+      name: 'luxury-top-stair-focal-muzzle',
+      r: 0.072,
+      ry: 0.056,
+      rz: 0.066,
+      pos: [0, 1.485, -0.105],
+      mat: M.sculpturePatina,
+    }),
+    sphere({
+      name: 'luxury-top-stair-focal-left-ear',
+      r: 0.035,
+      ry: 0.045,
+      rz: 0.028,
+      pos: [-0.125, 1.515, 0],
+      mat: M.sculpturePatina,
+    }),
+    sphere({
+      name: 'luxury-top-stair-focal-right-ear',
+      r: 0.035,
+      ry: 0.045,
+      rz: 0.028,
+      pos: [0.125, 1.515, 0],
+      mat: M.sculpturePatina,
+    }),
+    sphere({
+      name: 'luxury-top-stair-focal-chest-patina',
+      r: 0.115,
+      ry: 0.17,
+      rz: 0.035,
+      pos: [0, 1.17, -0.132],
+      mat: M.sculpturePatina,
+    }),
+  );
+
+  const torso = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), M.sculptureBronze);
+  torso.name = 'luxury-top-stair-focal-torso';
+  torso.position.set(0, 1.16, 0);
+  torso.scale.set(0.24, 0.29, 0.145);
+  torso.castShadow = true;
+  torso.receiveShadow = true;
+  guardian.add(torso);
+
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.012, 8, 32), M.trim);
+  halo.name = 'luxury-top-stair-focal-brass-halo';
+  halo.position.set(0, 1.515, 0.095);
+  halo.castShadow = true;
+  halo.receiveShadow = true;
+  guardian.add(halo);
+  focal.add(guardian);
+
+  const lightTarget = new THREE.Object3D();
+  lightTarget.name = 'luxury-top-stair-focal-light-target';
+  lightTarget.position.set(0, 1.12, 0);
+  focal.add(lightTarget);
+  const light = new THREE.SpotLight(0xffd7a4, 36, 5.0, Math.PI / 8, 0.70, 1.55);
+  light.name = 'luxury-top-stair-focal-light';
+  light.position.set(0.58, 3.20, -0.48);
+  light.target = lightTarget;
+  light.castShadow = false;
+  focal.add(light);
+
+  return Object.freeze({
+    group: focal,
+    light,
+    bounds: Object.freeze([
+      Object.freeze([-6.97, 0, -3.62]),
+      Object.freeze([-6.13, 1.74, -2.78]),
+    ]),
+  });
 }
 
 function buildShell({ root, city, M, colliders, occluders, floorZones }) {
@@ -2316,16 +2561,10 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     addProp(loftContents, P.makePlant(M, { x, z, scale }), `luxury-loft-plant-${x}-${z}`, LOFT_Y);
   }
 
-  // A small silver Sasquatch bust catches the eye at the top landing without
-  // stealing the 1.2m circulation lane around the stair rail.
-  const stairFocal = group('luxury-top-stair-focal');
-  stairFocal.add(
-    cylinder({ name: 'luxury-top-stair-focal-plinth', rTop: 0.20, rBottom: 0.24, h: 0.54, pos: [-6.48, 0.27, -1.70], mat: M.marbleDark }),
-    sphere({ name: 'luxury-top-stair-focal-body', r: 0.16, ry: 0.22, pos: [-6.48, 0.69, -1.70], mat: M.steel }),
-    sphere({ name: 'luxury-top-stair-focal-head', r: 0.105, pos: [-6.48, 0.94, -1.70], mat: M.steel }),
-  );
+  const stairFocalAssembly = makeLuxuryTopStairFocal(M);
+  const stairFocal = stairFocalAssembly.group;
   loftContents.add(own(stairFocal, 'luxury-prop:top-stair-focal'));
-  addBounds(colliders, [[-6.72, 0, -1.94], [-6.24, 1.05, -1.46]],
+  addBounds(colliders, stairFocalAssembly.bounds,
     'luxury-top-stair-focal-collider', LOFT_Y, 'luxury-prop-collision:top-stair-focal', 'prop');
 
   const bedTarget = proxy('luxury-bed-target', [2.20, 0.72, 2.45], [7.05, LOFT_Y + 0.88, -6.70], furnishings);
@@ -2572,7 +2811,9 @@ function buildGameZone({ root, M, colliders }) {
   const pokerTop = new THREE.Mesh(new THREE.CylinderGeometry(1.18, 1.18, 0.13, 32), M.velvet);
   pokerTop.name = 'luxury-poker-felt';
   pokerTop.position.set(px, 0.78, pz);
-  pokerTop.scale.z = 0.72;
+  /* Owner QA: the table is circular, so its playing surface cannot be an oval
+   * hidden under another corrective mesh. Keep the source felt and rail at
+   * uniform scale; every luxury-apartment visit consumes this one assembly. */
   pokerTop.userData.topY = 0.845;
   pokerGroup.add(pokerTop);
   const pokerRail = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.085, 10, 40), M.darkWood);
@@ -2581,7 +2822,6 @@ function buildGameZone({ root, M, colliders }) {
   // Seat the lower third into the felt edge: no daylight below the trim and
   // no deep overlap that makes the velvet appear to slice through the rail.
   pokerRail.position.set(px, 0.88, pz);
-  pokerRail.scale.z = 0.72;
   pokerRail.userData.flushWithFeltY = pokerTop.userData.topY;
   pokerGroup.add(pokerRail);
   pokerGroup.add(cylinder({ name: 'luxury-poker-pedestal', rTop: 0.32, rBottom: 0.48, h: 0.74, pos: [px, 0.37, pz], mat: M.marbleDark }));
@@ -2594,14 +2834,14 @@ function buildGameZone({ root, M, colliders }) {
       name: `luxury-poker-chip-${String(i).padStart(2, '0')}`,
       r: 0.038,
       h: 0.012,
-      pos: [px + Math.cos(a) * radius, 0.86 + (i % 3) * 0.012, pz + Math.sin(a) * radius * 0.70],
+      pos: [px + Math.cos(a) * radius, 0.86 + (i % 3) * 0.012, pz + Math.sin(a) * radius],
       mat: mat({ color: chipColors[i % chipColors.length], roughness: 0.48 }),
     });
     chips.push(chip);
     pokerGroup.add(chip);
   }
   gameRoot.add(own(pokerGroup, 'luxury-minigame:poker'));
-  addBounds(colliders, [[px - 1.22, 0, pz - 0.88], [px + 1.22, 0.88, pz + 0.88]],
+  addBounds(colliders, [[px - 1.22, 0, pz - 1.22], [px + 1.22, 0.88, pz + 1.22]],
     'luxury-poker-table-collider', 0, 'luxury-minigame-collision:poker', 'prop');
   const pokerTarget = proxy('luxury-poker-target', [2.40, 0.90, 1.85], [px, 0.72, pz], gameRoot);
 

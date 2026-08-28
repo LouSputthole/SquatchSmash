@@ -66,7 +66,7 @@ const CASES = [
   {
     page: 'enolasquatch.html',
     module: 'src/enolasquatch/main.js',
-    scene: 'Enola Squatch',
+    scene: 'SQUATCHOLA GAY',
     surface: 'loading',
     title: 'Could not load the mission code',
   },

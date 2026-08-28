@@ -29,6 +29,82 @@ const GOWNS = [0x5a1430, 0x1a2a4a, 0x2a4a3a, 0x4a3a10, 0x3a1a3a];
 const SILVER_WAITER_FACE = 'assets/faces/silver-waiter.png';
 
 /* ==================================================================== */
+/* THE SERVICE FLOOR                                                    */
+/*                                                                       */
+/* Owner, 2026-08-28: "do a broader collision/navigation pass on all      */
+/* waiters in the room." These rounds use the same simplified collider    */
+/* layer as the player-facing route. Every leg has been surveyed at the   */
+/* width of the body or loaded tray, rather than drawing a diagonal from   */
+/* one attractive-looking point to another through a chair.               */
+/* ==================================================================== */
+
+const serviceRound = (points) => points.map(([x, z]) => ({ x, z }));
+
+/* The kitchen portion of room.js's canonical HOUSE ROUTE, with two service-
+ * width corner guards. Keeping the numbers here avoids making the lightweight
+ * cast contract import and execute the full procedural room at module load. */
+const KITCHEN_OUT = serviceRound([
+  [22.7, -8], [22.5, -3], [23, -8.5], [27.6, -8.9], [28.4, -12],
+  [28.4, -15.5], [27.9, -17.4], [27.75, -17.62], [25.2, -17.4],
+  [20, -16.5], [17.2, -14.2], [15.6, -12], [15.6, -9.2], [16.2, -8.6],
+]);
+
+const SERVICE_ROUNDS = Object.freeze({
+  waiter: serviceRound([
+    [-8, 8], [-10.8, 8.8], [-11.5, 3.6], [-11.7, 1.4], [-13.2, -1],
+    [-10.5, -1.8], [-6.2, -1.7], [-6.2, 3.5], [-6, 9],
+  ]),
+  mover1: serviceRound([
+    [-11.7, 1.4], [-13.2, -1], [-10.5, -1.8], [-6.2, -1.7],
+    [-6.2, 3.5], [-10.8, 3.6],
+  ]),
+  mover2: serviceRound([
+    [-10.3, 2.6], [-10.8, 3.8], [-6.2, 4], [-6, 9], [-11.5, 9],
+    [-10.8, 3.8],
+  ]),
+  server0: serviceRound([
+    [-20, 18], [-22.5, 20], [-17, 20], [-17, 14.5], [-22.5, 14.5],
+  ]),
+  server1: serviceRound([
+    [-12.5, 13], [-11.5, 14.5], [-6, 14.5], [-6, 9], [-11.5, 9],
+  ]),
+  server2: serviceRound([
+    [-1, 6], [-1, 9], [-1, 14.5], [5, 20], [7.5, 23.5], [2, 23],
+    [-1, 20],
+  ]),
+  /* Out on the east side of the pass and back on the same surveyed marks.
+   * Closing the old four-point loop cut straight through the range line. */
+  runner: [
+    ...KITCHEN_OUT,
+    ...KITCHEN_OUT.slice(1, -1).reverse().map(({ x, z }) => ({ x, z })),
+  ],
+});
+
+function cloneServiceRound(key) {
+  return SERVICE_ROUNDS[key].map(({ x, z }) => ({ x, z }));
+}
+
+function serviceNetwork(room) {
+  /* Only the three staff who can be called to the front table need to be in
+   * the dispatch graph. Background servers and the kitchen runner keep their
+   * own clear patrols. The ROUTES are the graph: arbitrary visibility links
+   * between every attractive mark recreated the old diagonal-through-a-table
+   * bug under a more sophisticated name. */
+  return Object.freeze({
+    routes: Object.freeze([
+      ...['waiter', 'mover1', 'mover2'].map((key) => Object.freeze({
+        points: cloneServiceRound(key),
+        loop: true,
+      })),
+      Object.freeze({
+        points: room.anchors.tableCarryRoute.map((mark) => mark.clone()),
+        loop: false,
+      }),
+    ]),
+  });
+}
+
+/* ==================================================================== */
 /* WHERE PEOPLE ARE POINTED                                              */
 /*                                                                       */
 /* All thirteen of this room's staging findings were the same fault in    */
@@ -180,6 +256,13 @@ function equipServiceTray(npc, kind, visible = false) {
     npc.carryingShot = true;
   }
   return tray;
+}
+
+/** Mark a working floor body that participates in waiter right-of-way. */
+function markServiceStaff(npc, radius = 0.34) {
+  npc.serviceStaff = true;
+  npc.serviceRadius = radius;
+  return npc;
 }
 
 /**
@@ -383,12 +466,12 @@ export function populate(scene, room) {
    * aisle east of the pass down to the dish pit — the lane the route paints
    * on the floor, so it is known walkable and clear of the player's own line
    * through the room. */
-  add('runner', new Npc(scene, facingRound({
+  markServiceStaff(add('runner', new Npc(scene, facingRound({
     name: 'a runner', tier: 'ambient', job: 'patrol',
     x: 22.7, z: -8,
-    route: [{ x: 22.7, z: -5.5 }, { x: 22.7, z: -11.5 }, { x: 24.2, z: -14.6 }, { x: 22.7, z: -8.5 }],
+    route: cloneServiceRound('runner'),
     model: { height: 1.7, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'short' },
-  })));
+  }))));
 
   /* ---- the corridor ---- */
 
@@ -434,7 +517,7 @@ export function populate(scene, room) {
   const heroWaiter = add('waiter', new Npc(scene, facingRound({
     name: 'the waiter', tier: 'hero', job: 'patrol',
     x: -8, z: 8,
-    route: [{ x: -8, z: 8 }, { x: -18, z: 4 }, { x: -12, z: -2 }, { x: -4, z: 6 }],
+    route: cloneServiceRound('waiter'),
     /* This is the featured server in Tony and Margo's ordered dinner beats.
      * Give him the supplied East Asian-inspired portrait without cloning that
      * likeness onto the restaurant's procedural background staff. */
@@ -456,27 +539,25 @@ export function populate(scene, room) {
 
   /* The two staff who carry the table. They are on the floor doing something
    * else until the manager says four words to them, which is the point. */
-  add('mover1', new Npc(scene, facingRound({
+  markServiceStaff(add('mover1', new Npc(scene, facingRound({
     name: 'a waiter', tier: 'ambient', job: 'patrol',
     x: a.tableStaging.x, z: a.tableStaging.z,
-    route: [{ x: -9.5, z: 0.5 }, { x: -4, z: 4 }, { x: -12, z: 2 }],
+    route: cloneServiceRound('mover1'),
     model: { height: 1.8, build: 1.1, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
-  })));
-  add('mover2', new Npc(scene, facingRound({
+  }))));
+  markServiceStaff(add('mover2', new Npc(scene, facingRound({
     name: 'a waiter', tier: 'ambient', job: 'patrol',
     x: a.tableStaging.x + 1.4, z: a.tableStaging.z + 1.2,
-    route: [{ x: -8.1, z: 1.7 }, { x: -14, z: 6 }, { x: -6, z: -1 }],
+    route: cloneServiceRound('mover2'),
     model: { height: 1.74, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
-  })));
+  }))));
 
   for (let i = 0; i < 3; i++) {
+    const round = cloneServiceRound(`server${i}`);
     const server = add(`server${i}`, new Npc(scene, facingRound({
       name: 'a waiter', tier: 'background', job: 'patrol',
-      x: -20 + i * 7, z: 18 - i * 6,
-      route: [
-        { x: -22 + i * 7, z: 20 - i * 6 }, { x: -12 + i * 5, z: 8 },
-        { x: -24 + i * 4, z: 2 }, { x: -16, z: 16 },
-      ],
+      x: round[0].x, z: round[0].z,
+      route: round,
       model: { height: rand(1.68, 1.84), dress: 'waistcoat', shirt: 0xd8d4cc, hair: pick(['crop', 'short', 'tied']) },
     })));
     equipServiceTray(server, ['cocktails', 'plates', 'coffee'][i], true);
@@ -595,7 +676,7 @@ export function populate(scene, room) {
   });
   by.ape.homeSeat = { x: by.ape.group.position.x, z: by.ape.group.position.z, yaw: by.ape.group.rotation.y };
 
-  return { all, byName: by, crewTable: pillar };
+  return { all, byName: by, crewTable: pillar, serviceNetwork: serviceNetwork(room) };
 }
 
 /**

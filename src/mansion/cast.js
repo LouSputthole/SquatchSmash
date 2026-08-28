@@ -130,6 +130,9 @@ import {
 } from './performer-wardrobe.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
+import {
+  applySnowRepairPose, createSnowRepairHammer, snowRepairPoseAt,
+} from './snow-repair-motion.js';
 
 /** The cast owns who is sitting in a theatre chair; the Mansion composition
  * owns whether the player may use it. Publish that ownership on the chair so
@@ -1223,7 +1226,7 @@ export function mountMansionCast(scene, world = {}, {
   const snowAt = repairing
     ? repairSpot
     : { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
-  post('snow', {
+  const snow = post('snow', {
     role: 'family_member',
     name: 'Snow',
     model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),
@@ -1244,7 +1247,7 @@ export function mountMansionCast(scene, world = {}, {
     bark: repairing ? SEQUENCES.snowRepairFoyer : null,
     idle: repairing ? SEQUENCES.snowRepairIdle : null,
     look: repairing
-      ? 'Snow, in a work vest, kneeling over a hole where the marble used to be.'
+      ? 'Snow, in a work vest, hammering the lifted marble beside the open floor.'
       : 'Gloves, a cart and a bucket, in a house where nothing has happened yet.',
     /* Walking past him gets the quote for the foyer; ASKING him gets why. He
      * is the only man in the house who can say what is actually wrong with
@@ -1263,6 +1266,14 @@ export function mountMansionCast(scene, world = {}, {
       }
       : null,
   });
+  const snowRepairHammer = repairing ? createSnowRepairHammer() : null;
+  if (snowRepairHammer) {
+    /* Props attach to the unit-scale socket, not the scaled hand slab. The
+     * return visit therefore shows a real tool moving with the same joints
+     * the pose owns, while mission-night Snow remains exactly as he was. */
+    snow.parts.handR.add(snowRepairHammer);
+    applySnowRepairPose(snow, 0);
+  }
   const cart = makeJanitorCart();
   /* Far enough forward that the cart's own rear — the push bar and the mop
    * leaning out of the bucket — clears the man behind it. At +0.85 the built
@@ -3361,6 +3372,14 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
+    /** Return-visit repair evidence: a real prop plus the current authored stroke. */
+    get snowRepair() {
+      if (!repairing || !snowRepairHammer) return null;
+      return {
+        tool: snowRepairHammer.name,
+        stroke: snowRepairPoseAt(snow.t + snow.phase).strike,
+      };
+    },
     /**
      * Booski has called him down. Owner playtest: he has clean-up lines about
      * the laboratory and was never in it. Returns false in a house with no
@@ -3399,6 +3418,9 @@ export function mountMansionCast(scene, world = {}, {
       stageLanEvening();
       const p = playerPosition();
       for (const key of Object.keys(people)) people[key].update(dt, p);
+      /* Npc.update restores its generic work loop each frame. Snow's hammer
+       * pass must be the later writer, like every fixture-specific pose below. */
+      if (repairing) applySnowRepairPose(snow, snow.t + snow.phase);
       /* Npc.update deliberately restores the neutral torso pose every frame;
        * the loungers are a fixture-specific rest pose, so apply it after the
        * shared animation has done its work. */

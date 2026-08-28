@@ -145,7 +145,7 @@ test('the full evidence trail plays the cornered confrontation, citing every log
   });
   assert.deepEqual(beats, [
     'arrival.quiet', 'accuse',
-    'accuse.belongings', 'accuse.ledger', 'accuse.still',
+    'accuse.belongings', 'accuse.case-route', 'accuse.still',
     'admission.cornered', 'mark.cornered',
     'begging.wife', 'begging.shorts', 'go',
   ]);
@@ -159,7 +159,7 @@ test('a thinner trail plays denial instead of a confession the player has not ea
   assert.equal(pressed[0], 'arrival.loud');
   assert.ok(pressed.includes('admission.pressed') && pressed.includes('mark.pressed'));
   assert.ok(pressed.includes('accuse.belongings') && pressed.includes('accuse.still'));
-  assert.equal(pressed.includes('accuse.ledger'), false,
+  assert.equal(pressed.includes('accuse.case-route'), false,
     'Tony must not cite a ledger he never found');
 
   const denial = composeConfrontation({ evidenceFound: [], alarmRaised: false });
@@ -199,7 +199,7 @@ test('the confrontation plays accusation, admission, reaction, then both begging
    * left holding it are part of the same continuous run of speech, which is
    * the point of the rewire -- the player never gets a menu, he gets a boss
    * walking out of the room. */
-  const order = ['arrival.quiet', 'accuse', 'accuse.belongings', 'accuse.ledger', 'accuse.still',
+  const order = ['arrival.quiet', 'accuse', 'accuse.belongings', 'accuse.case-route', 'accuse.still',
     'admission.cornered', 'mark.cornered', 'begging.wife', 'begging.shorts', 'go',
     'mark.scramble', 'sauce.alone'];
   for (let i = 1; i < order.length; i++) {
@@ -441,6 +441,40 @@ test('shooting Lola or Johnny is what makes it personal', () => {
   assert.ok(spoken.some((cue) => cue.includes('react.lola-down')), 'Johnny said nothing about it');
   assert.ok(spoken.some((cue) => cue.includes('reprisal.enter.enraged')));
   assert.equal(spoken.some((cue) => cue.includes('reprisal.enter.cold')), false);
+});
+
+test('every civilian corpse is grounded by its own scaled body, including Lola and Johnny', () => {
+  /* Owner, 2026-08-28: *"Some of the dead shorter characters during the Mark
+   * fight are floating off the floor... Do not just apply one hard-coded
+   * Y-offset."* The Palace uses HeistFigure's measured settle: pose the actual
+   * scaled rig, box that rig, and put its lowest point on `baseY`. Lock the
+   * result here at three different heights so a shared magic offset cannot
+   * satisfy the contract accidentally. */
+  const { cast } = harness();
+  const contacts = [];
+  for (const entry of cast.civilians) {
+    assert.equal(cast.civilianDown(entry), true);
+    for (let frame = 0; frame < 8; frame++) entry.figure.update(0.05, { fear: 0 });
+    entry.root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(entry.figure.parts.group);
+    contacts.push({
+      id: entry.id,
+      height: entry.figure.height,
+      lift: entry.figure.tilt.position.y,
+      floorError: bounds.min.y - entry.figure.baseY,
+    });
+  }
+
+  assert.deepEqual(contacts.map(({ id }) => id), ['wife', 'lola', 'johnny']);
+  assert.ok(contacts.every(({ floorError }) => Math.abs(floorError) <= 0.004),
+    `a Palace corpse is off the floor: ${JSON.stringify(contacts)}`);
+  const [wife, lola, johnny] = contacts;
+  assert.ok(wife.height > lola.height && lola.height > johnny.height,
+    'the regression fixture no longer covers three different character heights');
+  assert.notEqual(wife.lift, lola.lift,
+    'different-height corpses received one universal death offset');
+  assert.notEqual(lola.lift, johnny.lift,
+    'the two short bodies received one encounter-specific death offset');
 });
 
 test('his armour going ends stage one: he leaves and the A-Team comes in', () => {

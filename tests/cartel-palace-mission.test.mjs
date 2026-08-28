@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import * as THREE from 'three';
 import { WEAPON_IDS } from '../src/core/weapons/catalog.js';
 import { ensureDomShim } from '../tools/three-shim.mjs';
@@ -7,11 +8,21 @@ import { ensureDomShim } from '../tools/three-shim.mjs';
 import {
   CartelPalaceMission,
   EVIDENCE_IDS,
+  PALACE_CASE_ROUTE_EVIDENCE,
   PALACE_BEATS,
   PALACE_DINING_OBJECTIVES,
 } from '../src/cartel-palace/mission.js';
 import { buildPalaceCast, PALACE_GUARD_POSTS } from '../src/cartel-palace/cast.js';
+import { PALACE_CONVERSATIONS } from '../src/cartel-palace/conversations.js';
+import {
+  FINALE_BEATS,
+  FINALE_SPEAKERS,
+  allFinaleCues,
+  composeConfrontation,
+} from '../src/cartel-palace/finale.js';
 import { PalaceSecurity } from '../src/cartel-palace/security.js';
+import { PALACE_VOICE_LINES } from '../src/cartel-palace/voice.js';
+import { collectPalaceCues } from '../tools/palace-vo.mjs';
 import {
   PALACE_PREVIEW_CHECKPOINTS,
   previewPalaceCheckpointForLocation,
@@ -31,6 +42,162 @@ test('the palace begins as a rescue at the quiet estate approach', () => {
   assert.equal(mission.beat, PALACE_BEATS.APPROACH);
   assert.equal(mission.snapshot().rescueCoverIntact, true);
   assert.match(objectives.at(-1).text, /reach the service gate/i);
+});
+
+test('the estate card advances from the evidence ledger one honest action at a time', () => {
+  const objectives = [];
+  const checkpoints = [];
+  const mission = new CartelPalaceMission({
+    onObjective: (objective) => objectives.push(objective),
+    onCheckpoint: (beat, facts) => checkpoints.push({ beat, facts }),
+  });
+  mission.begin();
+  mission.enterPerimeter({ powerCut: true });
+  mission.enterEstate();
+
+  assert.match(objectives.at(-1).text, /security room/i);
+  assert.doesNotMatch(objectives.at(-1).text, /bedroom|office/i,
+    'the first card spoils later searches');
+  assert.doesNotMatch(`${objectives.at(-1).kicker} ${objectives.at(-1).text}`, /\bmark\b/i,
+    'the objective names the Palace boss before his fight reveal');
+
+  mission.collectEvidence(EVIDENCE_IDS.SECURITY_STILL);
+  assert.match(objectives.at(-1).text, /bedroom/i);
+  assert.doesNotMatch(objectives.at(-1).text, /security room/i,
+    'the completed surveillance search stayed on the HUD');
+
+  mission.collectEvidence(EVIDENCE_IDS.BELONGINGS);
+  assert.match(objectives.at(-1).text, /office/i);
+  assert.doesNotMatch(objectives.at(-1).text, /bedroom/i,
+    'the completed bedroom search stayed on the HUD');
+
+  mission.collectEvidence(EVIDENCE_IDS.PAYMENT_LEDGER);
+  assert.equal(mission.beat, PALACE_BEATS.BETRAYAL);
+  assert.match(objectives.at(-1).text, /dining room/i);
+  assert.doesNotMatch(`${objectives.at(-1).kicker} ${objectives.at(-1).text}`, /\bmark\b/i,
+    'the pre-fight objective reveals Mark by name');
+  assert.equal(checkpoints.at(-1).facts.evidenceFound.length, 3);
+});
+
+test('partial checkpoint restore derives the same next Palace search without objective flags', () => {
+  const objectives = [];
+  const mission = new CartelPalaceMission({ onObjective: (objective) => objectives.push(objective) });
+  assert.equal(mission.restore({
+    status: 'in_progress',
+    checkpoint: PALACE_BEATS.ESTATE,
+    evidenceFound: [EVIDENCE_IDS.SECURITY_STILL],
+  }), true);
+  assert.match(objectives.at(-1).text, /bedroom/i);
+
+  /* Out-of-order discovery is legal. Guidance names the first clue that the
+   * actual mission ledger still lacks; it never invents a route flag. */
+  const outOfOrder = [];
+  const resumed = new CartelPalaceMission({ onObjective: (objective) => outOfOrder.push(objective) });
+  assert.equal(resumed.restore({
+    status: 'in_progress',
+    checkpoint: PALACE_BEATS.ESTATE,
+    evidenceFound: [EVIDENCE_IDS.BELONGINGS, EVIDENCE_IDS.PAYMENT_LEDGER],
+  }), true);
+  assert.match(outOfOrder.at(-1).text, /security room/i);
+});
+
+test('the Palace keeps its boss unnamed until the dining-room reveal names Mark', () => {
+  /* Story bible: *"Dont mention Marks name until his boss fight that should be
+   * a funny inside joke reveal."* This is a seam contract, not a word search
+   * over implementation names: it inventories copy the player can actually
+   * receive before opening the final doors, then proves both alarm variants
+   * reveal the same named speaker on the other side. */
+  const objectives = [];
+  const mission = new CartelPalaceMission({ onObjective: (objective) => objectives.push(objective) });
+  mission.begin();
+  mission.enterPerimeter({ powerCut: true });
+  mission.enterEstate();
+  mission.collectEvidence(EVIDENCE_IDS.SECURITY_STILL);
+  mission.collectEvidence(EVIDENCE_IDS.BELONGINGS);
+  mission.collectEvidence(EVIDENCE_IDS.PAYMENT_LEDGER);
+  assert.equal(mission.beat, PALACE_BEATS.BETRAYAL,
+    'the lead-up inventory crossed the reveal boundary');
+
+  const palace = buildCartelPalace(new THREE.Scene());
+  const leadUpCopy = [
+    ...objectives.flatMap((objective) => [objective?.kicker, objective?.text, objective?.hint]),
+    ...Object.values(PALACE_VOICE_LINES).map((line) => line.text),
+    ...PALACE_CONVERSATIONS.flatMap((conversation) => conversation.lines.map((line) => line.text)),
+    ...Object.values(palace.evidence)
+      .flatMap((target) => [
+        target.userData.evidenceTitle,
+        target.userData.evidenceDetail,
+        ...Object.values(target.userData.evidenceDatum ?? {}),
+      ]),
+  ].filter(Boolean);
+
+  const html = fs.readFileSync(new URL('../cartel-palace.html', import.meta.url), 'utf8');
+  const main = fs.readFileSync(new URL('../src/cartel-palace/main.js', import.meta.url), 'utf8');
+  const launchTag = html.match(/<div id="overlay">[\s\S]*?<p class="tag">([^<]+)<\/p>/)?.[1];
+  const bootStage = main.match(/__squatchStage\?\.\('([^']+)'\)/)?.[1];
+  const diningPrompt = main.match(/interaction\.register\(palace\.targets\.diningDoor, \{\s*label: '([^']+)'/)?.[1];
+  const lockedTag = main.match(/textContent = '([^']*repaired-mansion briefing[^']*)'/)?.[1];
+  assert.ok(launchTag && bootStage && diningPrompt && lockedTag,
+    'the pre-reveal UI inventory no longer matches the real Palace launch path');
+  leadUpCopy.push(launchTag, bootStage, diningPrompt.replace(/<[^>]+>/g, ''), lockedTag);
+
+  for (const copy of leadUpCopy) {
+    assert.doesNotMatch(copy, /\bmark(?:'s|’s)?\b/i,
+      `pre-reveal Palace copy names Mark: "${copy}"`);
+  }
+
+  for (const arrival of ['arrival.quiet', 'arrival.loud']) {
+    const firstLine = FINALE_BEATS[arrival]?.[0];
+    assert.equal(FINALE_SPEAKERS[firstLine?.who]?.name, 'MARK',
+      `${arrival} does not reveal the boss by name when the final doors open`);
+  }
+});
+
+test('the office route addendum proves Sauce sold the Silver Case route and mansion breach window', () => {
+  const palace = buildCartelPalace(new THREE.Scene());
+  const ledger = palace.evidence[EVIDENCE_IDS.PAYMENT_LEDGER];
+  const routeSlip = ledger.getObjectByName('silver-case-route-slip');
+
+  assert.ok(routeSlip, 'the hard route datum exists only in inspect copy, not in the world');
+  assert.deepEqual(ledger.userData.evidenceDatum, PALACE_CASE_ROUTE_EVIDENCE);
+  assert.deepEqual(routeSlip.userData.evidenceDatum, PALACE_CASE_ROUTE_EVIDENCE);
+  assert.deepEqual(PALACE_CASE_ROUTE_EVIDENCE, {
+    cargo: 'SILVER CASE',
+    operation: 'SHORT BUS',
+    destination: 'LOU RESIDENCE',
+    deliveryAt: '17:55',
+    breachAt: '02:10',
+    breachRelation: 'NEXT MORNING',
+    source: 'SAUCE / CONSULTANT 14',
+    insideContact: 'SILVER CIRCLE / PROSPECT INTAKE — ID REDACTED',
+  });
+  assert.match(ledger.userData.evidenceDetail, /SILVER CASE.*LOU RESIDENCE/i);
+  assert.match(ledger.userData.evidenceDetail, /SHORT BUS.*17:55.*02:10/i);
+  assert.match(ledger.userData.evidenceDetail, /SAUCE \/ CONSULTANT 14.*signs both entries/i);
+  assert.match(ledger.userData.evidenceDetail, /PROSPECT INTAKE.*ID REDACTED.*countersigns/i);
+  assert.doesNotMatch(ledger.userData.evidenceDetail, /\bmark(?:'s|’s)?\b/i,
+    'the office clue names the boss before the dining-room reveal');
+
+  const beats = composeConfrontation({ evidenceFound: Object.values(EVIDENCE_IDS) });
+  assert.ok(beats.indexOf('arrival.quiet') < beats.indexOf('accuse.case-route'),
+    'the route accusation moved ahead of the dining-room boss reveal');
+  const accusation = FINALE_BEATS['accuse.case-route'];
+  assert.equal(accusation.length, 1, 'the causal accusation sprawled into a second speech');
+  assert.equal(accusation[0].who, 'TONY');
+  assert.match(accusation[0].text, /Sauce.*SHORT BUS.*Silver Case.*Lou’s mansion.*17:55.*breach.*02:10/i);
+  assert.match(accusation[0].text, /active prospect countersigned.*sold them the address and the hour.*our line helped/i);
+
+  const sourceCue = allFinaleCues().find((cue) => cue.beat === 'accuse.case-route');
+  assert.equal(sourceCue?.cue, 'palace.finale.tony.accuse.case-route-1',
+    'materially new meaning reused the old payment-only recording id');
+  const generated = collectPalaceCues()
+    .filter((cue) => cue.name === 'vo.palace.finale.tony.accuse.case-route-1.1');
+  assert.equal(generated.length, 1, 'tools/palace-vo.mjs does not uniquely own the new accusation');
+  assert.equal(generated[0].say, accusation[0].text,
+    'the Palace generator does not carry the authored accusation verbatim');
+  assert.equal(collectPalaceCues()
+    .some((cue) => cue.name === 'vo.palace.finale.tony.accuse.ledger-1.1'), false,
+    'the old payment-only semantic cue survived in the source catalog');
 });
 
 test('Sauce is revealed by the complete environmental evidence trail, not at the gate', () => {
@@ -338,6 +505,25 @@ test('Sauce\'s bedroom is closed on its west side, and the suite is still reacha
   assert.ok(bounds.max.z >= -8.9 && bounds.max.z <= -8.2,
     `the west wall does not stop at the media-wall line (${bounds.max.z})`);
   assert.ok(bounds.max.y >= 4.5, 'the west wall stops short of the ceiling slab');
+
+  /* The seam is checked at both camera heights and from three positions along
+   * the sleeping end: hallway corner, bed, and the edge by the finished
+   * doorway. Bounds alone proved a slab existed, but not that a normal or
+   * crouched first-person sightline could not still pass beside it. */
+  for (const [view, z] of [['hallway corner', -14.62], ['bed', -11.6], ['doorway edge', -8.34]]) {
+    for (const [posture, y] of [['standing', 1.66], ['crouched', 0.82]]) {
+      const ray = new THREE.Ray(
+        new THREE.Vector3(-0.4, y, z),
+        new THREE.Vector3(-1, 0, 0),
+      );
+      assert.ok(ray.intersectBox(bounds, new THREE.Vector3()),
+        `${posture} ${view} view still passes through the west-wall gap`);
+    }
+  }
+
+  const south = new THREE.Box3().setFromObject(world.root.getObjectByName('guest-south-partition'));
+  const southSeam = Math.max(0, south.min.z - bounds.max.z, bounds.min.z - south.max.z);
+  assert.ok(southSeam <= 0.03, `the west/south wall seam is ${(southSeam * 100).toFixed(1)} cm open`);
 
   /* Nothing solid across the dressing end's doorway: sampled along x -1.5 from
    * the media wall's north face up to the suite's north partition. */

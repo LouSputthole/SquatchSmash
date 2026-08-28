@@ -3100,11 +3100,13 @@ export class Npc {
       name = 'somebody', tier = 'ambient', x = 0, z = 0, yaw = 0, y = 0,
       job = 'stand', look = true, route = null, model = {}, colliders = null,
       navBlockers = null, routine = 0, pole = false, speed = 1.1,
+      voiceProfile = null,
     } = o;
     this.name = name;
     this.tier = tier;
     this.job = job;
     this.look = look;
+    this.voiceProfile = voiceProfile;
     this.route = route;
     this.routeAt = 0;
     this.colliders = colliders;
@@ -3120,6 +3122,7 @@ export class Npc {
       name,
       tier,
       role: model.role ?? null,
+      voiceProfile,
       ...this.parts.profile,
     };
     /* And the shared actor marker, so the staging gate can ask which way this
@@ -4012,11 +4015,13 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   const seats = a.blackjackSeats;
   add('contractor', new Npc(scene, {
     name: 'the contractor', tier: 'ambient', job: 'sit',
+    voiceProfile: 'npc-reserve-2',
     x: seats[0].x, z: seats[0].z, yaw: seats[0].faceYaw,
     model: { height: 1.79, build: 1.12, dress: 'shirt', shirt: 0x3a3320, hair: 'short', beard: true },
   }));
   add('regular', new Npc(scene, {
     name: 'the regular', tier: 'ambient', job: 'sit',
+    voiceProfile: 'npc-reserve-2',
     x: seats[4].x, z: seats[4].z, yaw: seats[4].faceYaw,
     model: { height: 1.72, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'receding', glasses: true },
   }));
@@ -4046,6 +4051,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     const eastRun = spot.x > 0;
     add(`patron${i}`, new Npc(scene, {
       name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',
+      voiceProfile: i === 1 ? 'npc-reserve-1' : 'npc-male',
       /* The booth's collider assembly id, read back out of the club rather
        * than spelled out here, for the same reason the z is read off the
        * anchor: the run has been renumbered once already. The staging gate
@@ -4109,6 +4115,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
 
   add('waiter1', new Npc(scene, {
     name: 'a waitress', tier: 'ambient', job: 'patrol',
+    voiceProfile: 'performer',
     x: -10, z: 5, yaw: 0,
     route: [{ x: -10, z: 5 }, { x: -17, z: 2 }, { x: -17.9, z: 6.5 }, { x: -8, z: 8 }],
     model: { height: 1.68, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
@@ -4166,11 +4173,13 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   // Two by the coat check with opinions about the butcher union
   add('gossip1', new Npc(scene, {
     name: 'a regular', tier: 'ambient', job: 'stand',
+    voiceProfile: 'npc-male',
     x: -1.2, z: 9.4, yaw: 1.9,
     model: { height: 1.81, build: 1.15, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'crop', bandana: true },
   }));
   add('gossip2', new Npc(scene, {
     name: 'a regular', tier: 'ambient', job: 'stand',
+    voiceProfile: 'npc-reserve-1',
     x: -0.2, z: 8.6, yaw: -1.2,
     model: { height: 1.74, dress: 'shirt', hair: 'receding', beard: true },
   }));

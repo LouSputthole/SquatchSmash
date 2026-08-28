@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Put the Cartel Palace's DINING-ROOM confrontation in the sound manifest.
+ * Put every authored Cartel Palace line in the sound manifest.
  *
- *   npm run vo:palace          -> synchronize the `vo.palace.finale.` block
+ *   npm run vo:palace          -> synchronize the complete `vo.palace.` bank
  *   npm run check:palace-vo    -> report missing / stale / drifted cues
  *   npm run audio:todo         -> writes the recording handoff markdown
  *
@@ -22,42 +22,71 @@
  * in the game already had one (docs/ENGINE-TRAPS.md entry 3: *"a scene with no
  * VO generator is invisible, however much is written for it"*).
  *
- * ## WHAT IT DELIBERATELY DOES NOT OWN
- *
- * The `vo.palace.finale.` prefix, and nothing else. `vo.palace.tony.`,
- * `vo.palace.cleaner.`, `vo.palace.guard.` and `vo.palace.shift.` come from
- * `src/cartel-palace/voice.js` and `conversations.js` and are maintained
- * elsewhere; taking the whole `vo.palace.` prefix here would delete all four
- * banks on the first sync. That is ENGINE-TRAPS entry 4 -- the `heist.` prefix
- * naming both dialogue and effects -- and it is avoided by being narrow.
- *
- * It does not invent cue names either. `allFinaleCues()` produces exactly what
- * `PalaceFinaleDirector` asks the engine for at runtime, so a cue that reaches
- * the booth is a cue the game will actually play.
+ * The Palace used to have a generator for the finale and no canonical owner
+ * for the investigation, guard barks, or shift conversations. That made a
+ * source correction silently drift away from the recording manifest. All
+ * three authored catalogs now feed this one scene generator. The sync replaces
+ * rows in place where possible, so repairing three words does not reorder a
+ * 48,000-line manifest.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { allFinaleCues, FINALE_SPEAKERS } from '../src/cartel-palace/finale.js';
+import { allPalaceConversationLines } from '../src/cartel-palace/conversations.js';
+import { allPalaceVoiceLines } from '../src/cartel-palace/voice.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(ROOT, 'assets/sfx/manifest.json');
-const PREFIX = 'vo.palace.finale.';
+const PREFIX = 'vo.palace.';
+const FINALE_PREFIX = 'vo.palace.finale.';
+
+const manifestRow = ({ name, voice, say, direction = null }) => {
+  const row = { name, voice, say };
+  if (direction) row.direction = direction;
+  return row;
+};
 
 /** Every recordable finale line, in the manifest's own shape. */
 export function collectPalaceFinaleCues() {
-  return allFinaleCues().map((cue) => {
-    const row = { name: `vo.${cue.cue}.1`, voice: cue.voice, say: cue.text };
-    if (cue.direction) row.direction = cue.direction;
-    return row;
-  });
+  return allFinaleCues().map((cue) => manifestRow({
+    name: `vo.${cue.cue}.1`, voice: cue.voice, say: cue.text, direction: cue.direction,
+  }));
+}
+
+/** Every line the Palace runtime can actually request, in manifest shape. */
+export function collectPalaceCues() {
+  return [
+    ...allPalaceVoiceLines().map(manifestRow),
+    ...allPalaceConversationLines().map(manifestRow),
+    ...collectPalaceFinaleCues(),
+  ];
 }
 
 /** An updated manifest. Does not mutate or write the input. */
 export function syncPalaceFinaleManifest(manifest) {
-  const kept = (manifest.sfx || []).filter((cue) => !cue.name.startsWith(PREFIX));
+  const kept = (manifest.sfx || []).filter((cue) => !cue.name.startsWith(FINALE_PREFIX));
   return { ...manifest, sfx: [...kept, ...collectPalaceFinaleCues()] };
+}
+
+/** Synchronize the full bank without needlessly moving unchanged rows. */
+export function syncPalaceManifest(manifest) {
+  const expected = new Map(collectPalaceCues().map((cue) => [cue.name, cue]));
+  const seen = new Set();
+  const sfx = [];
+  for (const cue of manifest.sfx || []) {
+    if (!cue.name.startsWith(PREFIX)) {
+      sfx.push(cue);
+      continue;
+    }
+    const replacement = expected.get(cue.name);
+    if (!replacement || seen.has(cue.name)) continue;
+    sfx.push(replacement);
+    seen.add(cue.name);
+  }
+  for (const [name, cue] of expected) if (!seen.has(name)) sfx.push(cue);
+  return { ...manifest, sfx };
 }
 
 /**
@@ -70,10 +99,18 @@ export function syncPalaceFinaleManifest(manifest) {
  * whichever it saw last.
  */
 export function checkPalaceFinaleManifest(manifest) {
+  return checkCatalog(manifest, collectPalaceFinaleCues(), FINALE_PREFIX, true);
+}
+
+export function checkPalaceManifest(manifest) {
+  return checkCatalog(manifest, collectPalaceCues(), PREFIX, false);
+}
+
+function checkCatalog(manifest, catalog, prefix, finaleOnly) {
   const failures = [];
-  const expected = new Map(collectPalaceFinaleCues().map((cue) => [cue.name, cue]));
+  const expected = new Map(catalog.map((cue) => [cue.name, cue]));
   const declared = new Map();
-  for (const cue of (manifest.sfx || []).filter((entry) => entry.name.startsWith(PREFIX))) {
+  for (const cue of (manifest.sfx || []).filter((entry) => entry.name.startsWith(prefix))) {
     if (declared.has(cue.name)) failures.push(`duplicate cue ${cue.name}`);
     else declared.set(cue.name, cue);
   }
@@ -89,10 +126,13 @@ export function checkPalaceFinaleManifest(manifest) {
   for (const name of declared.keys()) if (!expected.has(name)) failures.push(`stale cue ${name}`);
   /* And the one that is not about the manifest at all: a speaker whose voice
    * profile does not exist produces a cue nobody can cast. */
-  const voices = Object.keys(manifest.voices ?? {});
-  if (voices.length) {
-    for (const speaker of Object.values(FINALE_SPEAKERS)) {
-      if (!voices.includes(speaker.voice)) {
+  const voices = new Set(Object.keys(manifest.voices ?? {}));
+  if (voices.size) {
+    const wanted = finaleOnly
+      ? Object.values(FINALE_SPEAKERS).map(({ name, voice }) => ({ name, voice }))
+      : catalog.map(({ name, voice }) => ({ name, voice }));
+    for (const speaker of wanted) {
+      if (!voices.has(speaker.voice)) {
         failures.push(`${speaker.name} wants voice profile "${speaker.voice}", which the manifest does not have`);
       }
     }
@@ -103,24 +143,24 @@ export function checkPalaceFinaleManifest(manifest) {
 function main() {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
   if (process.argv.includes('--check')) {
-    const failures = checkPalaceFinaleManifest(manifest);
+    const failures = checkPalaceManifest(manifest);
     if (failures.length) {
       failures.forEach((failure) => console.error(`FAIL ${failure}`));
-      console.error(`${failures.length} Cartel Palace finale voice problem(s). Run \`npm run vo:palace\`.`);
+      console.error(`${failures.length} Cartel Palace voice problem(s). Run \`npm run vo:palace\`.`);
       process.exitCode = 1;
     } else {
-      console.log(`Cartel Palace finale manifest matches ${collectPalaceFinaleCues().length} cue(s).`);
+      console.log(`Cartel Palace manifest matches ${collectPalaceCues().length} cue(s).`);
     }
     return;
   }
 
   const dropped = (manifest.sfx || []).filter((cue) => cue.name.startsWith(PREFIX)).length;
-  const cues = collectPalaceFinaleCues();
-  fs.writeFileSync(MANIFEST, `${JSON.stringify(syncPalaceFinaleManifest(manifest), null, 2)}\n`);
+  const cues = collectPalaceCues();
+  fs.writeFileSync(MANIFEST, `${JSON.stringify(syncPalaceManifest(manifest), null, 2)}\n`);
 
   const byWho = {};
   for (const cue of allFinaleCues()) byWho[cue.who] = (byWho[cue.who] ?? 0) + 1;
-  console.log(`${cues.length} Cartel Palace finale voice cue(s) in the manifest`
+  console.log(`${cues.length} Cartel Palace voice cue(s) in the manifest`
     + `${dropped ? ` (replaced ${dropped})` : ''}.`);
   for (const [who, count] of Object.entries(byWho).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${(FINALE_SPEAKERS[who]?.name ?? who).padEnd(12)} ${count}`);

@@ -39,7 +39,7 @@ import * as GOLF_CAST from '../src/golf/cast.js';
 import { CartPair } from '../src/golf/carts.js';
 import { BIG_UNCLE_LOU, ERIC, RIPPINFLOW } from '../src/core/wardrobe.js';
 
-const { Golfer, makeBag, makeClub } = GOLF_CAST;
+const { Golfer, makeApartmentKeys, makeBag, makeClub } = GOLF_CAST;
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -758,6 +758,17 @@ test('the stand bag contains three complete clubs with their heads above the rim
     'the stand bag needs both deployed legs');
 });
 
+test('the luxury-apartment reward is a physical ring with two keys and an address tag', () => {
+  const keys = makeApartmentKeys();
+  assert.equal(keys.name, 'silver-pines-apartment-keys');
+  assert.equal(keys.userData.storyProp, 'luxury-apartment-keys');
+  assert.ok(keys.getObjectByName('apartment-key-ring'));
+  assert.ok(keys.getObjectByName('apartment-address-tag'));
+  assert.ok(keys.getObjectByName('apartment-address-plate'));
+  assert.equal(keys.getObjectsByProperty('name', 'apartment-key-blade').length, 2);
+  assert.equal(keys.getObjectsByProperty('name', 'apartment-key-tooth').length, 2);
+});
+
 test('the lie is most of what a shot costs', () => {
   const aim = Math.PI;
   const carry = (surface) => {
@@ -1015,30 +1026,32 @@ test('every line in the script can be heard, and none is addressed by position',
   }
 });
 
-test('campaign-continuity rewrites use versioned cue ids and the seven o’clock choice', () => {
+test('Silver Pines follows THE TAKE with Front & Center, Margo boundaries, and the apartment handover', () => {
   const expected = {
-    'golf.h1.lou.you_kept_listening': 'The Bing. The restaurant. The plane. The motel. The boat. You listened when it mattered.',
-    'golf.h1.lou.job_and_night': 'You’ve got a big job and a big night coming.',
-    'golf.h1.prospect.what_kind_of_job': 'What kind of job?',
-    'golf.h1.lou.first_the_job': 'First, the job. Everybody’s on it.',
-    'golf.h1.lou.after_that_the_room': 'After that, the room. Everybody’s there.',
-    'golf.h1.lou.job_then_no_prospect': 'If the job goes how I think, tonight they stop calling you Prospect.',
-    'golf.h1.rippin.job_big_one_today': 'So the job’s the big one today.',
-    'golf.h1.rippin.eric_not_cricket': 'Eric, this isn’t cricket.',
-    'golf.h2.rippin.eric_finds_it_every_time': 'Eric hits it nowhere and finds it every time.',
-    'golf.h2.eric.thats_after_the_job': 'That’s after the job, yes.',
-    'golf.h2.lou.one_thing_at_a_time': 'One thing at a time.',
-    'golf.h3.lou.job_between_now_and_seven': 'There’s a job between now and seven. Nothing you can do about either one from a fairway. That’s why we’re out here.',
+    'golf.h1.lou.take_brought_everybody_home': 'The money came home. Everybody else did too. You did good.',
+    'golf.h1.lou.work_added_up': 'The Bing. The restaurant. The plane. The cabin. Billy. The bank. You kept your head when it mattered.',
+    'golf.h1.lou.take_changed_things': 'Taking care of that thing changed a few things.',
+    'golf.h2.lou.new_space_is_front_and_center': 'The new space is Front & Center. Dining room, downstairs club, all of it.',
+    'golf.h2.lou.take_margo_tonight': 'Take Margo tonight. Silver Room. Let her see the place when it looks expensive.',
+    'golf.h2.lou.keep_her_outside': 'Good. She gets dinner, not minutes. Keep her outside the business.',
+    'golf.h3.lou.took_care_of_you': 'You took care of that thing for me. I took care of something for you.',
+    'golf.h3.lou.out_of_the_shoebox': 'The kind with two floors. You’re out of that shoebox.',
+    'golf.h3.lou.apartment_keys': 'Here. Keys. Address is on the tag.',
+    'golf.h3.lou.go_see_it': 'Go see it. Silver Room has your table at nine. Wear something that doesn’t look rented.',
   };
   for (const [id, text] of Object.entries(expected)) assert.equal(CUES[id]?.text, text, id);
 
   const superseded = [
-    'golf.h1.lou.you_listened', 'golf.h1.lou.big_nights_coming',
-    'golf.h1.prospect.what_kind_of_nights', 'golf.h1.lou.wednesday_is_the_room',
-    'golf.h1.lou.another_night_bigger', 'golf.h1.lou.stop_calling_you_prospect',
-    'golf.h1.rippin.wednesday_big_night', 'golf.h1.rippin.not_cricket',
-    'golf.h2.rippin.eric_hits_it_nowhere', 'golf.h2.eric.thats_the_second_night',
-    'golf.h2.lou.one_night_at_a_time', 'golf.h3.lou.nothing_you_can_do_now',
+    'golf.h1.lou.you_did_good', 'golf.h1.lou.you_kept_listening',
+    'golf.h1.lou.job_and_night', 'golf.h1.prospect.what_kind_of_job',
+    'golf.h1.lou.first_the_job', 'golf.h1.lou.after_that_the_room',
+    'golf.h1.lou.job_then_no_prospect', 'golf.h1.prospect.what_happens_at_seven',
+    'golf.h2.lou.thing_after_the_thing', 'golf.h2.prospect.an_aeroplane',
+    'golf.h2.lou.six_thousand_pounds_of_it', 'golf.h2.lou.another_lou',
+    'golf.h3.lou.you_know_whats_at_seven', 'golf.h3.prospect.i_know',
+    'golf.h3.lou.job_between_now_and_seven', 'golf.h3.prospect.what_if_they_say_no',
+    'golf.h3.lou.then_they_say_no', 'golf.h3.lou.but_they_wont',
+    'golf.h3.lou.seven_oclock',
   ];
   for (const id of superseded) assert.equal(CUES[id], undefined, `${id} should stay retired`);
 
@@ -1047,10 +1060,25 @@ test('campaign-continuity rewrites use versioned cue ids and the seven o’clock
     remember() {}, flag() {},
   });
   const direct = trees.cartRide.answer.options.find((option) => option.tone === 'Direct');
-  assert.equal(direct.text, 'What happens at seven?');
-  assert.equal(direct.next, 'at_seven');
-  assert.ok(trees.cartRide.at_seven);
-  assert.equal(trees.cartRide.wednesday, undefined);
+  assert.equal(direct.text, 'What did it buy me?');
+  assert.equal(direct.next, 'direct');
+  assert.ok(trees.cartRide.direct);
+  assert.ok(trees.cartRide.reward);
+  assert.equal(trees.cartRide.at_seven, undefined);
+  assert.equal(trees.cartRide.nights, undefined);
+
+  const spoken = Object.values(CUES).map((cue) => cue.text).join('\n');
+  assert.doesNotMatch(spoken,
+    /aeroplane|six thousand pounds|seven o['’]?clock|stop calling you Prospect|initiation|made member/i,
+    'Beat 13 must not spoil Enola or the final ceremony');
+
+  assert.deepEqual(SEQUENCES['h3.end.walk_off'].slice(-3), [
+    'golf.h3.lou.apartment_keys',
+    'golf.h3.prospect.keys_are_real',
+    'golf.h3.lou.go_see_it',
+  ]);
+  assert.equal(CUES['golf.h3.lou.apartment_keys'].gesture, 'offer_apartment_keys');
+  assert.equal(CUES['golf.h3.prospect.keys_are_real'].gesture, 'receive_apartment_keys');
 });
 
 test('every spoken Prospect reply is an exact stable Silver Pines voice cue', () => {

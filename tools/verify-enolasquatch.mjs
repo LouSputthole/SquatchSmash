@@ -380,7 +380,7 @@ try {
     await h.aircraft.artReady;
     return h.state().noseArt;
   });
-  check('the owner pin-up and ENOLA SQUATCH name are paired, textured and separated on both flanks',
+  check('the owner pin-up and SQUATCHOLA GAY name are paired, textured and separated on both flanks',
     noseArt.artReady && noseArt.loadState === 'ready' && !noseArt.loadError
       && noseArt.realArtworkApplied === 4
       && noseArt.pinups.count === 2 && noseArt.pinups.visible === 2

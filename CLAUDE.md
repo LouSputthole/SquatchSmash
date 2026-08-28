@@ -100,13 +100,13 @@ CH 2  FAMILY BUSINESS
   11  Return to Old Apartment .. normal life, and it does not feel the same
  11.5 THE TAKE ................. the bank. Not in the spreadsheet; placed here
 CH 3  MOVING UP
-  12  Lou's "New Space" Call ... Front & Center, and bring that girl from the Bing
+  12  Lou's "New Space" Call ... good work; meet us on the course about a new space
   13  Silver Pines ............. three holes, and the keys to somewhere better
   14  Luxury Apartment ......... Lou's gift. THE STARTER FLAT GOES DARK HERE
   15  Front & Center ........... the date; she comes home with him
   16  Margo Stayover ........... nothing criminal rings tonight
   17  Luxury Apartment Morning . she leaves, then the phone
-  18  NO WAKE .................. Willy was the rat
+  18  NO WAKE .................. Willy leaked the strip; Sauce is the later mole
   19  Luxury Apartment Return .. quiet, then a call about something sensitive
 CH 4  THE INNER CIRCLE
   20  Silver Case Setup ........ custody, and orders to hand it to Lou himself
@@ -114,7 +114,7 @@ CH 4  THE INNER CIRCLE
   22  Mansion / Silent Squatch . the lab, then: why don't you stay here, Prospect
 CH 5  WAR
   23  Mansion Siege ............ they come to you. Then Lou takes a phone call
-  24  Enola Squatch ............ the counterstrike. Nobody in the air says otherwise
+  24  SQUATCHOLA GAY ........... the counterstrike. Nobody in the air says otherwise
   25  Repaired Mansion ......... a few days on: which city it actually was
   26  Cartel Palace ............ Sauce, Mark, and the whole crew
 CH 6  THIS THING OF OURS
@@ -150,7 +150,10 @@ PM on Day 12; Cartel Palace opens at 8:30 PM and extracts at 11:00 PM. The
 Special Meeting pickup is 5:55 PM on Day 13. Seff's forty-two-minute ride plus
 twenty-three minutes at the spur and on the trail lands Initiation at 7:00 PM.
 Schema v23 floors old saves which had already consumed one of those tail
-markers without replaying it or rewinding a later clock.
+markers without replaying it or rewinding a later clock. Schema v25 preserves
+that discipline for two later clock corrections: it floors completed Motel
+saves to the new Day 5 06:30 daylight landing, and repairs only the exact v24
+04:10/06:10 mansion clocks produced by the retired eight-hour guest-room rest.
 
 **Anchors move WITH the route, in the same commit.** Leaving one behind does
 not fail anywhere:
@@ -167,6 +170,10 @@ floor for the same reason.
 - **Mark is not named until his boss fight.** The Act One interrogation yields
   a mole with no identity and the phrase "Short Bus", and that is all.
 - **Sauce is the one who ratted**, which is how the rivals learn about the case.
+- **The repaired-mansion trace is concrete but not a verdict.** Sauce's
+  restaurant burner and an estate gate log lead to an unnamed A-Team leadership
+  estate. Only the Cartel Palace evidence proves that he turned and that a
+  redacted active prospect helped with the breach.
 - **Enola bombs the wrong city.** One detail is catchable in flight; no line of
   dialogue ever points at it. Lou reveals it at the repaired-mansion debrief.
 - **The Home Ladder has two rungs he owns** — the starter flat and the luxury

@@ -681,16 +681,19 @@ test("the owner's own lines are pinned to the words he wrote", () => {
 
 test('the reveal establishes the post-Palace canon before the nuclear option', () => {
   assert.deepEqual(script.beatById('IN-100').lines.map((line) => line.say), [
-    'Willy wasn’t the rat.',
-    'We killed the wrong man.',
-    'Sauce was the rat. The palace proved that.',
-    'It also proved he had help on the inside.',
-    'There is one place left. We are at quota.',
+    'Willy gave them the strip. He did not give them this house.',
+    'Sauce did. The palace proved it.',
+    'Short Bus. Sauce signed it. One of tonight’s prospects countersigned the breach.',
+    'There is one place left. Five prospects are standing for it.',
     'We don’t put a question inside this family.',
     'Nuclear option.',
     'Kittenboss too?',
     "We'll see.",
     'She has to go too.',
+  ]);
+  assert.deepEqual(script.beatById('IN-340').lines.map((line) => line.say), [
+    'You did what was asked. You kept your mouth shut. You handled yourself at the Bing. You flew the beef run. When it came time to stand up, you stood up.',
+    'You carried Lou’s case. You held his house when they came for it. You walked into their palace alone and ended the war.',
   ]);
   assert.deepEqual(script.beatById('IN-110').lines.map((line) => line.say), [
     'All prospects. On your knees.',

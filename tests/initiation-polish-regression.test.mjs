@@ -54,9 +54,13 @@ test('the ritual browser look probe starts from canvas centre and does not injec
     'the supposedly horizontal look probe does not reject unintended pitch');
 });
 
-test('family acknowledgements are queued and animate instead of wall-clock overlapping', () => {
+test('family acknowledgements use the bounded delivered-VO crowd schedule', () => {
   assert.doesNotMatch(main, /function sayOverlapping/);
   assert.doesNotMatch(main, /sayOverlapping\(/);
-  assert.match(main, /sayBeat\('IN-500',[\s\S]{0,180}sayBeat\('IN-510'/);
+  assert.match(main, /buildRoomReactionSchedule\(/);
+  assert.match(main, /ambientVoice:\s*entry\.ambient/);
+  assert.match(main, /speakerId:\s*entry\.line\.speakerKey/);
+  assert.match(main, /startRoomReaction\(\)/);
+  assert.doesNotMatch(main, /sayBeat\('IN-500',[\s\S]{0,180}sayBeat\('IN-510'/);
   assert.match(main, /poseCeremonySalute\(/);
 });

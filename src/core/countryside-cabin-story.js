@@ -248,6 +248,10 @@ export class CountrysideCabinStory {
     if (!this.propertyWalked()) return this.blocked('explore_first');
     return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL, (state) => {
       state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+      /* `MARGO_DATE_CALL` is the legacy save key for "the date is scheduled."
+       * The later incoming apartment call is retired, but its exact-once key
+       * stays registered so old and new saves agree at the Silver Room gate. */
+      state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
       /* And the setup line goes with it, so a save that reached the call
        * without hearing it is never handed it afterwards. */
       if (!state.story.timeEvents.includes(TIME_EVENT_IDS.CABIN_MARGO_READY)) {
@@ -835,14 +839,24 @@ export class CountrysideCabinStory {
 
   billyCallReady() {
     return !this.legacySilverCaseRoute()
-      && this.morningWakeComplete()
+      && this.blackedOut()
       && !this.billyCallComplete();
   }
 
   completeBillyCall() {
     if (this.billyCallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
-    if (!this.morningWakeComplete()) return this.blocked('morning_wake_incomplete');
+    if (this.legacySilverCaseRoute()) return this.blocked('legacy_silver_case_route');
+    if (!this.blackedOut()) return this.blocked('morning_not_reached');
     return this.mark(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL, (state) => {
+      /* Fresh Act One has one morning call. Retain the retired Ape markers in
+       * the same exact-once mutation, without charging their old three-minute
+       * clock cost, so older saves and callers normalize to the same shape. */
+      for (const legacyId of [
+        TIME_EVENT_IDS.CABIN_MORNING_CALL,
+        TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
+      ]) {
+        if (!state.story.timeEvents.includes(legacyId)) state.story.timeEvents.push(legacyId);
+      }
       state.events[EVENT_IDS.CABIN_BILLY_CALL].status = 'answered';
       state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
       state.missions[MISSION_IDS.BADA_BING_TWO].status = 'available';
@@ -892,9 +906,13 @@ export class CountrysideCabinStory {
     if (!this.fireCleanupComplete()) return 'fire_cleanup';
     if (!this.drankAfterCleanup()) return 'drink';
     if (!this.blackedOut()) return 'blackout';
-    if (!this.morningCallComplete()) return 'morning_call';
-    if (!this.morningWakeComplete()) return 'morning_wake';
-    if (this.legacySilverCaseRoute()) return 'complete';
+    /* Retired post-heist saves still finish their already-authored Ape wake.
+     * Fresh Act One skips those phases and receives one Booski/Billy call. */
+    if (this.legacySilverCaseRoute()) {
+      if (!this.morningCallComplete()) return 'morning_call';
+      if (!this.morningWakeComplete()) return 'morning_wake';
+      return 'complete';
+    }
     if (!this.billyCallComplete()) return 'billy_call';
     return 'complete';
   }
@@ -1175,21 +1193,23 @@ export class CountrysideCabinStory {
           done: this.blackedOut(),
           required: true,
         },
-        {
-          id: TIME_EVENT_IDS.CABIN_MORNING_CALL,
-          label: 'Answer the morning call',
-          done: this.morningCallComplete(),
-          required: true,
-        },
-        {
-          id: TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
-          label: 'Get ready to leave the cabin',
-          done: this.morningWakeComplete(),
-          required: true,
-        },
       );
-      if (!this.legacySilverCaseRoute()
-        && (this.morningWakeComplete() || this.billyCallComplete())) {
+      if (this.legacySilverCaseRoute()) {
+        out.push(
+          {
+            id: TIME_EVENT_IDS.CABIN_MORNING_CALL,
+            label: 'Answer the morning call',
+            done: this.morningCallComplete(),
+            required: true,
+          },
+          {
+            id: TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
+            label: 'Get ready to leave the cabin',
+            done: this.morningWakeComplete(),
+            required: true,
+          },
+        );
+      } else if (this.blackedOut() || this.billyCallComplete()) {
         out.push({
           id: TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
           label: 'Answer Booskibro about Billy Hotdog',

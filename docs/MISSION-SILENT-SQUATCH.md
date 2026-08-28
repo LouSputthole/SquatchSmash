@@ -22,7 +22,7 @@ exploration → cold-blooded execution → full horror behind laboratory glass.*
 |---|---|
 | **Squatchanium** | the enriched power material — what is in the case |
 | **Silent Squatch** | the secret weapons programme |
-| **Fat Squatch** | the completed deployable payload (already flown in the Enola Squatch) |
+| **Fat Squatch** | the completed deployable payload (already flown in SQUATCHOLA GAY) |
 | **Silent Night** | the laboratory cleanup protocol |
 
 ## The case
@@ -62,7 +62,7 @@ and the gold-and-purple glow pours toward Lou — purple rolling across the wall
 gold on his eyes, the cigar smoke, his hands.
 
     PROSPECT   What's inside?
-    LOU        You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.
+    LOU        Squatchanium. Booski will show you what that means downstairs. Then you’ll wish I hadn’t named it.
                [closes the case]
     LOU        Go deliver it to Booski. He's in the basement.
                [slides the case over]

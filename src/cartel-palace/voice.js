@@ -181,13 +181,13 @@ export const PALACE_VOICE_LINES = Object.freeze({
     direction: 'Dry, almost amused, and then not amused at all by the end of the sentence.',
   },
   'tony.evidence.ledger.log': {
-    voice: 'player', hold: 3.8,
-    text: 'Every other Friday. In Mark’s own hand. So Sauce was involved.',
-    direction: 'Ice-flat. This is the line where the rescue stops being a rescue.',
+    voice: 'player', hold: 5.4,
+    text: 'Short Bus. Consultant fourteen. Sauce was inside. One of our prospects countersigned the breach.',
+    direction: 'Ice-flat. The rescue becomes a betrayal, then the redacted countersign opens one final question.',
   },
   'tony.evidence.complete': {
     voice: 'player', hold: 4.2,
-    text: 'Six months I tore this state apart for you. You were down here getting paid.',
+    text: 'Three days we tore this state apart looking for you. You were down here getting paid.',
     direction: 'Spoken to a man who is two rooms away and does not know it yet. Very still.',
   },
 
@@ -258,7 +258,7 @@ export const PALACE_VOICE_LINES = Object.freeze({
   },
   'guard.contact.three': {
     voice: 'cartel-guard', hold: 2.6,
-    text: 'Somebody wake Mister Mark. Now.',
+    text: 'Somebody wake the boss. Now.',
     direction: 'Hard and quiet. The worst part of his night is telling the boss.',
   },
   'guard.search.one': {

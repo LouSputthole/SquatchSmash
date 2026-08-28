@@ -64,6 +64,25 @@ const BANK_VOICES = Object.freeze({
   Teller: 'heist-customer',
 });
 
+/*
+ * Exact ids retired by the owner's continuity rewrite.
+ *
+ * The heist generator cannot own the whole `heist.` prefix because effects
+ * share it. It used to own only ids still present in ALL_HEIST_DIALOGUE,
+ * which meant a rewritten line vanished from the script but survived forever
+ * in the manifest, recording sheets and search results. Keep this list small
+ * and explicit: these are the obsolete promises of a seven-o'clock verdict
+ * and membership beat that the current route no longer makes.
+ */
+const RETIRED_HEIST_DIALOGUE_CUES = Object.freeze([
+  'heist.lou_call',
+  'heist.prospect_home',
+  'heist.lou_prospect_verdict',
+  // Replaced by `heist.prospect_lobby_quiet`: the campaign no longer breaks
+  // THE TAKE's straight-faced robbery tension with an unrelated game wink.
+  'heist.prospect_counterstrike',
+]);
+
 function voiceFor(entry) {
   const byCharacter = VOICES[entry.speakerId];
   if (byCharacter) return byCharacter;
@@ -77,7 +96,10 @@ function voiceFor(entry) {
 
 /** The set of manifest names this tool owns. Effects are not in it. */
 export function heistDialogueCueNames() {
-  return new Set(Object.values(ALL_HEIST_DIALOGUE).map((entry) => entry.cue));
+  return new Set([
+    ...Object.values(ALL_HEIST_DIALOGUE).map((entry) => entry.cue),
+    ...RETIRED_HEIST_DIALOGUE_CUES,
+  ]);
 }
 
 export function collectHeistVoiceCues() {
@@ -155,6 +177,9 @@ export function checkHeistVoiceManifest(manifest) {
     else if (actual.voice !== cue.voice
       || actual.say !== cue.say
       || (actual.direction ?? '') !== (cue.direction ?? '')) failures.push(`drifted cue ${name}`);
+  }
+  for (const name of declared.keys()) {
+    if (!expected.has(name)) failures.push(`stale cue ${name}`);
   }
   return failures;
 }

@@ -5,7 +5,7 @@ import { makePlant } from '../world/props.js';
 import { markSemanticPlacement } from '../core/semantic-placement.js';
 import { markSpatialPrimitive } from '../core/spatial-contract.js';
 import { PALACE_ANCHORS } from './anchors.js';
-import { EVIDENCE_IDS } from './mission.js';
+import { EVIDENCE_IDS, PALACE_CASE_ROUTE_EVIDENCE } from './mission.js';
 
 export { PALACE_ANCHORS } from './anchors.js';
 
@@ -1234,8 +1234,9 @@ function evidenceLedger(parent, colliders) {
   const target = box([0.62, 0.09, 0.78], [0, 0.94, 0], ledgerPaper, 'evidence.payment-ledger');
   target.rotation.y = -0.18;
   target.userData.evidenceId = EVIDENCE_IDS.PAYMENT_LEDGER;
-  target.userData.evidenceTitle = 'Mark\'s payment ledger';
-  target.userData.evidenceDetail = 'Sauce is listed as a consultant, paid every other Friday, and the first payment predates the attack on Lou\'s house. There is a cob of corn holding down his recipe card.';
+  target.userData.evidenceTitle = 'Cartel payment ledger';
+  target.userData.evidenceDetail = `${PALACE_CASE_ROUTE_EVIDENCE.operation} route addendum: ${PALACE_CASE_ROUTE_EVIDENCE.cargo} to ${PALACE_CASE_ROUTE_EVIDENCE.destination}, delivery ${PALACE_CASE_ROUTE_EVIDENCE.deliveryAt}; breach window ${PALACE_CASE_ROUTE_EVIDENCE.breachAt} ${PALACE_CASE_ROUTE_EVIDENCE.breachRelation.toLowerCase()}. ${PALACE_CASE_ROUTE_EVIDENCE.source} signs both entries; ${PALACE_CASE_ROUTE_EVIDENCE.insideContact} countersigns the breach. A cob of corn pins Sauce's recipe card underneath.`;
+  target.userData.evidenceDatum = PALACE_CASE_ROUTE_EVIDENCE;
   desk.add(target);
   for (let i = 0; i < 7; i++) {
     target.add(box([0.46, 0.008, 0.018], [0, 0.052, -0.24 + i * 0.075], M.ink, 'ledger-entry', { cast: false }));
@@ -1245,6 +1246,35 @@ function evidenceLedger(parent, colliders) {
     box([0.48, 0.01, 0.026], [0, 0.056, 0.06], M.red, 'ledger-flagged-entry', { cast: false }),
     box([0.06, 0.03, 0.8], [-0.33, 0.9 - 0.9, 0], M.tile, 'ledger-spine', { cast: false }),
   );
+
+  /* The route addendum is a real object on the page, not a conclusion that
+   * appears only in Tony's subtitle. The brass case bar and paired red time
+   * stamps make it read as a different record at desk distance; the exact
+   * datum lives on both the inspect target and the slip for deterministic
+   * evidence/continuity checks. Appended after the established ledger pieces
+   * so their geometry traversal paths do not churn. */
+  const routeSlip = new THREE.Group();
+  routeSlip.name = 'silver-case-route-slip';
+  routeSlip.position.set(0.03, 0.064, 0.18);
+  routeSlip.rotation.y = 0.05;
+  routeSlip.userData.evidenceDatum = PALACE_CASE_ROUTE_EVIDENCE;
+  routeSlip.add(
+    box([0.5, 0.006, 0.24], [0, 0, 0], M.paper, 'silver-case-route-slip.paper', { cast: false }),
+    box([0.42, 0.007, 0.026], [0, 0.006, -0.085], M.brass, 'silver-case-route-slip.case-code', { cast: false }),
+    box([0.1, 0.008, 0.034], [-0.15, 0.007, 0.07], M.red, 'silver-case-route-slip.time-stamp', { cast: false }),
+    box([0.1, 0.008, 0.034], [0.15, 0.007, 0.07], M.red, 'silver-case-route-slip.time-stamp', { cast: false }),
+    box([0.34, 0.008, 0.018], [0, 0.007, 0.105], M.red, 'silver-case-route-slip.inside-countersign', { cast: false }),
+  );
+  for (let index = 0; index < 3; index++) {
+    routeSlip.add(box(
+      [0.34 - index * 0.035, 0.007, 0.012],
+      [-0.02, 0.006, -0.035 + index * 0.035],
+      M.ink,
+      'silver-case-route-slip.field',
+      { cast: false },
+    ));
+  }
+  target.add(routeSlip);
   desk.add(
     box([0.02, 0.014, 0.15], [0.13, 0.995, 0.06], M.brass, 'mark-office-desk.pen', { cast: false }),
   );
@@ -1426,7 +1456,7 @@ function evidenceSecurityStill(parent, colliders) {
   target.rotation.x = 0.12;
   target.userData.evidenceId = EVIDENCE_IDS.SECURITY_STILL;
   target.userData.evidenceTitle = 'Cartel dossier: SAUCE, R.';
-  target.userData.evidenceDetail = 'Gate camera, 02:14. No restraints, no escort. Sauce keys himself in carrying a bottle for Mark, and the file has him on the payroll.';
+  target.userData.evidenceDetail = 'Gate camera, 02:14. No restraints, no escort. Sauce keys himself in carrying a bottle for the boss, and the file has him on the payroll.';
   parent.add(target);
   target.add(box([1.5, 0.98, 0.07], [0, 0, -0.03], M.iron, 'security-still-bezel'));
 

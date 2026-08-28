@@ -246,8 +246,8 @@ export const SCENES = Object.freeze({
   }),
   enola_squatch: Object.freeze({
     id: 'enola_squatch',
-    label: 'ENOLA SQUATCH — the crew',
-    short: 'Enola',
+    label: 'SQUATCHOLA GAY — the crew',
+    short: 'SQUATCHOLA GAY',
     rig: 'day',
     modules: Object.freeze(['src/enolasquatch/crew.js']),
     note: 'The same block rig as the Beef Run, and unlike the Beef Run it '
@@ -1034,10 +1034,10 @@ export const APPEARANCES = Object.freeze([
     name: 'Big Uncle Lou',
     scene: 'bing_party',
     where: 'the north end of the floor, beside Billy HotDog',
-    model: BIG_UNCLE_LOU_BING,
-    from: { wardrobe: 'BIG_UNCLE_LOU_BING' },
+    model: BIG_UNCLE_LOU_MANSION,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/bing/hotdog-party.js',
-    evidence: 'model: { ...BIG_UNCLE_LOU_BING, face: faces.has(\'lou.png\')',
+    evidence: 'model: { ...BIG_UNCLE_LOU_MANSION, face: faces.has(\'lou.png\')',
   }),
   row({
     character: CHARACTER_IDS.LOU,
@@ -1100,7 +1100,7 @@ export const APPEARANCES = Object.freeze([
     name: 'Big Uncle Lou',
     scene: 'mansion_house',
     variant: 'return_briefing',
-    where: 'his office briefing after the Enola, behind the same desk',
+    where: 'his office briefing after SQUATCHOLA GAY, behind the same desk',
     model: BIG_UNCLE_LOU_MANSION_RETURN,
     from: { wardrobe: 'BIG_UNCLE_LOU_MANSION_RETURN' },
     module: 'src/mansion/cast.js',
@@ -2006,7 +2006,7 @@ export const APPEARANCES = Object.freeze([
     evidence: 'model: () => withFace(GRATIN, FACES.gratin),',
     /* This post was Aubbie's until the 2026-08-13 playtest: "Voice lines
      * from Aubbie in the siege? he should be dead." He is -- PROJECT SILENT
-     * SQUATCH ends with the "Eliminate Aubbie" objective eight hours before
+     * SQUATCH ends with the "Eliminate Aubbie" objective six hours before
      * the siege starts -- so Gratin, who has no death anywhere in the
      * campaign, inherits the magazines and the wounded guard.
      * tests/mansion-siege-people.test.mjs holds the door on the dead by

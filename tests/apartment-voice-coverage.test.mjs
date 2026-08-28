@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  BIG_NIGHT_MARGO_DRESS_ASK,
   BIG_NIGHT_MARGO_WAKE,
   NO_WAKE_LOU_CALL,
   SILVER_ROOM_COME_HOME,
@@ -88,6 +89,7 @@ test('the apartment ledger owns every physical Margo stayover cue, including the
     SILVER_ROOM_COME_HOME,
     SILVER_ROOM_DRESS_ASK,
     BIG_NIGHT_MARGO_WAKE,
+    BIG_NIGHT_MARGO_DRESS_ASK,
   ];
 
   for (const definition of definitions) {
@@ -109,4 +111,14 @@ test('the apartment ledger owns every physical Margo stayover cue, including the
   }
 
   assert.deepEqual(checkApartmentVoiceManifest(syncApartmentVoiceManifest({ sfx: [] })), []);
+  const retired = syncApartmentVoiceManifest({
+    sfx: [
+      { name: 'radio.click', file: 'keep.wav' },
+      { name: 'vo.call.margo.date.1', voice: 'margo', say: 'Retired duplicate call.' },
+    ],
+  });
+  assert.deepEqual(retired.sfx.filter((cue) => cue.name === 'radio.click'), [
+    { name: 'radio.click', file: 'keep.wav' },
+  ]);
+  assert.equal(retired.sfx.some((cue) => cue.name.startsWith('vo.call.margo.date.')), false);
 });

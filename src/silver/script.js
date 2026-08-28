@@ -1715,50 +1715,6 @@ export function buildScripts(ctx) {
         + 'I’m getting back in the car and you can explain it to the man on the door.',
       hold: 4.8,
     },
-    good: {
-      who: DATE.name,
-      line: 'I had a genuinely good time. Don’t ruin it by being in a hurry. '
-        + '<em>(She writes nothing down, because she does not have to.)</em> '
-        + 'Four in the morning. I’m there. You know where the door is.',
-      hold: 6.0,
-    },
-    gentleman: {
-      who: DATE.name,
-      line: '<em>(A pause, and then something in her face resettles.)</em> …Alright. '
-        + 'Come in some night. Late. I cook better for one person than for forty and '
-        + 'nobody has ever let me prove it.',
-      hold: 5.2,
-    },
-    polite: {
-      who: DATE.name,
-      line: 'That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice. <em>(The coat check is already coming across the floor with '
-        + 'her coat, which means she asked somebody a while ago.)</em>',
-      hold: 4.8,
-    },
-    awkward: {
-      who: DATE.name,
-      line: 'I’m going to let them call me a car. <em>(Politely. Very politely.)</em> '
-        + 'Thank you for dinner. The band was excellent.',
-      hold: 5.0,
-    },
-    disaster: {
-      who: DATE.name,
-      line: '<em>(She stands up, puts her napkin on the chair rather than the table, '
-        + 'and goes back the way you brought her in.)</em>',
-      hold: 5.0,
-    },
-    insult: {
-      who: DATE.name,
-      line: '<em>(She looks at the money for a long moment. Then at you. Then she picks '
-        + 'up her bag and does not touch it.)</em> …Huh.',
-      hold: 5.4,
-    },
-    'from-a-distance': {
-      who: DATE.name,
-      line: 'I like you. <em>(She is laughing, and she is also standing.)</em> From a '
-        + 'distance. A good distance. About this one.',
-      hold: 5.0,
-    },
   };
 
   /* Small authored moments outside a conversation tree still live in the
@@ -1816,7 +1772,7 @@ export const DATE_BARKS = {
     'It smells exactly like my own walk-in and I am furious about how much better it is.',
   ],
   kitchen: [
-    '<em>(Counting, under her breath, without meaning to.)</em> …Eleven of them on a Tuesday. '
+    '<em>(Counting, under her breath, without meaning to.)</em> …Eleven of them in one service. '
       + 'I have four and I have to beg.',
     'Everybody in here knows you. <em>(Beat.)</em> Everybody in here is <em>mid-service</em>, and they still know you.',
     'That man put down a pan. <em>(Flatly.)</em> I run a kitchen. Nobody puts down a pan.',
@@ -1858,7 +1814,7 @@ export const DATE_BARKS = {
   waiting2: ['Right — are we doing something, or is this the evening?'],
   waiting3: ['I stand up for fourteen hours a day. I did not dress like this to keep doing it.'],
   hazard: ['<em>(As a tray goes past her ear.)</em> Thank you. Genuinely, thank you.'],
-  show: ['Seven of them. On a Tuesday. In a room this size.'],
+  show: ['Seven of them. In a room this size.'],
 };
 
 /** What the club sounds like when you are not being spoken to. */

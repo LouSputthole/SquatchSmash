@@ -22,7 +22,7 @@
 
 import * as THREE from 'three';
 
-import { EVIDENCE_IDS } from './mission.js';
+import { EVIDENCE_IDS, PALACE_CASE_ROUTE_EVIDENCE } from './mission.js';
 
 export const FINALE_SPEAKERS = Object.freeze({
   TONY: Object.freeze({ name: 'TONY', colour: '#cfd4e0', voice: 'player', slug: 'tony' }),
@@ -70,20 +70,20 @@ export const FINALE_BEATS = Object.freeze({
       { direction: 'Unhurried cartel-boss calm. A man offering dinner to the intruder in his house, certain the house wins.' }),
   ],
   'arrival.loud': [
-    M('You shot your way through my payroll to ruin a Tuesday dinner. Sit down anyway. The veal is getting cold.', 5.4,
+    M('You shot your way through my payroll to ruin a quiet dinner. Sit down anyway. The veal is getting cold.', 5.4,
       { direction: 'Dry, annoyed, unafraid — the gunfire outside was an inconvenience to his evening, not a threat to his life.' }),
   ],
   accuse: [
-    T('Six months. Six months I burned this state down looking for you, Sauce.', 4.2,
+    T('Three days. Three days we burned this state down looking for you, Sauce.', 4.2,
       { direction: 'Low and level, the anger already spent. He is not asking a question.' }),
   ],
   'accuse.belongings': [
     T('Your knives are folded in the guest suite next to your passport. Prisoners don’t get turn-down service.', 5.0,
       { direction: 'Flat prosecutor’s delivery, laying the first exhibit on the table.' }),
   ],
-  'accuse.ledger': [
-    T('Mark’s ledger pays you every other Friday. Hostages don’t get direct deposit.', 4.4,
-      { direction: 'Second exhibit. Drier than the first — the joke is a scalpel, not a smile.' }),
+  'accuse.case-route': [
+    T(`Sauce, SHORT BUS logged the Silver Case at Lou’s mansion at ${PALACE_CASE_ROUTE_EVIDENCE.deliveryAt}, the breach at ${PALACE_CASE_ROUTE_EVIDENCE.breachAt}, and an active prospect countersigned the inside timing. You sold them the address and the hour. Somebody in our line helped you.`, 8.4,
+      { direction: 'The hard exhibit: two times, one route, Sauce on both rows, and one redacted inside countersign. An accusation, not a discovery.' }),
   ],
   'accuse.still': [
     T('And the cameras caught you waving them goodnight. Nobody has ever chained you to anything.', 4.8,
@@ -217,8 +217,8 @@ export const FINALE_BEATS = Object.freeze({
    * setting.
    * ---------------------------------------------------------------- */
   'reprisal.enter.cold': [
-    M('You shot my chef in my dining room. On a Tuesday.', 3.8,
-      { direction: 'Back through the door, unhurried, genuinely aggrieved about the day of the week.' }),
+    M('You shot my chef in my dining room. At my own table.', 3.8,
+      { direction: 'Back through the door, unhurried, genuinely aggrieved about the violation of his home.' }),
     M('I was going to let you leave here with a theory. Now I have to do the leaving-you-here part myself.', 5.4,
       { engage: true, direction: 'Reasonable to the last syllable. The rifle comes up on "myself" and nothing in his voice changes.' }),
   ],
@@ -249,7 +249,7 @@ export const FINALE_BEATS = Object.freeze({
   'reprisal.final.cold': [
     M('No vest. No boys. No chef.', 3.0,
       { direction: 'Counting what is gone, in a tone that suggests he has done this arithmetic before.' }),
-    M('Just the man who came to my house on a Tuesday, and me.', 4.2,
+    M('Just the man who came to my house with a ledger, and me.', 4.2,
       { engage: true, direction: 'Almost hospitable. He walks out into the open on purpose.' }),
   ],
   'reprisal.final.enraged': [
@@ -339,7 +339,7 @@ export function composeConfrontation({ evidenceFound = [], alarmRaised = false }
   const beats = [alarmRaised ? 'arrival.loud' : 'arrival.quiet', 'accuse'];
   const accuseBeat = Object.freeze({
     [EVIDENCE_IDS.BELONGINGS]: 'accuse.belongings',
-    [EVIDENCE_IDS.PAYMENT_LEDGER]: 'accuse.ledger',
+    [EVIDENCE_IDS.PAYMENT_LEDGER]: 'accuse.case-route',
     [EVIDENCE_IDS.SECURITY_STILL]: 'accuse.still',
   });
   for (const id of valid) if (found.includes(id)) beats.push(accuseBeat[id]);

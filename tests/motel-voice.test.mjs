@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import { allMotelVoiceLines } from '../src/motel/voice-catalog.js';
+import { ENDING, NODES, SNOW_BARKS } from '../src/motel/dialogue.js';
 import {
   MOTEL_VOICE_PROFILE,
   motelSpokenWords,
@@ -53,4 +54,22 @@ test('Motel antagonists do not borrow recurring Family or Bing guard voices', ()
   assert.equal(MOTEL_VOICE_PROFILE.Clerk, 'npc-male');
   assert.notEqual(MOTEL_VOICE_PROFILE.Rico, 'cecilio');
   assert.notEqual(MOTEL_VOICE_PROFILE.Chino, 'doorman');
+});
+
+test('the Motel is an overnight cover and Snow owns the daylight drop home', () => {
+  const html = fs.readFileSync(new URL('../motel.html', import.meta.url), 'utf8');
+  assert.match(NODES.snowBrief.line, /deal is our cover until daylight/i);
+  assert.match(ENDING[0][1], /wait for daylight.*block is clean.*put you home/i);
+  assert.match(html, /id="continueBtn"[^>]*>[^<]*LET SNOW DROP YOU HOME/i);
+});
+
+test('Snow escalates the second no-speeches warning instead of repeating the briefing', () => {
+  const firstWarning = NODES.snowBrief.options.threat.reply;
+  assert.deepEqual(firstWarning, ['Snow', 'Buy. Leave. No speeches.']);
+  assert.equal(
+    SNOW_BARKS[0],
+    'Buy it and leave. I said no speeches, and I can see one forming.',
+  );
+  assert.notEqual(SNOW_BARKS[0], firstWarning[1]);
+  assert.match(SNOW_BARKS[0], /I said no speeches.*one forming/i);
 });

@@ -93,6 +93,10 @@ test('the table, its rail, its chips and all four chairs survive as furniture', 
 
   assert.ok(world.poker.felt?.isMesh, 'the felt is still there');
   assert.ok(world.poker.rail?.isMesh, 'the rail is still there');
+  assert.equal(world.poker.felt.scale.x, world.poker.felt.scale.z,
+    'the green playing surface must be circular at the source');
+  assert.equal(world.poker.rail.scale.x, world.poker.rail.scale.z,
+    'the surrounding rail must keep a consistent circular border');
   assert.ok(world.root.getObjectByName('luxury-poker-pedestal'), 'the pedestal is still there');
   assert.equal(world.poker.chips.length, 24, 'the chips are still on the felt');
   assert.equal(world.poker.seats.length, 4, 'all four chairs stay: he has the room, not the players');

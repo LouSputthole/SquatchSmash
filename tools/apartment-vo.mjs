@@ -28,6 +28,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  BIG_NIGHT_MARGO_DRESS_ASK,
   BIG_NIGHT_MARGO_WAKE,
   SILVER_ROOM_COME_HOME,
   SILVER_ROOM_DRESS_ASK,
@@ -42,6 +43,8 @@ const OWNED_PREFIXES = Object.freeze([
   'vo.door.refusal.',
   'vo.margo.comehome.',
   'vo.margo.wake.',
+  /* Retired when the cabin became the sole date-scheduling conversation. */
+  'vo.call.margo.date.',
 ]);
 
 function owned(name) {
@@ -75,6 +78,7 @@ export function collectApartmentVoiceCues() {
     ...definitionCues(SILVER_ROOM_COME_HOME),
     ...definitionCues(SILVER_ROOM_DRESS_ASK),
     ...definitionCues(BIG_NIGHT_MARGO_WAKE),
+    ...definitionCues(BIG_NIGHT_MARGO_DRESS_ASK),
   ];
 }
 

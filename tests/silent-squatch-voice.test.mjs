@@ -170,7 +170,7 @@ const SPEC_LINES = Object.freeze([
   ['SNOW', 'Try not to make more work for me tonight.'],
 
   ['PROSPECT', "What's inside?"],
-  ['LOU', "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did."],
+  ['LOU', 'Squatchanium. Booski will show you what that means downstairs. Then you’ll wish I hadn’t named it.'],
   ['LOU', "Go deliver it to Booski. He's in the basement."],
   ['LOU', 'Hey, kid.'],
   ['LOU', 'Nice job.'],

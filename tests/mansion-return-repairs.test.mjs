@@ -28,6 +28,9 @@ await ensureThreeShim();
 
 const THREE = await import('three');
 const { mountFoyerRepairs } = await import('../src/mansion/repairs.js');
+const {
+  applySnowRepairPose, createSnowRepairHammer, snowRepairPoseAt,
+} = await import('../src/mansion/snow-repair-motion.js');
 const { SEQUENCES } = await import('../src/mansion/script.js');
 const { SNOW, SNOW_MAINTENANCE } = await import('../src/core/wardrobe.js');
 const {
@@ -196,5 +199,40 @@ test('Snow gets a line about how long it is going to take', () => {
   assert.match(said, /weeks|Christmas/, 'the owner asked for how long it is going to take');
   for (const line of [...SEQUENCES.snowRepairFoyer, ...SEQUENCES.snowRepairIdle]) {
     assert.equal(line.speaker, 'SNOW');
+  }
+});
+
+test('Snow holds a real repair hammer built at hand-socket scale', () => {
+  const hammer = createSnowRepairHammer();
+  assert.equal(hammer.name, 'snow-repair-hammer');
+  assert.deepEqual(hammer.scale.toArray(), [1, 1, 1]);
+  const names = [];
+  hammer.traverse((part) => { if (part.name) names.push(part.name); });
+  assert.ok(names.includes('snow-repair-hammer-handle'));
+  assert.ok(names.includes('snow-repair-hammer-head'));
+  const bounds = new THREE.Box3().setFromObject(hammer);
+  assert.ok(bounds.getSize(new THREE.Vector3()).y > 0.35, 'the handle is visibly longer than a fist');
+});
+
+test('Snow’s repair loop moves his hammering joints without moving his post', () => {
+  const joint = () => ({ rotation: new THREE.Euler() });
+  const npc = {
+    group: new THREE.Group(),
+    parts: {
+      body: joint(), head: joint(), armR: joint(), armL: joint(),
+      foreR: joint(), foreL: joint(),
+    },
+  };
+  npc.group.position.set(-3.9, 6, 42.85);
+  const rootBefore = npc.group.position.clone();
+  const raised = applySnowRepairPose(npc, 0);
+  const down = applySnowRepairPose(npc, 1 / (1.45 * 2));
+  assert.ok(down.strike > raised.strike + 0.9, 'the hammer has a full readable downstroke');
+  assert.notEqual(npc.parts.armR.rotation.x, raised.armRX);
+  assert.ok(npc.group.position.equals(rootBefore), 'the pose may not translate Snow through the worksite');
+
+  for (const at of [0, 0.25, 0.5, 0.75, 1]) {
+    const pose = snowRepairPoseAt(at);
+    for (const value of Object.values(pose)) assert.ok(Number.isFinite(value));
   }
 });

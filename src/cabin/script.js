@@ -2,10 +2,10 @@
  * THE HIDEOUT: BELOW THE FLOORBOARDS
  *
  * Cabin dialogue is authored as data so the runtime, tests, recording queue,
- * subtitles and mouth animation all read the same words.  Margo deliberately
- * does not have a call in this file: another owner is building that call.
- * MARGO_CALL_READY describes the stable integration seam and Tony's one setup
- * line without creating a second, competing conversation.
+ * subtitles and mouth animation all read the same words. The Cabin owns the
+ * one Margo conversation that schedules Front & Center. MARGO_CALL_READY is
+ * an observational browser seam for presentation and analytics; it is not an
+ * invitation for another module to ring a competing call.
  */
 
 /* Existing Lag hint banks already live under vo.cabin.lag.  The dungeon owns
@@ -204,7 +204,7 @@ const RAW_BEATS = Object.freeze([
       line('GRATIN', "Would you mind taking care of these two for me?"),
       line('GRATIN', "Only if it's not an inconvenience. I've got to get the fire ready, and it would mean a great deal."),
       line('TONY', "You make murder sound like helping somebody move a sofa."),
-      line('GRATIN', "A sofa doesn't know who the mole is."),
+      line('GRATIN', "A sofa can't tell us there is a mole."),
       action('execution-choice', 'Take the pistol? [1] YES  [2] NO', { seconds: 10 }),
     ],
   },
@@ -270,7 +270,7 @@ const RAW_BEATS = Object.freeze([
     lines: [
       line('GRATIN', "Canvas first. Fold from the shoulders, then the feet. Tape tight or the stairs become educational."),
       line('TONY', "You've got a system."),
-      line('GRATIN', "Wake taught Booski. Billy HotDog made us improve the labels."),
+      line('GRATIN', 'I learned the hard way. The labels came after the second hard way.'),
       line('TONY', "That's somehow worse than no system."),
     ],
   },
@@ -432,8 +432,8 @@ export function cabinBeatActions(id) {
   return (cabinBeat(id)?.lines || []).filter((entry) => entry.action || entry.stage);
 }
 
-const phoneCall = (id, from, caller, vo, lines, replies) => Object.freeze({
-  id, from, caller, vo, allowHangup: false,
+const phoneCall = (id, from, caller, vo, lines, replies, { outgoing = false } = {}) => Object.freeze({
+  id, from, caller, vo, allowHangup: false, outgoing,
   lines: Object.freeze(lines),
   replies: Object.freeze(replies),
 });
@@ -456,31 +456,31 @@ export const CABIN_PHONE_CALLS = Object.freeze({
     ],
   ),
   /**
-   * BEAT 4'S LAST THING. The only call at this cabin he makes.
+   * BEAT 4'S LAST THING. The only call at this cabin he makes, and the only
+   * player-facing conversation that schedules Front & Center.
    *
    * She wrote the number on the back of something at the Bing and he has been
    * carrying it since. He rings it standing on a porch two hours out of the
    * city, the morning after the first man he ever killed, and neither of them
-   * says a word about any of that. Play it straight: it is a man asking a
-   * woman if she would like to do something, and being bad at it.
+   * says a word about any of that. Play it straight: two adults make a plan,
+   * quickly, and neither turns it into a speech.
    */
   MARGO_FIRST_CALL: phoneCall(
     'cabin.margo.first_call',
     'MARGO',
     CABIN_SPEAKERS.MARGO,
-    'call.margo.cabin_first',
+    'call.margo.cabin_date',
     [
-      "Whoever this is, it's early.",
-      "You're the one from the club. The one who didn't ask me for anything.",
-      "Where are you? That's birds.",
-      "Then call me when you're back in the city and I'll let you buy me something.",
+      'Tony. I was starting to think the number was decorative.',
+      'Sunday. Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you.',
+      'Good. Rye, one cube. And wear something that has met an iron.',
     ],
     [
-      "It's Tony. From the Bing. You gave me this number.",
-      "I did ask you for something. I asked for the number.",
-      "Out of town. Work thing. It's very boring and there's a lot of trees.",
-      "That's the plan. Nothing else on for the week.",
+      'Hello? Tony. From the Bing.',
+      'Work dragged me out of town. I’m calling before the trees learn my name.',
+      'Sunday. Front & Center. Silver Room. Nine. I won’t waste it.',
     ],
+    { outgoing: true },
   ),
   /**
    * BEAT 5. Booski about the Captain, which is the Beef Run.
@@ -519,16 +519,16 @@ export const CABIN_PHONE_CALLS = Object.freeze({
     CABIN_SPEAKERS.BOOSKI,
     'call.booski.cabin_billy',
     [
-      "You're done up there. Come back.",
+      "You awake? Good. You're done up there. Come back.",
       "Billy Hotdog is getting out this afternoon. The Bing is doing something about it tonight.",
       "Everyone will be there. That includes you now.",
-      "Drive careful. Don't stop anywhere.",
+      "Car's out front. Clean shirt, no questions. Don't stop anywhere.",
     ],
     [
-      "Done. Understood.",
+      "Awake enough. Done. Understood.",
       "Billy's out. That's good news.",
       "I'll be there.",
-      "I won't.",
+      "Clean shirt. No stops. I got it.",
     ],
   ),
   GRATIN_BASEMENT: phoneCall(
@@ -549,6 +549,8 @@ export const CABIN_PHONE_CALLS = Object.freeze({
       "Right. Completely normal phone call. On my way.",
     ],
   ),
+  /* Legacy post-heist saves can still owe this call. Fresh Act One never rings
+   * it: Booski's Billy call now owns the whole canonical morning handoff. */
   APE_MORNING: phoneCall(
     'cabin.ape.morning',
     'APE',
@@ -570,7 +572,7 @@ export const CABIN_PHONE_CALLS = Object.freeze({
 export const MARGO_CALL_READY = Object.freeze({
   eventName: 'squatch:cabin-margo-call-ready',
   afterExplorationCount: 1,
-  note: 'External Margo call owner may listen once. This chapter never blocks on it.',
+  note: 'Observational seam before the Cabin-owned objective; Tony initiates the outgoing call from the held phone.',
   setupBeat: 'FIRST_EXPLORATION',
 });
 

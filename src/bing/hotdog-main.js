@@ -358,18 +358,32 @@ function setCinematicShot(name, eye, look) {
 }
 
 function releaseCinematic({ x = null, z = null, lookAt = null } = {}) {
+  /* Preserve the camera the player is actually looking through. The old handoff
+   * discarded the cinematic pitch and rebuilt yaw from the authored lookAt,
+   * so the release frame snapped even when the player had not moved the mouse
+   * (and snapped harder when they had). Player uses the same YXZ convention. */
+  const handoff = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+  let yaw = handoff.y;
+  let pitch = clamp(handoff.x, player.pitchMin, player.pitchMax);
+  if (!Number.isFinite(yaw) && lookAt && Number.isFinite(x) && Number.isFinite(z)) {
+    const dx = lookAt.x - x;
+    const dz = lookAt.z - z;
+    yaw = Math.atan2(-dx, -dz);
+  }
+  if (!Number.isFinite(yaw)) yaw = player.yaw;
+  if (!Number.isFinite(pitch)) pitch = player.pitch;
   state.cinematic.active = false;
   state.cinematic.shot = null;
   state.cinematic.shake = 0;
+  input.clear('cinematic-release');
   interaction.setPaused(false);
   if (Number.isFinite(x) && Number.isFinite(z)) {
-    let yaw = player.yaw;
-    if (lookAt) {
-      const dx = lookAt.x - x;
-      const dz = lookAt.z - z;
-      yaw = Math.atan2(-dx, -dz);
-    }
-    teleport(x, z, yaw);
+    teleport(x, z, yaw, pitch);
+  } else {
+    player.yaw = yaw;
+    player.pitch = pitch;
+    player.velocity.set(0, 0, 0);
+    player.update(0.016);
   }
 }
 
@@ -1047,18 +1061,18 @@ interaction.register(party.cleanup.bathroomPads.mens, {
 });
 
 interaction.register(party.cleanup.kit, {
-  label: 'Take <b>Aubbie\'s correct cleanup kit</b>',
+  label: 'Take <b>Stove\'s Cleaning Kit</b>',
   enabled: () => state.phase === 'active' && mission.state === 'cleanup' && !state.kitTaken,
   onUse: () => {
     state.kitTaken = true;
     party.cleanup.kit.visible = false;
     completeCleanupTask('cleaning_kit');
     audio.play('cloth.snap', { volume: 0.55, position: party.cleanup.kit.position });
-    /* Aubbie calls across the room about his own case; the line under it is
-     * the Prospect looking in the case, which is his to notice and stays HUD. */
+    /* Old Stove identifies his own case; the line under it is the Prospect
+     * looking inside, which remains HUD observation rather than voiced fact. */
     speakThenNote(
-      HOTDOG_STAGED_LINES.aubbieKitCalled,
-      'Plastic sheeting, nitrile gloves, carpet knife, proper chemicals. Aubbie labels everything.',
+      HOTDOG_STAGED_LINES.stoveKitCalled,
+      'Plastic sheeting, nitrile gloves, carpet knife, proper chemicals. Stove labels everything.',
       4300,
     );
   },
@@ -1114,7 +1128,7 @@ interaction.register(party.extra.lou.group, {
     if (mission.state === 'cleanup' && !mission.roomClean) {
       const missing = [];
       if (!mission.cleanup.has('bathrooms')) missing.push('the men\'s room');
-      if (!mission.cleanup.has('cleaning_kit')) missing.push('Aubbie\'s kit');
+      if (!mission.cleanup.has('cleaning_kit')) missing.push('Stove\'s Cleaning Kit');
       if (!mission.cleanup.has('missing_evidence')) missing.push('HotDog\'s jewelry');
       /* He refuses in his own voice. The list of what is still owed is a
        * checklist, so it follows him rather than standing in for him -- and it
@@ -1151,10 +1165,10 @@ interaction.register(party.extra.lou.group, {
  *
  * It used to be a second press on Lou himself, which meant "sweep the room"
  * was two men talking. He orders it; the Prospect does it, on his knees, on
- * the boards Billy bled into, with the kit he already went and fetched.
+ * the boards Billy bled into, with Stove's kit already fetched.
  */
 interaction.register(party.cleanup.blood, {
-  label: 'Hold to <b>sweep the floor</b> with Aubbie\'s kit',
+  label: 'Hold to <b>sweep the floor</b> with Stove\'s Cleaning Kit',
   hold: 2.2,
   enabled: () => state.phase === 'active'
     && mission.state === 'sweep'
@@ -1499,7 +1513,7 @@ function jumpToPreviewCheckpoint(id) {
 }
 
 /**
- * The cutscene is over and the only thing left is the back door.
+ * The cutscene is over and the only thing left is the service exit.
  *
  * The scene does NOT end here: it ends when the player walks out of it,
  * which is what `updateRoom` is watching for.
@@ -1585,12 +1599,12 @@ function updateRoom() {
   if (state.departing && ['yard', 'alley'].includes(next)) finishParty();
 }
 
-function teleport(x, z, yaw = player.yaw) {
+function teleport(x, z, yaw = player.yaw, pitch = 0) {
   player.mode = 'walk';
   player.position.set(x, 1.66, z);
   player.velocity.set(0, 0, 0);
   player.yaw = yaw;
-  player.pitch = 0;
+  player.pitch = clamp(pitch, player.pitchMin, player.pitchMax);
   player.update(0.016);
 }
 
@@ -1643,6 +1657,7 @@ const runtime = {
   settleAuthoredWalks,
   updateDirector,
   applyCinematicCamera,
+  releaseCinematic,
   attack,
   gore,
   completeCleanupTask,

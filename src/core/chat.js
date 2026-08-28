@@ -2,8 +2,9 @@
  * The second monitor.
  *
  * Chat on one screen and the game on the other is the whole aesthetic, and it
- * is also the second of the three ways the game tells you about Wednesday --
- * after the card on the corkboard and before the radio reads the notice out.
+ * is also the second of the three ways the game tells you about Wednesday's
+ * ordinary club meeting -- after the card on the corkboard and before the
+ * radio reads the notice out.
  *
  * Messages arrive on the in-game clock rather than on a timer, so the feed is
  * consistent whether you spent the morning at the desk or asleep. Nothing
@@ -44,7 +45,7 @@ const BACKLOG = [
 /**
  * Tuesday, as it happens. `at` is the in-game hour a message lands.
  *
- * The meeting is mentioned four separate times across the morning, because a
+ * The weekly meeting is mentioned four separate times across the morning, because a
  * player who sits down at the PC at nine and never looks left should still
  * have it on screen when they finally do. `meeting: true` marks the ones that
  * would tell you on their own.
@@ -56,19 +57,19 @@ const SCHEDULE = [
   { at: 7.8, who: 'BOOSKIBRO', text: 'tomorrow night still on for everyone', meeting: true },
   { at: 8.1, who: 'BOOSKIBRO', text: 'wed 7pm. im driving', meeting: true },
   { at: 8.5, who: 'LOU', text: 'yes' },
-  { at: 8.7, who: 'APE', text: 'big night for the prospect' },
+  { at: 8.7, who: 'APE', text: 'regular business. no speeches' },
   { at: 8.9, who: 'IRISH', text: 'i have things to bring up' },
   { at: 9.2, who: 'APE', text: 'you always have things to bring up' },
   { at: 9.8, who: 'BOOSKIBRO', text: 'queue? one game' },
   { at: 10.4, who: 'SHUBES', text: 'lobby up' },
   { at: 11.2, who: 'APE', text: 'that was the worst i have ever seen you play' },
   { at: 12.0, who: 'BOOSKIBRO', text: 'he was cheating. genuinely' },
-  { at: 13.5, who: 'HOG MAMA', text: 'is the meeting a bring-a-thing' },
-  { at: 13.7, who: 'BOOSKIBRO', text: 'bring nothing', meeting: true },
-  { at: 13.9, who: 'HOG MAMA', text: 'i meant for the prospect' },
-  { at: 14.1, who: 'BOOSKIBRO', text: 'especially not for the prospect' },
-  { at: 14.4, who: 'SHUBES', text: 'we all did it. he will be fine' },
-  { at: 14.6, who: 'APE', text: 'shubes cried' },
+  { at: 13.5, who: 'HOG MAMA', text: 'who has the folding chairs' },
+  { at: 13.7, who: 'BOOSKIBRO', text: 'the hall has chairs', meeting: true },
+  { at: 13.9, who: 'HOG MAMA', text: 'the hall had three chairs last time' },
+  { at: 14.1, who: 'BOOSKIBRO', text: 'bring two chairs' },
+  { at: 14.4, who: 'SHUBES', text: 'i am not sitting next to ape' },
+  { at: 14.6, who: 'APE', text: 'you cried last time' },
   { at: 14.8, who: 'SHUBES', text: 'i did not cry' },
   { at: 15.0, who: 'LOU', text: 'im still at the airport' },
   { at: 16.4, who: 'IRISH', text: 'nobody has answered my question about the eggs' },

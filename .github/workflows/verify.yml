@@ -18,7 +18,7 @@
 #   - npm run check:takes   recorded mp3s still say what the script says
 #   - rendered-voice + radio audit checks  hash/text/decode/transcript evidence
 #   - npm run voice:needed:check / audio:todo:check  booth sheets in step
-#   - the sixteen per-scene cue ledgers (check:*-vo, check:mansion-sfx)
+#   - all twenty authored cue ledgers (check:*-vo, check:mansion-sfx)
 #   - npm run verify:boot-failure-surfaces      cheap browser gate, all 20 staged pages
 #   - npm run verify:campaign-marathon the whole public route, scenes stubbed
 #   - node tools/bundle-preview.mjs  the shareable single-file build
@@ -31,7 +31,7 @@
 # the real skip adapters and a durable reload at each landing. The other
 # verify:* gates each boot full scenes under swiftshader for minutes apiece,
 # and as of the scene-gate pass they are no longer "local/manual for now":
-# .github/workflows/verify-scenes.yml runs all forty on a schedule, one runner
+# .github/workflows/verify-scenes.yml runs all forty-three on a schedule, one runner
 # each, priced per gate in tools/scene-gate-tiers.mjs. Promote one up here only
 # when a run of THAT workflow has measured it cheap enough to say so — the
 # sentence this replaced said "for now" and meant "never".
@@ -222,7 +222,7 @@ jobs:
           npm run voice:needed:check
           npm run audio:todo:check
 
-      # One step for all seventeen cue ledgers. bash -e stops at the first
+      # One step for all twenty cue ledgers. bash -e stops at the first
       # failure, and the step name that goes red names the scene.
       - name: Scene cue ledgers
         run: |
@@ -240,6 +240,9 @@ jobs:
           npm run check:mansion-vo
           npm run check:motel-vo
           npm run check:nowake-vo
+          npm run check:palace-vo
           npm run check:siege-vo
           npm run check:silver-vo
           npm run check:silvercase-vo
+          npm run check:specialmeeting-vo
+          npm run check:squatchfather-vo

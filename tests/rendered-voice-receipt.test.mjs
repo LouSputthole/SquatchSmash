@@ -13,7 +13,7 @@ test('every exact rendered take has a current text, performer, index, hash, and 
     fs.readFile(RECEIPTS, 'utf8').then(JSON.parse),
   ]);
   assert.equal(await validateEvidence(current, evidence), current.length);
-  assert.equal(current.length, 387);
+  assert.equal(current.length, 542);
   assert.ok(evidence.receipts.every((row) => row.durationSeconds > 0.1));
 });
 

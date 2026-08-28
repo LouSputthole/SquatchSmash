@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import { BILLY_HOTDOG_MODEL } from '../src/core/hotdog-model.js';
+import { CAMPAIGN_SPINE } from '../src/core/campaign-spine.js';
 import { measureWrappedBody } from '../src/core/props/wrapped-body.js';
 import { SNOW } from '../src/core/wardrobe.js';
 import * as graveyardMissionModule from '../src/graveyard/mission.js';
 import {
   GraveyardMission,
   GRAVEYARD_ARRIVAL_LINES,
+  GRAVEYARD_SNOW_BARKS,
   GRAVES,
   resolveGraveyardLineHold,
 } from '../src/graveyard/mission.js';
@@ -79,11 +81,19 @@ test('Babs\'s bench faces back toward the graves from the forest edge without bl
 });
 
 test('Snow owns the arrival voice floor through the end of his recorded opening', () => {
-  const [snow, prospect] = GRAVEYARD_ARRIVAL_LINES;
+  const [snow, prospect, cover] = GRAVEYARD_ARRIVAL_LINES;
   assert.equal(snow.who, 'Snow');
   assert.equal(prospect.who, 'Prospect');
-  assert.equal(resolveGraveyardLineHold(snow, 5.7), 6.05);
+  assert.equal(resolveGraveyardLineHold(snow, 5.7), 6.4);
   assert.equal(resolveGraveyardLineHold(prospect, 0), prospect.seconds);
+  assert.match(snow.text, /Billy misses breakfast.*watch familiar doors.*yours/i);
+  assert.match(prospect.text, /why the Motel/i);
+  assert.match(cover.text, /room they do not know.*until daylight/i);
+
+  const graveyardExit = CAMPAIGN_SPINE.find(({ id }) => id === 'graveyard')?.exit ?? '';
+  const motelExit = CAMPAIGN_SPINE.find(({ id }) => id === 'jerky_motel')?.exit ?? '';
+  assert.match(graveyardExit, /Snow:.*familiar doors.*Motel.*until daylight/i);
+  assert.match(motelExit, /wait for daylight.*Snow drops.*home.*block is clean/i);
 });
 
 test('graveyard Snow wears his canonical work clothes and belt without losing the burial staging', async () => {
@@ -151,6 +161,7 @@ test('HotDog must be picked up, carried to the plot, and placed before burial', 
   assert.equal(mission.bodyLowered, true);
   assert.equal(mission.pickUpBody(), false);
   assert.equal(mission.finishBurial(), true);
+  assert.match(lines.at(-1), /building stays watched till morning.*Motel/i);
   assert.equal(mission.readyToLeave, true);
   assert.equal(mission.finish(), 'motel');
   assert.equal(mission.state, 'done');
@@ -165,7 +176,8 @@ test('the graveyard is an optional memorial museum around the burial', () => {
   assert.equal(mission.echoHeard, true);
   assert.equal(mission.inspectGrave('colton').line.toLowerCase().includes('asian feet'), true);
   assert.equal(mission.suggestSaucePlot(), false);
-  assert.match(lines.at(-1), /need that one soon/i);
+  assert.match(lines.at(-1), /reserved.*HotDog.*past GeeWiz/i);
+  assert.doesNotMatch(lines.slice(-2).join(' '), /traitor|rat|feeling|need that one soon/i);
 
   assert.equal(mission.urinateOn('babs'), false);
   assert.equal(mission.urinateOn('brawny'), true);
@@ -185,6 +197,25 @@ test('all requested graves have an authored presentation tier and epitaph', () =
   assert.equal(GRAVES.sauce.open, true);
   assert.equal(GRAVES.brawny.traitor, true);
   assert.equal(GRAVES.whiplash.traitor, true);
+});
+
+test('the early reserved plot does not name Sauce before the Palace betrayal reveal', () => {
+  const reserved = GRAVES.sauce;
+  assert.equal(reserved.open, true);
+  assert.equal(reserved.name, 'RESERVED');
+  assert.doesNotMatch(`${reserved.name} ${reserved.line}`, /sauce/i);
+  assert.match(reserved.line, /open plot.*reserved/i);
+  assert.doesNotMatch(
+    Object.values(GRAVEYARD_SNOW_BARKS).map(({ text }) => text).join(' '),
+    /sauce/i,
+  );
+
+  const spoken = [];
+  const mission = new GraveyardMission({ onLine: (line) => spoken.push(line) });
+  const inspected = mission.inspectGrave('sauce');
+  mission.suggestSaucePlot();
+  assert.equal(inspected.name, 'RESERVED');
+  assert.doesNotMatch([inspected.line, ...spoken].join(' '), /sauce/i);
 });
 
 test('optional museum objectives require every marker and a respect or disrespect choice', () => {

@@ -49,9 +49,10 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 | 7 | Prospect | **Cabin II** | Country cabin | Return from Beef Run. | Lou/Booski calls: heat has died down; come back to the Bing because 'Ol Billy is getting out.' Transport/scene transition returns Prospect to town. |
 | 8 | Family Business | **Bada Bing II: Billy Hotdog** | Bada Bing | Prospect returns from cabin because Billy is getting out. | Billy is killed. Cleanup begins immediately; body is prepared for transport to the graveyard. |
 | 9 | Family Business | **Graveyard** | Cemetery / graveyard | Crew transports Billy's body from Bada Bing II. | Billy is buried. Recommended bridge: Booski tells Prospect not to go home yet because the night is too hot and his apartment may be watched. |
-| 10 | Family Business | **Jerky Hotel / Motel** | Roadside motel | Booski sends Prospect to a cheap motel after the graveyard instead of letting him go home. | Survive/resolve the motel sequence. By morning the immediate risk has passed and Prospect is cleared to return to his apartment. |
-| 11 | Family Business | **Return to Old Apartment** | Starter apartment | Morning after Jerky Hotel. | After a short decompression/exploration window, Lou calls about a 'new space' and asks Prospect to meet the crew on the course at Silver Pines. |
-| 12 | Moving Up | **Lou's 'New Space' Call** | Starter apartment | Triggered after apartment decompression. | Lou: 'We got a new space. Come meet us on the course.' Prospect travels to Silver Pines. |
+| 10 | Family Business | **Jerky Hotel / Motel** | Roadside motel | Snow drives Prospect to an unknown room after the burial; the jerky deal is cover until daylight. | Survive/resolve the motel sequence. Snow waits until the block is clean, then drops Prospect at his apartment at 6:30 AM in daylight. |
+| 11 | Family Business | **Return to Old Apartment** | Starter apartment | Morning after Jerky Hotel. | After a short decompression window, Lou calls the Prospect into THE TAKE. |
+| 11½ | Family Business | **THE TAKE** | Safehouse / bank / escape route | Lou's heist call after the Motel return. | The crew completes the robbery, debriefs, and sends the Prospect home; only then can Lou's new-space call arrive. |
+| 12 | Moving Up | **Lou's 'New Space' Call** | Starter apartment | Triggered after THE TAKE and its home/debrief seam. | Lou: 'We got a new space. Tomorrow at eight. Come meet us on the course.' Prospect travels to Silver Pines the following morning. |
 | 13 | Moving Up | **Silver Pines Golf Course** | Silver Pines | Prospect arrives after Lou's apartment call. |  |
 | 14 | Moving Up | **Luxury Apartment Introduction** | Luxury apartment | After Silver Pines, Prospect receives/enters the upgraded apartment. | Optional objective: GET READY FOR YOUR DATE. Shower, change clothes, check phone, leave for Front & Center. |
 | 15 | Moving Up | **Front & Center / Margo Date** | Front & Center | Prospect leaves luxury apartment specifically to meet Margo. | Date concludes successfully. Margo leaves Front & Center with the Prospect and goes back to the luxury apartment. |
@@ -61,11 +62,11 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 | 19 | Moving Up | **Luxury Apartment Return** | Luxury apartment | Return from dock. | After a quiet period, Lou/Booski contacts Prospect about moving a highly sensitive Silver Case. |
 | 20 | The Inner Circle | **Silver Case Setup** | Luxury apartment / pickup point | Call from Lou/Booski after No Wake decompression. | Prospect takes custody of the Silver Case and is told to deliver it directly to Lou at the mansion. |
 | 21 | The Inner Circle | **Silver Case → Mansion** | Lou's mansion | Prospect arrives carrying Silver Case. | Lou opens/reveals the case glow, calls it 'Squatchanium,' and sends Prospect to deliver it to Booski in the basement. |
-| 22 | The Inner Circle | **Mansion / Silent Squatch** | Mansion + basement laboratory | Direct continuation from Silver Case delivery. | After lab sequence: EXPLORE THE MANSION, dinner/drinks/downtime. Lou tells Prospect it is too late to drive back and assigns a guest room. Fade to sleep. |
-| 23 | War | **Mansion Siege** | Lou's mansion | Wake in guest room to distant gunfire, alarm, explosion, burning vehicles and dead guards. | Attack is repelled. Capture/recover a phone, radio, documents, vehicle records, or surviving attacker that points to an immediate rival logistics target. |
-| 24 | War | **Enola Squatch** | Airfield / bomber / rival target | Intel from Mansion Siege identifies a rival staging site / weapons depot / convoy. Sasole calls: 'Kid, you remember how to fly?' | Enola mission destroys target and recovers/observes information that narrows the rival leadership location and supports the later palace assault. |
-| 25 | War | **Repaired Mansion** | Lou's mansion | Return after a deliberate time jump while repairs are underway or substantially complete. | Family debrief confirms the rival palace/leadership target and authorizes retaliation. Prospect is clearly treated as an inner-circle operator. |
-| 26 | War | **Cartel Palace** | Rival palace / estate | Crew launches planned assault based on Siege + Enola intelligence. | Rival operation is dismantled; evidence/leadership outcome closes the war. Lou has enough proof of the Prospect's loyalty to approve initiation. |
+| 22 | The Inner Circle | **Mansion / Silent Squatch** | Mansion + basement laboratory | Direct continuation from Silver Case delivery. | After lab sequence: EXPLORE THE MANSION, dinner/drinks/downtime. Lou says things are hot; Prospect gets the hint and accepts the guest room. Fade to sleep. |
+| 23 | War | **Mansion Siege** | Lou's mansion | Wake in guest room to distant gunfire, alarm, explosion, burning vehicles and dead guards. | Attack is repelled. Lou's A-Team phone confrontation establishes the enemy; a route package recovered from their command car is interpreted as the location of their desert compound. |
+| 24 | War | **SQUATCHOLA GAY** | Airfield / bomber / rival target | Lou orders the immediate counterstrike from the recovered route package and sends Prospect to Sasole. | SQUATCHOLA GAY destroys a city. The crew never acknowledges that the instrument and briefing disagree, and the flight does not discover the palace. |
+| 25 | War | **Repaired Mansion** | Lou's mansion | Return after a deliberate time jump while repairs are underway or substantially complete. | Lou reveals they bombed the wrong city, Sauce is missing, and his restaurant burner plus an estate gate log lead to an unnamed A-Team leadership estate without yet proving whether he was taken or turned. Prospect is sent there alone. |
+| 26 | War | **Cartel Palace** | Rival palace / estate | Crew launches retaliation based on the repaired-mansion estate trace, not intelligence recovered during the bombing. | SHORT BUS evidence proves Sauce signed the Silver Case route and an unnamed active prospect countersigned the breach. Rival operation is dismantled; Lou has enough proof of the Prospect's loyalty to approve initiation. |
 | 27 | This Thing of Ours | **Luxury Apartment: Special Meeting** | Luxury apartment | Return home after Cartel Palace and a small amount of decompression. | Booski calls: special meeting. Seff, Lag, and Numbskull are coming to pick you up. He refuses to explain. |
 | 28 | This Thing of Ours | **Pickup / Ride** | Apartment street + vehicle | Player exits apartment to wait on the street. Vehicle arrives with Seff, Lag, Numbskull. | Forced seating / tense ride. Trunk noises and weird behavior imply danger. Arrival at remote woods/cabin reveals this is not an execution. |
 | 29 | This Thing of Ours | **Initiation Cabin** | Old-country cabin in the woods | Vehicle arrives. Kittenboss trunk reveal can happen on arrival. Prospect is led into the ceremony. | Initiation completes. Prospect status changes from trusted Prospect / candidate to made member. Major campaign arc ends. |
@@ -84,7 +85,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — None
 - **Sasole Thread** — None
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 1 · First Apartment
@@ -99,7 +100,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Not met
 - **Sasole Thread** — Not met
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 2 · Bada Bing I
@@ -144,7 +145,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Not met
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 5 · Booski / Sasole Call
@@ -159,12 +160,12 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Introduction pending
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 6 · Beef Run
 
-*Introduce Sasole, teach flying systems in a lower-stakes contraband mission, and build trust that will later pay off in Enola Squatch.*
+*Introduce Sasole, teach flying systems in a lower-stakes contraband mission, and build trust that will later pay off in SQUATCHOLA GAY.*
 
 - **Primary Location** — Rural airstrip / aircraft / mountain route
 - **Entry Trigger** — Prospect arrives at airstrip after Booski's call.
@@ -189,8 +190,8 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Mapped
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 8 · Bada Bing II: Billy Hotdog
 
@@ -219,23 +220,23 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Mapped
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 10 · Jerky Hotel / Motel
 
 *Temporary anonymous hideout after Billy burial; existing motel danger/combat beat can happen here without breaking the campaign.*
 
 - **Primary Location** — Roadside motel
-- **Entry Trigger** — Booski sends Prospect to a cheap motel after the graveyard instead of letting him go home.
-- **Exit / Next Transition** — Survive/resolve the motel sequence. By morning the immediate risk has passed and Prospect is cleared to return to his apartment.
+- **Entry Trigger** — Snow drives Prospect there after the graveyard rather than risk a familiar door before daylight.
+- **Exit / Next Transition** — Survive/resolve the motel sequence. At 6:30 AM, in daylight, the immediate risk has passed and Prospect is cleared to return to his apartment.
 - **Time Gap** — Overnight
 - **Residence / Spawn State** — Temporary motel
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Needs Decision
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 11 · Return to Old Apartment
 
@@ -243,29 +244,44 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 - **Primary Location** — Starter apartment
 - **Entry Trigger** — Morning after Jerky Hotel.
-- **Exit / Next Transition** — After a short decompression/exploration window, Lou calls about a 'new space' and asks Prospect to meet the crew on the course at Silver Pines.
+- **Exit / Next Transition** — After a short decompression window, Lou calls the Prospect into THE TAKE. The new-space call cannot arrive before the heist is complete.
 - **Time Gap** — Daytime
 - **Residence / Spawn State** — Starter apartment
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Mapped
+
+### 11½ · THE TAKE
+
+*The robbery earns the home upgrade and must remain between the Motel return and Lou's new-space call.*
+
+- **Primary Location** — Safehouse, bank, escape route, and debrief
+- **Entry Trigger** — Lou's heist call after the Prospect returns from the Motel.
+- **Exit / Next Transition** — Complete the robbery and debrief, then return to the starter apartment for Lou's new-space call.
+- **Time Gap** — Day 5
+- **Residence / Spawn State** — Starter apartment remains home until Silver Pines.
+- **Margo Thread** — Date scheduled; no extra off-screen conversation is invented here.
+- **Sasole Thread** — Knows Sasole
+- **Rival War Thread** — Dormant
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 12 · Lou's 'New Space' Call
 
 *Kick off the organization/status-growth chapter and set up Silver Pines + Front & Center.*
 
 - **Primary Location** — Starter apartment
-- **Entry Trigger** — Triggered after apartment decompression.
-- **Exit / Next Transition** — Lou: 'We got a new space. Come meet us on the course.' Prospect travels to Silver Pines.
-- **Time Gap** — Same day
+- **Entry Trigger** — Triggered only after THE TAKE is complete and the Prospect is home.
+- **Exit / Next Transition** — Lou: 'We got a new space. Tomorrow at eight. Come meet us on the course.' Prospect travels to Silver Pines the following morning.
+- **Time Gap** — Overnight into Day 6
 - **Residence / Spawn State** — Starter apartment
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Needs Decision
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 13 · Silver Pines Golf Course
 
@@ -278,8 +294,8 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Date scheduled
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Mapped
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 14 · Luxury Apartment Introduction
 
@@ -293,8 +309,8 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Date scheduled; heading to date
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Needs Decision
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 15 · Front & Center / Margo Date
 
@@ -308,7 +324,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Active date; leaves with Prospect
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 16 · Margo Stayover
@@ -323,7 +339,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Stayed over
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 17 · Luxury Apartment Morning
@@ -338,12 +354,12 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Dating / stayover complete
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Mapped
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 18 · No Wake
 
-*Willy rat reveal. Prospect joins Lou and Booski in eliminating an informant, a major trust milestone.*
+*Willy's separate earlier strip leak is proved. Prospect joins Lou and Booski in eliminating him, a major trust milestone; Sauce remains the later Short Bus mole.*
 
 - **Primary Location** — Dock / large boat
 - **Entry Trigger** — Family call after Margo leaves; Prospect reports to dock.
@@ -368,8 +384,8 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Relationship persists
 - **Sasole Thread** — Knows Sasole
 - **Rival War Thread** — Dormant
-- **Build Status** — Planned
-- **Continuity Status** — Mapped
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 20 · Silver Case Setup
 
@@ -383,8 +399,8 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Off-screen relationship state
 - **Sasole Thread** — Sasole available for later payoff
 - **Rival War Thread** — Tension begins
-- **Build Status** — Planned
-- **Continuity Status** — Needs Decision
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 21 · Silver Case → Mansion
 
@@ -407,7 +423,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 - **Primary Location** — Mansion + basement laboratory
 - **Entry Trigger** — Direct continuation from Silver Case delivery.
-- **Exit / Next Transition** — After lab sequence: EXPLORE THE MANSION, dinner/drinks/downtime. Lou tells Prospect it is too late to drive back and assigns a guest room. Fade to sleep.
+- **Exit / Next Transition** — After lab sequence: EXPLORE THE MANSION, dinner/drinks/downtime. Lou says things are hot, Tony gets the hint, and Lou assigns a guest room. Fade to sleep.
 - **Time Gap** — Late night
 - **Residence / Spawn State** — Mansion guest room
 - **Margo Thread** — Off-screen
@@ -422,7 +438,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 - **Primary Location** — Lou's mansion
 - **Entry Trigger** — Wake in guest room to distant gunfire, alarm, explosion, burning vehicles and dead guards.
-- **Exit / Next Transition** — Attack is repelled. Capture/recover a phone, radio, documents, vehicle records, or surviving attacker that points to an immediate rival logistics target.
+- **Exit / Next Transition** — Attack is repelled. Lou confronts the A-Team caller, then names the route package recovered from the attackers' command car and the desert-compound target the Family believes it identifies.
 - **Time Gap** — 2–3 AM into dawn
 - **Residence / Spawn State** — Mansion temporarily damaged
 - **Margo Thread** — Off-screen concern can be referenced later
@@ -431,13 +447,13 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Build Status** — Playable
 - **Continuity Status** — Mapped
 
-### 24 · Enola Squatch
+### 24 · SQUATCHOLA GAY
 
 *Immediate counterstrike. Beef Run flight training and Sasole relationship pay off under real stakes.*
 
 - **Primary Location** — Airfield / bomber / rival target
-- **Entry Trigger** — Intel from Mansion Siege identifies a rival staging site / weapons depot / convoy. Sasole calls: 'Kid, you remember how to fly?'
-- **Exit / Next Transition** — Enola mission destroys target and recovers/observes information that narrows the rival leadership location and supports the later palace assault.
+- **Entry Trigger** — Lou orders an immediate counterstrike from the route package and sends Prospect to Captain Sasole.
+- **Exit / Next Transition** — The city is destroyed. The instrument/briefing discrepancy remains unspoken and the flight yields no palace intelligence.
 - **Time Gap** — Same day / immediate response
 - **Residence / Spawn State** — Temporary return arrangement
 - **Margo Thread** — Off-screen
@@ -448,25 +464,25 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 ### 25 · Repaired Mansion
 
-*Show time passing, physical consequences, and regrouping. Convert Enola information into a plan.*
+*Show time passing, physical consequences, and regrouping. Reveal the bombing mistake, then act on the separate lead created by Sauce's disappearance.*
 
 - **Primary Location** — Lou's mansion
 - **Entry Trigger** — Return after a deliberate time jump while repairs are underway or substantially complete.
-- **Exit / Next Transition** — Family debrief confirms the rival palace/leadership target and authorizes retaliation. Prospect is clearly treated as an inner-circle operator.
+- **Exit / Next Transition** — Lou reveals the wrong city, Sauce missing, and a trace to an unnamed A-Team leadership estate; he authorizes retaliation. Prospect is clearly treated as an inner-circle operator.
 - **Time Gap** — Days / weeks later
 - **Residence / Spawn State** — Luxury apartment
 - **Margo Thread** — Relationship persists
 - **Sasole Thread** — Trusted ally
 - **Rival War Thread** — War plan locked
-- **Build Status** — Planned
-- **Continuity Status** — Needs Decision
+- **Build Status** — Playable
+- **Continuity Status** — Locked
 
 ### 26 · Cartel Palace
 
 *You go to them. Offensive mirror of Mansion Siege; decisive retaliation and evidence collection.*
 
 - **Primary Location** — Rival palace / estate
-- **Entry Trigger** — Crew launches planned assault based on Siege + Enola intelligence.
+- **Entry Trigger** — Prospect enters the estate identified by the post-bombing Sauce trace. No one names Mark before the boss reveal.
 - **Exit / Next Transition** — Rival operation is dismantled; evidence/leadership outcome closes the war. Lou has enough proof of the Prospect's loyalty to approve initiation.
 - **Time Gap** — Same night
 - **Residence / Spawn State** — Luxury apartment
@@ -488,7 +504,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Off-screen
 - **Sasole Thread** — Not relevant
 - **Rival War Thread** — War closed
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 28 · Pickup / Ride
@@ -503,7 +519,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Margo Thread** — Off-screen
 - **Sasole Thread** — Not relevant
 - **Rival War Thread** — War closed
-- **Build Status** — Planned
+- **Build Status** — Playable
 - **Continuity Status** — Locked
 
 ### 29 · Initiation Cabin
@@ -519,7 +535,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Sasole Thread** — Established ally
 - **Rival War Thread** — War closed
 - **Build Status** — Playable
-- **Continuity Status** — Mapped
+- **Continuity Status** — Locked
 
 ## Transition bible
 
@@ -673,7 +689,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **What Starts the Scene** — Direct continuation from Bing II.
 - **Required Prior Facts** — Billy dead/body bagged; Prospect involved.
 - **Scene Must Establish** — Concealment consequences and reason not to go home.
-- **Exact End Beat** — Burial complete; Booski says do not go home tonight.
+- **Exact End Beat** — Burial complete; Snow says Tony's familiar doors are watched and takes him to the motel until daylight.
 - **Next Spawn / Travel Logic** — Send Prospect to Jerky Hotel.
 - **Approx. In-World Time** — Very late night.
 - **NPC Continuity Checks** — Dialogue treats Billy death as minutes ago.
@@ -681,23 +697,23 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **Wardrobe / Player Presentation** — Dirty/night clothes can persist.
 - **Persistent World Changes** — BillyState=buried; apartmentRisk=possible_watch.
 - **Primary Continuity Risk** — Motel feeling disconnected.
-- **Implementation / QA Notes** — Explicit Booski bridge cemetery → motel.
+- **Implementation / QA Notes** — Explicit Snow bridge cemetery → motel; the jerky deal is their cover while the block cools.
 
 ### 10 · Jerky Hotel / Motel
 
 - **Start State / Spawn** — Cheap motel room after graveyard.
-- **What Starts the Scene** — Booski sends Prospect there.
+- **What Starts the Scene** — Snow drives Prospect there directly from the burial.
 - **Required Prior Facts** — Billy buried; home considered risky.
 - **Scene Must Establish** — Reason for motel, danger/combat beat, morning clearance.
-- **Exact End Beat** — Motel incident resolved; morning contact clears return home.
+- **Exact End Beat** — Motel incident resolved; Snow's 6:30 AM daylight clearance sends Tony home.
 - **Next Spawn / Travel Logic** — Return to starter apartment.
 - **Approx. In-World Time** — Overnight.
 - **NPC Continuity Checks** — Attacker/pop-out needs defined reason or clearly explained bad-luck encounter.
 - **Weapons / Inventory Continuity** — Decide sidearm state to match motel combat.
 - **Wardrobe / Player Presentation** — Same clothes overnight, optional change.
 - **Persistent World Changes** — apartmentRisk=cleared.
-- **Primary Continuity Risk** — Who/what causes motel danger.
-- **Implementation / QA Notes** — OPEN: lock motel antagonist/trigger.
+- **Primary Continuity Risk** — Losing the overnight-cover motive or sending Tony home before daylight.
+- **Implementation / QA Notes** — Locked: Snow uses the jerky deal as cover, waits for daylight, and drops Tony home at 6:30 AM once the block is clean.
 
 ### 11 · Return to Old Apartment
 
@@ -705,25 +721,41 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **What Starts the Scene** — Clearance after motel.
 - **Required Prior Facts** — Lay-low/Billy arcs over; Margo date still scheduled.
 - **Scene Must Establish** — Normal-life decompression and family prosperity.
-- **Exact End Beat** — Lou calls about a 'new space' and Silver Pines.
-- **Next Spawn / Travel Logic** — Travel to golf course.
+- **Exact End Beat** — Lou calls the Prospect into THE TAKE.
+- **Next Spawn / Travel Logic** — Travel to the heist safehouse; return home after its debrief.
 - **Approx. In-World Time** — Daytime.
 - **NPC Continuity Checks** — Margo can text but date not happened. Billy never appears alive.
 - **Weapons / Inventory Continuity** — Normal home loadout.
 - **Wardrobe / Player Presentation** — Casual home clothes.
-- **Persistent World Changes** — starter apartment active; SilverPines unlocked.
+- **Persistent World Changes** — starter apartment active; THE TAKE unlocked.
 - **Primary Continuity Risk** — Front & Center/date triggering before Silver Pines.
 - **Implementation / QA Notes** — Gate date on SilverPinesComplete + MargoState=date_scheduled.
 
+### 11½ · THE TAKE
+
+- **Start State / Spawn** — Safehouse after Lou's heist call.
+- **What Starts the Scene** — The Prospect answers Lou after the Motel return.
+- **Required Prior Facts** — Billy buried; Motel resolved; Prospect home in daylight.
+- **Scene Must Establish** — The Prospect performs the robbery that earns the home upgrade.
+- **Exact End Beat** — Debrief complete; the Prospect is sent home.
+- **Next Spawn / Travel Logic** — Starter apartment, where the new-space call can now arrive.
+- **Approx. In-World Time** — Day 5.
+- **NPC Continuity Checks** — Margo remains off-screen; her date is already scheduled.
+- **Weapons / Inventory Continuity** — Heist loadout is collected at the starter apartment and resolved by the mission seam.
+- **Wardrobe / Player Presentation** — Heist gear does not become ordinary home clothing.
+- **Persistent World Changes** — THE TAKE complete; home-upgrade cause established.
+- **Primary Continuity Risk** — Skipping directly from Motel decompression to the new-space call.
+- **Implementation / QA Notes** — Mandatory spine beat 11½.
+
 ### 12 · Lou's 'New Space' Call
 
-- **Start State / Spawn** — Starter apartment after decompression.
+- **Start State / Spawn** — Starter apartment after THE TAKE and its debrief.
 - **What Starts the Scene** — Lou's scheduled call.
-- **Required Prior Facts** — Back in town, still prospect, date scheduled.
+- **Required Prior Facts** — Back in town, still prospect, date scheduled, THE TAKE complete.
 - **Scene Must Establish** — Family growth and Silver Pines invitation.
-- **Exact End Beat** — Lou: 'We got a new space. Come meet us on the course.'
-- **Next Spawn / Travel Logic** — Travel to Silver Pines.
-- **Approx. In-World Time** — Same day.
+- **Exact End Beat** — Lou: 'We got a new space. Tomorrow at eight. Come meet us on the course.'
+- **Next Spawn / Travel Logic** — Sleep/advance to Day 6, then travel to Silver Pines.
+- **Approx. In-World Time** — Day 5 call; Day 6 course arrival.
 - **NPC Continuity Checks** — Lou uses consistent meaning for 'new space.'
 - **Weapons / Inventory Continuity** — No special loadout.
 - **Wardrobe / Player Presentation** — Golf-ready change optional.
@@ -902,23 +934,23 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 - **NPC Continuity Checks** — Dead/injured guards persist; voice lines match actual positions; Margo absent.
 - **Weapons / Inventory Continuity** — Wake with pistol only, then armory supplies.
 - **Wardrobe / Player Presentation** — Sleep/emergency → combat.
-- **Persistent World Changes** — MansionState=damaged; RivalWarState=attacked_mansion; EnolaIntelAcquired=True.
+- **Persistent World Changes** — MansionState=damaged; RivalWarState=attacked_mansion; StrikeRoutePackageRecovered=True.
 - **Primary Continuity Risk** — Spatial audio/NPC teleport problems.
 - **Implementation / QA Notes** — State-driven NPC spawn map and spatial-audio validation per phase.
 
-### 24 · Enola Squatch
+### 24 · SQUATCHOLA GAY
 
-- **Start State / Spawn** — Airfield with Sasole after siege intel.
+- **Start State / Spawn** — Airfield with Sasole after Lou hands over the recovered route package.
 - **What Starts the Scene** — Immediate counterstrike order.
-- **Required Prior Facts** — Beef Run complete; tutorial learned; target identified.
+- **Required Prior Facts** — Beef Run complete; tutorial learned; Family believes the target is identified.
 - **Scene Must Establish** — Serious payoff of Sasole relationship/flight skills.
-- **Exact End Beat** — Target destroyed; intel narrows palace.
+- **Exact End Beat** — The misidentified city is destroyed; the flight yields no Palace lead.
 - **Next Spawn / Travel Logic** — Return/debrief, then time jump.
 - **Approx. In-World Time** — Same day then later jump.
 - **NPC Continuity Checks** — Sasole remembers Beef Run; all Cecil lines gone.
 - **Weapons / Inventory Continuity** — Aircraft systems mission-specific.
 - **Wardrobe / Player Presentation** — Flight gear.
-- **Persistent World Changes** — EnolaComplete=True; RivalWarState=counterattack; PalaceIntelPartial=True.
+- **Persistent World Changes** — EnolaComplete=True; RivalWarState=counterattack; WrongCityStrikeComplete=True; PalaceIntelPartial=False.
 - **Primary Continuity Risk** — First-flight dialogue or Cecil remnants.
 - **Implementation / QA Notes** — Regression scan for 'Cecil' and duplicate flight-control systems.
 
@@ -926,7 +958,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 - **Start State / Spawn** — Repaired/recovering mansion after time jump.
 - **What Starts the Scene** — Story time jump following Enola.
-- **Required Prior Facts** — Mansion attacked; Enola retaliated; palace intel exists.
+- **Required Prior Facts** — Mansion attacked; Enola retaliated against the wrong city; Sauce is now missing.
 - **Scene Must Establish** — Consequences, repairs, regroup, final intel synthesis.
 - **Exact End Beat** — Lou authorizes palace operation.
 - **Next Spawn / Travel Logic** — Transition to Cartel Palace prep/assault.
@@ -942,8 +974,8 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 - **Start State / Spawn** — Crew assembled for rival palace assault.
 - **What Starts the Scene** — Lou authorizes retaliation.
-- **Required Prior Facts** — Siege + Enola identify target; Prospect trusted operator.
-- **Scene Must Establish** — Offensive mirror, evidence, decisive close of war.
+- **Required Prior Facts** — Repaired-mansion investigation separately traces Sauce to an unnamed A-Team leadership estate; Prospect is a trusted operator.
+- **Scene Must Establish** — A physical SHORT BUS route addendum ties Sauce's consultant number to the Silver Case delivery at Lou's mansion and the next-morning breach window; a redacted active-prospect countersign proves inside help, and the dining-room accusation closes that causal chain before the war ends.
 - **Exact End Beat** — Rival operation neutralized; Prospect returns home unaware initiation approved.
 - **Next Spawn / Travel Logic** — Return to luxury apartment.
 - **Approx. In-World Time** — Same night / after mission.
@@ -1017,7 +1049,7 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 
 - **Introduced** — Booski call at cabin; meet Sasole in Beef Run.
 - **Progression** — Beef Run teaches flight and establishes working relationship.
-- **Payoff** — Enola Squatch serious callback and flying payoff.
+- **Payoff** — SQUATCHOLA GAY serious callback and flying payoff.
 - **Must NOT Happen Before** — Enola cannot behave like first meeting/first flight.
 - **Continuity Rule** — All Captain Cecil material becomes Captain Lou Sasole, including throttle/engine lines.
 - **Open Decision / Note** — Decide whether Sasole touches Silver Case setup or stays separate until Enola.
@@ -1043,20 +1075,20 @@ between scene 11 and scene 12 — see **Decisions taken** at the end.
 ### Jerky Hotel
 
 - **Introduced** — After Billy burial under current order.
-- **Progression** — Booski sends Prospect there because home may be watched.
+- **Progression** — Snow takes Prospect there because home may be watched; the jerky deal is cover until daylight.
 - **Payoff** — Morning clearance allows return to starter apartment.
 - **Must NOT Happen Before** — Do not send Prospect home between Graveyard and motel.
 - **Continuity Rule** — Motel needs a concrete antagonist/incident reason.
-- **Open Decision / Note** — Highest-priority story gap: define who/what causes motel danger.
+- **Open Decision / Note** — Resolved: the existing motel incident occurs inside Snow's overnight cover plan; Snow clears the return home after daylight.
 
 ### Willy / No Wake
 
 - **Introduced** — Willy exists normally through earlier Bing scenes.
-- **Progression** — Suspicion culminates on boat; Negev story exposes him.
+- **Progression** — Irish's wire proves Willy gave up the earlier strip and arrival time; Willy denies the voice and the Negev question exposes the personal lie beneath the operational proof.
 - **Payoff** — Executed by Prospect/Lou/Booski; body bagged.
 - **Must NOT Happen Before** — No living Willy after No Wake outside flashbacks.
 - **Continuity Rule** — WillyState authoritative across all loaders.
-- **Open Decision / Note** — Decide whether earlier scenes seed subtle rat clues.
+- **Open Decision / Note** — Willy is not the later mole: Sauce owns the Silver Case/mansion betrayal and the Short Bus thread.
 
 ### Silver Case / Squatchanium
 
@@ -1120,10 +1152,11 @@ the chapter proper opens the next morning.
 
 - Lou's opening call: good job, stay quiet.
 - The four walks: creek, ridge overlook, forestry shed, shooting range.
-- **The Margo call.** `src/cabin/script.js` already emits `MARGO_CALL_READY`
-  on the first unique exploration and deliberately owns no Margo conversation
-  of its own -- the chapter was built with this socket open for someone else
-  to fill. That someone is this beat.
+- **The Margo call.** Once all four property walks are complete, the cabin
+  unlocks one short outgoing conversation using the number earned at Bing I.
+  Tony and Margo set Front & Center's Silver Room for nine. The cabin owns the
+  authored `call.margo.cabin_date` bank and the durable appointment; there is
+  no second player-facing date call at either apartment.
 - Booski rings: Captain Sasole needs a hand, and you are already out here.
 
 ### Beef Run (beat 6)
@@ -1208,19 +1241,19 @@ settled; do not re-litigate them.
 
 > **Owner:** Yeah Im not sure where else to shoehorn this in, and he's already in the car with Snow so we go there. Just leave it.
 
-- **Recommended Answer** — Booski tells Prospect not to return home because Billy's disappearance may create attention; use motel as anonymous overnight hideout. Define existing danger beat as a targeted tail or clearly explained unrelated encounter.
+- **Locked Answer** — Snow tells Prospect Billy missing breakfast will put familiar doors under watch. The unknown motel room and jerky deal provide cover until daylight; Snow takes him home once the block is clean.
 - **Why It Matters** — Without a bridge, motel feels like a leftover mission.
 - **Affected Scenes** — 9–11
-- **Status** — Open
+- **Status** — Locked
 
 ### P0 · What does Lou mean by 'we got a new space'?
 
 > **Owner:** How about he tells the prospect we got a new space about the Front and Center club and he suggests he takes that girl from the bing hes been tlaking to there.  He also mentions not to let her know anything she shouldnt.
 
-- **Recommended Answer** — Current assumption: Front & Center is the new family venue/business; Silver Pines is where Lou tells Prospect about it.
+- **Superseding Owner Ruling** — Margo is never at the golf course and Beat 12 does not mention her. Lou says only that good work earned a conversation about a new space on the course. Silver Pines then reveals Front & Center, sets the OPSEC boundary, and hands Tony the apartment keys.
 - **Why It Matters** — This line connects old apartment, golf, and Front & Center.
 - **Affected Scenes** — 11–15
-- **Status** — Open
+- **Status** — Locked
 
 ### P0 · Why does Prospect receive the luxury apartment?
 
@@ -1240,32 +1273,32 @@ settled; do not re-litigate them.
 - **Affected Scenes** — 20–26
 - **Status** — Recommended
 
-### P0 · What exact intel from Mansion Siege launches Enola Squatch?
+### P0 · What exact intel from Mansion Siege launches SQUATCHOLA GAY?
 
 > **Owner:** This could be where we insert the "taken" parody phone call - Lou talks to someone from the A team on the phone.  And then he sends you all out just to bomb the whole city.
 
-- **Recommended Answer** — Recover phone/radio/documents/manifest identifying immediate rival weapons depot, convoy or staging site.
+- **Locked Answer** — After the A-Team phone threat, Lou says the Family recovered a route package from the attackers' command car. They interpret it as the location of the desert compound and give it to Sasole. The briefing is wrong; that error is not acknowledged until the repaired mansion.
 - **Why It Matters** — Enola needs an urgent concrete target.
 - **Affected Scenes** — 23–24
 - **Status** — Locked
 
-### P0 · What does Enola reveal that leads toward Cartel Palace?
+### P0 · What does SQUATCHOLA GAY reveal that leads toward Cartel Palace?
 
 > **Owner:** No when you get back from the Mansion, Lou reveals we accidentally bombed the wrong city.  ITs a joke because the amount of force is so excessive and then we find out it wasnt even the right city.  But now Sauce is missing and we have a lead on the A Team leaders palace.  Dont mention Marks name until his boss fight that should be a funny inside joke reveal.
 
-- **Recommended Answer** — Destroyed target yields photos/manifests/comms/documents tying logistics to rival leadership estate.
+- **Locked Answer** — Nothing aboard the flight leads to the Palace. The cockpit quietly shows the correct location while the crew acts on a bad briefing. At the repaired mansion, Lou reveals the mistake, then separately reveals that Sauce is missing and has been traced to an unnamed A-Team leadership estate.
 - **Why It Matters** — Creates Siege → Enola → Palace cause-and-effect.
 - **Affected Scenes** — 24–26
-- **Status** — Open
+- **Status** — Locked
 
 ### P1 · Why does Lou keep Prospect overnight at mansion?
 
 > **Owner:** Yes, Lou doesn't explain it's too late to drive back he basically just says things are hot right now why dont you stay here Prospect? and the Prospect gets the hint and agrees to stay
 
-- **Recommended Answer** — After lab completion, mansion exploration and dinner, Lou says it is too late to drive back and gives Prospect a guest room.
+- **Locked Answer** — After lab completion, mansion exploration and dinner, Lou says things are hot and suggests Tony stay. Tony gets the hint; Lou gives him the guest room.
 - **Why It Matters** — Siege must start with player already asleep there and familiar with layout.
 - **Affected Scenes** — 22–23
-- **Status** — Recommended
+- **Status** — Locked
 
 ### P1 · How much does Margo know?
 
@@ -1325,10 +1358,13 @@ owner while wiring the spine:
 2. **The starter apartment goes dark after scene 14.** The trophies, art and
    Squatchanium miniature move to the luxury apartment as a visible status
    upgrade. Residence is campaign state, never inferred from the last scene.
-3. **The wrong city is never acknowledged on the Enola run.** One detail is
+3. **The wrong city is never acknowledged on the SQUATCHOLA GAY run.** One detail is
    catchable in flight — reads as normal the first time, obvious on replay —
    and no line of dialogue ever points at it. Lou reveals it at the repaired-
    mansion debrief.
-4. **The Margo call at the cabin is one scripted beat,** not a general
-   outgoing-call system. An objective says CALL MARGO and the conversation
-   plays. Every other call in the campaign remains incoming.
+4. **The Margo call at the cabin is one scripted beat and the sole scheduling
+   conversation,** not a general outgoing-call system. After all four property
+   walks, an objective says CALL MARGO; they set Front & Center's Silver Room
+   for nine, and the exact-once appointment survives to Beat 14. The retired
+   apartment event id remains compatibility data only and never rings. Every
+   other live call in the campaign remains incoming.

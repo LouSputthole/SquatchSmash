@@ -229,7 +229,7 @@ test('Mansion: the opening walk is start-bank, the basement is nextBeat, the eve
   for (const name of ['silent.case.hum', 'bing.grill.cord.handoff', 'chair.sit']) {
     assert.ok(coveredBy(name, banks.start), name);
   }
-  assert.ok(coveredBy('vo.silentsquatch.arrival.prospect.humming', banks.start));
+  assert.ok(coveredBy('vo.silentsquatch.arrival.prospect.firstvisitcase', banks.start));
   assert.ok(coveredBy('vo.silentsquatch.delivery.booski.deliveryboy', banks.nextBeat));
   assert.ok(!coveredBy('vo.silentsquatch.delivery.booski.deliveryboy', banks.start),
     'the basement must not block the start button');
@@ -336,7 +336,7 @@ test('Enola Squatch: the dispatch gate holds a beat\'s first line until its bank
     audio: { line: () => 0 },
     canSpeak: () => !banksPending,
   });
-  dialogue.play('hangar.reveal');
+  dialogue.play('preflight.arrival');
   /* Simulated clock; the bank is still decoding, so nothing dispatches. */
   for (let tick = 0; tick < 20; tick++) dialogue.update(0.5);
   assert.equal(dialogue.current, null);

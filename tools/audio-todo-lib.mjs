@@ -24,7 +24,7 @@ const VOICE_SCENES = [
     || name.startsWith('vo.bj.') || name.startsWith('vo.slots.')],
   ['Squatchfather', (name) => name.startsWith('vo.sf.')],
   ['The Beef Run', (name) => name.startsWith('vo.beefrun.')],
-  ['The Enola Squatch', (name) => name.startsWith('vo.enolasquatch.')],
+  ['SQUATCHOLA GAY', (name) => name.startsWith('vo.enolasquatch.')],
   ['Jerky Motel', (name) => name.startsWith('vo.motel.')],
   ['NO WAKE', (name) => name.startsWith('vo.nowake.')],
   /* Order-independent, but only because both patterns keep their trailing
@@ -207,7 +207,7 @@ function renderVoice(out, voice, voices, recast = new Map()) {
    * to the end rather than off. */
   const preferred = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
-    'The Enola Squatch', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
+    'SQUATCHOLA GAY', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
     'The Countryside Cabin', 'The Silver Case', 'Day Four apartment',
     'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'PROJECT SILENT SQUATCH',
     'Squatch Graveyard', 'Initiation', 'Radio',

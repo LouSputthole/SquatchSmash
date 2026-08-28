@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
@@ -208,4 +209,41 @@ test('luxury cigarette pack replenishes, reports full state, and can restore a c
   assert.equal(restored.owned, true);
   assert.equal(restored.count, 6);
   assert.equal(restored.added, 6);
+});
+
+test('campaign-owned phone hydrates exactly once and stays pocketed until selected', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.05, 100);
+  const inventory = new Inventory(5);
+  const phoneProp = { group: { visible: true } };
+  const state = {};
+  const runtime = new LuxuryInventoryRuntime({
+    camera,
+    inventory,
+    hud: quietObject(),
+    audio: quietObject(),
+    phone: { canvas: document.createElement('canvas'), screen: 'home' },
+    phoneProp,
+    state,
+  });
+  runtime.seed();
+
+  assert.equal(runtime.restorePhone(), true);
+  assert.equal(inventory.items.filter((id) => id === 'phone').length, 1);
+  assert.equal(inventory.held, null, 'returning to the hub must not boot with the phone in view');
+  assert.equal(state.phoneTaken, true);
+  assert.equal(phoneProp.group.visible, false, 'the table must not manufacture a duplicate phone');
+
+  assert.equal(runtime.restorePhone(), true);
+  assert.equal(inventory.items.filter((id) => id === 'phone').length, 1,
+    'repeated restore remains idempotent');
+  assert.equal(runtime.takePhone(), true);
+  assert.equal(inventory.held, 'phone', 'using the original pickup selects the receiver');
+});
+
+test('the luxury receiver hydrates and refreshes the shared campaign inbox', () => {
+  const source = readFileSync(new URL('../src/luxury-apartment/main.js', import.meta.url), 'utf8');
+  assert.match(source, /threads:\s*phoneThreadsForCampaign\(campaign\.state\)/);
+  assert.match(source, /phone\.setThreads\(phoneThreadsForCampaign\(campaign\.state\)\)/);
+  assert.match(source, /onThreadRead:[\s\S]*thread\.readEventId[\s\S]*syncPhoneThreads\(\)/);
+  assert.match(source, /luxuryStory\.callAnswered\(definition\);\s*syncPhoneThreads\(\);/);
 });

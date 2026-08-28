@@ -589,11 +589,14 @@ export function buildCabinDungeon({
   }
   const toolY = workAt.topY + 0.12;
   const tools = {};
+  const toolAssemblies = {};
   const toolPart = (id, mesh) => {
     mesh.userData.dungeonToolId = id;
     markAssembly(mesh, 'cabin-dungeon-tools', { structural: true });
     worktable.add(mesh);
     tools[id] ??= mesh;
+    toolAssemblies[id] ??= [];
+    toolAssemblies[id].push(mesh);
     return mesh;
   };
   toolPart('pliers', box({ name: 'cabin-dungeon-pliers', size: [0.10, 0.055, 0.48], pos: [-6.42, toolY, 10.24], mat: materials.steel, rotY: -0.34 }));
@@ -638,6 +641,7 @@ export function buildCabinDungeon({
   const bucket = cylinder({ name: 'cabin-dungeon-bucket', r: 0.29, h: 0.52, pos: [-6.32, D.floorY + 0.26, 11.45], mat: materials.steel });
   add(bucket, 'cabin-dungeon-tools');
   tools.bucket = bucket;
+  toolAssemblies.bucket = [bucket];
   const gasCan = group('cabin-dungeon-gas-can');
   gasCan.add(box({ name: 'cabin-dungeon-gas-can-body', size: [0.46, 0.62, 0.28], pos: [-5.55, D.floorY + 0.31, 11.50], mat: materials.redRubber }));
   gasCan.add(box({ name: 'cabin-dungeon-gas-can-handle', size: [0.26, 0.12, 0.12], pos: [-5.55, D.floorY + 0.68, 11.50], mat: materials.rubber }));
@@ -1067,10 +1071,11 @@ export function buildCabinDungeon({
     utilityTargets[key] = actor.bodyTarget;
     interaction.register(actor.bodyTarget, {
       label: () => actor.snapshot.dead
-        ? `Inspect the dead <b>${actor.id === ateamId ? 'A-Team captive' : 'CS baiter'}</b>`
+        ? `Wrap the <b>${actor.id === ateamId ? 'A-Team captive’s body' : 'CS baiter’s body'}</b>`
         : `Question the restrained <b>${actor.id === ateamId ? 'A-Team captive' : 'CS baiter'}</b>`,
-      enabled: () => !actor.snapshot.wrapped,
-      onUse: () => notify('captive', actor.id),
+      enabled: () => !actor.snapshot.wrapped
+        && (!actor.snapshot.dead || ctx.canCleanupWrap?.(actor.cleanupBodyId) === true),
+      onUse: () => notify('captive', actor.id, actor.snapshot.dead ? 'wrap' : 'use'),
     });
   }
 
@@ -1089,7 +1094,15 @@ export function buildCabinDungeon({
     toolTargets[id] = target;
     utilityTargets[`dungeonTool${id[0].toUpperCase()}${id.slice(1)}`] = target;
     interaction.register(target, {
-      label: toolLabels[id] ?? `Inspect the <b>${id}</b>`,
+      label: () => {
+        if (!['pliers', 'saw', 'battery', 'syringes', 'towels', 'leads', 'bucket'].includes(id)) {
+          return toolLabels[id] ?? `Inspect the <b>${id}</b>`;
+        }
+        const held = ctx.dungeonToolStatus?.(id) === 'held';
+        return held
+          ? `Return the <b>${id}</b> to Gratin’s table`
+          : `Pick up the <b>${id}</b>`;
+      },
       onUse: () => notify('tool', id),
     });
   }
@@ -1227,6 +1240,16 @@ export function buildCabinDungeon({
     return doorState.desiredOpen;
   };
 
+  let heldToolId = null;
+  const setHeldTool = (id = null) => {
+    const next = Object.hasOwn(toolAssemblies, id) ? id : null;
+    heldToolId = next;
+    for (const [toolId, parts] of Object.entries(toolAssemblies)) {
+      for (const part of parts) part.visible = toolId !== heldToolId;
+    }
+    return heldToolId;
+  };
+
   const dispose = () => {
     for (const target of [doorTarget, gratinTarget, ateam.bodyTarget, counterStrike.bodyTarget, ...Object.values(toolTargets)]) {
       interaction.unregister?.(target);
@@ -1256,6 +1279,8 @@ export function buildCabinDungeon({
     spawns,
     viewpoints,
     tools: Object.freeze({ ...tools, rack, worktable, bucket, gasCan, overhead: Object.freeze({ chainLinks }) }),
+    get heldToolId() { return heldToolId; },
+    setHeldTool,
     armory: Object.freeze({ anchor: armoryAnchor, racks: armoryMounts }),
     cleanup: Object.freeze({ layout: CABIN_DUNGEON_CLEANUP_LAYOUT }),
     cleanupLayout: CABIN_DUNGEON_CLEANUP_LAYOUT,

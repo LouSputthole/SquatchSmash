@@ -185,7 +185,7 @@ export const SEQUENCES = Object.freeze({
 
   /** Once, ever. PART VI. */
   little_friend: Object.freeze([
-    say('prospect.little_friend', 'prospect', 'Say hello to my little friend.', {
+    say('prospect.little_friend', 'prospect', "Fine. Everybody at once. Let's find out how many of you this thing was designed for.", {
       /* This is the siege payoff, not another conversational line. The named
        * flag lets the scene hold weapon reports and give the subtitle its own
        * visual weight for exactly the recording's measured duration. */
@@ -268,6 +268,13 @@ export const SEQUENCES = Object.freeze({
       'They came to my house. With cars, and a plan, and enough men to spare four of them for a window.'),
     say('aftermath.lou.budget', 'lou',
       'This is not a neighbourhood thing any more, kid. This is somebody with a budget.'),
+    /* The threat establishes motive; this recovered route package establishes
+     * the target. The bad conclusion is deliberate and only pays off at the
+     * repaired-mansion debrief. Nobody aboard SQUATCHOLA GAY points at it. */
+    say('aftermath.lou.route-package', 'lou',
+      'We pulled a route package out of their command car. It marks their desert compound. Sasole already has it.', {
+        direction: 'Cold, decisive, and wrong without knowing it. This is an order, not a clue for the audience.',
+      }),
     say('aftermath.lou.sasole', 'lou',
       'There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this.'),
     say('aftermath.prospect.sasole', 'prospect', 'Sasole. Right.'),
@@ -277,7 +284,7 @@ export const SEQUENCES = Object.freeze({
   sasole: Object.freeze([
     say('sasole.sasole.stairs', 'sasole',
       'You are the one who held the stairs. Good. Then you can hold a bomb bay.'),
-    /* The siege ENDS at first light (campaign clock: Day 6, 6:10 AM), and the
+    /* The siege ends before dawn (campaign clock: Day 9, 4:10 AM), and the
      * Enola raid flies in the dark -- so Sasole promises a NIGHT flight. The
      * 2:00 PM travel row in docs/CAMPAIGN-TIMELINE.md is the drive and the
      * aircraft prep; wheels-up follows, in full dark. */

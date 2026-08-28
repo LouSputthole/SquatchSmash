@@ -46,11 +46,73 @@ test('the car stays interactable and says exactly what is missing', () => {
   assert.match(getaway, /Check the car · \$\{evidenceCounter\(status\)\}/);
   assert.match(getaway, /enabled: \(\) => phase === 'escape' \|\| phase === 'recover'/,
     'an incomplete car must explain itself rather than disappear');
+  assert.match(getaway, /follow: \(\) => refs\.manCar\.passengerBoardPosition\(\)/,
+    'the getaway prompt has drifted away from the passenger-side boarding point');
   const board = bodyOf('boardGetaway');
   assert.match(board, /if \(!status\.complete\)/);
   assert.match(board, /evidenceMissingCopy\(status\)/);
   assert.ok(board.indexOf('if (!status.complete)') < board.indexOf("phase = 'boarding'"),
     'boarding begins before the evidence gate is checked');
+  assert.match(board, /seatProspectForGetaway\(\)/,
+    'successful boarding does not use the car-owned passenger seat');
+  assert.doesNotMatch(board, /completeObjective\('escape'\)/,
+    'escape is marked complete before the car has even left the parking space');
+});
+
+test('boarding owns the passenger seat, camera anchor, collision, and honest objective', () => {
+  const seat = bodyOf('seatProspectForGetaway');
+  assert.match(seat, /refs\.manCar\.collider\.enabled = false/,
+    'the car remains solid while Tony is being seated inside it');
+  assert.match(seat, /S\.snowSeated = true/);
+  assert.match(seat, /syncArrivalSeats\(\)/,
+    'the getaway duplicates a world-space seat instead of reusing the vehicle anchors');
+  assert.match(seat, /occupant = 'tony'/);
+  assert.match(seat, /occupant = 'snow'/);
+
+  const player = bodyOf('updatePlayer');
+  assert.match(player, /phase === 'arrival' \|\| phase === 'car' \|\| phase === 'boarding'/,
+    'the body stops following the car-owned seat during boarding');
+  const camera = bodyOf('updateCamera');
+  assert.match(camera, /phase === 'arrival' \|\| phase === 'car' \|\| phase === 'boarding'/,
+    'the camera falls back to a hard-coded world point during boarding');
+
+  const board = bodyOf('boardGetaway');
+  assert.match(board, /setObjective\('escape', 'Seated with the evidence\. Answer Snow, then get clear\.'\)/);
+  assert.match(bodyOf('startDrive'), /release\('passengerActor'\)/,
+    'the parked-car seat still owns Tony after the chase scene takes over');
+  assert.match(bodyOf('finishScene'), /completeObjective\('escape', true\)/,
+    'the escape objective never completes at the successful campaign seam');
+});
+
+test('routine enemy weapons remain visible consequences without becoming prompt clutter', () => {
+  const prop = bodyOf('dropWeaponProp');
+  assert.match(prop, /buildWeaponMesh\(kind\)/);
+  assert.match(prop, /scene\.add\(m\)/);
+  assert.doesNotMatch(prop, /addInteract|pickUpWeapon/,
+    'a presentation-only dropped weapon still registers an [E] pickup');
+
+  const pickup = bodyOf('dropWeaponPickup');
+  assert.match(pickup, /dropWeaponProp\(kind, x, z\)/,
+    'the one authored pickup path does not reuse the physical drop');
+  assert.match(pickup, /addInteract/);
+
+  const down = bodyOf('onActorDown');
+  assert.match(down, /dropWeaponProp\(a\.weapon/);
+  assert.doesNotMatch(down, /dropWeaponPickup\(a\.weapon/,
+    'every armed NPC still leaves another permanent pickup prompt');
+});
+
+test('resolved cabin gear and the combat-cleared trunk retire their prompts', () => {
+  const glovebox = MAIN.slice(MAIN.indexOf("id: 'glovebox'"), MAIN.indexOf("id: 'silverback'"));
+  assert.match(glovebox, /enabled: \(\) => phase === 'car' && !S\.weaponChecked/,
+    'the already-checked glovebox still competes with the passenger door');
+  const silverback = MAIN.slice(MAIN.indexOf("id: 'silverback'"), MAIN.indexOf("id: 'exitCar'"));
+  assert.match(silverback, /enabled: \(\) => \(phase === 'car' \|\| phase === 'lot'\) && !S\.silverbackTaken/,
+    'Snow keeps offering a gun already under Tony\'s coat');
+  const trunk = MAIN.slice(MAIN.indexOf("id: 'trunk'"), MAIN.indexOf('// -- lot clues --'));
+  assert.match(trunk, /enabled: \(\) => phase === 'lot'/);
+  assert.doesNotMatch(trunk, /phase === 'escape'/,
+    'post-combat weapon shopping still steals the getaway prompt');
 });
 
 test('each required physical case has a marker and an authoritative pickup', () => {

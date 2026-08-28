@@ -489,8 +489,8 @@ test('every authored apartment iteration receives a coherent isolated campaign c
       },
     },
     {
-      variant: 'after-motel', spawn: 'front_door', chapter: 'day_two', day: 3,
-      time: 4 * 60 + 30,
+      variant: 'after-motel', spawn: 'front_door', chapter: 'day_two', day: 5,
+      time: 6 * 60 + 30,
       verify(state) {
         assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].status, 'complete');
         assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');

@@ -83,7 +83,7 @@ export const NODES = {
   // --- in the car, before you ever open a door ---
   snowBrief: {
     speaker: 'Snow',
-    line: 'Room twelve. Meat first. Money second.',
+    line: 'Room twelve. The jerky deal is our cover until daylight. Meat first. Money second.',
     options: {
       calm: { text: 'That is how business works.', heat: 0, read: 2, reply: ['Snow', 'Good. Business. Not opera.'] },
       threat: { text: 'If they waste my time, they lose more than jerky.', heat: 2, read: 1, reply: ['Snow', 'Buy. Leave. No speeches.'] },
@@ -186,7 +186,9 @@ export const PROSPECT_BARKS = [
 ];
 
 export const SNOW_BARKS = [
-  'Buy the meat. Leave. No speeches.',
+  // Owner dialogue pass: the briefing already lands "Buy. Leave. No speeches."
+  // This follow-up must escalate instead of sounding like a duplicated take.
+  'Buy it and leave. I said no speeches, and I can see one forming.',
   'Second car. Running. Nobody in it.',
   'The upstairs. Somebody keeps not looking at me.',
   'Two minutes. Then I honk.',
@@ -216,7 +218,7 @@ export const MANNY_FIGHT_BARKS = SNOW_FIGHT_BARKS;
 
 // The closing exchange on the road.
 export const ENDING = [
-  ['Snow', 'How much survived?'],
+  ['Snow', 'We wait for daylight. Once your block is clean, I put you home. Now show me what survived.'],
   ['*', 'Prospect opens the case.'],
   ['Snow', 'Well?'],
   ['Prospect', 'Too much pepper.'],

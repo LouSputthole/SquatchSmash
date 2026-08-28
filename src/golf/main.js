@@ -36,7 +36,7 @@ import { SmokeSystem, emitCigaretteExhale } from '../world/smoke.js';
 import { createGolfControlPolicy } from './controls.js';
 
 import { Course } from './terrain.js';
-import { Golfer, makeBag, makeBall, makeBallMarker } from './cast.js';
+import { Golfer, makeApartmentKeys, makeBag, makeBall, makeBallMarker } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
@@ -232,6 +232,41 @@ const carts = new CartPair(scene);
 carts.parkInLot(HOLE.lot.carts);
 
 const bag = makeBag(scene, HOLE.lot.bag.x, HOLE.lot.bag.z, 0.4);
+
+/* Beat 13 ends with an object changing hands, not an end-card claim. One key
+ * ring is reparented from Lou's free hand into the first-person view when the
+ * two semantic cue gestures fire. The route still changes only after the full
+ * round, so seeing the keys never bypasses golf or mutates campaign state. */
+const apartmentKeys = makeApartmentKeys();
+apartmentKeys.visible = false;
+golfers[CHARACTER_IDS.LOU]?.parts?.foreL?.add(apartmentKeys);
+apartmentKeys.position.set(-0.015, -0.38, 0.055);
+let apartmentKeyState = 'hidden';
+
+function presentApartmentKeys(gesture) {
+  if (gesture === 'offer_apartment_keys') {
+    const hand = golfers[CHARACTER_IDS.LOU]?.parts?.foreL;
+    if (!hand) return false;
+    hand.add(apartmentKeys);
+    apartmentKeys.position.set(-0.015, -0.38, 0.055);
+    apartmentKeys.rotation.set(-0.18, 0.18, 0.48);
+    apartmentKeys.scale.setScalar(1.35);
+    apartmentKeys.visible = true;
+    apartmentKeyState = 'offered';
+    return true;
+  }
+  if (gesture === 'receive_apartment_keys') {
+    camera.add(apartmentKeys);
+    apartmentKeys.position.set(0.285, -0.235, -0.52);
+    apartmentKeys.rotation.set(-0.38, 0.18, -0.48);
+    apartmentKeys.scale.setScalar(1.0);
+    apartmentKeys.visible = true;
+    apartmentKeyState = 'received';
+    return true;
+  }
+  return false;
+}
+
 const ballMeshes = new Map();
 for (const id of [CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW, CHARACTER_IDS.ERIC]) {
   ballMeshes.set(id, makeBall(scene, 0xeef0f4));
@@ -272,7 +307,7 @@ const SHAFT_PITCH = PLAYER_CLUB_SHAFT_PITCH;
 const hud = new Hud();
 const audio = new AudioEngine();
 const radioClock = new AuthoredClock(8);
-radioClock.setTime(4, 8 * 60);
+radioClock.setTime(6, 8 * 60);
 const cartRadio = new Radio(audio, hud, radioClock, {
   venue: 'silver_pines',
   fullSongs: true,
@@ -328,6 +363,10 @@ function speakerName(id) {
 
 const cues = new CueQueue({
   say: (cue, secs) => {
+    /* Story props follow the authored line, not a timer guessed alongside it.
+     * The offer starts with Lou's words; the transfer starts with the
+     * Prospect's response, so the visible object and subtitle cannot drift. */
+    if (cue.gesture) presentApartmentKeys(cue.gesture);
     const speaker = speakerFor(cue.speaker);
     hud.say(`<em>${speakerName(cue.speaker)}</em> ${cue.text}`, secs * 1000);
     activeVoice?.stop?.();
@@ -2015,7 +2054,7 @@ function showEndCard(summary) {
   card.querySelector('.next').innerHTML = built < HOLES.length
     ? `${HOLES.length - built} HOLE${HOLES.length - built === 1 ? '' : 'S'} STILL TO BUILD<br>`
       + `<span>${HOLES.filter((h) => !h.playable).map((h) => h.name.toUpperCase()).join(' · ')}</span>`
-    : 'THAT IS THE ROUND<br><span>SEVEN O\'CLOCK IS THE ROOM</span>';
+    : 'THAT IS THE ROUND<br><span>THE ADDRESS IS ON THE TAG</span>';
 
   card.querySelector('.actions').classList.remove('hidden');
   const replay = document.getElementById('endcard-again');
@@ -2383,7 +2422,10 @@ async function boot() {
   if (previewCheckpoint === 'grille') {
     // The full round, staged and closed out for real: `showEndCard()` is the
     // exact function `round`'s own `onRoundComplete` hook calls, and it
-    // banks the last hole and calls `story.complete()` itself.
+    // banks the last hole and calls `story.complete()` itself. The checkpoint
+    // skips the walk-off conversation, so stage the already-completed physical
+    // handover rather than showing a keyless completion card.
+    presentApartmentKeys('receive_apartment_keys');
     showEndCard(round.roundSummary());
   } else if ((begun.resumed || previewCheckpoint) && resumeHole > 1) {
     round.startHole(resumeHole);
@@ -2421,13 +2463,15 @@ frame();
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
   interaction, inventory, heldProps, smoke,
-  cartRadio, landingPreview, npcBallMarkers,
+  cartRadio, landingPreview, npcBallMarkers, apartmentKeys,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
   player, camera, scene, audio, input,
   get beat() { return round.beat; },
   get camMode() { return camMode; },
   get club() { return club; },
+  get apartmentKeyState() { return apartmentKeyState; },
+  presentApartmentKeys,
   setClub: (c) => selectClub(c),
   get aimYaw() { return aimYaw; },
   setAim: (a) => { aimYaw = a; },

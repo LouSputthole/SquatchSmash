@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -13,7 +14,6 @@ import {
 import {
   BIG_NIGHT_BOOSKI_CALL,
   BIG_NIGHT_MARGO_WAKE,
-  DATE_MARGO_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
   HEIST_CLEANUP_ITEMS,
   HEIST_PREPARATION_ITEMS,
@@ -34,11 +34,10 @@ import { conciseObjectiveItems } from '../src/core/objective-panel.js';
 /**
  * Every call the campaign makes, in the order Tony gets them.
  *
- * Three of these no longer ring in this flat -- Margo's, Lou's about the
- * boat, and Booskibro's about the case all belong to the luxury apartment
- * from beat 14 on -- but they are still WRITTEN here, because this file is
- * where every telephone in the campaign is written and where the VO pipeline
- * looks for them. The list is the whole cast of callers, not the flat's own.
+ * Two of these no longer ring in this flat -- Lou's about the boat and
+ * Booskibro's about the case belong to the luxury apartment from beat 14 on.
+ * Margo's later date call is deliberately absent: the cabin conversation is
+ * now the one place the date is scheduled.
  */
 const CAMPAIGN_CALLS = [
   DAY_ONE_LOU_CALL,
@@ -47,7 +46,6 @@ const CAMPAIGN_CALLS = [
   DAY_TWO_LOU_SECOND_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
   NEW_SPACE_LOU_CALL,
-  DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
   BIG_NIGHT_BOOSKI_CALL,
@@ -84,7 +82,7 @@ test('Tony answers every campaign call out loud, from the caller’s own bank', 
     );
   }
 
-  // Five calls, five banks: nobody's answers end up in somebody else's call.
+  // One bank per call: nobody's answers end up in somebody else's call.
   const banks = CAMPAIGN_CALLS.map((call) => call.vo);
   assert.equal(new Set(banks).size, banks.length);
 });
@@ -441,7 +439,7 @@ test('existing Bada Bing progress implies Lou’s call was already answered', ()
   assert.deepEqual(calls, []);
 });
 
-test('returning from Bada Bing requires the package before Squatchfather', () => {
+test('a legacy Bada Bing home landing requires the package but not the retired whiskey gate', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
@@ -464,8 +462,6 @@ test('returning from Bada Bing requires the package before Squatchfather', () =>
   });
 
   campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
-  assert.equal(story.tryLeave(activities).kind, 'activity');
-  activities.whiskeyRelaxed = true;
   assert.deepEqual(story.tryLeave(activities), {
     kind: 'go',
     destination: SCENE_IDS.SQUATCHFATHER,
@@ -784,13 +780,13 @@ test('the Day Two door waits for Booskibro, then routes to the Beef Run', () => 
   });
 });
 
-/** Home from the Motel before dawn: everything Day Two asked for is done. */
+/** Home from the Motel after Snow's daylight wait: the overnight run is done. */
 function afterTheMotel(storage = new MemoryStorage()) {
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
     state.story.chapter = 'day_two';
-    state.story.day = 3;
-    state.story.timeMinutes = 4 * 60 + 30;
+    state.story.day = 5;
+    state.story.timeMinutes = 6 * 60 + 30;
     state.activities.eaten = true;
     state.activities.showered = true;
     state.activities.pooped = true;
@@ -841,7 +837,7 @@ test('sleep after the Motel creates a persistent Day Five checkpoint for THE TAK
   const campaign = afterTheMotel(storage);
   const story = createApartmentStory({ campaign, ring: () => true });
 
-  /* He was up until half four, so noon of the same calendar day: the chapter
+  /* Snow held him until half six, so noon of the same calendar day: the chapter
    * turns without the day turning with it. THE TAKE comes first now -- the
    * harbour job and the date are both after the handover, from the flat he
    * has not been given yet. And it is Day 5, not Day 3, because Days 2 to 4
@@ -863,14 +859,28 @@ test('sleep after the Motel creates a persistent Day Five checkpoint for THE TAK
   assert.equal(restored.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
 });
 
-/* MARGO'S CALL AND THE DATE DOOR LEFT THIS FILE WITH THE ROUTE.
+test('the starter apartment names the canonical Day Five heist and Day Six golf wakes', async () => {
+  const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source,
+    /Day Five, 12:00 PM\. THE TAKE is today\. Lou said he would call\./);
+  assert.match(source,
+    /Day Six, 7:00 AM\. Silver Pines at eight\. Lou gave you the time last night\./);
+  assert.match(source, /heist_day: 'The Jerky Motel is behind you'/);
+  assert.match(source, /heist_day: 'THE TAKE is today\. Lou said he would call\.'/);
+  assert.match(source, /golf_morning: 'THE TAKE is behind you'/);
+  assert.match(source,
+    /golf_morning: 'Silver Pines at eight\. Lou gave you the time last night\.'/);
+  assert.doesNotMatch(source,
+    /(?:heist_day|golf_morning): 'Margo is still here\. Lou can wait until she leaves\.'/);
+});
+
+/* MARGO'S DUPLICATE CALL AND THE DATE DOOR LEFT THIS FILE WITH THE ROUTE.
  *
  * Both used to be tested here because both used to be played here: she rang
  * the flat on the afternoon of Day 3 and he walked out of this front door for
- * a nine o'clock table. The bible has Front & Center on the night Lou hands
- * over the keys, so the call rings in the luxury apartment and its door is
- * the one that opens -- see tests/luxury-apartment-story.test.mjs, which
- * exercises the same two definitions through `LuxuryApartmentStory`.
+ * a nine o'clock table. The bible has Front & Center after Lou hands over the
+ * keys, and the cabin call has already booked it; the luxury apartment's door
+ * opens after Tony gets ready without ringing her a second time.
  */
 
 /**
@@ -944,6 +954,30 @@ test('SCENE 9 never fires on a bad night, and never past the night it happened',
   goodNight.update((state) => { state.story.chapter = 'golf_morning'; });
   assert.equal(goodStory.margoComeHomeOwed(), false);
   assert.equal(goodStory.margoHomeForTheNight(), false, 'the night is over');
+});
+
+test('golf morning has no redundant voicemail or borrowed exact-once id', () => {
+  const campaign = afterTheDate();
+  campaign.update((state) => { state.story.chapter = 'golf_morning'; });
+  const story = createApartmentStory({ campaign, ring: () => true });
+
+  assert.deepEqual(story.messages(), {
+    chapter: 'golf_morning',
+    eventId: null,
+    heard: true,
+    list: [],
+  });
+  assert.equal(story.hearMessages(), false);
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT),
+    false,
+    'checking the empty golf machine must not consume the later message id',
+  );
+
+  campaign.update((state) => { state.story.chapter = 'heist_day'; });
+  assert.equal(story.messages().eventId, TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT);
+  assert.equal(story.messages().list.length, 1);
+  assert.equal(story.hearMessages(), true, 'the later authored message remains playable');
 });
 
 test('an absent cameHome verdict survives normalize, and the fourth morning survives with it', () => {
@@ -1040,6 +1074,10 @@ test('Lou rings once on the evening of THE TAKE about a new space', () => {
   assert.equal(NEW_SPACE_LOU_CALL.vo, 'call.lou.new_space');
   assert.equal(NEW_SPACE_LOU_CALL.targetSceneId, SCENE_IDS.SILVER_PINES);
   assert.notEqual(NEW_SPACE_LOU_CALL.vo, DAY_FOUR_LOU_HEIST_CALL.vo);
+  assert.match(NEW_SPACE_LOU_CALL.lines.join(' '), /tomorrow at eight/i,
+    'Lou did not say that the Day Six round is tomorrow');
+  assert.match(NEW_SPACE_LOU_CALL.replies.join(' '), /tomorrow at eight/i,
+    'Tony did not repeat the Day Six time back');
   /* And Margo is not in it. Her whole thread is four touches and the course
    * is not one of them; an earlier draft of the spine invented "bring that
    * girl from the Bing" and the owner caught it before it was built. */
@@ -1160,4 +1198,10 @@ test('grandfathered big-night saves still route through Booskibro to Initiation'
   assert.deepEqual(story.tryLeave({ playedSquatchSmash: true, tookShrooms: true }), {
     kind: 'go', destination: SCENE_IDS.INITIATION,
   });
+});
+
+test('Margo leaves without anticipating the family call that has not happened yet', () => {
+  const morning = BIG_NIGHT_MARGO_WAKE.lines.join('\n');
+  assert.match(morning, /pretend you are not thinking about work/i);
+  assert.doesNotMatch(morning, /big day|important face|anything stupid tonight/i);
 });

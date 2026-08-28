@@ -47,11 +47,15 @@ test('the hidden cabin basement resolves below the same footprint without steali
 });
 
 test('pushing the wardrobe hangers aside reveals the one basement transition', async () => {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.045, 100);
+  scene.add(camera);
   const registered = new Map();
   const discoveries = [];
   const transitions = [];
   const cabin = await buildCountrysideCabin({
-    scene: new THREE.Scene(),
+    scene,
+    camera,
     externalLighting: true,
     interaction: { register(target, descriptor) { registered.set(target, descriptor); } },
     canRevealBasement: () => true,
@@ -93,8 +97,20 @@ test('pushing the wardrobe hangers aside reveals the one basement transition', a
     'seeing the panel is discovery, but the first descent is still the first entry');
   assert.equal(cabin.basement.discovered, true);
 
+  const carriedBodyId = Object.keys(cabin.bodyCleanup.snapshot().bodies)[0];
+  assert.equal(cabin.bodyCleanup.wrap(carriedBodyId), true);
+  assert.equal(cabin.bodyCleanup.beginCarry(carriedBodyId), true);
+  assert.equal(cabin.bodyCleanup.bodies.get(carriedBodyId).group.parent, camera);
+  assert.equal(cabin.basement.dungeon.setHeldTool('pliers'), 'pliers');
   registered.get(cabin.utilityTargets.basementExit).onUse();
+  assert.equal(cabin.bodyCleanup.snapshot().carryingId, carriedBodyId,
+    'the wardrobe ladder cannot silently drop a camera-carried body');
+  assert.equal(cabin.bodyCleanup.bodies.get(carriedBodyId).group.parent, camera);
+  assert.equal(cabin.basement.dungeon.heldToolId, 'pliers',
+    'the level transition cannot silently discard the currently held tool');
   entrance.onUse();
+  assert.equal(cabin.bodyCleanup.snapshot().carryingId, carriedBodyId,
+    'repeat descent preserves the same carry rather than cloning or resetting it');
   assert.deepEqual(discoveries, ['basement'], 'returning upstairs does not rediscover the room');
   assert.deepEqual(transitions.map(({ direction }) => direction), ['down', 'up', 'down']);
   assert.equal(transitions[2].detail?.firstEntry, false,
@@ -675,6 +691,49 @@ test('Gratin and two Cabin-local disposable captives expose restrained pose, hit
   }
 
   cabin.basement.dispose();
+  cabin.dispose();
+});
+
+test('dead captives wrap directly and tangible table tools swap without duplicating geometry', async () => {
+  const registered = new Map();
+  const wrapReady = new Set();
+  const captiveEvents = [];
+  const cabin = await buildCountrysideCabin({
+    scene: new THREE.Scene(),
+    externalLighting: true,
+    interaction: {
+      register(target, descriptor) { registered.set(target, descriptor); },
+      unregister(target) { registered.delete(target); },
+    },
+    canCleanupWrap: (id) => wrapReady.has(id),
+    onDungeonCaptive: (...args) => captiveEvents.push(args),
+  });
+  const { dungeon } = cabin.basement;
+  const captive = dungeon.actors.counterStrike;
+  const descriptor = registered.get(captive.bodyTarget);
+
+  dungeon.sync({ captives: { counterStrike: { dead: true, cause: 'test-shot' } } });
+  assert.equal(descriptor.enabled(), false,
+    'campaign truth must authorize wrapping before the dead-body prompt appears');
+  wrapReady.add(captive.cleanupBodyId);
+  assert.equal(descriptor.enabled(), true);
+  assert.match(descriptor.label(), /^Wrap the /);
+  assert.doesNotMatch(descriptor.label(), /Inspect|Question/);
+  descriptor.onUse();
+  assert.deepEqual(captiveEvents.at(-1).slice(0, 2), [captive.id, 'wrap'],
+    'using the corpse goes straight to the canonical wrapping mutation');
+
+  assert.equal(dungeon.setHeldTool('pliers'), 'pliers');
+  assert.equal(dungeon.heldToolId, 'pliers');
+  assert.equal(dungeon.tools.pliers.visible, false, 'held pliers leave the physical table');
+  assert.equal(dungeon.tools.saw.visible, true);
+  assert.equal(dungeon.setHeldTool('saw'), 'saw');
+  assert.equal(dungeon.tools.pliers.visible, true, 'swapping restores the previous tool');
+  assert.equal(dungeon.tools.saw.visible, false);
+  assert.equal(dungeon.setHeldTool(null), null);
+  assert.equal(dungeon.tools.pliers.visible, true);
+  assert.equal(dungeon.tools.saw.visible, true);
+
   cabin.dispose();
 });
 

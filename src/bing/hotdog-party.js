@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../core/campaign.js';
-import { AUBBIE, BIG_UNCLE_LOU_BING, SAUCE } from '../core/wardrobe.js';
+import { AUBBIE, BIG_UNCLE_LOU_MANSION, SAUCE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { readActor } from '../core/staging.js';
@@ -203,7 +203,7 @@ function attachApeKnife(ape) {
 export function buildHotDogCleanupProps() {
   const g = group('hotdog.cleanup-props');
   const plastic = mat({ color: 0xd7dbe0, roughness: 0.48, transparent: true, opacity: 0.72 });
-  const kit = group('aubbie.cleanup-kit');
+  const kit = group('stove.cleanup-kit');
   // The kit sits beyond the service-side wall return, not through its corner.
   kit.position.set(7.2, 0, -11.35);
   kit.add(
@@ -211,7 +211,7 @@ export function buildHotDogCleanupProps() {
     box({ size: [0.78, 0.08, 0.48], pos: [0, 0.5, 0], mat: plastic }),
     cylinder({ r: 0.18, h: 0.62, pos: [-0.72, 0.31, 0], mat: mat({ color: 0xb6b0a3, roughness: 0.9 }) }),
   );
-  const label = sign(printed('aubbie-kit-label', ['AUBBIE', 'CORRECT KIT'], {
+  const label = sign(printed('stove-kit-label', ["STOVE'S", 'CLEANING KIT'], {
     w: 256, h: 128, bg: '#d7d0b5', fg: '#29251f', font: '900 34px "Trebuchet MS", sans-serif',
   }), 0.46, 0.22, { x: 0, y: 0.26, z: 0.315 });
   kit.add(label);
@@ -334,7 +334,15 @@ export function buildHotDogCleanupProps() {
    * the player in there walked them out of the building through a doorway that
    * was never built. It stays locked for the party and the sweep is the men's
    * room only. */
-  const mensPad = box({ size: [0.42, 0.06, 0.34], pos: [11.7, 0.03, 1.4], mat: mat({ color: 0x534b3c, roughness: 0.92 }) });
+  /* Interaction target, not set dressing. This used to render as a brown
+   * brick on the bathroom floor—the unexplained object from owner QA. Keep
+   * the real aim/use surface but make the proxy visually inert. */
+  const mensPad = box({
+    size: [0.42, 0.06, 0.34],
+    pos: [11.7, 0.03, 1.4],
+    mat: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.01, depthWrite: false }),
+    cast: false,
+  });
   mensPad.name = 'bathroom-check.mens';
   g.add(mensPad);
 
@@ -599,10 +607,10 @@ export async function buildHotDogParty(scene, club) {
   const lou = makeNpc(scene, club, {
     name: 'Big Uncle Lou', characterId: CHARACTER_IDS.LOU,
     x: -16.2, z: 2.0, yaw: 2.25, job: 'stand',
-    // The club's canonical three-piece, so the man running the private party
-    // is still the owner dressed for his own building. The face is the only
-    // thing local to the scene.
-    model: { ...BIG_UNCLE_LOU_BING, face: faces.has('lou.png') ? 'assets/faces/lou.png' : null },
+    /* Owner QA: this is a private family party, not a normal night working his
+     * room. Reuse the open camp shirt he wears at home and on No Wake; keep the
+     * established Lou face and every authored floor mark unchanged. */
+    model: { ...BIG_UNCLE_LOU_MANSION, face: faces.has('lou.png') ? 'assets/faces/lou.png' : null },
   });
   const hotdog = makeNpc(scene, club, {
     name: 'Billy HotDog', characterId: CHARACTER_IDS.BILLY_HOTDOG,
@@ -646,14 +654,6 @@ export async function buildHotDogParty(scene, club) {
   const stage = buildHotDogStageRig();
   const cleanup = buildHotDogCleanupProps();
   scene.add(banner, food.group, stage.group, cleanup.group);
-
-  // Rest the closure card on the felt instead of suspending it over a chair.
-  const closedSign = sign(printed('blackjack-closed-party', ['TABLE CLOSED', 'FAMILY PARTY'], {
-    w: 512, h: 256, bg: '#211519', fg: '#e3c987', font: '900 48px "Trebuchet MS", sans-serif',
-  }), 1.25, 0.62, { x: club.bj.x + 0.7, y: 1.25, z: club.bj.z + 0.6 });
-  closedSign.name = 'blackjack-closed-party-sign';
-  closedSign.rotation.y = Math.PI;
-  scene.add(closedSign);
 
   // Eric's old camcorder is the evidence problem without inventing Ericran as
   // a second person. It rides his hand and remains visible during the show.
@@ -706,7 +706,6 @@ export async function buildHotDogParty(scene, club) {
     cleanup,
     collision,
     apeKnife,
-    closedSign,
     camcorder: camera,
   };
 }

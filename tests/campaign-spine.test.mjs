@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { SCENE_IDS, SCENES } from '../src/core/campaign.js';
@@ -13,6 +14,7 @@ import {
   residenceAfter,
   spineBeat,
 } from '../src/core/campaign-spine.js';
+import { getSceneContract } from '../src/core/scene-contracts.js';
 
 /**
  * How many beats the built campaign does not yet play in the position the
@@ -64,6 +66,30 @@ test('the first beat is the fake-out and the last one is the ceremony', () => {
   assert.equal(CAMPAIGN_SPINE.at(0).id, 'squatch_smash_intro');
   assert.equal(CAMPAIGN_SPINE.at(-1).id, 'initiation');
   assert.equal(CAMPAIGN_SPINE.at(-1).scene, SCENE_IDS.INITIATION);
+});
+
+test('SQUATCHOLA GAY is a display rename, not a route or save migration', () => {
+  const beat = spineBeat('enola_squatch');
+  assert.equal(beat.id, 'enola_squatch');
+  assert.equal(beat.scene, SCENE_IDS.ENOLA_SQUATCH);
+  assert.equal(beat.title, 'SQUATCHOLA GAY');
+  assert.equal(getSceneContract(SCENE_IDS.ENOLA_SQUATCH)?.title, 'SQUATCHOLA GAY');
+});
+
+test('active player and campaign documentation no longer publishes the retired mission title', () => {
+  const surfaces = [
+    '../enolasquatch.html',
+    '../preview.html',
+    '../README.md',
+    '../docs/MANSION-SIEGE-NIGHT.md',
+    '../docs/MISSION-SILENT-SQUATCH.md',
+  ];
+  for (const surface of surfaces) {
+    const copy = readFileSync(new URL(surface, import.meta.url), 'utf8');
+    assert.match(copy, /SQUATCHOLA GAY/, `${surface} does not publish the canonical mission name`);
+    assert.doesNotMatch(copy, /\b(?:The )?Enola Squatch\b/i,
+      `${surface} still publishes the retired player-facing mission title`);
+  }
 });
 
 test('chapters arrive in order and never resume once left', () => {

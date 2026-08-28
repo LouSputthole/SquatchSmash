@@ -221,7 +221,7 @@ export const SCENE_CONTRACTS = deepFreeze([
   makeContract({
     id: SCENE_IDS.BADA_BING_ONE,
     title: 'Bada Bing — first visit',
-    purpose: 'First club visit: optional games, Lou office package, briefing, and return home.',
+    purpose: 'First club visit: optional games, Lou office package, briefing, and the Family driver handoff to Squatchfather.',
     entrypoints: [canonicalEntry(SCENE_IDS.BADA_BING_ONE, 'src/bing/main.js', {
       router: 'src/bing/router.js',
     })],
@@ -495,7 +495,7 @@ export const SCENE_CONTRACTS = deepFreeze([
 
   makeContract({
     id: SCENE_IDS.ENOLA_SQUATCH,
-    title: 'The Enola Squatch',
+    title: 'SQUATCHOLA GAY',
     purpose: 'On-foot preflight, heavy-aircraft mission, bomb run, detonation, emergency return, and landing.',
     entrypoints: [canonicalEntry(SCENE_IDS.ENOLA_SQUATCH, 'src/enolasquatch/main.js')],
     capabilities: {

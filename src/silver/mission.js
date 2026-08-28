@@ -454,11 +454,8 @@ export class Mission {
    * a cab. Now 71 — which, with the seven-hand goal bonus and the ordinary
    * table beats (`woo.js`, same pass), is where a player who simply does the
    * evening — dinner, the show, a handful of tips, the salud — lands with
-   * room to spare. Missing it takes actively neglecting her: the negative
-   * events are untouched, and `awkward`/`disaster` now begin low enough that
-   * only a genuinely ignored date falls into them. The bands verify:silver
-   * pins still hold: 84 is strong, 70 is good, 45 is awkward, 20 is a
-   * disaster.
+   * room to spare. The score still changes her delivery, but campaign
+   * continuity no longer authors or exposes a negative ending.
    *
    * @param {number} score the Woo score
    * @param {string} band  its band key
@@ -585,51 +582,5 @@ export const ENDINGS = {
     body: 'One drink, she said, in the voice of a woman who has said one drink before. She kept '
       + 'the rye. She kept the ice cube. On the pavement she asked whether your building had a '
       + 'service entrance and told you that if it did she was getting back in the car.',
-  },
-  good: {
-    title: 'FRONT AND CENTER',
-    body: 'She let you put her in a cab, wound the window down, and said she had had a genuinely '
-      + 'good time — which she meant, and which is why she said the rest of it: do not ruin that '
-      + 'by being in a hurry. Then she told you to listen to the show. Thursday. She would say '
-      + 'something only you would catch.',
-  },
-  gentleman: {
-    title: 'FRONT AND CENTER',
-    body: 'You did not ask, and she noticed you did not ask, and the noticing was worth more than '
-      + 'the asking would have been. She wrote nothing down and gave you nothing to hold. She said '
-      + 'call the station. She said they put everybody through at that hour, because nobody calls.',
-  },
-  polite: {
-    title: 'FRONT AND CENTER',
-    body: 'She thanked you for dinner the way you thank a man for dinner. The cab was already '
-      + 'there — she had asked the coat check to ring one somewhere around the second course, and '
-      + 'you were not supposed to work that out until now.',
-  },
-  awkward: {
-    title: 'FRONT AND CENTER',
-    body: 'She was polite about it, which was worse. She let the manager call her a car and stood '
-      + 'under the canopy talking to him about the band while you held her coat. He got more out '
-      + 'of her in four minutes than you managed all night. Big Uncle Lou will ring about this. Lou rings '
-      + 'about everything.',
-  },
-  disaster: {
-    title: 'FRONT AND CENTER',
-    body: 'She left through the kitchen. Every one of them watched her go and not one of them '
-      + 'looked at you, which in that building is a formal statement. The cook you did not tip '
-      + 'held the door. Somebody will tell Big Uncle Lou before you get to the car.',
-  },
-  insult: {
-    title: 'FRONT AND CENTER',
-    body: 'She looked at the money on the tablecloth for a long moment, and then at you, and what '
-      + 'was on her face was not anger — it was a professional noting the exact instant an evening '
-      + 'died. She left it where it was. So did the waiter. It was still sitting there when they '
-      + 'turned the house lights up.',
-  },
-  'from-a-distance': {
-    title: 'FRONT AND CENTER',
-    body: '"I like you," she said, from the far side of a table you had partially destroyed. '
-      + '"From a distance. A good distance. This one." She was laughing when she said it, which '
-      + 'is the only reason it did not sting, and she was already reaching for her coat, which is '
-      + 'the reason it did.',
   },
 };

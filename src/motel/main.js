@@ -1205,9 +1205,8 @@ function finishArrival() {
  *   3. his own case goes into both hands,
  *   4. and he walks into room twelve carrying it.
  *
- * The glovebox prompt still exists and still works; this only means a player
- * who never touches it is armed anyway, and a player who does gets the "still
- * six" line rather than a second draw. The holster is not cosmetic: see
+ * The glovebox prompt is the fallback while this sequence is unresolved and
+ * retires once the automatic check finishes. The holster is not cosmetic: see
  * `dealSealed()` -- nothing can be fired while the deal is still a deal.
  */
 function runArrivalInventory() {
@@ -1378,6 +1377,9 @@ function finishScene(kind) {
     })) {
       return;
     }
+    // Boarding is only the start of the escape. The objective retires at the
+    // successful campaign seam, after the car has actually reached safety.
+    completeObjective('escape', true);
   }
   lastEndingKind = kind;
   phase = 'end';
@@ -1467,17 +1469,15 @@ addInteract({
  * over." Two causes, both fixed: held [E] repeated at the keyboard's auto-
  * repeat rate (see the keydown handler), and the act itself had no gate at
  * all, so every deliberate press re-delivered the same sentence and
- * re-equipped a gun that was already in his hand. The pickup happens once;
- * going back to it afterwards gets a different, throttled line. */
+ * re-equipped a gun that was already in his hand. The arrival now performs
+ * this check automatically, so the resolved glovebox retires instead of
+ * competing with the passenger-door prompt forever. */
 addInteract({
   id: 'glovebox', x: -6.2, y: 1.1, z: 17.6, r: 3.0,
   requiresAim: true,
-  /* The arrival sequence has already opened it, so in practice this is always
-   * the second label -- it is kept because the glovebox is still a thing in
-   * the car a player will look at, and it should answer him. */
   label: () => (S.weaponChecked ? 'The .45 is checked and put away' : 'Check your weapon'),
   follow: () => refs.manCar.gloveboxPosition(),
-  enabled: () => phase === 'car',
+  enabled: () => phase === 'car' && !S.weaponChecked,
   act: () => {
     if (S.weaponChecked) {
       sayThrottled('glovebox.again', 'Prospect', 'Still six. They do not breed in there.', 2.6);
@@ -1504,7 +1504,7 @@ addInteract({
     ? 'The Commander rides under your coat'
     : 'Snow offers you the Silverback Commander'),
   follow: () => (snow ? { x: snow.position.x, y: snow.position.y + 1.1, z: snow.position.z } : null),
-  enabled: () => phase === 'car' || phase === 'lot',
+  enabled: () => (phase === 'car' || phase === 'lot') && !S.silverbackTaken,
   act: () => {
     if (S.silverbackTaken) {
       sayThrottled('silverback.again', 'Prospect', 'It is under my coat. It stays under my coat.', 3.0);
@@ -1536,7 +1536,9 @@ addInteract({
 addInteract({
   id: 'trunk', x: -8, y: 1.0, z: 20.2, r: 3.2,
   label: () => (refs.manCar.trunk.opened ? "Snow's trunk" : "Check the trunk"),
-  enabled: () => phase === 'lot' || phase === 'escape',
+  // Optional loadout happens before the meeting. Once the fight is over this
+  // target must not steal the one prompt that advances the mission.
+  enabled: () => phase === 'lot',
   act: () => {
     if (!refs.manCar.trunk.opened) {
       refs.manCar.trunk.opened = true;
@@ -2288,8 +2290,13 @@ addInteract({
   id: 'getaway', x: -6.6, y: 1.2, z: 17.0, r: 4.2,
   label: () => {
     const status = evidenceStatus();
-    return status.complete ? 'Get in the car' : `Check the car · ${evidenceCounter(status)}`;
+    return status.complete ? 'Get into the passenger seat' : `Check the car · ${evidenceCounter(status)}`;
   },
+  // The authored point lives on clear pavement beside the passenger door.
+  // A hard-coded lot coordinate drifted toward the bonnet and made the prompt
+  // depend on which side of the car Tony approached.
+  follow: () => refs.manCar.passengerBoardPosition(),
+  priority: 4,
   enabled: () => phase === 'escape' || phase === 'recover',
   act: () => boardGetaway(),
 });
@@ -3398,14 +3405,23 @@ function damagePlayer(amount, source = '') {
   if (S.hp <= 0) onProspectDown(source);
 }
 
-// Whatever they were swinging stays on the carpet for you.
+// Whatever they were swinging stays on the carpet. Routine enemy gear is
+// presentation, not a fresh permanent [E] target competing with evidence.
 let droppedId = 0;
-function dropWeaponPickup(kind, x, z) {
+function dropWeaponProp(kind, x, z) {
   if (!kind || !WEAPON_STATS[kind]) return;
   const m = buildWeaponMesh(kind);
   m.position.set(x, 0.35, z);
   m.rotation.set(Math.PI / 2, Math.random() * 3, 0);
   scene.add(m);
+  return m;
+}
+
+// Authored handoffs (Snow's crowbar) remain deliberate pickups. Enemy deaths
+// call dropWeaponProp instead, so a room of bodies cannot become a prompt wall.
+function dropWeaponPickup(kind, x, z) {
+  const m = dropWeaponProp(kind, x, z);
+  if (!m) return;
   const id = `drop${++droppedId}`;
   let taken = false;
   addInteract({
@@ -3433,7 +3449,7 @@ function onActorDown(a, lethal) {
   if (lethal) S.lethalKills++;
   toast(lethal ? 'KILLED' : 'PUT DOWN', lethal ? 'warn' : '', a.name);
   if (a.weapon) {
-    dropWeaponPickup(a.weapon, a.position.x + (Math.random() - 0.5), a.position.z + (Math.random() - 0.5));
+    dropWeaponProp(a.weapon, a.position.x + (Math.random() - 0.5), a.position.z + (Math.random() - 0.5));
     a.equip(null);
   }
 
@@ -3645,7 +3661,7 @@ function updateRecoveryObjective() {
   if (status.complete) {
     completeObjective('recover');
     phase = 'escape';
-    setObjective('escape', 'All three evidence cases are secured. Get back to Snow at the car.');
+    setObjective('escape', "All three evidence cases are secured. Return to the passenger side of Snow's car.");
   } else {
     setObjective('recover', evidenceObjectiveCopy(status));
   }
@@ -4017,6 +4033,17 @@ function ricoEscapes(a) {
   checkRoomCleared();
 }
 
+function seatProspectForGetaway() {
+  refs.manCar.collider.enabled = false;
+  S.snowSeated = true;
+  S.snowExitedCar = false;
+  refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = 'snow';
+  refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = 'tony';
+  if (snow) snow.state = 'idle';
+  syncArrivalSeats();
+  frameSnowFromPassenger();
+}
+
 function boardGetaway() {
   if (phase === 'drive' || phase === 'boarding' || phase === 'end') return false;
   const status = evidenceStatus();
@@ -4026,9 +4053,12 @@ function boardGetaway() {
     return false;
   }
   phase = 'boarding';
-  completeObjective('escape');
   if (S.betrayed) completeObjective('survive');
   closeInspection();
+  closeDialogue();
+  seatProspectForGetaway();
+  setObjective('escape', 'Seated with the evidence. Answer Snow, then get clear.');
+  motelPrompt.hidePrompt();
   if (S.carryingJerky || S.caseBurned || S.stashTaken || S.cratesFound) {
     // fine either way
   } else if (!S.carryingJerky) {
@@ -4240,7 +4270,7 @@ function tryJump() {
 }
 
 function updatePlayer(dt) {
-  if (phase === 'arrival' || phase === 'car') {
+  if (phase === 'arrival' || phase === 'car' || phase === 'boarding') {
     syncArrivalSeats();
     player.group.scale.setScalar(PLAYER_SEATED_SCALE);
     player.legL.rotation.x = -1.15;
@@ -4248,12 +4278,6 @@ function updatePlayer(dt) {
     player.armL.rotation.x = -0.55;
     player.armR.rotation.x = -0.55;
     player.head.rotation.set(0, 0, 0);
-    return;
-  }
-  if (phase === 'boarding') {
-    pos.set(-6.9, 0, 16.4);
-    player.group.position.set(pos.x, 0.55, pos.z);
-    player.group.rotation.y = Math.PI;
     return;
   }
   if (grapple || stunT > 0) {
@@ -4352,8 +4376,8 @@ function updateCamera(dt) {
   const dirX = Math.sin(camYaw) * Math.cos(camPitch);
   const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
   const dirY = Math.sin(camPitch);
-  const seatedInArrivalCar = phase === 'arrival' || phase === 'car';
-  const bodyBob = seatedInArrivalCar || phase === 'boarding'
+  const seatedInArrivalCar = phase === 'arrival' || phase === 'car' || phase === 'boarding';
+  const bodyBob = seatedInArrivalCar
     ? 0
     : Math.max(-0.06, Math.min(0.08, player.group.position.y - feetY));
   const passengerEye = seatedInArrivalCar
@@ -4819,6 +4843,13 @@ function buildDriveScene() {
 
 function startDrive() {
   if (!drive.scene) buildDriveScene();
+  refs.manCar.occupants.release('passengerActor');
+  refs.manCar.occupants.release('driverActor');
+  refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = null;
+  refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = null;
+  refs.manCar.collider.enabled = true;
+  S.snowSeated = false;
+  player.group.scale.setScalar(PLAYER_SCALE);
   phase = 'drive';
   driveHudEl.classList.add('show');
   metersEl.classList.remove('show');
@@ -5566,14 +5597,12 @@ window.MOTEL = {
   activeInteract: () => (activeInteract ? activeInteract.id : null),
   forceInteract: (id) => { const i = ix(id); if (i && (!i.enabled || i.enabled())) i.act(); return !!i; },
   betray: () => maybeBetray('debug'),
-  /* Put a weapon in his hands, the way the drive does.
+  /* Put a weapon in his hands, the way the betrayal does.
    *
-   * The revolver is picked up in the arrival sequence and out of the glovebox,
-   * and the glovebox interaction is `enabled: () => phase === 'car'` -- so a
-   * page that jumps straight into the room has no way to be armed and no way
-   * to say so. A browser check of the betrayal hinge needs the gun he would
-   * really be carrying; without this it can only prove that a man with empty
-   * hands still has empty hands. */
+   * The revolver is checked by the arrival sequence and the resolved glovebox
+   * retires. A browser check that jumps straight into the room still needs the
+   * gun Tony would really be carrying; without this it can only prove that a
+   * man with empty hands still has empty hands. */
   equip: (kind) => { equipWeapon(kind); return S.weapon; },
   /* Open a wheel by name, so a verifier can reproduce the soft-lock this
    * scene used to have: a conversation the player walked away from. */

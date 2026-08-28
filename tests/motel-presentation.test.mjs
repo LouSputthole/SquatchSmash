@@ -15,8 +15,8 @@ test('the normal Motel start cannot escape to the apartment', () => {
   assert.match(start, /id="startBtn"[^>]*>START THE DEAL/);
   assert.doesNotMatch(start, /href="\.\/index\.html"/,
     'normal flow exposes an apartment escape before the mission starts');
-  assert.match(html, /id="continueBtn"[^>]*>RETURN TO APARTMENT/,
-    'mission completion lost its campaign return');
+  assert.match(html, /id="continueBtn"[^>]*>LET SNOW DROP YOU HOME/,
+    'mission completion lost Snow’s daylight return to the apartment');
   assert.match(bootFailure, /href="\.\/index\.html"[^>]*>APARTMENT/,
     'boot failure lost its recovery route');
 });

@@ -27,11 +27,15 @@ ensureThreeShim();
 ensureDomShim();
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const THREE = await import('three');
 const {
   EnolaMissionAudio, BLAST_LAYERS, BOOM_LEAD, FALLING_CUE, WIND_CUE, SIREN_CUE,
   ENOLA_NARRATIVE_MUSIC, ENOLA_ESCAPE_MUSIC_DELAY_SECONDS, isEnolaPreloadCue,
 } = await import('../src/enolasquatch/audio.js');
-const { MissionController } = await import('../src/enolasquatch/mission/MissionController.js');
+const {
+  MissionController, BOMB_APPROACH_MUSIC_LEAD_M,
+} = await import('../src/enolasquatch/mission/MissionController.js');
+const { TARGET_X } = await import('../src/enolasquatch/config.js');
 
 /* ------------------------------------------------------------------ */
 /* A WebAudio context that records what it was told, and nothing else  */
@@ -345,6 +349,111 @@ test('the owner-delivered approach and escape records are streamed once on the m
   assert.equal(escape.opts.loop, false);
   assert.equal(escape.opts.bus, 'music');
   assert.ok(escape.opts.volume <= 0.25, 'the escape dialogue remains intelligible');
+});
+
+test('a phase requested before audio initialization is replayed when the graph becomes ready', () => {
+  const ctx = fakeContext();
+  const media = [];
+  const engine = {
+    ready: false,
+    ctx,
+    busSfx: node(),
+    loops: new Map(),
+    replaceMusicLoop(key, url, opts) {
+      if (!this.ready) return undefined;
+      const handle = { key, url, opts, released: false, ended: false, failed: false };
+      this.loops.set(key, handle);
+      media.push({ key, url, opts });
+      return handle;
+    },
+    startMusicLoop(key, url, opts) { return this.replaceMusicLoop(key, url, opts); },
+    stopLoop(key) { this.loops.delete(key); },
+    setLoopVolume() {},
+    setLoopCutoff() {},
+  };
+  const audio = new EnolaMissionAudio(engine);
+  audio.takeoffAnthemFile = 'fortunate-son.mp3';
+  audio.takeoffAnthemOptions = { volume: 0.435, cutAt: 150, cutFade: 4 };
+
+  audio.setPhase('takeoff');
+  assert.equal(media.length, 0, 'the uninitialized graph cannot start a record');
+  engine.ready = true;
+  audio.init();
+
+  assert.equal(media.length, 1, 'initialization replays the requested takeoff phase exactly once');
+  assert.equal(media[0].key, 'music.takeoff');
+  assert.match(media[0].url, /fortunate-son\.mp3$/);
+  assert.equal(media[0].opts.volume, 0.435);
+});
+
+test('a checkpoint-requested approach record is retained until delayed audio initialization', () => {
+  const ctx = fakeContext();
+  const media = [];
+  const engine = {
+    ready: false,
+    ctx,
+    busSfx: node(),
+    loops: new Map(),
+    replaceMusicLoop(key, url, opts) {
+      if (!this.ready) return undefined;
+      const handle = { key, url, opts, released: false, ended: false, failed: false };
+      this.loops.set(key, handle);
+      media.push({ key, url, opts });
+      return handle;
+    },
+    startMusicLoop(key, url, opts) { return this.replaceMusicLoop(key, url, opts); },
+    stopLoop(key) { this.loops.delete(key); },
+    setLoopVolume() {},
+    setLoopCutoff() {},
+  };
+  const audio = new EnolaMissionAudio(engine);
+
+  assert.equal(audio.startBombApproachMusic(), true, 'the request is accepted while audio loads');
+  assert.equal(media.length, 0);
+  engine.ready = true;
+  audio.init();
+
+  assert.equal(media.length, 1);
+  assert.equal(media[0].key, ENOLA_NARRATIVE_MUSIC.approach.key);
+});
+
+test('the approach score starts in defense before the bomb-approach handoff and never restarts', () => {
+  assert.ok(BOMB_APPROACH_MUSIC_LEAD_M > 2200,
+    'the music lead must be earlier than the 2200 m phase handoff');
+  let starts = 0;
+  let phase = 'defense';
+  const mission = {
+    physics: {
+      position: new THREE.Vector3(TARGET_X - BOMB_APPROACH_MUSIC_LEAD_M + 1, 400, -500),
+      velocity: new THREE.Vector3(62, 0, 0),
+      headingDeg: 90,
+    },
+    defense: {
+      intensity: 1,
+      caught: false,
+      state: 'active',
+      deployed: true,
+      hitCount: 0,
+      damage: { engines: [false, false, false, false], catastrophic: false },
+      update() {}, suppress() {}, triggerCatastrophic() {},
+    },
+    autopilot: { predictability: 0 },
+    interceptors: { activeCount: 3 },
+    phaseTime: 2,
+    _engineOutFired: true,
+    _bombApproachMusicStarted: false,
+    audio: { startBombApproachMusic() { starts += 1; return true; } },
+    updateRearGunner() {},
+    scrambleFighters() {},
+    startBombApproachMusicOnce: MissionController.prototype.startBombApproachMusicOnce,
+    setPhase(next) { phase = next; },
+  };
+
+  MissionController.prototype.updateDefensePhase.call(mission, 1 / 60);
+  assert.equal(starts, 1);
+  assert.equal(phase, 'defense', 'music starts while the player is still flying the approach');
+  MissionController.prototype.updateDefensePhase.call(mission, 1 / 60);
+  assert.equal(starts, 1, 'the phase boundary cannot restart an already-playing record');
 });
 
 test('both delivered Enola records are present and their authored timing is documented', () => {

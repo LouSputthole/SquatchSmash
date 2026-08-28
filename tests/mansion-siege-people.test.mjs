@@ -2191,7 +2191,7 @@ test('nobody who died before the mansion is standing in it', () => {
    *   Willy   executed in the cabin of a boat in NO WAKE, Day 3.
    *   Billy   Billy HotDog, victim of the closed-party incident.
    *   Aubbie  executed at the end of PROJECT SILENT SQUATCH, Day 5 8:10 PM --
-   *           "Eliminate Aubbie" is the objective -- eight hours before this
+   *           "Eliminate Aubbie" is the objective -- six hours before this
    *           siege starts. He handed out magazines in this file until
    *           2026-08-13, when the owner's playtest caught him alive.
    * The mansion arc is after all three. Each is asserted by name against the

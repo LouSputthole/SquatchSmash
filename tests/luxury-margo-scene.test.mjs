@@ -10,6 +10,7 @@ import {
   sampleLuxuryMargoPath,
 } from '../src/luxury-apartment/margo-scene.js';
 import {
+  BIG_NIGHT_MARGO_DRESS_ASK,
   BIG_NIGHT_MARGO_WAKE,
   SILVER_ROOM_COME_HOME,
   SILVER_ROOM_DRESS_ASK,
@@ -148,12 +149,15 @@ test('beat 17 begins at the bed and reverses the route before Lou can ring', () 
   h.runtime.stageForPhase('stayover');
   for (let i = 0; i < 7; i++) h.runtime.update(0.1);
   assert.equal(h.runtime.debug.snapshot().snoring.active, true);
-  assert.equal(h.runtime.startWake(BIG_NIGHT_MARGO_WAKE), true);
+  assert.equal(h.runtime.startWake(BIG_NIGHT_MARGO_WAKE, BIG_NIGHT_MARGO_DRESS_ASK), true);
   assert.equal(h.runtime.debug.snapshot().snoring.active, false);
   assert.ok(h.events.some((event) => event[0] === 'cut' && event[1] === 'margo.snore'));
   assert.equal(h.actor.group.visible, true);
   assert.equal(h.actor.pose, 'sitting');
   advanceUntil(h.runtime, () => h.runtime.awaitingHelp);
+  assert.ok(h.events.some((event) => event[0] === 'play'
+    && event[1] === 'vo.margo.wake.dress.1'),
+  'Margo’s live morning ask did not play its authored recording cue');
   finishSevenPulls(h.runtime);
   assert.equal(h.runtime.active, true, 'wake marker committed before the visible exit walk');
   assert.deepEqual(h.done(), { comeHomeDone: 0, wakeDone: 0 });
@@ -161,6 +165,9 @@ test('beat 17 begins at the bed and reverses the route before Lou can ring', () 
   assert.deepEqual(h.done(), { comeHomeDone: 0, wakeDone: 1 });
   assert.equal(h.actor.group.visible, false);
   assert.ok(h.events.some((event) => event[0] === 'elevator' && event[1] === 'open'));
+  const exitCopy = h.events.filter((event) => event[0] === 'say').at(-1)?.[1] ?? '';
+  assert.match(exitCopy, /flat is quiet again/i);
+  assert.doesNotMatch(exitCopy, /today is the day/i);
 });
 
 test('the luxury scene preloads the exact Margo banks and campaign spine marks both beats wired', () => {
@@ -169,12 +176,14 @@ test('the luxury scene preloads the exact Margo banks and campaign spine marks b
     SILVER_ROOM_COME_HOME,
     SILVER_ROOM_DRESS_ASK,
     BIG_NIGHT_MARGO_WAKE,
+    BIG_NIGHT_MARGO_DRESS_ASK,
   );
   assert.ok(cues.includes('vo.margo.comehome.place.1'));
   assert.ok(cues.includes('vo.margo.comehome.place.tony.1'));
   assert.ok(cues.includes('vo.margo.comehome.1'));
   assert.ok(cues.includes('vo.margo.comehome.dress.1'));
   assert.ok(cues.includes('vo.margo.wake.tony.3'));
+  assert.ok(cues.includes('vo.margo.wake.dress.1'));
   for (const id of ['margo_stayover', 'luxury_apartment_morning']) {
     assert.equal(CAMPAIGN_SPINE.find((beat) => beat.id === id)?.status, 'wired');
   }

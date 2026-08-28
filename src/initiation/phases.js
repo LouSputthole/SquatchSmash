@@ -342,9 +342,9 @@ export const PHASES = Object.freeze({
 
   /* ---- ACT SIX ---- */
   room: phase('room', {
-    /* The delivered salute queue owns this beat. Seventy-five seconds is an
-     * emergency drain for a missing callback, not a fixed hold after speech. */
-    camera: 'room_wide', advance: 'event', timeout: 75, beat: 'IN-500', exits: ['room_aside'],
+    /* The delivered-VO room-reaction schedule owns this beat. It erupts for
+     * roughly fifteen seconds; twenty-four is only the missing-callback drain. */
+    camera: 'room_wide', advance: 'event', timeout: 24, beat: 'IN-500', exits: ['room_aside'],
   }),
   room_aside: phase('room_aside', {
     camera: 'room_wide', advance: 'event', timeout: 40, beat: 'IN-520', exits: ['shot_offer'],

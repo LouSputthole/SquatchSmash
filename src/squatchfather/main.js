@@ -856,13 +856,22 @@ function buildStates() {
 
     [S.ENTER_CAR]: {
       enter() {
-        setObjective('Get in the car');
-        interactions.allow('car');
+        setObjective('Listen to the driver');
+        interactions.allow();
         sceneState.lights.carGlow.intensity = 1.2;
         train.setIntensity(0.08);
         vibration.set(0);
         director.setFov(FOV.base);
         director.vignette(false);
+        /* The route already went north, but the player only learned that from
+         * the completion button. The same driver who brought Tony here now
+         * gives Lou's order before the car can be entered, making the cabin a
+         * motivated extraction rather than a destination revealed by UI. */
+        dialogue.play('extraction', () => {
+          if (!fsm.is(S.ENTER_CAR)) return;
+          setObjective('Get in the car');
+          interactions.allow('car');
+        });
       },
     },
 
@@ -1038,7 +1047,12 @@ async function loadDialogue() {
 // so the beats are matched to their recordings by speaker + line text rather
 // than by a table that could drift from either side.
 
-const SPEAKER_VOICE = { PROSPECT: 'player', SAL: 'sal', MCCLAWSKY: 'mcclawsky' };
+const SPEAKER_VOICE = {
+  PROSPECT: 'player',
+  SAL: 'sal',
+  MCCLAWSKY: 'mcclawsky',
+  DRIVER: 'doorman',
+};
 
 function normLine(text) {
   return String(text)

@@ -35,11 +35,13 @@ a Mansion room, a Mansion basement revision, or a Mansion story beat.
 The durable state machine reports these phases in order:
 
 ```text
-opening_call -> explore -> gratin_call -> open_cellar -> enter_dungeon
+arrival_rest -> opening_call -> explore -> margo_call -> booski_call
+-> beef_run -> return_to_cabin -> second_rest -> gratin_call
+-> open_cellar -> enter_dungeon
 -> interrogation -> ateam_intel -> execution_choice -> execution
 -> nightfall -> wrap_bodies -> carry_bodies -> pour_gas
 -> ignite_bonfire -> fire_cleanup -> drink -> blackout
--> morning_call -> morning_wake -> complete
+-> billy_call -> complete
 ```
 
 All campaign times below are exact-once. “At least” times move the clock
@@ -50,7 +52,7 @@ forward when necessary and never rewind a later save.
 | Cabin arrival | Post-heist route or `cabin.html?preview=1` seeds the hideaway in daylight | Day 5, at least 11:15 |
 | Lou opening call | Must finish before Gratin's later call can advance | +3 min |
 | Property exploration | Creek, overlook, forestry shed, and shooting range are four durable goals | +20 / +30 / +15 / +15 min |
-| Margo handoff | First unique exploration marks and emits the one-shot external integration event | +0 min |
+| Margo setup and call | First unique exploration emits the observational browser event; after all four walks, the Cabin-owned call schedules Front & Center | +0 min setup, +12 min call |
 | Gratin call | Lou complete, two unique explorations, and the Margo handoff marker are required | +3 min |
 | First secret | Gratin call reveals the wardrobe panel; opening it marks the cellar open | +0 min |
 | Second secret | The loose-stone masonry door opens the buried connector and marks dungeon entry | +1 min |
@@ -61,10 +63,11 @@ forward when necessary and never rewind a later save.
 | Gas and ignition | Both bodies must be on the pyre before gasoline; ignition requires gasoline | +2 min, then +1 min |
 | Fire sequence | Beer, whiskey, optional cigarette, bonding, and the final whiskey pull | First drink +5 min |
 | Blackout | Wakes Tony in the Cabin bed; no fire-side reload after this marker | Day 6, at least 09:30 |
-| Ape morning call | Completes the wake gate and allows the car to continue to the next job | +3 min |
+| Booski / Billy morning call | The one fresh-route wake call summons Tony back to the Bing and opens the car | +8 min |
 
-The legacy `CABIN_REST` marker remains readable for old saves, but it cannot
-bypass the dungeon, morning call, or departure gate.
+The legacy `CABIN_REST`, Ape morning-call, and morning-wake markers remain
+readable for old saves, but they cannot bypass the dungeon, Booski call, or
+departure gate. Fresh Act One never rings Ape after the blackout.
 
 ## Progressive objective presentation
 
@@ -92,9 +95,10 @@ Lou rings on chapter start. Ending his completed call records
 `CABIN_LOU_OPENING_CALL`; tearing down the page while a call is connected does
 not pretend the call finished, so it rings again after restore.
 
-Lou, Gratin, and Ape are required story calls. Once answered, pressing the
-phone interaction again cannot skip them or award their completion marker;
-each call must reach its authored natural end.
+Lou, Margo, both Booski calls, and Gratin are required story calls. Once
+answered, pressing the phone interaction again cannot skip them or award their
+completion marker; each call must reach its authored natural end. Ape's old
+morning call remains registered only for retired post-heist saves.
 
 The four current exploration goals are:
 
@@ -122,13 +126,14 @@ count, and pausing freezes the clock.
 
 ## Margo integration seam
 
-The Cabin deliberately does **not** author or own a Margo phone conversation.
-It owns Tony's setup line and one stable browser event; the separate Margo
-owner supplies the actual call.
+The Cabin authors and owns the campaign's one date-scheduling conversation
+with Margo. After the first unique exploration it plays Tony's setup line and
+emits one stable browser event. After all four landmarks, the Cabin phone rings
+the authored `MARGO_FIRST_CALL`; completing it is the durable story gate.
 
 ```js
 window.addEventListener('squatch:cabin-margo-call-ready', (event) => {
-  // Hand event.detail to the external Margo call owner.
+  // Observe setup/presentation state. Do not ring another Margo call.
 }, { once: true });
 ```
 
@@ -142,13 +147,14 @@ The event detail is:
 }
 ```
 
-The source contract is `MARGO_CALL_READY` in
-[`src/cabin/script.js`](../src/cabin/script.js). The external listener should
-be installed before the Cabin chapter starts. The Cabin consumes its durable
-handoff marker and continues even if no external listener is present; the
-Margo content therefore never deadlocks Gratin's call. Restore also heals a
-save that contains the first exploration but predates the one-shot handoff
-marker, emitting the event once with restored chapter context.
+The source contracts are `MARGO_CALL_READY` and
+`CABIN_PHONE_CALLS.MARGO_FIRST_CALL` in
+[`src/cabin/script.js`](../src/cabin/script.js). A listener may be installed
+before the chapter starts for presentation or analytics, but it must not own
+conversation playback. Restore heals a save that contains the first
+exploration but predates the one-shot setup marker, emitting the event once
+with restored chapter context; the real call remains exact-once campaign
+state.
 
 ## The two secret doors
 

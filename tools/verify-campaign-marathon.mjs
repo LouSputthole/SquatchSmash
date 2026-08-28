@@ -71,10 +71,8 @@ const transition = (id, from, to, href, spawn, action, requiredEvents = []) => O
 export const MARATHON_TRANSITIONS = Object.freeze([
   transition('day-one-to-bing', SCENE_IDS.APARTMENT, SCENE_IDS.BADA_BING_ONE,
     '/bing.html', 'driver_seat', 'apartment:day-one', [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]),
-  transition('bing-one-home', SCENE_IDS.BADA_BING_ONE, SCENE_IDS.APARTMENT,
-    '/index.html', 'front_door', 'skip'),
-  transition('home-to-squatchfather', SCENE_IDS.APARTMENT, SCENE_IDS.SQUATCHFATHER,
-    '/squatchfather.html', 'restaurant_exterior', 'apartment:squatchfather'),
+  transition('bing-one-to-squatchfather', SCENE_IDS.BADA_BING_ONE, SCENE_IDS.SQUATCHFATHER,
+    '/squatchfather.html', 'restaurant_exterior', 'skip'),
   /* BEATS 3 TO 7. The driver takes him out of town and the flat does not see
    * him again until the Motel sends him back. The route used to run
    * squatchfather -> home -> home -> beefrun -> home -> bing two, which is
@@ -184,7 +182,7 @@ export const MARATHON_TRANSITIONS = Object.freeze([
 ]);
 
 export function validateMarathonPlan(plan = MARATHON_TRANSITIONS) {
-  assert.equal(plan.length, 28, 'the canonical marathon must have 28 transitions');
+  assert.equal(plan.length, 27, 'the canonical marathon must have 27 transitions');
   assert.equal(plan[0]?.from, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.to, SCENE_IDS.APARTMENT);
   assert.equal(plan.at(-1)?.action, 'initiation:complete');
@@ -302,6 +300,7 @@ async function executeBrowserAction(page, step) {
   return page.evaluate(async (currentStep) => {
     const campaignModule = await import('/src/core/campaign.js');
     const {
+      EVENT_IDS: E,
       MISSION_IDS: M,
       SCENE_IDS: S,
       TIME_EVENT_IDS: T,
@@ -365,14 +364,8 @@ async function executeBrowserAction(page, step) {
           state.missions[M.BADA_BING_ONE].status = 'in_progress';
         });
         ensure(departure.applied === true, 'Bing departure was not recorded');
-      } else if (currentStep.action === 'apartment:squatchfather') {
-        const prompt = story.tryLeave(campaign.state.activities);
-        ensure(prompt?.kind === 'activity' && prompt.id === 'whiskeyRelaxed',
-          `expected whiskey beat, got ${JSON.stringify(prompt)}`);
-        campaign.update((state) => { state.activities.whiskeyRelaxed = true; });
-        leaveFor(S.SQUATCHFATHER);
       } else if (currentStep.action === 'apartment:heist') {
-        /* BEAT 11.5. He gets in from the Motel at half four and sleeps it
+        /* BEAT 11.5. Snow gets him in from the Motel at half six and he sleeps it
          * off; the flat opens on the morning of Day 5 with Lou's call and a
          * car coming at a quarter to one. */
         ensure(story.sleep()?.ok === true, 'post-Motel sleep failed');
@@ -449,11 +442,12 @@ async function executeBrowserAction(page, step) {
         ensure(chore?.kind === 'activity' && chore.id === T.LUXURY_GET_READY,
           `GET READY did not gate the door: ${JSON.stringify(chore)}`);
         ensure(luxury.completeGetReady()?.ok === true, 'getting ready failed');
-        const owed = luxury.tryLeave();
-        ensure(owed?.kind === 'call' && owed.id === apartmentModule.DATE_MARGO_CALL.eventId,
-          `Margo's call did not gate the door: ${JSON.stringify(owed)}`);
-        ensure(luxury.callAnswered(apartmentModule.DATE_MARGO_CALL) === true,
-          'Margo date call was not accepted');
+        ensure(luxury.pendingCall() === null,
+          'the retired Margo apartment call tried to ring');
+        ensure(campaign.state.events[E.MARGO_DATE_CALL]?.status === 'answered',
+          'the cabin appointment did not survive to the luxury apartment');
+        ensure(!campaign.state.story.timeEvents.includes(T.MARGO_DATE_CALL),
+          'the retired Margo apartment call advanced the clock');
         leaveFor(S.SILVER_ROOM);
         ensure(campaign.advanceTime(T.DEPART_SILVER_ROOM).applied === true,
           'Silver Room departure was not recorded');
@@ -683,12 +677,10 @@ function assertLandingFacts(step, state) {
     case 'day-one-to-bing':
       assertMission(state, MISSION_IDS.BADA_BING_ONE, { status: 'in_progress' });
       break;
-    case 'bing-one-home':
+    case 'bing-one-to-squatchfather':
       assertMission(state, MISSION_IDS.BADA_BING_ONE,
         { status: 'complete', packageReceived: true, ending: 'followed' });
       assert.equal(state.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE), true);
-      break;
-    case 'home-to-squatchfather':
       assertMission(state, MISSION_IDS.SQUATCHFATHER, { status: 'available' });
       assert.equal(hasItem(state, ITEM_IDS.LOU_PACKAGE), true);
       break;

@@ -80,7 +80,10 @@ test('Lou alone interprets the Enola clue before the repaired-mansion report com
   assert.match(lines[0].text, /instrument was right.*briefing wasn’t.*wrong fucking city/i);
   assert.match(lines[2].text, /Squatchbourg is a crater.*desert compound is still/i);
   assert.match(lines[3].text, /Sauce went missing/i);
-  assert.match(lines[5].text, /A-Team leadership estate.*tonight/i);
+  assert.match(lines[5].text, /restaurant burner.*estate gate logs.*A-Team leadership estate/i);
+  assert.match(lines[5].text, /Could be a prisoner, could be a guest.*tonight/i);
+  assert.doesNotMatch(lines[5].text, /gave.*Silver Case|sold.*address/i,
+    'the repaired mansion must not spend the Palace verdict early');
   assert.doesNotMatch(text, /\bMark\b/i,
     'Mark stays unnamed until the palace boss fight');
   assert.ok(lines.every(({ cue }) => cue?.startsWith('vo.silentsquatch.return.briefing.')),

@@ -74,7 +74,7 @@ import { makeHeistViewModel } from './weapons.js';
 import { HeistDrivingScore } from './music.js';
 import {
   CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES,
-  SNOW_CASUALTY_LADDER, dialogueLine,
+  SNOW_CASUALTY_LADDER, dialogueLine, heistDebriefClosingLines,
   pendingHeistCues, recordedHeistCues,
 } from './script.js';
 
@@ -2395,7 +2395,7 @@ function neutralizeLobbyGuard(source = 'player_shot') {
   advanceTo('LOBBY_CONTROL');
   dialogue.reset();
   dialogue.setState(machine.state);
-  say('prospect_counterstrike');
+  say('prospect_lobby_quiet');
   say('snow_scoreboard');
   refreshObjective();
   refreshInteractions();
@@ -3130,6 +3130,7 @@ function refreshInteractions() {
        * lines are chosen from what actually happened, not from a script, and
        * they are sequenced rather than pushed, so all of them are heard. */
       const clean = ['professional', 'barely_clean'].includes(objective.grade());
+      const closingLines = heistDebriefClosingLines(clean);
       sayInTurn(
         'snow_debrief_open',
         'numb_debrief_ledger',
@@ -3148,8 +3149,7 @@ function refreshInteractions() {
         'shubes_defend',
         'death_ammo',
         'numb_home',
-        'snow_good',
-        'prospect_debrief',
+        ...closingLines,
       );
       refreshObjective();
       refreshInteractions();
@@ -3170,7 +3170,7 @@ function refreshInteractions() {
       if (machine.state !== louStep.state || !weaponsDown) return;
       advanceTo('LOU_CALL_SAFEHOUSE');
       scriptedSpeech.length = 0;
-      sayInTurn('lou_call', 'lou_prospect_verdict', 'prospect_home');
+      sayInTurn('lou_phone_home', 'lou_home_order', 'prospect_phone_home');
       setTimeout(completeMission, 3200);
     }, { enabled: () => machine.state === louStep.state && weaponsDown });
   }

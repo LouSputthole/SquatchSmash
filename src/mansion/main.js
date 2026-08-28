@@ -138,7 +138,7 @@ if (mansionVisit === 'return') {
   const kicker = menuEl?.querySelector?.('.kicker');
   const title = menuEl?.querySelector?.('.title');
   const sub = menuEl?.querySelector?.('.sub');
-  if (kicker) kicker.textContent = 'THE HOUSE · AFTER THE ENOLA SQUATCH';
+  if (kicker) kicker.textContent = 'THE HOUSE · AFTER SQUATCHOLA GAY';
   if (title) title.textContent = "LOU'S MANSION — RETURN";
   if (sub) sub.textContent = 'The house has been repaired. Big Uncle Lou is waiting in his office with the next location.';
   if (startBtn) startBtn.textContent = 'WALK UP TO THE HOUSE';
@@ -2688,7 +2688,7 @@ async function beginTour() {
   if (!mansionCampaignEntry.ok && mansionCampaignEntry.reason !== 'already_complete') {
     const sub = menuEl?.querySelector?.('.sub');
     if (sub) sub.textContent = mansionVisit === 'return'
-      ? 'This return visit is locked until The Enola Squatch is complete.'
+      ? 'This return visit is locked until SQUATCHOLA GAY is complete.'
       : "Lou's mansion is locked until The Silver Case is complete.";
     return;
   }

@@ -51,6 +51,12 @@ import {
   buildSilverRuntimeDate, buildSilverRuntimeRoom, populateSilverRuntimeEnvironment,
 } from './runtime-geometry.js';
 import { serviceAdvanceAllowed } from './cast.js';
+import {
+  planAuthoredServiceRoute,
+  planServiceReturn,
+  SERVICE_STALL_SECONDS,
+  SERVICE_STOP_DISTANCE,
+} from './service-navigation.js';
 import { createSilverInputPolicy } from './controls.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
@@ -1659,7 +1665,11 @@ function startTableCutscene() {
   date.group.position.set(A.hostMark.x - 1.1, 0, A.hostMark.z - 0.3);
   date.npc.faceToward(A.host.x, A.host.z, true);
 
-  for (const m of movers) { m.route = null; m.job = 'stand'; }
+  for (const m of movers) {
+    rememberServiceHome(m);
+    m.route = null;
+    m.job = 'stand';
+  }
 
   const beats = [
     ...scripts.scenes.table.map((b) => ({ ...b })),
@@ -1780,10 +1790,10 @@ function startTableCutscene() {
       date.follow();
       room.syncFrontTableNav?.(true);
       hud.setPosture(null);
-      for (const m of movers) {
-        m.job = 'patrol';
-        m.route = [{ x: -9.5, z: 0.5 }, { x: -4, z: 4 }, { x: -12, z: 2 }];
-      }
+      /* Each carrier rejoins his own surveyed floor round. The old handoff
+       * assigned both men the same obsolete diagonal, including a leg through
+       * the table they had just put down. */
+      for (const m of movers) goesBack(m);
     },
   });
 }
@@ -1796,14 +1806,35 @@ let champagneSent = false;
  * next beat at the table actually has to wait for. */
 let champagneComplete = false;
 function sendChampagne() {
-  if (champagneSent || !game.seated) return;
-  champagneSent = true;
-  mission.flags.champagneSent = true;
+  if (champagneSent) return true;
+  if (!game.seated) return false;
   const waiter = cast.byName.waiter;
-  if (!waiter) return;
+  if (!waiter || serviceArrivals.some((entry) => entry.npc === waiter)) return false;
   waiter.serviceTray?.show('champagne');
   waiter.carryingShot = true;
-  walkServiceToTable(waiter, { x: 1.2, z: 1.4 }, () => presentChampagne(waiter));
+  const trip = walkServiceToTable(
+    waiter,
+    { x: 1.2, z: 1.4 },
+    () => presentChampagne(waiter),
+    { departIn: 1.25 },
+  );
+  if (!trip) {
+    waiter.serviceTray?.hide();
+    waiter.carryingShot = false;
+    return false;
+  }
+  /* The sending table starts the chain on screen: the bouncer catches the
+   * waiter's eye, the waiter turns with the bucket, then takes the aisle. The
+   * short hold is physical service business, not a story timer or teleport. */
+  const sender = cast.byName['bing-bouncer'];
+  glanceOver(sender, waiter.group.position.x, waiter.group.position.z, 2.2);
+  if (sender) waiter.faceToward(sender.group.position.x, sender.group.position.z, true);
+  /* Sent means a physical waiter now owns a real route. Setting this before
+   * route construction was the silent-failure hole: the queue retired the
+   * bottle even when no waiter existed or no path could start. */
+  champagneSent = true;
+  mission.flags.champagneSent = true;
+  return true;
 }
 
 function presentChampagne(waiter) {
@@ -2092,7 +2123,9 @@ const ROUND_QUEUE = [
   /* Skipped if the order already happened — the waiter patrols within reach
    * of the front table, so a player can wave him down before the queue does,
    * and the round must not then play a second time. */
-  { id: 'drinks', after: 44, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
+  { id: 'drinks', after: 44, run: () => (
+    mission.roundsDone.has('drinks') ? true : waiterComesOver()
+  ) },
   /* The bottle. After the waiter has been to the table and before the family
    * comes over, because that is the order the evening happens in. */
   /* Dispatching the waiter is not completing the order. Since service staff
@@ -2138,16 +2171,29 @@ const ROUND_QUEUE = [
 
 let queueAt = 0;
 let seatedFor = 0;
+let queueRetryIn = 0;
 function runSeatedQueue(dt) {
   if (!game.seated || game.scene) return;
   seatedFor += dt;
+  queueRetryIn = Math.max(0, queueRetryIn - dt);
+  if (queueRetryIn > 0) return;
   const next = ROUND_QUEUE[queueAt];
   if (!next || seatedFor < next.after) return;
   if (dialogue.active) return;
   if (next.ready && !next.ready()) return;
+  const started = next.run ? next.run() : beginRound(next.id);
+  /* A failed physical dispatch remains the next entry. The following frame
+   * retries it once the aisle is available, rather than advancing to an Ape
+   * beat whose bottle never arrived. Existing non-service rounds return
+   * undefined and therefore retain their historical one-shot behavior. */
+  if (started === false) {
+    /* A real obstruction can last several rendered frames. Retry at a human
+     * service cadence, not sixty graph searches a second. */
+    queueRetryIn = 0.6;
+    return;
+  }
+  queueRetryIn = 0;
   queueAt++;
-  if (next.run) next.run();
-  else beginRound(next.id);
 }
 
 /**
@@ -2164,81 +2210,153 @@ function runSeatedQueue(dt) {
  */
 const serviceArrivals = [];
 
-function walkServiceToTable(npc, offset = { x: 1.3, z: 0.9 }, onArrive = null) {
+function cloneServiceRoute(route) {
+  return route?.map((mark) => new THREE.Vector3(mark.x, mark.y ?? 0, mark.z)) ?? null;
+}
+
+function rememberServiceHome(npc) {
+  if (!npc || npc.__serviceHome) return npc?.__serviceHome ?? null;
+  npc.__serviceHome = {
+    route: cloneServiceRoute(npc.route),
+    routeAt: npc.routeAt ?? 0,
+    speed: npc.speed,
+    job: npc.job,
+  };
+  return npc.__serviceHome;
+}
+
+function startServiceTrip(npc, target, route, onArrive = null, { departIn = 0 } = {}) {
+  if (!npc || !route?.length) return null;
+  /* One body cannot own two trays or two arrival callbacks. Keeping the new
+   * queue entry pending is safer than replacing the trip already on screen. */
+  if (serviceArrivals.some((entry) => entry.npc === npc)) return null;
+  const plannedRoute = cloneServiceRoute(route);
+  if (departIn > 0) {
+    npc.route = null;
+    npc.job = 'stand';
+  } else {
+    npc.route = plannedRoute;
+    npc.routeAt = 0;
+    npc.job = 'patrol';
+  }
+  serviceArrivals.push({
+    npc,
+    target: target.clone(),
+    onArrive,
+    stalledFor: 0,
+    lastPosition: npc.group.position.clone(),
+    replans: 0,
+    departIn,
+    departRoute: departIn > 0 ? plannedRoute : null,
+  });
+  return npc;
+}
+
+function walkServiceToTable(
+  npc,
+  offset = { x: 1.3, z: 0.9 },
+  onArrive = null,
+  options = {},
+) {
   if (!npc) return null;
   const t = room.anchors.frontTable;
   /* His station's round, kept the first time he is called over. `goesBack`
    * falls back to it, so a man summoned twice without being released between
    * — which is a timing accident, not a plan — still has somewhere to go
    * instead of standing at the table for the rest of the evening. */
-  npc.__homeRoute ??= npc.route;
-  npc.__wasPatrolling = npc.route;
+  rememberServiceHome(npc);
   const target = new THREE.Vector3(t.x + offset.x, 0, t.z + offset.z);
-  const marks = [
-    npc.group.position.clone(),
-    ...room.anchors.tableCarryRoute.slice(0, 2).map((p) => p.clone()),
-    target,
-  ].filter((mark, index, all) => index === 0
-    || Math.hypot(mark.x - all[index - 1].x, mark.z - all[index - 1].z) > 0.45);
-  npc.route = marks;
-  npc.routeAt = 0;
-  npc.job = 'patrol';
+  const route = planAuthoredServiceRoute(npc, cast.serviceNetwork, target, {
+    people: cast.all,
+  });
+  if (!route) return null;
   npc.speed = npc.serviceTray?.group?.visible ? 1.22 : 1.38;
-  /* Replace an obsolete trip for the same man; never stack two callbacks on
-   * one waiter because a seated queue advanced while he was still walking. */
-  const prior = serviceArrivals.findIndex((entry) => entry.npc === npc);
-  if (prior >= 0) serviceArrivals.splice(prior, 1);
-  serviceArrivals.push({ npc, target, onArrive, elapsed: 0 });
-  return npc;
+  return startServiceTrip(npc, target, route, onArrive, options);
 }
 
 function updateServiceArrivals(dt) {
   for (let i = serviceArrivals.length - 1; i >= 0; i--) {
     const trip = serviceArrivals[i];
-    trip.elapsed += dt;
     const p = trip.npc.group.position;
-    if (Math.hypot(p.x - trip.target.x, p.z - trip.target.z) <= 0.52) {
+    if (trip.departIn > 0) {
+      trip.departIn = Math.max(0, trip.departIn - dt);
+      if (trip.departIn > 0) continue;
+      trip.npc.route = trip.departRoute;
+      trip.npc.routeAt = 0;
+      trip.npc.job = 'patrol';
+      trip.departRoute = null;
+      trip.lastPosition.copy(p);
+      continue;
+    }
+    if (Math.hypot(p.x - trip.target.x, p.z - trip.target.z) <= SERVICE_STOP_DISTANCE) {
       serviceArrivals.splice(i, 1);
       trip.npc.route = null;
+      trip.npc.routeAt = 0;
       trip.npc.job = 'stand';
       trip.npc.stand?.();
       trip.npc.faceToward(player.position.x, player.position.z, true);
       trip.onArrive?.(trip.npc);
       continue;
     }
-    /* Re-plan from where he actually is if furniture made one authored mark
-     * unreachable. This changes the route, never the body transform. */
-    if (trip.elapsed > 18) {
-      trip.elapsed = 0;
-      trip.npc.route = [
-        trip.npc.group.position.clone(),
-        room.anchors.tableCarryRoute[1].clone(),
-        trip.target.clone(),
-      ];
-      trip.npc.routeAt = 0;
+    const moved = Math.hypot(
+      p.x - trip.lastPosition.x,
+      p.z - trip.lastPosition.z,
+    );
+    trip.lastPosition.copy(p);
+    trip.stalledFor = moved > 0.006 ? 0 : trip.stalledFor + dt;
+    if (trip.stalledFor >= SERVICE_STALL_SECONDS) {
+      trip.stalledFor = 0;
+      /* Re-plan from where he actually is, treating the body presently in
+       * front of him as a blocker on recovery. The transform never jumps. */
+      const route = planAuthoredServiceRoute(trip.npc, cast.serviceNetwork, trip.target, {
+        people: cast.all,
+        includeMovingPeople: true,
+      });
+      trip.replans++;
+      if (route) {
+        trip.npc.route = cloneServiceRoute(route);
+        trip.npc.routeAt = 0;
+      }
     }
   }
+}
+
+function recoverInterruptedServiceTrips() {
+  const interrupted = [...new Set(serviceArrivals.map(({ npc }) => npc))];
+  serviceArrivals.length = 0;
+  /* A checkpoint is allowed to cut across a walk, but it does not strand the
+   * body or snap it home. Each interrupted worker takes the same clear return
+   * graph used after an ordinary conversation. */
+  for (const npc of interrupted) goesBack(npc);
 }
 
 function goesBack(npc) {
   if (!npc) return;
   npc.serviceTray?.hide();
   npc.carryingShot = false;
-  const route = npc.__wasPatrolling ?? npc.__homeRoute;
-  if (route) {
-    npc.route = route;
-    npc.job = 'patrol';
-    npc.__wasPatrolling = null;
-  }
+  const home = npc.__serviceHome;
+  if (!home?.route?.length) return false;
+  const back = planServiceReturn(npc, cast.serviceNetwork, home.route, {
+    people: cast.all,
+  });
+  if (!back) return false;
+  npc.speed = Math.max(1.2, home.speed ?? 1.1);
+  return !!startServiceTrip(npc, back.target, back.route, () => {
+    npc.route = cloneServiceRoute(home.route);
+    npc.routeAt = back.joinAt;
+    npc.speed = home.speed;
+    npc.job = home.job;
+    npc.__serviceHome = null;
+  });
 }
 
 function waiterComesOver(at = 'open') {
   const w = cast.byName.waiter;
-  if (!w) return;
+  if (!w || serviceArrivals.some((entry) => entry.npc === w)) return false;
   const kind = at === 'dessert' ? 'plates' : at === 'another' ? 'cocktails' : 'cocktails';
   w.serviceTray?.show(kind);
   w.carryingShot = true;
-  walkServiceToTable(w, { x: 1.1, z: 1.0 }, () => {
+  const trip = walkServiceToTable(w, { x: 1.1, z: 1.0 }, () => {
     if (at === 'another') {
       w.serviceTray?.hide();
       w.carryingShot = false;
@@ -2252,6 +2370,12 @@ function waiterComesOver(at = 'open') {
     }
     greet(w, scripts.waiter, at);
   });
+  if (!trip) {
+    w.serviceTray?.hide();
+    w.carryingShot = false;
+    return false;
+  }
+  return true;
 }
 
 function apeComesOver() {
@@ -2582,7 +2706,7 @@ function finish(outcome) {
   if (game.over) return;
   game.over = true;
   mission.done();
-  const e = ENDINGS[outcome] ?? ENDINGS.awkward;
+  const e = ENDINGS[outcome] ?? ENDINGS.strong;
   const saved = mission.persist(woo);
   /* The evening goes into the campaign, not into a private key only this page
    * has ever read. The story class takes the persist() payload as-is and keeps
@@ -2668,6 +2792,7 @@ function saveCheckpoint(state) {
     latches: {
       tableCutsceneStarted,
       champagneSent,
+      champagneComplete,
       showStarted,
       taxiGone,
       /* Whether she has already asked about the front door. The `arrived`
@@ -2690,6 +2815,7 @@ function saveCheckpoint(state) {
 
 function restoreCheckpoint(cp = game.checkpoint) {
   if (!cp) return false;
+  recoverInterruptedServiceTrips();
   woo.restore(cp.woo);          // the ledger, so nothing pays out twice
   game.money = cp.money;
   addMoney(0);
@@ -2702,10 +2828,24 @@ function restoreCheckpoint(cp = game.checkpoint) {
   game.round = cp.round ?? null;
   queueAt = cp.queueAt;
   seatedFor = cp.seatedFor;
+  queueRetryIn = 0;
 
   const l = cp.latches ?? {};
   tableCutsceneStarted = !!l.tableCutsceneStarted;
   champagneSent = !!l.champagneSent;
+  champagneComplete = l.champagneComplete === undefined
+    ? champagneSent
+    : !!l.champagneComplete;
+  /* A new checkpoint taken after dispatch but before the bottle reaches the
+   * cloth owns an honest incomplete event. Put that queue entry back instead
+   * of restoring a `sent` flag whose delivery callback no longer exists. */
+  if (champagneSent && !champagneComplete) {
+    champagneSent = false;
+    mission.flags.champagneSent = false;
+    const champagneAt = ROUND_QUEUE.findIndex(({ id }) => id === 'champagne');
+    queueAt = Number.isInteger(queueAt) ? Math.min(queueAt, champagneAt) : champagneAt;
+    if (tableService?.champagne) tableService.champagne.visible = false;
+  }
   showStarted = !!l.showStarted;
   arrivalAsked = !!l.arrivalAsked;
   arrivalIn = -1;

@@ -66,13 +66,19 @@ const BING_STATE_IDS = Object.freeze([
  *                             reshuffled random crowd rather than lost content:
  *                             nothing placed by hand changed, and every health
  *                             assertion below is identical in all five states
- *                             before and after. */
+ *                             before and after.
+ *
+ * MOVED 2026-08-28 after the owner removed the TABLE CLOSED / FAMILY PARTY
+ * sign. That one deliberate prop was 17 records in every HotDog state, so
+ * party/attack are 4696 -> 4679, cleanup 4618 -> 4601, and graveyard
+ * 4546 -> 4529. Visit one never mounted it and stays 6017. The measured
+ * findings and suppression counts below are unchanged. */
 const EXPECTED_RECORDS = Object.freeze({
   'bing:visit-one': 6017,
-  'bing:party': 4696,
-  'bing:attack': 4696,
-  'bing:cleanup': 4618,
-  'bing:graveyard': 4546,
+  'bing:party': 4679,
+  'bing:attack': 4679,
+  'bing:cleanup': 4601,
+  'bing:graveyard': 4529,
 });
 
 function snapshotFor(built) {

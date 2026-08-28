@@ -9,7 +9,9 @@ import {
   createCampaign,
 } from '../src/core/campaign.js';
 import { createSquatchfatherStory } from '../src/core/squatchfather-story.js';
+import { SQUATCHFATHER_VO_CUES } from '../src/squatchfather/audio/core.js';
 import { Figure } from '../src/squatchfather/characters/Figure.js';
+import { collectSquatchfatherVoiceCues } from '../tools/squatchfather-vo.mjs';
 
 class MemoryStorage {
   constructor() {
@@ -82,19 +84,81 @@ test('completing Squatchfather records the dropped weapon and survives reload', 
   assert.equal(saved.weaponDropped, true);
 });
 
-test('Squatchfather exposes the apartment handoff only after scene completion', () => {
+test('Squatchfather exposes the cabin handoff only after scene completion', () => {
   const html = readFileSync(new URL('../squatchfather.html', import.meta.url), 'utf8');
   const source = readFileSync(new URL('../src/squatchfather/main.js', import.meta.url), 'utf8');
+  const verifier = readFileSync(new URL('../tools/verify-squatchfather.mjs', import.meta.url), 'utf8');
 
   assert.equal(html.includes('id="backBtn"'), false,
     'the title card still lets the player abandon the linear mission');
   assert.equal(html.includes('id="quitBtn"'), false,
     'the pause card still lets the player abandon the linear mission');
   assert.equal(html.includes('id="menuBtn"'), false,
-    'the completion card should have one canonical apartment handoff');
+    'the completion card should have one canonical cabin handoff');
   assert.doesNotMatch(source, /actions:\s*\[[^\]]*Back to apartment/is,
     'the shared pause overlay still lets the player abandon the linear mission');
-  assert.match(html, /id="againBtn"[^>]*>[^<]*RETURN TO THE APARTMENT/i);
+  assert.match(html, /id="againBtn"[^>]*>[^<]*CONTINUE TO THE CABIN/i);
+  assert.match(
+    source,
+    /navigateCampaign\(campaign,\s*SCENE_IDS\.COUNTRYSIDE_CABIN,\s*\{\s*spawn:\s*'arrival'/s,
+    'the visible cabin CTA does not use the campaign cabin handoff',
+  );
+  assert.match(verifier, /waitForURL\(`http:\/\/localhost:\$\{PORT\}\/cabin\.html`/);
+  assert.match(verifier, /scene\.id === 'countryside_cabin'/);
+  assert.doesNotMatch(verifier, /Squatchfather returns to the apartment.s front door/i);
+});
+
+test('Squatchfather treats the Booski shooting as older history with fresh cue ids', () => {
+  const dialogue = JSON.parse(readFileSync(
+    new URL('../src/squatchfather/dialogue/dialogue.json', import.meta.url),
+    'utf8',
+  ));
+  const manifest = JSON.parse(readFileSync(
+    new URL('../assets/sfx/manifest.json', import.meta.url),
+    'utf8',
+  ));
+  const prospectLines = dialogue.opening
+    .filter((beat) => beat.speaker === 'PROSPECT')
+    .map((beat) => beat.text);
+  const history = prospectLines.slice(0, 2).join(' ');
+
+  assert.match(history, /six years ago/i);
+  assert.match(history, /healed mean/i);
+  assert.doesNotMatch(history, /shits in a bag|ostomy|still recovering/i);
+
+  const byName = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
+  assert.equal(byName.get('vo.sf.opening.history.2')?.say, prospectLines[0]);
+  assert.equal(byName.get('vo.sf.opening.history.4')?.say, prospectLines[1]);
+  assert.equal(byName.has('vo.sf.opening.2'), false);
+  assert.equal(byName.has('vo.sf.opening.4'), false);
+});
+
+test('Squatchfather’s offscreen driver motivates the cabin before enabling the car', () => {
+  const dialogue = JSON.parse(readFileSync(
+    new URL('../src/squatchfather/dialogue/dialogue.json', import.meta.url),
+    'utf8',
+  ));
+  const source = readFileSync(new URL('../src/squatchfather/main.js', import.meta.url), 'utf8');
+  const enterCar = source.slice(
+    source.indexOf('[S.ENTER_CAR]'),
+    source.indexOf('[S.SCENE_COMPLETE]'),
+  );
+  const [line] = dialogue.extraction;
+
+  assert.equal(dialogue.extraction.length, 1);
+  assert.equal(line.speaker, 'DRIVER');
+  assert.match(line.text, /Lou.*sleeping up north.*get in/i);
+  assert.ok(enterCar.indexOf("dialogue.play('extraction'") < enterCar.indexOf("interactions.allow('car')"),
+    'the car became usable before the driver delivered Lou’s order');
+
+  const cue = collectSquatchfatherVoiceCues(dialogue)
+    .find(({ name }) => name === 'vo.sf.extraction.driver.cabin');
+  assert.ok(SQUATCHFATHER_VO_CUES.includes('vo.sf.extraction.driver.cabin'));
+  assert.deepEqual(cue, {
+    name: 'vo.sf.extraction.driver.cabin',
+    voice: 'doorman',
+    say: line.text,
+  });
 });
 
 const EXHALE_T = -Math.PI / (2 * 1.6);

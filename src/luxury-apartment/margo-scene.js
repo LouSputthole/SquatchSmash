@@ -283,7 +283,7 @@ export function createLuxuryMargoScene({
     interaction.setPaused(false);
     interaction.setExclusiveTarget?.(actor.helpTarget);
     setObjective('Help Margo with her dress');
-    if (scene.kind === 'comeHome' && scene.ask?.lines?.[0]) {
+    if (scene.ask?.lines?.[0]) {
       const seconds = 5.2;
       hud?.say?.(`${scene.ask.from}: ${scene.ask.lines[0]}`, seconds * 1000);
       audio.play(`vo.${scene.ask.vo}.1`, { volume: 0.9, position: actor.group.position });
@@ -504,7 +504,7 @@ export function createLuxuryMargoScene({
     clearFocus();
     scene = null;
     setObjective(null);
-    hud?.say?.('<em>Gone.</em> The flat is quiet and today is the day.', 4400);
+    hud?.say?.('<em>Gone.</em> The flat is quiet again.', 4400);
     onWakeDone();
   };
 
@@ -512,7 +512,7 @@ export function createLuxuryMargoScene({
     startComeHome: (definition, ask, arrivalDefinition) => start(
       'comeHome', definition, ask, arrivalDefinition,
     ),
-    startWake: (definition) => start('wake', definition),
+    startWake: (definition, ask = null) => start('wake', definition, ask),
     interact() {
       if (!scene?.awaitingHelp || dress.active) return false;
       const started = dress.start();

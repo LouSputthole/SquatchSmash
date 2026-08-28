@@ -16,6 +16,7 @@ import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
 import { Person } from '../core/person.js';
 import { Phone, callScript } from '../core/phone.js';
+import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
 import { Radio, radioHudWithinRange } from '../core/radio.js';
@@ -25,14 +26,16 @@ import { createBongBehavior } from '../world/bong.js';
 import { ShowerSystem } from '../world/shower.js';
 import { SmokeSystem } from '../world/smoke.js';
 import {
+  ITEM_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   createCampaignRadioAdapter,
   navigateCampaign,
 } from '../core/campaign.js';
 import {
+  BIG_NIGHT_MARGO_DRESS_ASK,
   BIG_NIGHT_MARGO_WAKE,
-  DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
   SILVER_ROOM_COME_HOME,
@@ -84,7 +87,6 @@ const chromaOffsets = document.querySelectorAll('#chroma feOffset');
 const ELEVATOR_AUDIO_CUT_MS = 720;
 const ELEVATOR_EXIT_MS = 1400;
 const LUXURY_STORY_CALL_CUES = Object.freeze([
-  DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
   SPECIAL_MEETING_BOOSKI_CALL,
@@ -250,6 +252,7 @@ const luxuryPhone = { elapsed: 0, nextRingAt: null };
 
 function startLuxuryStoryBeat() {
   if (!routed) return;
+  syncPhoneThreads();
   refreshObjective();
   const phase = luxuryStory.phase();
   luxuryMargo?.stageForPhase(phase);
@@ -262,7 +265,7 @@ function startLuxuryStoryBeat() {
     return;
   }
   if (phase === 'morning') {
-    luxuryMargo?.startWake(BIG_NIGHT_MARGO_WAKE);
+    luxuryMargo?.startWake(BIG_NIGHT_MARGO_WAKE, BIG_NIGHT_MARGO_DRESS_ASK);
     return;
   }
   /* Six seconds, the same lead-in the starter flat gives every call: long
@@ -310,16 +313,27 @@ const phone = new Phone({
   time,
   audio,
   calls: [],
+  threads: phoneThreadsForCampaign(campaign.state),
+  onThreadRead: (thread) => {
+    if (routed && thread.readEventId) campaign.advanceTime(thread.readEventId);
+    syncPhoneThreads();
+  },
   onCallState: (connected) => {
     radio.setPhoneDucked(connected);
     if (routed && state.phase === 'active') refreshObjective();
   },
 });
+
+/** Rebuild the held inbox from the same durable campaign truth as every hub. */
+function syncPhoneThreads() {
+  phone.setThreads(phoneThreadsForCampaign(campaign.state));
+}
 /* Taking the call is what commits it. The story adapter owns what each one
  * unlocks; this only tells it the receiver came off the hook. */
 phone.onAnswered = (definition) => {
   if (!routed) return;
   luxuryStory.callAnswered(definition);
+  syncPhoneThreads();
   refreshObjective();
 };
 const showerFx = new ShowerSystem(scene);
@@ -588,10 +602,19 @@ function luxuryDeparture() {
   const door = luxuryStory.tryLeave();
   if (door.kind !== 'go') return { refusal: door };
   return {
-    navigate: () => navigateCampaign(campaign, door.destination, {
-      spawn: [SCENE_IDS.SILVER_ROOM, SCENE_IDS.SPECIAL_MEETING].includes(door.destination)
-        ? 'kerb' : undefined,
-    }),
+    navigate: () => {
+      /* The cabin owns the appointment and this lift owns the date's actual
+       * departure. Keep the clock seam beside the real interaction that
+       * leaves the flat; otherwise the retired starter-apartment phone path
+       * is the only place that can advance Front & Center to its evening. */
+      if (door.destination === SCENE_IDS.SILVER_ROOM) {
+        campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
+      }
+      return navigateCampaign(campaign, door.destination, {
+        spawn: [SCENE_IDS.SILVER_ROOM, SCENE_IDS.SPECIAL_MEETING].includes(door.destination)
+          ? 'kerb' : undefined,
+      });
+    },
   };
 }
 
@@ -828,6 +851,9 @@ function useWardrobe() {
 
 function takeHomePhone() {
   const taken = inventoryRuntime?.takePhone() ?? false;
+  if (taken && routed && !campaign.hasItem(ITEM_IDS.PHONE)) {
+    campaign.addItem(ITEM_IDS.PHONE);
+  }
   if (home?.state.phoneTaken || taken) readyTally.complete('phoneTaken');
   refreshLuxuryObjective({ toast: true });
   return taken;
@@ -1074,8 +1100,11 @@ inventoryRuntime = new LuxuryInventoryRuntime({
   state: home.state,
 });
 inventoryRuntime.seed();
+if (routed && campaign.hasItem(ITEM_IDS.PHONE)) {
+  inventoryRuntime.restorePhone();
+}
 home.state.phoneTaken = home.inventory.has('phone');
-if (home.phoneProp?.group) home.phoneProp.group.visible = !home.state.phoneTaken;
+readyTally.sync(home.state);
 
 revolver = new LuxuryRevolverRuntime({
   scene,
@@ -1158,6 +1187,7 @@ startButton.addEventListener('click', async () => {
         SILVER_ROOM_COME_HOME,
         SILVER_ROOM_DRESS_ASK,
         BIG_NIGHT_MARGO_WAKE,
+        BIG_NIGHT_MARGO_DRESS_ASK,
       ),
       ...LUXURY_STORY_CALL_CUES,
       'vo.luxury.poker.solo',

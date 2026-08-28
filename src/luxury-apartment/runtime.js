@@ -1351,10 +1351,32 @@ export class LuxuryInventoryRuntime {
   }
 
   takePhone() {
-    if (!this.give('phone')) return false;
+    if (!this.restorePhone({ select: true })) return false;
     this.state.phoneTaken = true;
     this.sync(this.inventory);
     this.audio?.play('phone.pickup', { volume: 0.36 });
+    return true;
+  }
+
+  /**
+   * Rebuild the campaign-owned phone in this page-local hotbar.
+   *
+   * Later luxury visits must not manufacture a second pickup or boot with the
+   * receiver blocking the view. The campaign inventory is authoritative; this
+   * method only hydrates its physical held model and leaves an empty hand
+   * selected unless the player is taking the original prop right now.
+   */
+  restorePhone({ select = false } = {}) {
+    if (!this.inventory.has('phone') && !this.give('phone')) return false;
+    this.state.phoneTaken = true;
+    if (select) {
+      const slot = this.inventory.items.indexOf('phone');
+      if (slot >= 0) this.inventory.select(slot);
+    } else {
+      const empty = this.inventory.items.indexOf(null);
+      if (empty >= 0) this.inventory.select(empty);
+    }
+    this.sync(this.inventory);
     return true;
   }
 

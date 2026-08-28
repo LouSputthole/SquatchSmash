@@ -124,7 +124,7 @@ if (previewCheckpoint && campaignStory.mission.status === 'locked') {
 if (previewCheckpoint) {
   const labels = {
     approach: 'ESTATE APPROACH', perimeter: 'PERIMETER', estate: 'SERVICE WING',
-    betrayal: 'EVIDENCE COMPLETE', dining_room: 'MARK\'S TABLE', clear: 'EXTRACTION',
+    betrayal: 'EVIDENCE COMPLETE', dining_room: 'DINING ROOM', clear: 'EXTRACTION',
   };
   overlay.querySelector('.tag').textContent = `Preview checkpoint: ${labels[previewCheckpoint]}. Progress on this page is temporary.`;
   startButton.textContent = `Start at ${labels[previewCheckpoint].toLowerCase()}`;
@@ -172,7 +172,7 @@ scene.add(moon);
 scene.add(new THREE.HemisphereLight(0x526c7b, 0x1b1510, 1.12));
 scene.add(new THREE.AmbientLight(0x657279, 0.48));
 
-window.__squatchStage?.('Building Mark\'s estate…');
+window.__squatchStage?.('Building the cartel estate…');
 const palace = buildCartelPalace(scene);
 /* Development pilot result, now limited to this mission: a checked-in Recast
  * navmesh supplies physical route legs while the existing Palace AI keeps
@@ -907,10 +907,11 @@ function syncLoadout() {
  * standing note: *"We keep reinventing and using different systems instead of
  * using what we already have... objectives change presentation."*
  *
- * `mission.js` still owns every word. The kicker becomes the card's title,
- * the objective its one standing item, the hint the line underneath; nothing
- * in `OBJECTIVES` changed. Parented to `#hud` so it lives and dies with the
- * rest of the furniture, as the card it replaces did.
+ * `mission.js` still owns every word and derives the current evidence search
+ * from the same ledger that unlocks the dining room. The kicker becomes the
+ * card's title, the objective its one standing item, and the hint the line
+ * underneath. Parented to `#hud` so it lives and dies with the rest of the
+ * furniture, as the card it replaces did.
  */
 const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
 
@@ -1240,7 +1241,7 @@ for (const [id, target] of Object.entries(palace.evidence)) {
 }
 
 interaction.register(palace.targets.diningDoor, {
-  label: 'Open Mark\'s <b>dining room</b>',
+  label: 'Open the <b>dining room</b>',
   hold: 0.72,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.BETRAYAL,
   onUse: async () => {
@@ -1599,7 +1600,7 @@ startButton.addEventListener('click', async () => {
     }
     startButton.disabled = true;
     startButton.textContent = 'Scene unavailable';
-    overlay.querySelector('.tag').textContent = 'Finish the repaired-mansion briefing before approaching Mark\'s estate.';
+    overlay.querySelector('.tag').textContent = 'Finish the repaired-mansion briefing before approaching the cartel estate.';
     return;
   }
   if (campaign.state.scene.id !== SCENE_IDS.CARTEL_PALACE) {

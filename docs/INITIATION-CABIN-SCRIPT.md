@@ -1,8 +1,8 @@
 # INITIATION NIGHT — the cabin ceremony
 
 The rewrite of Initiation Night. The line-up and wrong-answer execution stay in
-the clearing. Palace evidence then clears Willy, confirms Sauce as the rat with
-inside help, and triggers the nuclear option: all five remaining prospects
+the clearing. Palace evidence separates Willy's proven earlier strip leak from
+Sauce's later house betrayal, confirms Sauce had inside help, and triggers the nuclear option: all five remaining prospects
 kneel at once. Prospect Three, Four, Five, and Kittenboss are executed in
 Tony's view. Lou stops Tony's execution, and Tony alone is walked through the
 woods to an old country cabin and made.
@@ -42,7 +42,7 @@ coats still on.
 |---|---|---|
 | 1 | The line-up and the question trial, **exactly as they ship today** | the clearing |
 | 2 | Prospect One answers wrong and is shot, **kept** | the clearing |
-| 3 | Palace evidence clears Willy and reveals that Sauce had inside help; all five remaining prospects kneel simultaneously | the clearing |
+| 3 | Palace evidence separates Willy's strip leak from Sauce's later house betrayal and reveals Sauce had inside help; all five remaining prospects kneel simultaneously | the clearing |
 | 4 | Prospect Three, Four, Five, and Kittenboss are executed in view; Lou stops Tony's execution | the clearing |
 | 5 | Tony, the only surviving prospect, is walked through the woods to the cabin and made | the trail, then the cabin |
 
@@ -52,8 +52,9 @@ coats still on.
 
 These are not style notes. Break one and the scene stops working.
 
-**1. The family states only the facts that cause the nuclear option.** Willy was
-not the rat. Sauce was, Palace evidence proves he had inside help, and there is
+**1. The family states only the facts that cause the nuclear option.** Willy
+leaked the earlier strip operation but not the house. Sauce committed the later
+betrayal, Palace evidence proves he had inside help, and there is
 one place because the family is at quota. Nobody identifies the helper.
 
 **2. Gratin and Seff are gentle, well-liked men, and they play it completely
@@ -428,15 +429,13 @@ laugh** — the smile does not so much go as get put away.]*
 
 ## IN-100 — what the Palace proved
 
-**BIG UNCLE LOU:** "Willy wasn't the rat."
+**BIG UNCLE LOU:** "Willy gave them the strip. He did not give them this house."
 
-**BIG UNCLE LOU:** "We killed the wrong man."
+**BOOSKIBRO:** "Sauce did. The palace proved it."
 
-**BOOSKIBRO:** "Sauce was the rat. The palace proved that."
+**BOOSKIBRO:** "Short Bus. Sauce signed it. One of tonight’s prospects countersigned the breach."
 
-**BOOSKIBRO:** "It also proved he had help on the inside."
-
-**BIG UNCLE LOU:** "There is one place left. We are at quota."
+**BIG UNCLE LOU:** "There is one place left. Five prospects are standing for it."
 
 **BOOSKIBRO:** "We don't put a question inside this family."
 
@@ -1044,6 +1043,8 @@ change is the point.]*
 ## IN-340 — what he did
 
 **BOOSKIBRO:** "You did what was asked. You kept your mouth shut. You handled yourself at the Bing. You flew the beef run. When it came time to stand up, you stood up." **[VERBATIM]**
+
+**BOOSKIBRO:** "You carried Lou’s case. You held his house when they came for it. You walked into their palace alone and ended the war."
 
 *[**The campaign's own missions, read back to him as a record.** Play it as a
 list being confirmed, not a compliment being paid.]*
@@ -1932,7 +1933,7 @@ and this scene must never appear to want anything.
 | IN-085 | **The quiz — FAIL-A lives here** |
 | IN-090 | Correct — and Lou stops talking |
 | **ACT TWO** | **THE NUCLEAR OPTION** |
-| **IN-100** | Willy cleared; Sauce confirmed as the rat with inside help; one place, at quota |
+| **IN-100** | Willy's strip leak distinguished from Sauce's later betrayal; Sauce had inside help; one place, at quota |
 | IN-110 | **All five remaining prospects kneel simultaneously** |
 | IN-120 | Prospect Three executed in view |
 | IN-130 | Prospect Four executed in view |

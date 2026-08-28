@@ -17,8 +17,8 @@ test('campaign marathon pins every canonical public handoff in one continuous ch
     MARATHON_TRANSITIONS.map(({ from, to, href, spawn }) => [from, to, href, spawn]),
     [
       [SCENE_IDS.APARTMENT, SCENE_IDS.BADA_BING_ONE, '/bing.html', 'driver_seat'],
-      [SCENE_IDS.BADA_BING_ONE, SCENE_IDS.APARTMENT, '/index.html', 'front_door'],
-      [SCENE_IDS.APARTMENT, SCENE_IDS.SQUATCHFATHER, '/squatchfather.html', 'restaurant_exterior'],
+      [SCENE_IDS.BADA_BING_ONE, SCENE_IDS.SQUATCHFATHER,
+        '/squatchfather.html', 'restaurant_exterior'],
       /* BEATS 3 TO 7. The driver takes him out of town and the flat does not
        * see him again until the Motel sends him back, so the Act-One cabin
        * sits between the restaurant and the second Bing with the Beef Run

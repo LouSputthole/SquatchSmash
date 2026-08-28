@@ -365,6 +365,12 @@ test('both of the trunk greetings are kept and neither is explained', () => {
   assert.deepEqual(echo, ["You'd have to ask them.", 'I did.', 'And?', 'Long story.', "Yeah. That's what I got."]);
 });
 
+test('the apartment suspense does not invent a year-long relationship with Booski', () => {
+  const idle = beat('SM-060').lines.filter((line) => line.spoken).map((line) => line.text).join('\n');
+  assert.match(idle, /never once told me where.*Not once.*Not one time/i);
+  assert.doesNotMatch(idle, /in a year/i);
+});
+
 /* ====================================================================== *
  * 4. THE ROUTE
  * ====================================================================== */

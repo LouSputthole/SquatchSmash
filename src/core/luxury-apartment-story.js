@@ -5,7 +5,6 @@ import {
   TIME_EVENT_IDS,
 } from './campaign.js';
 import {
-  DATE_MARGO_CALL,
   NO_WAKE_LOU_CALL,
   SILVER_CASE_BOOSKI_CALL,
   SPECIAL_MEETING_BOOSKI_CALL,
@@ -61,9 +60,30 @@ export const LUXURY_APARTMENT_PHASES = Object.freeze([
   'special_meeting',
 ]);
 
+/**
+ * The durable proof that Tony and Margo already made their date in the cabin.
+ *
+ * The first three forms are the current route. The remaining seams grandfather
+ * saves from before the cabin owned the call: if Booski has already sent Tony
+ * to Sasole, or the Beef Run is exposed, that save is past the cabin morning
+ * and must not be stranded by a newly required compatibility bit.
+ */
+export function margoDateScheduled(state) {
+  const answered = (eventId) => state.events?.[eventId]?.status === 'answered';
+  const spent = (eventId) => state.story?.timeEvents?.includes(eventId) === true;
+  const airstripStatus = state.missions?.[MISSION_IDS.AIRSTRIP_SMUGGLING]?.status;
+  return answered(EVENT_IDS.MARGO_DATE_CALL)
+    || answered(EVENT_IDS.CABIN_MARGO_CALL)
+    || spent(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL)
+    || answered(EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL)
+    || answered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)
+    || ['available', 'in_progress', 'complete'].includes(airstripStatus);
+}
+
 class LuxuryApartmentStory {
   constructor({ campaign }) {
     this.campaign = campaign;
+    this.#reconcileMargoDate();
   }
 
   #spent(eventId) {
@@ -76,6 +96,28 @@ class LuxuryApartmentStory {
 
   #mission(missionId) {
     return this.campaign.state.missions[missionId];
+  }
+
+  /**
+   * Keep the retired event id readable without replaying its retired call.
+   * This is a runtime compatibility repair, not a schema migration: the save
+   * shape does not change, so a valid save receives no false recovery notice.
+   */
+  #reconcileMargoDate() {
+    const state = this.campaign.state;
+    if (!margoDateScheduled(state)) return false;
+    const eventPending = state.events[EVENT_IDS.MARGO_DATE_CALL].status !== 'answered';
+    const silverLockedAfterReady = this.#spent(TIME_EVENT_IDS.LUXURY_GET_READY)
+      && state.missions[MISSION_IDS.SILVER_ROOM].status === 'locked';
+    if (!eventPending && !silverLockedAfterReady) return false;
+    this.campaign.update((next) => {
+      next.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+      if (next.story.timeEvents.includes(TIME_EVENT_IDS.LUXURY_GET_READY)
+        && next.missions[MISSION_IDS.SILVER_ROOM].status === 'locked') {
+        next.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+      }
+    });
+    return true;
   }
 
   /**
@@ -146,7 +188,17 @@ class LuxuryApartmentStory {
    */
   completeGetReady() {
     if (this.phase() !== 'get_ready') return { ok: false, reason: 'wrong_phase' };
-    const applied = this.campaign.advanceTime(TIME_EVENT_IDS.LUXURY_GET_READY).applied === true;
+    if (!margoDateScheduled(this.campaign.state)) {
+      return { ok: false, reason: 'margo_date_not_scheduled' };
+    }
+    const applied = this.campaign.advanceTime(TIME_EVENT_IDS.LUXURY_GET_READY, (state) => {
+      /* Legacy key, current meaning: the appointment exists. No second call,
+       * and therefore no spend of TIME_EVENT_IDS.MARGO_DATE_CALL. */
+      state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+      if (state.missions[MISSION_IDS.SILVER_ROOM].status === 'locked') {
+        state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+      }
+    }).applied === true;
     return applied ? { ok: true } : { ok: false, reason: 'already_ready' };
   }
 
@@ -193,16 +245,13 @@ class LuxuryApartmentStory {
   /**
    * Which telephone this flat is waiting on, or null.
    *
-   * Three calls, one per outgoing beat, and the order is the phase order
+   * Three calls remain, one per later outgoing beat, and the order is the phase order
    * rather than a list of chapter tests -- `phase()` has already decided
    * which visit this is, so each of these only has to ask whether its own
    * call has landed yet.
    */
   pendingCall() {
     const phase = this.phase();
-    if (phase === 'date' && !this.#answered(EVENT_IDS.MARGO_DATE_CALL)) {
-      return DATE_MARGO_CALL;
-    }
     if (phase === 'no_wake' && !this.#answered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
       return NO_WAKE_LOU_CALL;
     }
@@ -227,14 +276,6 @@ class LuxuryApartmentStory {
    * not being given it.
    */
   callAnswered(definition) {
-    if (definition?.eventId === EVENT_IDS.MARGO_DATE_CALL
-      && !this.#answered(EVENT_IDS.MARGO_DATE_CALL)) {
-      this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_DATE_CALL, (state) => {
-        state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
-        state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
-      });
-      return true;
-    }
     if (definition?.eventId === EVENT_IDS.LOU_NO_WAKE_CALL
       && !this.#answered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
       this.campaign.advanceTime(TIME_EVENT_IDS.LOU_NO_WAKE_CALL, (state) => {
@@ -280,13 +321,6 @@ class LuxuryApartmentStory {
       };
     }
     if (phase === 'date') {
-      if (!this.#answered(EVENT_IDS.MARGO_DATE_CALL)) {
-        return {
-          kind: 'call',
-          id: EVENT_IDS.MARGO_DATE_CALL,
-          ...departureRefusal('date_call'),
-        };
-      }
       return { kind: 'go', destination: SCENE_IDS.SILVER_ROOM };
     }
     if (phase === 'come_home' || phase === 'stayover') {

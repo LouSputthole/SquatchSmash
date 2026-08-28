@@ -143,9 +143,9 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'arrival',
     residence: RESIDENCE.CABIN,
     status: 'wired',
-    exit: 'Lou: good job, stay quiet. The four walks, and the one outgoing '
-      + 'call in the campaign -- the cabin already emits MARGO_CALL_READY and '
-      + 'deliberately owns no Margo conversation of its own.',
+    exit: 'Lou: good job, stay quiet. The four walks lead to the one outgoing '
+      + 'Margo conversation in the campaign; MARGO_CALL_READY is only the '
+      + 'observational setup seam, and the Cabin owns the call itself.',
   }),
   beat({
     n: 5,
@@ -205,7 +205,8 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'headlights',
     residence: RESIDENCE.MOTEL,
     status: 'wired',
-    exit: 'Buried. Booski: not tonight, your place might be watched.',
+    exit: 'Buried. Snow: when Billy misses breakfast, familiar doors get '
+      + 'watched. The Motel is cover until daylight.',
   }),
   beat({
     n: 10,
@@ -216,7 +217,8 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'passenger_seat',
     residence: RESIDENCE.MOTEL,
     status: 'wired',
-    exit: 'Survive the night. By morning he is cleared to go home.',
+    exit: 'Survive the deal and getaway, wait for daylight, then Snow drops '
+      + 'him home once the block is clean.',
   }),
   beat({
     n: 11,
@@ -340,8 +342,10 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'gate_c',
     residence: RESIDENCE.LUXURY,
     status: 'wired',
-    exit: 'Willy was the rat. He goes in a bag, and the Prospect is now trusted '
-      + 'with something genuinely internal.',
+    exit: 'A wire recording proves Willy leaked an earlier strip operation. He '
+      + 'never confesses; he goes in a bag, and the Prospect is trusted with '
+      + 'something genuinely internal. This is separate from Sauce later '
+      + 'giving the Silver Case and mansion target to the A-Team.',
   }),
   beat({
     n: 19,
@@ -397,13 +401,13 @@ export const CAMPAIGN_SPINE = Object.freeze([
     spawn: 'guest_suite',
     residence: RESIDENCE.MANSION_GUEST,
     status: 'wired',
-    exit: 'Repelled. And then Lou takes a phone call, and says a great deal to '
-      + 'whoever is on the other end of it.',
+    exit: 'Repelled. Lou answers the A-Team threat, names the route package '
+      + 'recovered from their command car, and sends the Prospect to Sasole.',
   }),
   beat({
     n: 24,
     id: 'enola_squatch',
-    title: 'Enola Squatch',
+    title: 'SQUATCHOLA GAY',
     chapter: 'war',
     scene: SCENE_IDS.ENOLA_SQUATCH,
     spawn: 'airfield',
@@ -421,7 +425,9 @@ export const CAMPAIGN_SPINE = Object.freeze([
     residence: RESIDENCE.LUXURY,
     status: 'wired',
     exit: 'A few days on. Lou explains which city it actually was. Sauce is '
-      + 'missing, and there is an address for the palace.',
+      + 'missing; his restaurant burner and an estate gate log produce a separate '
+      + 'address for an unnamed A-Team leadership estate. The Palace -- not this '
+      + 'briefing -- proves whether Sauce was taken or turned.',
   }),
   beat({
     n: 26,

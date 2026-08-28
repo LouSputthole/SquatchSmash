@@ -14,9 +14,10 @@
  *    punchlines, nobody flails around."
  *
  * So: nothing in here is a joke, nobody makes a speech, and there is no
- * confession. Lou uses eleven words in the whole cabin scene. The Negev
- * question is the only line in the mission written to land, and it lands
- * because everything before it has been flat.
+ * confession. The proof is a recording of Willy's earlier operational leak;
+ * the Negev question is the line that tells Booski the old friendship was
+ * built on the same kind of lie. It lands because everything before it has
+ * been flat.
  *
  * The one thing that reads as absurd — a man's life turning on whether there
  * was ever a Negev on B — is absurd to the player, not to anybody on the boat,
@@ -123,6 +124,16 @@ export const NO_WAKE_CABIN_SCRIPT = Object.freeze([
   ),
   line('cabin.lou.willy', 'Big Uncle Lou', 'lou', 'Willy.', { focus: 'lou', seconds: 2.0 }),
   line('cabin.willy.yeah', 'Willy', 'willy', 'Yeah?', { focus: 'willy', seconds: 1.8 }),
+  line(
+    'cabin.lou.recorded-leak', 'Big Uncle Lou', 'lou',
+    'Irish pulled their wire. Your voice gave them the mountain strip from the Beef Run and our arrival time.',
+    { focus: 'lou', seconds: 5.2 },
+  ),
+  line(
+    'cabin.willy.not-my-voice', 'Willy', 'willy',
+    'You don’t know who was on that tape.',
+    { focus: 'willy', seconds: 3.0 },
+  ),
   /* The blade entering the scene. Lou waits first — `beat: 'stall'` holds the
    * room long enough to be uncomfortable — and then asks it flatly, like a man
    * checking a delivery note. */

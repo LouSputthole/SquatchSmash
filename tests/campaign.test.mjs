@@ -298,9 +298,9 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
     [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD, 5, 15],
     [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 5, 45],
     [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 5, 60 + 30],
-    [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 5, 4 * 60 + 30],
-    /* BEAT 11.5. THE TAKE is the afternoon of Day 5 now: he gets in from the
-     * Motel at half four, sleeps until noon, and a car collects him at a
+    [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 5, 6 * 60 + 30],
+    /* BEAT 11.5. THE TAKE is the afternoon of Day 5 now: Snow waits for
+     * daylight, gets him home at half six, and a car collects him at a
      * quarter to one. Both of these read Day 6 before the reorder. */
     [TIME_EVENT_IDS.DEPART_BANK_HEIST, 5, 12 * 60 + 45],
     [TIME_EVENT_IDS.COMPLETE_BANK_HEIST, 5, 18 * 60 + 50],

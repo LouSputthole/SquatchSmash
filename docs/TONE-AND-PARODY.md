@@ -81,7 +81,7 @@ Every one, including the ones not yet written. Known references in flight:
 |---|---|---|
 | THE TAKE | a bank robbery and a street shootout | *Heat* (1995) |
 | The Silver Case | collecting a debt in somebody's apartment | *Pulp Fiction* |
-| The Enola Squatch | a night bombing raid | *Enola Gay* / the war-film raid |
+| SQUATCHOLA GAY | a night bombing raid | *Enola Gay* / the war-film raid |
 | NO WAKE | a man taken out on a boat | *The Sopranos*, the Big Pussy episode |
 | The Squatchfather | the meeting | *The Godfather* |
 | Front and Center | a date at a supper club | the mob-restaurant scene |

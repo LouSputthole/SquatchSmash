@@ -6,6 +6,21 @@ const VOICE_BY_SCOPE = Object.freeze({
   dealer: 'dealer', lou: 'lou', associate: 'doorman', dj: 'announcer', margo: 'margo',
 });
 
+/**
+ * The original blackjack table bank predates the complete Bing dialogue tree,
+ * but it is still spoken by the same dealer standing behind the same felt.
+ * Keep its prefix beside the locked actor profile so a legacy manifest row
+ * cannot quietly drift back onto 98.8's `uncle` announcer.
+ */
+export const BING_DEALER_VOICE_PROFILE = VOICE_BY_SCOPE.dealer;
+export const BING_LEGACY_DEALER_CUE_PREFIX = 'vo.bj.dealer.';
+
+export function bingVoiceForCue(cue, fallback = undefined) {
+  return String(cue ?? '').startsWith(BING_LEGACY_DEALER_CUE_PREFIX)
+    ? BING_DEALER_VOICE_PROFILE
+    : fallback;
+}
+
 function plainWords(value) {
   return String(value ?? '')
     /* Every <em> in this script is an actor direction, not emphasized speech.
@@ -393,7 +408,7 @@ export function buildScripts(ctx) {
         { tone: 'Agree', text: 'I understand.', next: 'agree' },
         { tone: 'Confident', text: 'I know what I’m doing.', next: 'confident' },
         { tone: 'Question', text: 'What changed?', next: 'changed' },
-        { tone: 'Dismissive', text: 'They’re jerky dealers.', next: 'jerky' },
+        { tone: 'Briefing', text: 'Sal Sorrento and McClawsky. A sit-down.', next: 'sitdown' },
       ],
     },
     agree: {
@@ -412,9 +427,10 @@ export function buildScripts(ctx) {
       line: 'Nothing changed. That’s what worries me. It should have, by now.',
       next: 'parcel',
     },
-    jerky: {
+    sitdown: {
       who: 'Lou',
-      line: '<em>(He leans forward.)</em> That’s exactly the sentence people say before things get complicated.',
+      line: '<em>(He leans forward.)</em> Sal carries the offer. McClawsky watches until '
+        + 'he has something worth saying. Listen when he does, and agree to nothing I did not put in that envelope.',
       next: 'parcel',
     },
     /* The drawer, and the thing on the desk. He does not hand it over --
@@ -458,7 +474,7 @@ export function buildScripts(ctx) {
     },
     envelope: {
       who: 'Lou',
-      line: '<em>(He slides an envelope across.)</em> Address. The room. Who you’re meeting, and when. '
+      line: '<em>(He slides an envelope across.)</em> Address. The room. Sal Sorrento, Captain McClawsky, and when. '
         + 'You walk in calm. You sit down. You hear them out.',
       cue: 'vo.bing.lou.brief.7',
       enter: () => ctx.showEnvelope(),
@@ -486,8 +502,8 @@ export function buildScripts(ctx) {
     },
     contact: {
       who: 'Lou',
-      line: 'Two of them. One talks, one doesn’t. The one who doesn’t is the one to watch, '
-        + 'which I should not have to explain to a grown man.',
+      line: 'Sal Sorrento does the selling. Captain McClawsky watches and interrupts when it matters. '
+        + 'The quiet one is still the one to watch, which I should not have to explain to a grown man.',
       enter: () => ctx.asked.add('contact'),
       next: 'questions',
     },
@@ -611,11 +627,10 @@ export function buildScripts(ctx) {
   /**
    * Margo Salas, who is not here for anybody in this room.
    *
-   * Kept deliberately light: this is a three-minute conversation whose only
-   * mechanical output is whether he gave her his number, which is what makes
-   * her ring on the afternoon of Day 3. Nothing here gates the Silver Room —
-   * the campaign does that — so a player who walks straight past still gets
-   * the date. What he loses is having met her first.
+   * Kept deliberately light: this is a three-minute conversation whose story
+   * output is her number. The cabin's outgoing call cannot make sense without
+   * it, so the club exit waits for this beat, but the player keeps every tone
+   * choice and can walk away from an attempt before coming back to finish it.
    */
   const margo = {
     open: {
@@ -678,17 +693,16 @@ export function buildScripts(ctx) {
         + 'Nobody tips Hector — he is behind a wall, you would have had to go and find him.',
       cue: 'vo.bing.margo.5',
       options: [
-        { tone: 'Number', text: 'Take my number. Ring it when you are not working.',
-          next: 'number', effect: () => { ctx.flags.gaveNumber = true; } },
+        { tone: 'Number', text: 'Give me your number. I’ll call when I’m back in town.',
+          next: 'number', effect: () => { mission.receivedMargoNumber(); } },
         { tone: 'Fold', text: 'That was the whole thing. That was all of it.', next: 'fold' },
       ],
     },
     number: {
       who: 'Margo',
-      line: '<em>(She writes it on the back of a docket, which is what she has.)</em> '
-        + 'I get one night off in six. If I use it on you and you are boring, '
-        + 'I will be extremely unpleasant about it. <em>(Beat.)</em> I will ring.',
-      cue: 'vo.bing.margo.6',
+      line: '<em>(She writes on the back of a docket and slides it over.)</em> '
+        + 'That is my number. I get one night off in six. Call when you are back in the city. '
+        + 'If I use it on you and you are boring, I will be extremely unpleasant about it.',
       hold: 4.6,
     },
     fold: {
@@ -728,11 +742,24 @@ export const BARTENDER_CAPACITY_LINE = Object.freeze({
 /* Keep exact cue and casting data beside each ambient subtitle. The arrays
  * retain their original [who, line] shape for callers that only need copy. */
 const AMBIENT_VOICES = Object.freeze([
-  'doorman', 'doorman', 'doorman', 'doorman', 'performer',
-  'doorman', 'npc-male', 'doorman', 'doorman',
+  'npc-male', 'npc-reserve-1', 'npc-reserve-2', 'npc-male', 'performer',
+  'npc-reserve-1', 'npc-reserve-2', 'doorman', 'npc-male',
+]);
+/* A bar remark belongs to a body, not to the ceiling. These keys resolve
+ * against populate()'s visible cast so the matching person turns, mouths the
+ * recorded take and emits it spatially. Keep the speaker beside the authored
+ * profile: changing one without the other recreates the "whole room sounds
+ * like one person" problem this split fixed. */
+const AMBIENT_SPEAKERS = Object.freeze([
+  'gossip1', 'gossip2', 'regular', 'patron0', 'waiter1',
+  'patron1', 'contractor', 'bouncer', 'patron2',
 ]);
 for (const [index, line] of AMBIENT.entries()) {
-  line.push(`vo.bing.ambient.${String(index + 1).padStart(2, '0')}`, AMBIENT_VOICES[index]);
+  line.push(
+    `vo.bing.ambient.${String(index + 1).padStart(2, '0')}`,
+    AMBIENT_VOICES[index],
+    AMBIENT_SPEAKERS[index],
+  );
 }
 
 /** Spoken lines outside buildScripts(), consumed by runtime and VO tooling. */

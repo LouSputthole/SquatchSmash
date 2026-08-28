@@ -12,16 +12,46 @@ const [
   playerBody,
   { FirstPersonBody, DEFAULT_PLAYER_OUTFIT },
   { CabinRangeSession },
+  { createCabinTortureToolPresentation },
   THREE,
 ] = await Promise.all([
   import('../src/cabin/presentation.js'),
   import('../src/cabin/player-body.js'),
   import('../src/core/first-person-body.js'),
   import('../src/cabin/shooting-range.js'),
+  import('../src/cabin/torture-tool-presentation.js'),
   import('three'),
 ]);
 
 const mainSource = readFileSync(new URL('../src/cabin/main.js', import.meta.url), 'utf8');
+
+test('Cabin dungeon tools are camera-held, mutually exclusive, and animate one controlled strike', () => {
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.05, 100);
+  const tools = createCabinTortureToolPresentation({ camera });
+
+  assert.deepEqual(Object.keys(tools.tools).sort(), [
+    'battery', 'bucket', 'leads', 'pliers', 'saw', 'syringes', 'towels',
+  ]);
+  assert.equal(tools.select('battery'), 'battery');
+  assert.deepEqual(
+    Object.entries(tools.snapshot().visible).filter(([, visible]) => visible).map(([id]) => id),
+    ['battery'],
+  );
+  const resting = tools.tools.battery.position.clone();
+  assert.equal(tools.strike({ duration: 0.6 }), true);
+  tools.update(0.3);
+  assert.equal(tools.snapshot().striking, true);
+  assert.notDeepEqual(tools.tools.battery.position.toArray(), resting.toArray(),
+    'the strike must be visible rather than a logical damage callback');
+  tools.update(0.3);
+  assert.equal(tools.snapshot().striking, false);
+
+  assert.equal(tools.select('saw'), 'saw');
+  assert.equal(tools.tools.battery.visible, false);
+  assert.equal(tools.tools.saw.visible, true);
+  assert.equal(tools.select(null), null);
+  assert.equal(Object.values(tools.snapshot().visible).some(Boolean), false);
+});
 
 test('Cabin projects one truthful main objective and one contextual phone step', () => {
   const waitingPlan = {

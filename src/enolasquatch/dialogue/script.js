@@ -10,7 +10,7 @@
  * the gun, Numbskull talks to the target. See ../DialogueSystem.js for the
  * player that consumes this shape.
  *
- * `who` is one of: SASOLE, PROSPECT, IRISH, NUMBSKULL, SHUBES, LOU.
+ * `who` is one of: SASOLE, PROSPECT, IRISH, NUMBSKULL, SHUBES.
  *
  * SASOLE/IRISH/NUMBSKULL/SHUBES are all existing, voice-locked campaign
  * characters (captain_lou_sasole, irish, numbskull, shubenator — see
@@ -25,7 +25,6 @@ export const SPEAKERS = {
   IRISH: { name: 'IRISH', colour: '#8ab4d9', voice: 'irish' },
   NUMBSKULL: { name: 'NUMBSKULL', colour: '#d9a25a', voice: 'numbskull' },
   SHUBES: { name: 'THE SHUBENATOR', colour: '#b49ad9', voice: 'shubenator' },
-  LOU: { name: 'BIG UNCLE LOU', colour: '#e8c86a', voice: 'lou1' },
 };
 
 const L = (text, hold) => ({ who: 'SASOLE', text, hold });
@@ -33,27 +32,8 @@ const P = (text, hold) => ({ who: 'PROSPECT', text, hold });
 const I = (text, hold) => ({ who: 'IRISH', text, hold });
 const N = (text, hold) => ({ who: 'NUMBSKULL', text, hold });
 const H = (text, hold) => ({ who: 'SHUBES', text, hold });
-const U = (text, hold) => ({ who: 'LOU', text, hold });
 
 export const BEATS = {
-  /* ---------------- The call, before the mission scene opens ---------------- */
-
-  'call.opening': [
-    U('Remember that little delivery flight?', 2.4),
-    P('The jerky run?', 1.8),
-    U('This one’s heavier.', 2.6),
-  ],
-
-  /* ---------------- Hangar / arrival ---------------- */
-
-  'hangar.reveal': [
-    L('There she is. The Enola Squatch.', 2.6),
-    P('Why does she have purple stripes?', 2.2),
-    L('Morale.', 1.6),
-    P('And the nose art?', 2.0),
-    L('More morale.', 1.8),
-  ],
-
   /* ---------------- Preflight ----------------
    *
    * These were written for a walkaround that did not exist yet: until
@@ -66,9 +46,9 @@ export const BEATS = {
    * here are unchanged. */
 
   'preflight.arrival': [
-    L('There she is. Walk her with me before you get in — I am not signing for anything you did not look at.', 4.6),
-    P('All of it?', 1.6),
-    L('All of it. Chocks, all four fans, the bay, the bomb, the tail.', 3.6),
+    L('You brought the Brushrunner back with all the pieces. This one has twice the engines and none of the manners. Walk her with me before you get in.', 6.2),
+    P('Same rules?', 1.6),
+    L('Same rule. Look before you trust it. Chocks, all four fans, the bay, the bomb, the tail.', 4.3),
   ],
 
   'preflight.numbskull': [
@@ -633,10 +613,10 @@ export const BEATS = {
 
   /* ---------------- Arrival / epilogue ---------------- */
 
-  'arrival.lou': [
-    U('Did they get the package?', 2.2),
-    P('They signed for it.', 2.0),
-    U('Good. Put the plane back where you found it.', 2.8),
+  'arrival.sasole': [
+    L('Chocks in. Leave her turning until the ground crew has all four temperatures.', 3.8),
+    P('You heading inside?', 1.8),
+    L('No. Lou can ask his questions at the house. We put the aeroplane away.', 3.8),
   ],
 };
 

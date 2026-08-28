@@ -191,7 +191,7 @@ Fires on the idle timer now, replacing SM-010. Same flat, different man.
 | Cue | PROSPECT |
 |---|---|
 | 1 | "'Special one.'" |
-| 2 | "He's never once told me where. Not once. In a year." |
+| 2 | "He's never once told me where. Not once. Not one time." |
 | 3 | "Seff, Lag and Numbskull. That's three." |
 | 4 | "Three of them. To collect one bloke." |
 | 5 | "Put on something decent. Right. Decent." |

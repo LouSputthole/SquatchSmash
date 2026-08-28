@@ -28,10 +28,11 @@ import {
   collectHeistVoiceCues,
   syncHeistVoiceManifest,
 } from '../tools/heist-vo.mjs';
-import { SEQUENCES } from '../src/silvercase/dialogue/script.js';
+import { SEQUENCES, SPEAKERS as SILVER_CASE_SPEAKERS } from '../src/silvercase/dialogue/script.js';
 import { ALL_HEIST_DIALOGUE, HEIST_PENDING_DIALOGUE, dialogueLine } from '../src/heist/script.js';
 import {
-  RELEASE_LINES, releaseCueOf, allEnolaSquatchLines,
+  BEATS as ENOLA_BEATS, RELEASE_LINES, SPEAKERS as ENOLA_SPEAKERS,
+  releaseCueOf, allEnolaSquatchLines,
 } from '../src/enolasquatch/dialogue/script.js';
 import { isEnolaPreloadCue } from '../src/enolasquatch/audio.js';
 import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
@@ -86,6 +87,17 @@ test('the manifest name is the string the scene plays, with no take suffix', () 
   assert.ok(byName.has('vo.silvercase.car.ape.pitch'));
   assert.equal(byName.get('vo.silvercase.car.ape.pitch').voice, 'ape');
   assert.equal(SEQUENCES.carRide[0].cue, 'vo.silvercase.car.ape.pitch');
+});
+
+test('Deke, Winston, and Pruitt have distinct existing voice profiles', () => {
+  assert.deepEqual([
+    SILVER_CASE_SPEAKERS.DEKE.voice,
+    SILVER_CASE_SPEAKERS.WINSTON.voice,
+    SILVER_CASE_SPEAKERS.PRUITT.voice,
+  ], ['npc-male', 'npc-reserve-1', 'npc-reserve-2']);
+  const byName = new Map(collectSilverCaseVoiceCues().map((cue) => [cue.name, cue]));
+  assert.equal(byName.get('vo.silvercase.control.deke.justus')?.voice, 'npc-male');
+  assert.equal(byName.get('vo.silvercase.case.winston.okay')?.voice, 'npc-reserve-1');
 });
 
 test('the HUD is not cast — its prose is read, not performed', () => {
@@ -156,6 +168,16 @@ test('the release pick is recorded — it is spoken, it is just not in BEATS', (
   }
   /* "(Say nothing.)" is a choice, not a performance. */
   assert.equal(names.has(`vo.${releaseCueOf('5')}.1`), false);
+});
+
+test('Enola retires unreachable setup banks and closes on the staged apron crew', () => {
+  assert.equal(ENOLA_BEATS['call.opening'], undefined);
+  assert.equal(ENOLA_BEATS['hangar.reveal'], undefined);
+  assert.equal(ENOLA_BEATS['arrival.lou'], undefined);
+  assert.deepEqual(ENOLA_BEATS['arrival.sasole'].map((line) => line.who), [
+    'SASOLE', 'PROSPECT', 'SASOLE',
+  ]);
+  assert.equal(ENOLA_SPEAKERS.LOU, undefined);
 });
 
 test('nobody on the crew invents a voice profile', () => {
@@ -254,6 +276,23 @@ test('the heist tool owns its dialogue and leaves its 46 sound effects alone', (
   }
 });
 
+test('the heist tool retires obsolete verdict dialogue without eating effects', () => {
+  const manifestWithRetiredLines = { sfx: [
+    { name: 'heist.lou_call', voice: 'lou', say: 'Old seven o’clock promise.' },
+    { name: 'heist.prospect_home', voice: 'player', say: 'Old home reply.' },
+    { name: 'heist.lou_prospect_verdict', voice: 'lou', say: 'Old membership promise.' },
+    { name: 'heist.bank.alarm', prompt: 'A bank alarm.' },
+  ] };
+
+  const synced = syncHeistVoiceManifest(manifestWithRetiredLines);
+  const names = new Set(synced.sfx.map((cue) => cue.name));
+  assert.equal(names.has('heist.lou_call'), false);
+  assert.equal(names.has('heist.prospect_home'), false);
+  assert.equal(names.has('heist.lou_prospect_verdict'), false);
+  assert.equal(names.has('heist.bank.alarm'), true);
+  assert.deepEqual(checkHeistVoiceManifest(synced), []);
+});
+
 test('a heist sync carries the recording side\'s own bookkeeping across', () => {
   /* FOUND THE HARD WAY. Adding thirteen lines to Snow's casualty ladder and
    * running `vo:heist` silently deleted `needsRerecord` from
@@ -309,7 +348,7 @@ test('the bank\'s own people are cast, and the two Lous stay apart', () => {
   /* The heist casts Big Uncle Lou on `lou`, which is a different profile from
    * `lou1` and a very different man from `lou2`. Landing 13 new cues for him
    * must not quietly re-cast the one that was already recorded. */
-  assert.equal(byName.get('heist.lou_call').voice, 'lou');
+  assert.equal(byName.get('heist.lou_phone_home').voice, 'lou');
   const lou = [...byName.values()].filter((cue) => cue.voice === 'lou');
   assert.ok(lou.length >= 14, `Lou is only cast on ${lou.length} lines`);
   assert.equal([...byName.values()].some((cue) => cue.voice === 'lou2'), false,
@@ -394,7 +433,7 @@ test('the recording sheet shows both scenes rather than only counting them', () 
     assert.match(todo, new RegExp(`## Voice pickups — The Silver Case \\(${silverCaseOwed}\\)`));
   }
   if (enolaOwed) {
-    assert.match(todo, new RegExp(`## Voice pickups — The Enola Squatch \\(${enolaOwed}\\)`));
+    assert.match(todo, new RegExp(`## Voice pickups — SQUATCHOLA GAY \\(${enolaOwed}\\)`));
   }
   assert.ok(silverCaseOwed + enolaOwed >= 0);
   if (silverCaseOwed) assert.match(todo, /vo\.silvercase\./);

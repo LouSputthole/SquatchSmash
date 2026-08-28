@@ -220,7 +220,7 @@ const RAW_BEATS = [
     note: 'Replaces SM-010 on the same timer. Same flat, different man.',
     lines: [
       l('PROSPECT', "'Special one.'"),
-      l('PROSPECT', "He's never once told me where. Not once. In a year."),
+      l('PROSPECT', "He's never once told me where. Not once. Not one time."),
       l('PROSPECT', "Seff, Lag and Numbskull. That's three."),
       l('PROSPECT', 'Three of them. To collect one bloke.'),
       l('PROSPECT', 'Put on something decent. Right. Decent.'),

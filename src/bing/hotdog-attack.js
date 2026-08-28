@@ -23,6 +23,14 @@ export const APE_RETURN_ROUTE = Object.freeze([
 ]);
 
 export const HOTDOG_ATTACK_HIT_COUNT = 4;
+/* The torso and pelvis are separate roots on the Bing rig. Folding the torso
+ * half a radian while the legs remain upright visually tears Billy in two.
+ * Keep the waist hinge anatomically bounded and put the rest of the collapse
+ * into the articulated hips and knees. */
+export const HOTDOG_MAX_TORSO_HINGE = 0.22;
+export const HOTDOG_MAX_TORSO_ROLL = 0.11;
+export const HOTDOG_MAX_HIP_BUCKLE = 0.46;
+export const HOTDOG_MAX_KNEE_BUCKLE = 0.82;
 /* Timing retuned for the 2026-08-19 playtest ("make sure the ape stabbing
  * animation is on point"): a longer, readable wind-up over the shoulder, a
  * committed strike, and a real recovery between blows. The whole four-hit
@@ -106,9 +114,23 @@ function poseHotDogRecoil(hotdog, origin, localTime, strikeIndex) {
 
   hotdog.group.position.x = origin.x - hit * (0.09 + strikeIndex * 0.03);
   hotdog.group.position.z = origin.z - hit * 0.045;
-  /* Doubles over the wound as the strikes stack up. */
-  hotdog.parts.body.rotation.x = -0.06 * flinch + (hit * 0.24 + sag * 0.55) * 1.0;
-  hotdog.parts.body.rotation.z = hit * (strikeIndex % 2 ? 0.14 : -0.14);
+  /* Doubles over the wound as the strikes stack up. The old torso-only bend
+   * reached 0.50 rad against upright legs, separating the upper and lower
+   * halves. Cap that waist joint and carry the remaining fold through the
+   * hips and knees, where this articulated rig can actually collapse. */
+  const desiredHinge = Math.max(0, -0.06 * flinch + hit * 0.24 + sag * 0.55);
+  const torsoHinge = Math.min(HOTDOG_MAX_TORSO_HINGE, desiredHinge);
+  const transferredFold = Math.max(0, desiredHinge - torsoHinge);
+  const buckle = clamp01(hit * 0.58 + sag * 1.25 + transferredFold * 1.8);
+  hotdog.parts.body.rotation.x = torsoHinge;
+  hotdog.parts.body.rotation.z = hit
+    * (strikeIndex % 2 ? HOTDOG_MAX_TORSO_ROLL : -HOTDOG_MAX_TORSO_ROLL);
+  for (const leg of [hotdog.parts.legL, hotdog.parts.legR]) {
+    if (leg?.rotation) leg.rotation.x = -HOTDOG_MAX_HIP_BUCKLE * buckle;
+  }
+  for (const shin of [hotdog.parts.shinL, hotdog.parts.shinR]) {
+    if (shin?.rotation) shin.rotation.x = HOTDOG_MAX_KNEE_BUCKLE * buckle;
+  }
   hotdog.parts.head.rotation.x = -0.14 * flinch + hit * 0.30 + sag * 0.35;
   hotdog.parts.head.rotation.z = hit * (strikeIndex % 2 ? -0.20 : 0.20);
   /* Hands come up at the blade — guarding on the early strikes, clutching

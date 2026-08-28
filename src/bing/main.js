@@ -384,7 +384,9 @@ const mission = new MissionType({
  * Attempts land in game.voLog either way, so the verifier can prove the
  * wiring fires before a single mp3 has been generated.
  * ------------------------------------------------------------------ */
-function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
+function voiceCue(name, {
+  volume = 0.9, delay = 0, solo = true, position = null,
+} = {}) {
   if (!name) return null;
   game.voLog.push(name);
   if (game.voLog.length > 60) game.voLog.shift();
@@ -398,7 +400,7 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!audio.ready) return null;
   const bank = audio.buffers?.get(name);
   if (!bank?.length) return null;
-  const src = audio.play(name, { volume, delay });
+  const src = audio.play(name, { volume, delay, ...(position ? { position } : {}) });
   if (solo) audio._vo = src;
   const secs = src?.buffer ? src.buffer.duration : 1.6;
   audio.hold(delay + secs + 0.25);
@@ -1004,7 +1006,6 @@ function repaintObjectives() {
 let objectiveSig = '';
 function objectivesTick() {
   if (!game.hudReady) return;
-  if (mission.flags.metHer) mission.complete('margo');
   if (game.booskiShotDone) mission.complete('shot');
   const sig = `${mission.objectives.map((o) => (o.done ? 1 : 0)).join('')}`
     + `|${mission.objectives.length}|${spokeTo.size}|${mission.spins || 0}|${mission.hands || 0}`
@@ -1441,14 +1442,14 @@ reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
 /* Scene One only, so she is registered only when she is actually in the room. */
 if (cast.byName.margo) {
   reg(cast.byName.margo.group, {
-    label: () => (mission.flags.gaveNumber || mission.flags.metHer
+    label: () => (mission.flags.hasMargoNumber || mission.flags.metHer
       ? 'Talk to <b>Margo</b>'
       : 'Talk to the <b>woman at the end of the bar</b>'),
     onUse: () => {
       const her = cast.byName.margo;
       her.faceToward(player.position.x, player.position.z);
       noteSpokeTo(her);
-      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her, { resume: true });
+      dialogue.start(scripts.margo, mission.flags.hasMargoNumber ? 'number' : 'open', her, { resume: true });
     },
   });
 }
@@ -2278,12 +2279,16 @@ function leaveByFrontDoor() {
     hold: 1.4,
     onTap: () => hud.say(mission.readyToLeave
       ? 'Hold it. You are leaving.'
-      : 'Not until you have got what you came for.', 3000),
+      : (!isSecondVisit && mission.leaveBlocker === 'margo_number'
+        ? 'Margo is still at the bar. Get her number before you leave.'
+        : 'Not until you have got what you came for.'), 3000),
     onUse: () => {
       if (!mission.readyToLeave) {
         hud.say(isSecondVisit
           ? 'Not until Lou gives you the motel assignment.'
-          : 'Not until you have got what you came for.', 3000);
+          : (mission.leaveBlocker === 'margo_number'
+            ? 'Margo is still at the bar. Get her number before you leave.'
+            : 'Not until you have got what you came for.'), 3000);
         return;
       }
       driveAway();
@@ -2626,9 +2631,10 @@ function finish() { /* the ending card is driven by driveAway() */ }
 function showEnding(kind) {
   const e = isSecondVisit
     ? {
-      title: 'ROOM TWELVE IS WAITING',
+      title: 'THE GRAVEYARD IS WAITING',
       body: 'Lou gave you the job in the same office, but this visit ends differently. '
-        + 'Snow is already outside the Jerky Motel with the payment, and the apartment is not on the route.',
+        + 'Snow has Billy in the trunk and the headlights pointed at the Squatch graveyard. '
+        + 'The Motel comes later; it is not this handoff.',
     }
     : (ENDINGS[kind] || ENDINGS.followed);
   if (isSecondVisit) {
@@ -2671,14 +2677,15 @@ function showEnding(kind) {
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
   if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
-  /* Offered rather than forced, and no link out of here: the campaign owns
-   * where he goes next, and where he goes next is home with the package. */
-  if (mission.flags.gaveNumber) {
-    extras.push('You gave somebody at the end of the bar your number, which is not a thing you do.');
+  /* Offered rather than forced. The Family driver who brought Tony is still
+   * waiting outside and owns the direct restaurant handoff; the retired trip
+   * home remains only as a scene-graph fallback for legacy saves. */
+  if (mission.flags.hasMargoNumber) {
+    extras.push('You left with Margo’s number, which is not a thing you usually manage.');
   }
   extras.push(isSecondVisit
-    ? '<br><b>NEXT: DRIVE DIRECTLY TO THE JERKY MOTEL</b>'
-    : '<br><b>NEXT: RETURN HOME WITH LOU’S PACKAGE</b>');
+    ? '<br><b>NEXT: RIDE WITH SNOW TO THE SQUATCH GRAVEYARD</b>'
+    : '<br><b>NEXT: THE FAMILY DRIVER TAKES YOU STRAIGHT TO THE SQUATCHFATHER</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   startBtn.style.display = 'none';
   let next = document.getElementById('next-level');
@@ -2687,15 +2694,16 @@ function showEnding(kind) {
     next.id = 'next-level';
     overlay.querySelector('.panel').appendChild(next);
   }
-  next.href = isSecondVisit ? 'motel.html' : 'index.html';
+  next.href = isSecondVisit ? 'graveyard.html' : 'squatchfather.html';
   next.textContent = isSecondVisit
-    ? 'Drive to the Jerky Motel →'
-    : 'Return to the apartment →';
+    ? 'Ride with Snow to the graveyard →'
+    : 'Ride with the Family driver →';
   next.onclick = (event) => {
     event.preventDefault();
-    if (isSecondVisit) campaign.advanceTime(TIME_EVENT_IDS.DEPART_JERKY_MOTEL);
-    navigateCampaign(campaign, isSecondVisit ? SCENE_IDS.JERKY_MOTEL : SCENE_IDS.APARTMENT, {
-      spawn: isSecondVisit ? 'passenger_seat' : 'front_door',
+    if (isSecondVisit) campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD);
+    navigateCampaign(campaign,
+      isSecondVisit ? SCENE_IDS.SQUATCH_GRAVEYARD : SCENE_IDS.SQUATCHFATHER, {
+      spawn: isSecondVisit ? 'headlights' : 'restaurant_exterior',
       location,
     });
   };
@@ -3283,8 +3291,15 @@ function ambientChatter(dt) {
   let i = (Math.random() * AMBIENT.length) | 0;
   if (i === game.lastAmbient) i = (i + 1) % AMBIENT.length;
   game.lastAmbient = i;
-  const [who, line, cue] = AMBIENT[i];
-  voiceCue(cue, { volume: 0.58 });
+  const [who, line, cue, , speakerKey] = AMBIENT[i];
+  const speaker = cast.byName[speakerKey] ?? null;
+  speaker?.faceToward(player.position.x, player.position.z);
+  const take = voiceCue(cue, {
+    volume: 0.58,
+    position: speaker?.group?.position ?? null,
+  });
+  const spokenSeconds = take?.seconds ?? Math.max(1.6, line.split(/\s+/u).length / 2.7);
+  speaker?.say(spokenSeconds, take);
   hud.say(`<em>${who}:</em> ${line}`, 4200);
 }
 

@@ -34,22 +34,6 @@
       "sourceAnchor": "'takeoff.trees': [L('Trees. Trees are the last part of the runway nobody paves.', 3.6)],"
     },
     {
-      "id": "enolasquatch-call-opening",
-      "scene": "enolasquatch",
-      "beat": "BEATS['call.opening']",
-      "reason": "Big Uncle Lou's telephone call setting the mission up, three lines, and tools/check-line-presence.mjs exempts its cues on the written grounds that it is 'played before the hangar scene opens'. It is not played anywhere: the scene's first phase is walkaround, on the apron, at the aeroplane. The exemption describes a scene that does not exist, which is why a cue-presence checker could sign this off while nobody could ever hear it. Where the call belongs -- a phone in the apartment, a cold open -- is the owner's to say.",
-      "source": "src/enolasquatch/dialogue/script.js:41",
-      "sourceAnchor": "'call.opening': [U('Remember that little delivery flight?', 2.4), ...]"
-    },
-    {
-      "id": "enolasquatch-hangar-reveal",
-      "scene": "enolasquatch",
-      "beat": "BEATS['hangar.reveal']",
-      "reason": "Five lines for first sight of the aeroplane -- 'There she is. The Enola Squatch.' -- written for an arrival the mission never got. MissionController opens straight into the walkaround with the checklist up and the Enola already in front of you, so there is no reveal to speak over. The only thing in the repo that plays it is tests/scene-audio-residency.test.mjs, which is a test asking whether the bank is resident, not a player hearing it. Staging a reveal is a scene decision, not wiring.",
-      "source": "src/enolasquatch/dialogue/script.js:49",
-      "sourceAnchor": "'hangar.reveal': [L('There she is. The Enola Squatch.', 2.6), ...]"
-    },
-    {
       "id": "initiation-ceremony-anoint",
       "scene": "initiation",
       "beat": "CEREMONY_BEATS.anoint",

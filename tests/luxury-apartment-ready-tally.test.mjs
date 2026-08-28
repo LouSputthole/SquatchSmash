@@ -37,6 +37,8 @@ function afterTheHandover() {
     state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
     state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
     state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+    state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+    state.story.timeEvents.push(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
   });
   campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT);
   campaign.enter(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'arrival' });
@@ -92,7 +94,9 @@ test('finishing the three chores is what opens beat 14’s door', () => {
   assert.equal(tally.ready, true);
 
   assert.deepEqual(story.completeGetReady(), { ok: true });
-  assert.notEqual(story.tryLeave().kind, 'activity', 'the chores are what release it');
+  assert.deepEqual(story.tryLeave(), {
+    kind: 'go', destination: SCENE_IDS.SILVER_ROOM,
+  }, 'the chores release the appointment already made at the cabin');
 
   assert.deepEqual(
     story.completeGetReady(),

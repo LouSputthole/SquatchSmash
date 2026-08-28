@@ -1410,12 +1410,27 @@ try {
     JSON.stringify({ handNdc: handPresentation.handNdc }));
   await pressActionTo(page, 'card');
 
+  await page.waitForFunction(() => {
+    const card = window.INITIATION?.ritual?.cardPresentation;
+    return card?.corners?.flat().every(Number.isFinite);
+  }, null, { timeout: 120000 });
+
   const afterCut = await page.evaluate(() => window.INITIATION.ritual);
   check('the cut is marked on the palm, not on the floorboards',
     afterCut.palmCut, JSON.stringify(afterCut));
   check('the saint card is in the player\'s hand from IN-420, before the oath',
     afterCut.cardInPlayerHand && afterCut.cardVisible,
     JSON.stringify(afterCut));
+  check('the saint card face is fully framed, front-facing, and large enough to read',
+    afterCut.cardPresentation?.fullyFramed
+      && afterCut.cardPresentation?.frontFacing
+      && afterCut.cardPresentation?.unobstructed
+      && afterCut.cardPresentation?.pixelWidth >= 22
+      && afterCut.cardPresentation?.pixelHeight >= 32,
+    JSON.stringify(afterCut.cardPresentation));
+  const cardArtifact = path.join(ROOT, '.artifacts', 'initiation-saint-card-real-flow.png');
+  await fsp.mkdir(path.dirname(cardArtifact), { recursive: true });
+  await page.screenshot({ path: cardArtifact });
 
   /* Both oath lines -- Lou says each, the prompt goes up, Tony chooses the
    * exact wording with the real randomized numbered key, and then the card
@@ -1457,8 +1472,31 @@ try {
   /* ACT SIX — the room, and out                                       */
   /* ---------------------------------------------------------------- */
 
+  await pressActionTo(page, 'room', { timeout: 360000 });
+  await page.waitForFunction(() => window.INITIATION.roomReaction.started.length === 19,
+    null, { timeout: 900000 });
+  const roomBurst = await page.evaluate(() => window.INITIATION.roomReaction);
+  const featured = roomBurst.started.filter((entry) => entry.featured);
+  const protectedOverlap = featured.some((entry) => roomBurst.started.some((other) => (
+    other.cue !== entry.cue
+      && other.scheduledAt < entry.end
+      && entry.scheduledAt < other.end
+  )));
+  check('the whole family reaction is one bounded eruption instead of a nineteen-line roll call',
+    roomBurst.started.length === 19
+      && roomBurst.duration < 20
+      && roomBurst.started.filter((entry) => entry.scheduledAt < 1).length >= 5
+      && roomBurst.blocked.length === 0
+      && roomBurst.started.every((entry) => entry.acceptance === 'accepted'),
+    JSON.stringify(roomBurst));
+  check('crowd overlap is declared while Gratin and Booskibro retain protected payoff windows',
+    roomBurst.started.filter((entry) => !entry.featured).every((entry) => entry.ambient)
+      && featured.map((entry) => entry.speaker).join(',') === 'GRATIN,BOOSKIBRO'
+      && !protectedOverlap,
+    JSON.stringify({ featured, protectedOverlap }));
+
   /* Act six is the room, Lou's aside, and the pull-back out of the window:
-   * about 76 authored seconds, several of which wait on a press.
+   * one bounded room burst, Lou's aside, the physical drink, and the pullback.
    *
    * THE BUDGET IS ARITHMETIC, NOT A NUDGE. `main.js` clamps its frame delta to
    * 0.05 s, so a phase timer advances at (fps / 20) of real time and never

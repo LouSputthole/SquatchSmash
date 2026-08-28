@@ -1352,7 +1352,7 @@ try {
     staged.report.phase === 'confrontation'
       && !staged.report.engaged
       && !staged.markActive && !staged.sauceActive
-      && beatsInOrder(['accuse', 'accuse.belongings', 'accuse.ledger', 'accuse.still',
+      && beatsInOrder(['accuse', 'accuse.belongings', 'accuse.case-route', 'accuse.still',
         'admission.cornered', 'mark.cornered', 'begging.wife', 'begging.shorts', 'go']),
     JSON.stringify(staged));
 

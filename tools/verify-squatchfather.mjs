@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify the package-gated apartment -> Squatchfather -> apartment round trip
+ * Verify the package-gated apartment -> Squatchfather -> cabin handoff
  * in a real browser, including the restaurant's critical state-machine beats,
  * the recorded audio (VO, footsteps, ambience and train beds), and that every
  * seated man faces the way his beat was authored.

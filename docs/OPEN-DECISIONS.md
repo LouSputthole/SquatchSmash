@@ -236,7 +236,7 @@ Nothing can be built for these; they are files and ids only the owner has.
 | Voice id — additional male NPC | Whatever it was wanted for |
 | ~~Voice id — `sauce`~~ | **Delivered 2026-08-05** (`hU1ratPhBTZNviWitzAh`) |
 | `assets/video/the-feature.mp4` | The home theatre, and the evening-before-bed film beat |
-| ~~`assets/art/enola-squatch-nose-art.png`~~ | **Delivered 2026-08-05**, with `enola-squatch-nose-name.png` alongside it. Both are on the aeroplane |
+| ~~`assets/art/squatchola-gay-nose-art.webp`~~ | **Renamed and delivered 2026-08-28**, with `squatchola-gay-nose-name.png` alongside it. Both are on the aeroplane; the original Enola-labelled source art remains in history. |
 | The real "Can't You Hear Me Knocking" recording | Its cue |
 
 ### Featured waiter casting — resolved 2026-08-08

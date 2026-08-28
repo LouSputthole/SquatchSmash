@@ -133,7 +133,7 @@ async function teleport(page, id, mode = 'interact') {
 }
 
 try {
-  check('Cabin script exposes exactly 165 authored VO cues', authoredCues.length === 165, `${authoredCues.length} cues`);
+  check('Cabin script exposes exactly 163 authored VO cues', authoredCues.length === 163, `${authoredCues.length} cues`);
   check('Every authored Cabin VO cue is synchronized into the sound manifest', absentFromManifest.length === 0,
     absentFromManifest.length ? absentFromManifest.slice(0, 3).join(', ') : 'manifest synchronized');
   check('Required inside-joke and polite-choice lines remain authored',
@@ -251,7 +251,8 @@ try {
       && boot.timeMinutes === 5 * 60 + 20,
     `day ${boot.day}, minute ${boot.timeMinutes}`);
   check('The arrival rest is the opening chapter phase and the car is gated',
-    boot.phase === 'arrival_rest' && boot.leave.id === 'cabin_wait',
+    boot.phase === 'arrival_rest'
+      && boot.leave.kind === 'stay' && boot.leave.id === 'cabin_wait',
     `phase ${boot.phase}, door ${boot.leave.id}`);
   check('First cellar entrance is physically hidden and disabled before Gratin calls',
     !boot.entryVisible && !boot.entryEnabled);
@@ -376,9 +377,9 @@ try {
     chapter._suppressCallEnd = true;
     chapter.phone.hangUp?.();
     chapter._suppressCallEnd = false;
-    /* The standalone post-heist preview is a compatibility route rather than
-     * a replay of the full Act-One Beef Run. Give it the durable second-rest
-     * seam before certifying the shared dungeon half. */
+    /* The public preview starts at the canonical first arrival. The pure
+     * route suite owns the intervening Beef Run; move this live scene to its
+     * durable second-rest seam before certifying the dungeon half. */
     story.completeSecondRest();
     const call = story.completeGratinCall();
     chapter.dialogue.stop?.();
@@ -474,12 +475,21 @@ try {
     const runtime = window.COUNTRYSIDE_CABIN;
     const { chapter, dungeon, story } = runtime;
     dungeon.targets.tools.pliers.userData.interact.onUse();
+    const selectedBeforeHits = chapter.selectedTool;
+    const tableToolHidden = dungeon.tools.pliers.visible === false;
+    const heldToolVisible = runtime.tortureTools?.snapshot?.().visible?.pliers === true;
     const apply = (id, count) => {
       const outcomes = [];
       for (let index = 0; index < count; index += 1) {
         chapter.dialogue.stop?.();
         chapter.beatQueue.length = 0;
         outcomes.push(runtime.torture(id));
+        while (chapter.toolUseRemaining > 0) {
+          chapter.update(0.1, {
+            playerPosition: runtime.player.position,
+            cabinPosition: { x: 0, z: 0 },
+          });
+        }
       }
       return outcomes;
     };
@@ -503,7 +513,12 @@ try {
     chapter.beatQueue.length = 0;
     chapter.callbacks.onSync?.();
     return {
-      selectedTool: chapter.selectedTool,
+      selectedBeforeHits,
+      tableToolHidden,
+      heldToolVisible,
+      selectedAfterReveal: chapter.selectedTool,
+      tableToolRestored: dungeon.tools.pliers.visible,
+      heldToolsCleared: !Object.values(runtime.tortureTools?.snapshot?.().visible ?? {}).some(Boolean),
       baiterApplied: baiter.every((result) => result.ok && result.applied),
       ateamApplied: ateam.every((result) => result.ok && result.applied),
       revealBeat,
@@ -515,7 +530,11 @@ try {
       ateamActor: dungeon.actors.ateam.snapshot,
     };
   });
-  check('Pliers selection drives the production interrogation interaction', interrogation.selectedTool === 'pliers');
+  check('Pliers selection drives one visible production tool and returns it before the pistol',
+    interrogation.selectedBeforeHits === 'pliers'
+      && interrogation.tableToolHidden && interrogation.heldToolVisible
+      && interrogation.selectedAfterReveal === null
+      && interrogation.tableToolRestored && interrogation.heldToolsCleared);
   check('CS baiter breaks at 2 hits while preserving 8-hit execution durability',
     interrogation.baiterApplied && interrogation.baiter.hits === 2
       && interrogation.baiter.threshold === 2 && interrogation.baiter.maxHits === 8);
@@ -606,7 +625,7 @@ try {
       && execution.nightfallBeats.started === execution.nightfallBeats.expected
       && execution.nightfallBeats.completed
       && execution.phase === 'wrap_bodies'
-      && execution.day === 3 && execution.timeMinutes === 1245 && execution.dark,
+      && execution.day === 3 && execution.timeMinutes === 20 * 60 + 45 && execution.dark,
     `day ${execution.day}, minute ${execution.timeMinutes}; ${JSON.stringify(execution.nightfallBeats)}`);
   await clearHands(page);
   await teleport(page, 'dungeonCounterStrikeCaptive', 'interact');
@@ -614,22 +633,27 @@ try {
 
   const wrapped = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const first = runtime.wrapBody('counterstrike-player');
-    const second = runtime.wrapBody('a-team-member');
+    const firstTarget = runtime.dungeon.actors.counterStrike.bodyTarget.userData.interact;
+    const secondTarget = runtime.dungeon.actors.ateam.bodyTarget.userData.interact;
+    const directPrompts = [firstTarget, secondTarget].map((descriptor) => ({
+      enabled: descriptor.enabled(),
+      label: descriptor.label(),
+    }));
+    firstTarget.onUse();
+    secondTarget.onUse();
     runtime.chapter.dialogue.stop?.();
     runtime.chapter.beatQueue.length = 0;
     const cleanup = runtime.cleanup.snapshot();
     return {
-      first,
-      second,
+      directPrompts,
       cleanup,
       phase: runtime.story.phase(),
       gratinZ: runtime.dungeon.actors.gratin.group.position.z,
       gratinVisible: runtime.dungeon.actors.gratin.group.visible,
     };
   });
-  check('Both dead captives become the shared canonical wrapped-body prefabs in the dungeon',
-    wrapped.first.ok && wrapped.second.ok
+  check('Each dead captive prompt wraps its shared canonical body directly in the dungeon',
+    wrapped.directPrompts.every(({ enabled, label }) => enabled && /^Wrap the /i.test(label))
       && Object.values(wrapped.cleanup.bodies).every(({ phase }) => phase === 'wrapped')
       && wrapped.phase === 'carry_bodies');
   check('Gratin stays in the dungeon until the physical carry is actually complete',
@@ -782,8 +806,7 @@ try {
       player: runtime.player.position.toArray(),
       wake: runtime.cabin.spawns.wake.position.toArray(),
     };
-    runtime.story.completeMorningCall();
-    runtime.story.completeMorningWake();
+    runtime.story.completeBillyCall();
     runtime.chapter.callbacks.onSync?.();
     runtime.chapter.callbacks.onWakeMorning?.({ restored: true });
     return {
@@ -812,7 +835,7 @@ try {
     };
   });
   check('Blackout restores Tony fine in bed on Day 4 at 09:30',
-    morning.wakeCheckpoint.day === 4 && morning.wakeCheckpoint.timeMinutes === 570
+    morning.wakeCheckpoint.day === 4 && morning.wakeCheckpoint.timeMinutes === 9 * 60 + 30
       && !morning.wakeCheckpoint.dark
       && Math.hypot(
         morning.wakeCheckpoint.player[0] - morning.wakeCheckpoint.wake[0],

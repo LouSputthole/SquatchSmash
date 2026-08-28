@@ -23,7 +23,9 @@ export const SPEAKERS = Object.freeze({
   APE: Object.freeze({ name: 'Ape', voice: 'ape' }),
   PROSPECT: Object.freeze({ name: 'Prospect', voice: 'player' }),
   DEKE: Object.freeze({ name: 'Deke', voice: 'npc-male' }),
-  WINSTON: Object.freeze({ name: 'Winston', voice: 'npc-male' }),
+  /* The frightened kitchen witness uses the existing anxious-reserve profile;
+   * he no longer shares Deke's throat in the same room. */
+  WINSTON: Object.freeze({ name: 'Winston', voice: 'npc-reserve-1' }),
   /* HIS OWN VOICE, owner-cast 2026-08-06. He is the man in the chair — the one
    * the whole night is spent talking to — and he was sharing `npc-male` with
    * Deke, Winston and Pruitt, which is three other men in the same room in the
@@ -31,7 +33,9 @@ export const SPEAKERS = Object.freeze({
    * takes; see the profile's own note in `assets/sfx/manifest.json`, including
    * the length question on the id. */
   CHESTER: Object.freeze({ name: 'Chester', voice: 'chester' }),
-  PRUITT: Object.freeze({ name: 'Pruitt', voice: 'npc-male' }),
+  /* Pruitt is the silent bathroom ambusher. Reserve a distinct existing
+   * profile now so any future bark cannot collapse back onto Deke or Winston. */
+  PRUITT: Object.freeze({ name: 'Pruitt', voice: 'npc-reserve-2' }),
   HUD: Object.freeze({ name: '', voice: null }),
 });
 

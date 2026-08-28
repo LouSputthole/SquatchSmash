@@ -112,6 +112,9 @@ import { createCrew, makeToolCart } from './crew.js';
 import { createEnolaWorldGeometry, zoneMixX } from './world-geometry.js';
 import { buildDistantHorizon } from './distant-horizon.js';
 import { EnolaAudioEngine, EnolaMissionAudio, enolaBankOfCue } from './audio.js';
+import {
+  consumeEnolaChoiceKey, consumeRetiredEnolaSplitThrottleKey,
+} from './choice-input.js';
 import { createResidencyBanks } from '../core/residency-banks.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import {
@@ -190,7 +193,7 @@ if (previewCheckpoint) {
   if (startBtn) startBtn.textContent = `Start at ${label.toLowerCase()}`;
 }
 
-window.__squatchStage?.('Building the Enola Squatch…');
+window.__squatchStage?.('Building SQUATCHOLA GAY…');
 
 /* ------------------------------------------------------------------ */
 /* Renderer                                                           */
@@ -402,7 +405,10 @@ resolveGear(['crest.round'])
  * `scenes/TargetCity.js` and `scenes/PartKit.js` for how the landmarks cost
  * four draw calls instead of two hundred. `city.stats()` reports the real
  * numbers and `tools/verify-enolasquatch.mjs` measures a real render. */
-window.__squatchStage?.('Laying out Squatchbourg…');
+// The flight's wrong-city clue belongs solely to the cockpit instruments.
+// Naming Squatchbourg in this player-visible loading stage spoiled that clue
+// before the player ever reached the aeroplane.
+window.__squatchStage?.('Laying out the target area…');
 const city = new TargetCity(scene, {
   x: TARGET_X,
   z: COMPOUND.z,
@@ -614,7 +620,15 @@ function showEnolaCompletion(report, {
 } = {}) {
   if (!report) return false;
   enolaCampaignComplete ||= campaignComplete;
-  flightHud.showComplete(report);
+  /* Keep the save-backed unlock id stable for existing campaigns while the
+   * completion card uses the renamed mission's canonical display label. */
+  const displayReport = {
+    ...report,
+    unlocks: (report.unlocks ?? []).map((unlock) => (
+      unlock === 'Enola Squatch Flight Jacket' ? 'SQUATCHOLA GAY Flight Jacket' : unlock
+    )),
+  };
+  flightHud.showComplete(displayReport);
   if (playSting) missionAudio.sting?.();
   // The title overlay has a higher stacking level than FlightHud's established
   // report card. A completed reload has not passed through the ordinary Start
@@ -795,18 +809,6 @@ function updateChoicePanel() {
     return row;
   }));
   choicePanel.classList.add('show');
-}
-
-function handleMissionChoiceKey(code) {
-  const m = /^Digit([1-5])$/.exec(code);
-  if (!m) return;
-  const digit = m[1];
-  if (mission.phase === 'release' && mission._releaseStep === 'awaitChoice') {
-    mission.chooseReleaseLine(digit);
-  } else if (mission.phase === 'emergency' && !mission._emergencyResolved) {
-    const map = { 1: 'baby', 2: 'push', 3: 'shutdown' };
-    if (map[digit]) mission.chooseEmergencyResponse(map[digit]);
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1788,8 +1790,8 @@ startBtn.addEventListener('click', () => {
       const tag = overlay?.querySelector('.tag');
       if (tag) {
         tag.textContent = campaignEntry.reason === 'already_complete'
-          ? "The Enola Squatch is already complete. Continue from Lou's mansion."
-          : 'The Enola Squatch is locked until the mansion siege is complete.';
+          ? "SQUATCHOLA GAY is already complete. Continue from Lou's mansion."
+          : 'SQUATCHOLA GAY is locked until the mansion siege is complete.';
       }
       return;
     }
@@ -1845,7 +1847,7 @@ function pauseGame() {
 }
 
 const pauseMenu = createPauseMenu({
-  title: 'The Enola Squatch',
+  title: 'SQUATCHOLA GAY',
   canPause: () => game.started && !mission.finished,
   getObjective: () => $('br-objective')?.textContent?.trim() || 'Follow the crew’s current instruction.',
   instructions: [
@@ -1901,6 +1903,22 @@ $('es-again')?.addEventListener('click', () => {
 
 function handleEnolaBeforeKeyDown(e) {
   if (e.code === 'Escape') return true;
+  /* THE CHOICE GETS THE KEY BEFORE THE AEROPLANE DOES.
+   *
+   * Owner QA, 2026-08-28: "The bomb-choice input and engine/throttle input
+   * systems are colliding." They were: this used to run in `afterKeyDown`,
+   * after FlightInput had already translated 1/2 into engine toggles and 3/4
+   * into battery/fuel toggles. Returning true from this policy seam prevents
+   * that dispatch altogether; the same physical key cannot choose a line and
+   * change the aircraft on one event. */
+  if (consumeEnolaChoiceKey(mission, e.code)) {
+    e.preventDefault();
+    return true;
+  }
+  if (consumeRetiredEnolaSplitThrottleKey(input, e.code)) {
+    e.preventDefault();
+    return true;
+  }
   /* On foot these are the same durable five slots as Mansion and Siege.
    * Once aboard, 1/2 return to engine start and the authored 1–5 dialogue
    * choices keep priority; the tail gun remains station equipment and never
@@ -1964,7 +1982,6 @@ function handleEnolaAfterKeyDown(e) {
   if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
     mission.skipCutscene();
   }
-  handleMissionChoiceKey(e.code);
   return false;
 }
 

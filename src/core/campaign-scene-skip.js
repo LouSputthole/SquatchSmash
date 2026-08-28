@@ -105,7 +105,12 @@ function cabinChapterDone(campaign) {
 }
 
 const DESTINATIONS = Object.freeze({
-  [SCENE_IDS.BADA_BING_ONE]: { sceneId: SCENE_IDS.APARTMENT, spawn: 'front_door' },
+  /* Beat 2's Family driver is already outside: skip the retired home/whiskey
+   * landing and perform the same direct restaurant handoff as the end card. */
+  [SCENE_IDS.BADA_BING_ONE]: {
+    sceneId: SCENE_IDS.SQUATCHFATHER,
+    spawn: 'restaurant_exterior',
+  },
   /* Beat 3's exit: out of town, unless the cabin is already behind him. */
   [SCENE_IDS.SQUATCHFATHER]: (campaign) => (
     cabinChapterDone(campaign) ? APARTMENT_HOME : CABIN_ARRIVAL

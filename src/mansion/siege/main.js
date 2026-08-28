@@ -2433,7 +2433,7 @@ function updateNudge(dt) {
 }
 
 /**
- * "Say hello to my little friend."
+ * The staircase threat.
  *
  * Conditions, all of them: the briefing is over, a weapon is in his hands,
  * and he is standing on the firing step. Then the line plays, full control

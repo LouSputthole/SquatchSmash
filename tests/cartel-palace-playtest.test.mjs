@@ -342,7 +342,16 @@ test('the cleaner is an unarmed bystander who cowers and never fights', () => {
   const spoken = [];
   const voice = { say: (id) => { spoken.push(id); return true; } };
   const people = new PalaceBystanders({ cast, voice });
+  cleaner.root.visible = false;
+  assert.equal(people.notice(cleaner), false, 'Rosa spoke while her body was hidden');
+  assert.deepEqual(spoken, [], 'the invisible cleaner reached the dialogue floor');
+  cleaner.root.visible = true;
+  scene.visible = false;
+  assert.equal(people.notice(cleaner), false, 'Rosa spoke under a hidden scene parent');
+  scene.visible = true;
   assert.equal(people.notice(cleaner), true);
+  assert.equal(cleaner.root.visible, true, 'Rosa was hidden on the frame her first line began');
+  assert.equal(cleaner.root.parent, scene, 'Rosa was detached on the frame her first line began');
   assert.equal(cleaner.figure.pose, 'startled');
   assert.equal(people.panic(), true);
   for (let index = 0; index < 90; index++) people.update(1 / 60);

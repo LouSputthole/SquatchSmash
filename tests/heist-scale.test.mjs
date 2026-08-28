@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as THREE from 'three';
 
@@ -17,7 +18,12 @@ import { buildHeistLevel } from '../src/heist/level.js';
 import {
   HEIST_HEIGHTS, HeistFigure, makeBankGuardFigure, makeHostageFigure, makePoliceFigure,
 } from '../src/heist/people.js';
-import { HEIST_PENDING_DIALOGUE, HEIST_DIALOGUE, pendingHeistCues } from '../src/heist/script.js';
+import {
+  HEIST_PENDING_DIALOGUE,
+  HEIST_DIALOGUE,
+  heistDebriefClosingLines,
+  pendingHeistCues,
+} from '../src/heist/script.js';
 
 /**
  * "Everyone is giant." — the owner, about every phase of this scene.
@@ -253,7 +259,7 @@ test('lines written this pass are all in the pending bank with heist cues', () =
 });
 
 test('Big Uncle Lou has a real presence on the job and owns the debrief', () => {
-  // He had exactly one cue in the whole mission — `heist.lou_call`, at the very
+  // He had exactly one cue in the whole mission — the old `heist.lou_call`, at the very
   // end — which is part of why the debrief did not read as anything.
   const lou = Object.entries(HEIST_PENDING_DIALOGUE)
     .filter(([, entry]) => entry.speakerId === 'lou');
@@ -268,6 +274,41 @@ test('Big Uncle Lou has a real presence on the job and owns the debrief', () => 
     // man, and the campaign is explicit that the two never merge.
     assert.notEqual(entry.speakerId, 'captain_lou_sasole');
   }
+});
+
+test('a dirty TAKE debrief never falls through to clean praise', () => {
+  assert.deepEqual(heistDebriefClosingLines(true), ['snow_good', 'prospect_debrief']);
+  assert.deepEqual(heistDebriefClosingLines(false), ['prospect_debrief_dirty']);
+
+  const dirty = heistDebriefClosingLines(false)
+    .map((id) => HEIST_PENDING_DIALOGUE[id] ?? HEIST_DIALOGUE[id]);
+  assert.equal(dirty.every(Boolean), true, 'the dirty closing references a missing line');
+  assert.match(dirty.map(({ text }) => text).join(' '), /rest is mine/i);
+  assert.doesNotMatch(
+    dirty.map(({ text }) => text).join(' '),
+    /covered people before money|did not make anything worse|well done|good job/i,
+  );
+});
+
+test('THE TAKE visibly occurs on Day Five and Lou sends the Prospect home by phone', () => {
+  const html = readFileSync(new URL('../heist.html', import.meta.url), 'utf8');
+  const closing = [
+    HEIST_PENDING_DIALOGUE.lou_phone_home,
+    HEIST_PENDING_DIALOGUE.lou_home_order,
+    HEIST_PENDING_DIALOGUE.prospect_phone_home,
+  ];
+  const words = closing.map((line) => line?.text ?? '').join(' ');
+
+  assert.match(html, />DAY FIVE</i);
+  assert.doesNotMatch(html, />DAY FOUR</i);
+  assert.equal(closing.every(Boolean), true, 'the closing phone exchange is incomplete');
+  assert.match(words, /go home.*stay by your phone/i);
+  assert.match(words, /nobody sees anybody tonight/i);
+  assert.doesNotMatch(words, /Bada Bing|\bseven\b|wear|clothing|initiation|decide about you/i);
+  assert.equal('lou_call' in HEIST_DIALOGUE, false, 'the obsolete recorded cue id survived');
+  assert.equal('prospect_home' in HEIST_DIALOGUE, false, 'the obsolete Prospect cue id survived');
+  assert.equal('lou_prospect_verdict' in HEIST_PENDING_DIALOGUE, false,
+    'the obsolete initiation-adjacent cue id survived');
 });
 
 test('nothing authored this pass points at the film it is parodying', () => {

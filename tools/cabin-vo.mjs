@@ -47,7 +47,12 @@ if (undefinedVoices.length) {
   process.exit(1);
 }
 
-const callPrefixes = Object.values(CABIN_PHONE_CALLS).map((call) => 'vo.' + call.vo + '.');
+const callPrefixes = [
+  ...Object.values(CABIN_PHONE_CALLS).map((call) => 'vo.' + call.vo + '.'),
+  /* Retired when the cabin call became the date-scheduling conversation.
+   * Keep the old bank in the owned set so the next ordinary sync removes it. */
+  'vo.call.margo.cabin_first.',
+];
 const isCabinCue = ({ name = '' }) => (
   name.startsWith(CABIN_VO_PREFIX)
   || callPrefixes.some((prefix) => name.startsWith(prefix))

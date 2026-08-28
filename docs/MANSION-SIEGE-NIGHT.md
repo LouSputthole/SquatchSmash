@@ -5,7 +5,7 @@ being taken apart around him.
 
 This is the mission that turns Lou's mansion from a place of wealth, safety
 and belonging into a defensive stand. It is **not** the campaign finale. It
-is the fuse: it lights the Enola Squatch mission, which bombs the wrong city,
+is the fuse: it lights the SQUATCHOLA GAY mission, which bombs the wrong city,
 which reveals that Sauce was never kidnapped, which sends the Prospect into
 Mark's cartel palace. Initiation is the ending scene after that.
 
@@ -183,9 +183,9 @@ in the house before you woke up," and he should be readable in one look.
 
 **The armory.** `BASEMENT_ROOM`, already dressed as one. For the siege it
 gains a working rack interaction: primary (rifle or SMG), optional shotgun,
-pistol and primary ammunition, and **one heavy automatic weapon** which is
-the "little friend." Not the whole catalogue — a loadout for interior
-fighting and a staircase.
+pistol and primary ammunition, and **one heavy automatic weapon** reserved for
+the staircase stand. Not the whole catalogue — a loadout for interior fighting
+and a staircase.
 
 Objective 2 completes on entry, objective 3 on taking the primary + heavy.
 **CP2.**
@@ -258,7 +258,7 @@ foyer's side rooms as enemy routes. It is **not** a safe box: attackers fire
 up, suppress the rail, break windows, and push the flights. The rail is
 cover, not immunity.
 
-### "Say hello to my little friend"
+### The staircase threat
 
 Once. Ever.
 
@@ -266,7 +266,8 @@ Once. Ever.
 2. The player moves to the top of the stairs.
 3. The heavy comes up.
 4. The first attackers come through the door.
-5. The Prospect says the line.
+5. The Prospect says an original threat; the staging carries the parody and
+   nobody quotes the film.
 6. **Control never leaves the player.**
 7. Music rises. Wave 1A enters.
 
@@ -427,14 +428,14 @@ Lou comes to the landing. That conversation gets written separately; its job
 is to confirm the attack is stopped, establish that the cartel is bigger than
 anyone thought, and hand the Prospect to Captain Sasole.
 
-**New objective: Meet Captain Sasole.** → the Enola Squatch mission, its own
+**New objective: Meet Captain Sasole.** → the SQUATCHOLA GAY mission, its own
 map, loaded as its own scene. The flight never runs inside the mansion.
 
 ---
 
 ## PART X–XII — WHAT COMES AFTER, IN ORDER
 
-1. **Enola Squatch.** Fly it, carry the Fat Squatch, drop it, believe it
+1. **SQUATCHOLA GAY.** Fly it, carry the Fat Squatch, drop it, believe it
    worked.
 2. **Return to the mansion**, `repaired` state — the canonical clean house
    with a story flag, never the siege damage written back. Lou explains they

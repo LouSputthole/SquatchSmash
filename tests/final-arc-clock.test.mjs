@@ -45,11 +45,10 @@ test('the exact-once final arc reaches every authored Day 8 through Day 13 seam'
     [TIME_EVENT_IDS.COMPLETE_SILVER_CASE, 8, 17 * 60 + 30],
     [TIME_EVENT_IDS.DEPART_MANSION, 8, 17 * 60 + 55],
     [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH, 8, 20 * 60 + 10],
-    /* Eight hours in Lou's guest room wakes Tony on the calendar day after.
-     * Every hour below is unchanged; only which day it falls on moved, and it
-     * moved by the two days the Act-One cabin now occupies. */
-    [TIME_EVENT_IDS.REST_AT_MANSION, 9, 4 * 60 + 10],
-    [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE, 9, 6 * 60 + 10],
+    /* Six hours in Lou's guest room wakes Tony inside the bible's 2-3 AM
+     * assault window; the two-hour siege then ends at 4:10. */
+    [TIME_EVENT_IDS.REST_AT_MANSION, 9, 2 * 60 + 10],
+    [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE, 9, 4 * 60 + 10],
     [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH, 9, 14 * 60],
     [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH, 9, 18 * 60],
     /* "A few days on": the repaired house and Palace are Day 12. */
@@ -122,7 +121,7 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   assert.equal(silent.restAtMansion().ok, true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [9, 4 * 60 + 10],
+    [9, 2 * 60 + 10],
   );
 
   const siege = createMansionSiegeCampaignStory({ campaign });
@@ -130,7 +129,7 @@ test('the real final-arc story handoffs apply the authored clock as one atomic b
   assert.equal(siege.complete({ attackersDown: 8, sasoleMet: true }), true);
   assert.deepEqual(
     [campaign.state.story.day, campaign.state.story.timeMinutes],
-    [9, 6 * 60 + 10],
+    [9, 4 * 60 + 10],
   );
 
   const enola = createEnolaSquatchCampaignStory({ campaign });
@@ -268,7 +267,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.MANSION_SIEGE].status = 'available';
       },
       day: 9,
-      time: 4 * 60 + 10,
+      time: 2 * 60 + 10,
       count: 5,
     },
     {
@@ -278,7 +277,7 @@ test('v13 partial final-arc saves migrate only through the handoff their status 
         state.missions[MISSION_IDS.ENOLA_SQUATCH].status = 'available';
       },
       day: 9,
-      time: 6 * 60 + 10,
+      time: 4 * 60 + 10,
       count: 6,
     },
     {

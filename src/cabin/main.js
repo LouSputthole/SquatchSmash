@@ -59,11 +59,13 @@ import {
 } from './body-cleanup.js';
 import { buildCountrysideCabin } from './world.js';
 import {
+  CABIN_TORTURE_TOOL_PROFILES,
   STORY_TO_CLEANUP_BODY,
   createCabinChapterRuntime,
 } from './chapter-runtime.js';
 import { createCabinDialogueDirector } from './dialogue-director.js';
 import { createCabinExecutionChoice } from './execution-choice.js';
+import { createCabinTortureToolPresentation } from './torture-tool-presentation.js';
 import { createLagHintDirector, LAG_VOICE_PREFIX, speakLagLine } from './lag.js';
 import {
   CABIN_WORK_OUTFIT,
@@ -234,6 +236,7 @@ let gratinPistol = null;
 let bloodImpacts = null;
 let deathPools = null;
 let bonfireCast = null;
+let tortureTools = null;
 let lastFrame = performance.now();
 
 function syncTime() {
@@ -869,23 +872,31 @@ function handleDungeonGratin() {
 }
 
 function handleDungeonTool(id) {
-  const selectable = new Set(['pliers', 'saw', 'battery', 'syringes', 'towels', 'leads', 'bucket']);
-  if (!selectable.has(id)) {
+  if (!CABIN_TORTURE_TOOL_PROFILES[id]) {
     chapter?.introduceTools?.();
     hud.say(id === 'rack'
       ? 'Old oak, iron rollers, leather restraints. <em>It has seen worse nights than this one.</em>'
       : 'Gratin keeps the whole table clean, ordered, and deeply upsetting.', 3200);
     return true;
   }
-  chapter?.selectTool?.(id);
-  hud.toast(`${id[0].toUpperCase()}${id.slice(1)} selected`);
+  const selected = chapter?.selectTool?.(id) ?? null;
+  hud.toast(selected
+    ? `${id[0].toUpperCase()}${id.slice(1)} in hand · Q to return it`
+    : `${id[0].toUpperCase()}${id.slice(1)} returned to the table`);
   return true;
 }
 
-function handleDungeonCaptive(id) {
+function handleDungeonCaptive(id, action = 'use') {
+  if (action === 'wrap') {
+    const wrapped = chapter?.wrapBody?.(id);
+    if (!wrapped?.ok) return false;
+    hud.toast('Body wrapped · pick it up', 'good');
+    return true;
+  }
   const result = chapter?.torture?.(id);
   if (!result?.ok) {
     if (result?.reason === 'interrogation_busy') hud.toast('Let them finish talking');
+    else if (result?.reason === 'tool_busy') hud.toast('Finish the tool action first');
     else if (result?.reason === 'tool_required') hud.toast('Choose something from the tool table');
     else if (story.executionChoice() === 'player') hud.toast('Gratin gave you the pistol for this');
     return false;
@@ -920,7 +931,7 @@ function setIntoxication(amount = 0) {
   intoxicationEl.classList.toggle('active', level > 0.01);
 }
 
-function ensurePhoneSelected() {
+function ensurePhoneSelected(definition = null) {
   weapons?.stow?.({ silent: true });
   if (!cabin.inventory.has('phone')) {
     const inserted = cabin.inventory.add('phone');
@@ -932,7 +943,7 @@ function ensurePhoneSelected() {
   }
   const slot = cabin.inventory.items.indexOf('phone');
   if (slot >= 0) cabin.inventory.select(slot);
-  hud.toast('Phone ringing · E to answer');
+  hud.toast(definition?.outgoing ? `Calling ${definition.from}…` : 'Phone ringing · E to answer');
   return slot >= 0;
 }
 
@@ -1154,6 +1165,7 @@ try {
     canCleanupCarry,
     canCleanupStage,
     canCleanupPourGas: () => story.bodiesAtFire() && !story.gasPoured(),
+    dungeonToolStatus: (id) => chapter?.snapshot?.().selectedTool === id ? 'held' : 'table',
     onCleanupWrap: (id) => chapter?.wrapBody?.(id),
     onCleanupCarry: (id) => chapter?.beginCarry?.(id),
     onCleanupStage: (id) => {
@@ -1205,6 +1217,7 @@ try {
 }
 
 const dungeon = cabin.basement.dungeon;
+tortureTools = createCabinTortureToolPresentation({ camera });
 bonfireCast = createCabinBonfireCastStaging({
   lag: cabin.lag,
   gratin: dungeon.actors.gratin,
@@ -1338,14 +1351,25 @@ chapter = createCabinChapterRuntime({
       syncCampaignPresentation();
       hud.say(`<em>${definition.from} is calling.</em> Select the phone and press E.`, 3000);
     },
+    onCallOutgoing: (definition) => {
+      syncCampaignPresentation();
+      hud.say(`<em>Calling ${definition.from}.</em>`, 2200);
+    },
     onMargoReady: dispatchMargoReady,
     onDungeonDoorOpen: () => dungeon.setDoorOpen(true),
-    onToolSelected: () => audio.play('switch.click', { volume: 0.32, position: dungeon.anchors.worktable }),
-    onTortureHit: (id, hostage, tool) => {
+    onToolSelected: (tool) => {
+      dungeon.setHeldTool?.(tool);
+      tortureTools.select(tool);
+      if (tool) weapons?.stow?.({ silent: true });
+      audio.play('switch.click', { volume: 0.32, position: dungeon.anchors.worktable });
+    },
+    onTortureHit: (id, hostage, tool, profile = CABIN_TORTURE_TOOL_PROFILES[tool]) => {
       const actor = dungeonActorFor(id);
-      actor?.flinch?.(Math.min(1, 0.55 + hostage.hits * 0.08));
-      audio.play(tool === 'battery' ? 'punch.heavy' : 'punch.light', {
-        volume: 0.58,
+      actor?.flinch?.(profile?.flinch ?? Math.min(1, 0.55 + hostage.hits * 0.08));
+      tortureTools.strike(profile);
+      audio.play(profile?.cue ?? 'punch.light', {
+        volume: profile?.volume ?? 0.58,
+        rate: profile?.rate ?? 1,
         position: actor?.bodyAnchor?.getWorldPosition?.(new THREE.Vector3()),
       });
     },
@@ -1713,14 +1737,17 @@ input = createFirstPersonInput({
       if (state.posture === 'desk' && arcade.onKey(event.code, true)) return true;
       if (!event.repeat && executionChoice?.handleKey?.(event.code)) return true;
       if (controls.code === 'KeyE' && !event.repeat && cabin.inventory.held === 'phone') {
-        phone.press();
+        if (!chapter?.startMargoCall?.()) phone.press();
         return true;
       }
       if (controls.code === 'KeyQ' && !event.repeat) {
         if (chapter?.skipOptionalAction?.()) {
           hud.toast('Passed on the cigarette');
         } else if (state.posture) standUp();
-        else if (weapons?.equipped) {
+        else if (chapter?.snapshot?.().selectedTool) {
+          const returned = chapter.returnTool('player');
+          if (returned) hud.toast(`${returned[0].toUpperCase()}${returned.slice(1)} returned to Gratin’s table`);
+        } else if (weapons?.equipped) {
           weapons.stow();
           renderCombatHud();
         } else pocketHeldItem();
@@ -1809,7 +1836,8 @@ startButton.addEventListener('click', async () => {
       'cig.pack', 'cig.light', 'cig.exhale', 'cig.stub',
       'whiskey.cap', 'whiskey.pour', 'whiskey.swig', 'whiskey.gasp',
       'pizza.take', 'egg.eat', 'tv.click', 'gun.drop.wood',
-      'punch.light', 'punch.heavy', 'cloth.snap', 'boat.bag.zip', 'boat.body.drag',
+      'punch.light', 'punch.heavy', 'swing.whiff', 'stunprod.arc',
+      'cloth.snap', 'boat.bag.zip', 'boat.body.drag',
       'silent.gas.hiss', 'heist.bullet.impact',
       ...weaponCueNames(),
       ...cabinScriptCues().map(({ name }) => name),
@@ -1940,6 +1968,7 @@ function frame(now) {
         playerPosition: player.position,
         cabinPosition: { x: 0, z: 0 },
       });
+      tortureTools?.update?.(dt);
       weapons.enabled = !state.resting && !executionChoice?.active && !state.carryingBody;
       weapons.update(dt, {
         speed: Math.hypot(player.velocity?.x || 0, player.velocity?.z || 0),
@@ -1993,6 +2022,7 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   creekListening,
   wallRack,
   dungeon,
+  tortureTools,
   range: cabin.shootingRange,
   cleanup: cabin.bodyCleanup,
   talkToLag,
@@ -2006,6 +2036,9 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
     ensurePhoneSelected();
     phone.answer();
     return true;
+  },
+  callMargo() {
+    return chapter.startMargoCall();
   },
   hangUpCall() {
     if (!phone.call) return false;

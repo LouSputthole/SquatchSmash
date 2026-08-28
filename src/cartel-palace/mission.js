@@ -14,6 +14,25 @@ export const EVIDENCE_IDS = Object.freeze({
   SECURITY_STILL: 'sauce_security_still',
 });
 
+/**
+ * The hard fact inside the office ledger, shared by the physical clue and the
+ * accusation it earns. These are the live campaign anchors: the Silver Case
+ * reaches Lou's mansion at 17:55, then the overnight Mansion Siege opens at
+ * 02:10. SHORT BUS is the operation name heard in the Act-One dungeon.
+ * Sauce's consultant number signs both rows, while a redacted active-prospect
+ * countersign proves the breach still had help inside the Family.
+ */
+export const PALACE_CASE_ROUTE_EVIDENCE = Object.freeze({
+  cargo: 'SILVER CASE',
+  operation: 'SHORT BUS',
+  destination: 'LOU RESIDENCE',
+  deliveryAt: '17:55',
+  breachAt: '02:10',
+  breachRelation: 'NEXT MORNING',
+  source: 'SAUCE / CONSULTANT 14',
+  insideContact: 'SILVER CIRCLE / PROSPECT INTAKE — ID REDACTED',
+});
+
 const CHECKPOINT_BEATS = Object.freeze({
   approach: PALACE_BEATS.APPROACH,
   perimeter: PALACE_BEATS.PERIMETER,
@@ -38,19 +57,19 @@ const OBJECTIVES = Object.freeze({
     hint: 'The cut power has blinded the exterior cameras.',
   }),
   [PALACE_BEATS.ESTATE]: Object.freeze({
-    kicker: 'INSIDE MARK\'S ESTATE',
-    text: 'Search for Sauce. Check anything that says he was here willingly.',
-    hint: 'Belongings, accounts, and surveillance tell different parts of the story.',
+    kicker: 'INSIDE THE ESTATE',
+    text: 'Search the security room for evidence of Sauce.',
+    hint: 'The surveillance station is off the service corridor.',
   }),
   [PALACE_BEATS.BETRAYAL]: Object.freeze({
     kicker: 'THE RESCUE IS OVER',
-    text: 'Reach the dining room. Mark and Sauce are both targets.',
+    text: 'Reach the dining room. Sauce and the palace boss are both targets.',
     hint: 'The dining-room doors are beyond the portrait gallery.',
   }),
   [PALACE_BEATS.DINING_ROOM]: Object.freeze({
-    kicker: 'MARK\'S TABLE',
-    text: 'Eliminate Mark and Sauce.',
-    hint: 'Mark is armored. Break his protection before closing the distance.',
+    kicker: 'THE DINING ROOM',
+    text: 'Hold fire and hear them out.',
+    hint: 'You can move. Tony unlocks the trigger when he delivers the verdict.',
   }),
   /* THE PROSPECT IS NOT LEAVING FOR THE INITIATION HERE.
    *
@@ -70,6 +89,51 @@ const OBJECTIVES = Object.freeze({
 });
 
 /**
+ * ONE CLUE AT A TIME, FROM THE SAME LEDGER THAT UNLOCKS THE DINING ROOM.
+ *
+ * Owner, 2026-08-28: *"The mission needs more objective guidance... Objectives
+ * should update immediately after the relevant action completes. Never leave
+ * an objective pointing backward to something already finished."*
+ *
+ * The Palace used to hold one generic ESTATE card through all three pieces of
+ * evidence. The evidence count moved, but the standing order did not, so the
+ * player who found the surveillance still was still told only to "search for
+ * Sauce." This route is a recommendation, not a second progression system:
+ * every card is selected from `evidenceFound`, the exact array whose third
+ * entry ends the search beat. Finding a clue out of order simply selects the
+ * first clue that is genuinely still missing.
+ */
+const ESTATE_EVIDENCE_ROUTE = Object.freeze([
+  Object.freeze({
+    id: EVIDENCE_IDS.SECURITY_STILL,
+    objective: OBJECTIVES[PALACE_BEATS.ESTATE],
+  }),
+  Object.freeze({
+    id: EVIDENCE_IDS.BELONGINGS,
+    objective: Object.freeze({
+      kicker: 'SAUCE WAS LET IN',
+      text: 'Search Sauce\'s bedroom for proof he was staying here.',
+      hint: 'Use the finished doorway beside the surveillance station.',
+    }),
+  }),
+  Object.freeze({
+    id: EVIDENCE_IDS.PAYMENT_LEDGER,
+    objective: Object.freeze({
+      kicker: 'SAUCE WAS LIVING HERE',
+      text: 'Search the estate office for the payment trail.',
+      hint: 'Cross the central hall and check the desk under the task lamp.',
+    }),
+  }),
+]);
+
+function objectiveFor(beat, evidenceFound = []) {
+  if (beat !== PALACE_BEATS.ESTATE) return OBJECTIVES[beat] ?? null;
+  const found = new Set(evidenceFound);
+  return ESTATE_EVIDENCE_ROUTE.find((step) => !found.has(step.id))?.objective
+    ?? OBJECTIVES[PALACE_BEATS.BETRAYAL];
+}
+
+/**
  * THE DINING ROOM IS FIVE ROOMS NOW, AND THE CARD HAS TO KEEP UP.
  *
  * `OBJECTIVES[DINING_ROOM]` is one line for the whole beat, which was true
@@ -84,12 +148,12 @@ const OBJECTIVES = Object.freeze({
  */
 export const PALACE_DINING_OBJECTIVES = Object.freeze({
   confrontation: Object.freeze({
-    kicker: 'MARK\'S TABLE',
+    kicker: 'THE DINING ROOM',
     text: 'Hold fire and hear them out.',
     hint: 'You can move. Tony unlocks the trigger when he delivers the verdict.',
   }),
   sauce: Object.freeze({
-    kicker: 'MARK\'S TABLE',
+    kicker: 'THE CHEF IS ALONE',
     text: 'Eliminate Sauce and secure the room.',
     hint: 'Mark walked out and left his chef to entertain you.',
   }),
@@ -138,7 +202,7 @@ export class CartelPalaceMission {
   begin() {
     if (this.beat !== PALACE_BEATS.IDLE) return false;
     this.beat = PALACE_BEATS.APPROACH;
-    this.onObjective(OBJECTIVES[this.beat]);
+    this.onObjective(objectiveFor(this.beat, this.evidenceFound));
     return true;
   }
 
@@ -177,7 +241,7 @@ export class CartelPalaceMission {
       && (snapshot.sauceEliminated === true || beat === PALACE_BEATS.CLEAR);
     this.outcome = unresolvedLegacyClear ? null : savedOutcome;
     this.completed = snapshot.status === 'complete';
-    this.onObjective(OBJECTIVES[beat]);
+    this.onObjective(objectiveFor(beat, this.evidenceFound));
     return true;
   }
 
@@ -199,7 +263,7 @@ export class CartelPalaceMission {
 
   _go(beat) {
     this.beat = beat;
-    this.onObjective(OBJECTIVES[beat]);
+    this.onObjective(objectiveFor(beat, this.evidenceFound));
     this._checkpointProgress();
     return true;
   }
@@ -231,6 +295,10 @@ export class CartelPalaceMission {
       this.onReveal(facts);
       this._go(PALACE_BEATS.BETRAYAL);
     } else {
+      /* The clue ledger and the card turn over in the same transaction. A
+       * reload gets the same result through restore() above; no parallel
+       * objective flags can disagree with the mission gate. */
+      this.onObjective(objectiveFor(this.beat, this.evidenceFound));
       this._checkpointProgress();
     }
     return true;

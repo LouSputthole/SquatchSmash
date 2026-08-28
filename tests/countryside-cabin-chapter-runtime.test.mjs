@@ -13,6 +13,7 @@ import {
   createCountrysideCabinStory,
 } from '../src/core/countryside-cabin-story.js';
 import {
+  CABIN_TORTURE_TOOL_PROFILES,
   CabinChapterRuntime,
   DUNGEON_TO_STORY_HOSTAGE,
   STORY_TO_CLEANUP_BODY,
@@ -31,6 +32,7 @@ class PhoneDouble {
   constructor() {
     this.call = null;
     this.rings = [];
+    this.outgoing = [];
     this.onCallState = null;
     this.onAnswered = null;
   }
@@ -39,6 +41,15 @@ class PhoneDouble {
     if (this.call) return false;
     this.call = { def: definition, state: 'ringing' };
     this.rings.push(definition.id);
+    return true;
+  }
+
+  startOutgoing(definition) {
+    if (this.call) return false;
+    this.call = { def: definition, state: 'talking', direction: 'outgoing' };
+    this.outgoing.push(definition.id);
+    this.onCallState?.(true, definition);
+    this.onAnswered?.(definition);
     return true;
   }
 
@@ -229,11 +240,13 @@ test('Lou, Margo, Gratin, hidden doors, return line, and forty-second clue follo
   const margo = [];
   const doors = [];
   const ringing = [];
+  const outgoing = [];
   const harness = runtimeHarness(campaign, {
     callbacks: {
       onMargoReady: (detail) => margo.push(detail),
       onDungeonDoorOpen: (detail) => doors.push(detail ?? null),
       onCallRinging: (definition) => ringing.push(definition.id),
+      onCallOutgoing: (definition) => outgoing.push(definition.id),
     },
   });
   const { runtime, story, phone, dialogue } = harness;
@@ -269,8 +282,11 @@ test('Lou, Margo, Gratin, hidden doors, return line, and forty-second clue follo
   }
   drainDialogue(harness);
   tick(harness, 0.1);
+  assert.equal(phone.call, null, 'Tony’s outgoing decision was turned into an incoming ring');
+  assert.equal(runtime.startMargoCall(), true);
   assert.equal(phone.call.def.id, CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id);
-  finishCurrentCall(harness);
+  assert.equal(phone.call.direction, 'outgoing');
+  assert.equal(phone.finish(), true);
   assert.equal(story.margoCallComplete(), true);
   tick(harness, 2);
   assert.equal(phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_SASOLE.id);
@@ -314,10 +330,10 @@ test('Lou, Margo, Gratin, hidden doors, return line, and forty-second clue follo
   assert.equal(doors.length, 1);
   assert.deepEqual(ringing, [
     CABIN_PHONE_CALLS.LOU_ARRIVAL.id,
-    CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id,
     CABIN_PHONE_CALLS.BOOSKI_SASOLE.id,
     CABIN_PHONE_CALLS.GRATIN_BASEMENT.id,
   ]);
+  assert.deepEqual(outgoing, [CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id]);
 });
 
 test('stopping during a connected call does not complete that call as a story event', () => {
@@ -370,6 +386,8 @@ test('tool-gated torture reaches 2/6, reveals Short Bus intel, and arms the play
 
   assert.equal(harness.runtime.torture('counterStrike').reason, 'tool_required');
   assert.match(toasts[0], /Pick a tool/);
+  assert.equal(harness.runtime.selectTool('not-a-tool'), null,
+    'interrogation cannot invent a tool that is not physically on the table');
   assert.equal(harness.runtime.selectTool('pliers'), 'pliers');
   drainDialogue(harness, 'tool introduction did not drain');
   assert.equal(
@@ -377,10 +395,17 @@ test('tool-gated torture reaches 2/6, reveals Short Bus intel, and arms the play
     3,
     'the three-line tool introduction must only play once',
   );
+  assert.equal(harness.runtime.selectTool('pliers'), null,
+    'selecting the held tool returns it to Gratin’s table');
+  assert.equal(harness.runtime.selectTool('pliers'), 'pliers');
 
   for (const id of ['counterStrike', 'counterStrike']) {
     assert.equal(harness.runtime.torture(id).ok, true);
+    assert.equal(harness.runtime.torture(id).reason, 'tool_busy',
+      'a second hit cannot land during the held-tool motion');
     drainDialogue(harness, 'baiter reaction did not drain');
+    advanceUntil(harness, () => harness.runtime.snapshot().toolUseRemaining <= 0,
+      'held-tool motion did not finish');
   }
   for (let index = 0; index < 6; index += 1) {
     assert.equal(harness.runtime.torture('a-team-member').ok, true);
@@ -388,6 +413,10 @@ test('tool-gated torture reaches 2/6, reveals Short Bus intel, and arms the play
      * its ten-second action, because that would deliberately exercise timeout. */
     if (index < 5 && harness.dialogue.running) {
       drainDialogue(harness, 'A-Team reaction did not drain');
+    }
+    if (index < 5) {
+      advanceUntil(harness, () => harness.runtime.snapshot().toolUseRemaining <= 0,
+        'held-tool motion did not finish');
     }
   }
 
@@ -408,6 +437,11 @@ test('tool-gated torture reaches 2/6, reveals Short Bus intel, and arms the play
     'EXECUTION_OFFER',
   ]) assert.equal(spokenBeats.has(beat), true, `${beat} should be spoken`);
   assert.equal(tortureHits.length, 8);
+  assert.equal(tortureHits[0][2], 'pliers');
+  assert.deepEqual(tortureHits[0][3], CABIN_TORTURE_TOOL_PROFILES.pliers,
+    'the visible action and audio receive the selected tool’s authored profile');
+  assert.equal(harness.runtime.snapshot().selectedTool, null,
+    'the tool returns before Gratin hands over the execution pistol');
 
   assert.equal(harness.choice.handleKey('Digit1'), true);
   advanceUntil(harness, () => equip.length === 1, 'pistol was not equipped after YES');
@@ -506,7 +540,7 @@ test('Gratin speaks his execution aftermath only after both authored shots land'
   assert.equal(restored.dialogue.current, 'BOTH_DEAD');
 });
 
-test('body wrapping, carry, gas, fire, drinking, blackout, and Ape morning call form one complete flow', () => {
+test('body wrapping, carry, gas, fire, drinking, blackout, and one Booski morning call form one complete flow', () => {
   const { campaign } = seedWokenCabin();
   let allowWrap = false;
   let allowCarry = false;
@@ -596,17 +630,15 @@ test('body wrapping, carry, gas, fire, drinking, blackout, and Ape morning call 
   tick(harness, 0.7);
   assert.equal(harness.phone.call, null);
   tick(harness, 0.2);
-  assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.APE_MORNING.id);
-  finishCurrentCall(harness);
-
-  /* Ape gets him upright; Booski tells him where to go. Beat 7 is not over
-   * until the second of those, and neither is the cabin. */
-  assert.equal(harness.story.morningWakeComplete(), true);
-  assert.equal(harness.story.chapterComplete(), false);
-  tick(harness, 2);
   assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
   finishCurrentCall(harness);
   assert.equal(harness.story.chapterComplete(), true);
+  assert.equal(harness.story.morningCallComplete(), true,
+    'the one call normalizes the retired Ape marker');
+  assert.equal(harness.story.morningWakeComplete(), true,
+    'the one call normalizes the retired wake marker');
+  tick(harness, 2);
+  assert.equal(harness.phone.call, null, 'fresh Act One must not ring a second morning call');
   assert.deepEqual(
     intoxication.map(({ amount, item }) => ({ amount: Number(amount.toFixed(2)), item })),
     [
@@ -687,10 +719,13 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     assert.equal(harness.story.margoHookHandled(), true);
     assert.equal(margo.length, 1);
     assert.equal(margo[0].restored, true);
-    /* The setup line's own payoff is the call to HER, not to Gratin. Gratin is
-     * a flight and a night away. */
+    /* The setup line's own payoff is the objective to call HER, not an
+     * incoming ring and not Gratin. Gratin is a flight and a night away. */
     tick(harness, 0.1);
+    assert.equal(harness.phone.call, null);
+    assert.equal(harness.runtime.startMargoCall(), true);
     assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.MARGO_FIRST_CALL.id);
+    assert.equal(harness.phone.call.direction, 'outgoing');
   });
 
   await t.test('a mid-reveal reload repeats the Short Bus disclosure before making the intel durable', () => {
@@ -907,7 +942,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     assert.equal(harness.dialogue.receipts.some(({ beat }) => beat === 'FIRE_TALK_SQUATCHES'), true);
   });
 
-  await t.test('blackout restores the bed before ringing Ape', () => {
+  await t.test('blackout restores the bed before ringing Booski', () => {
     const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
@@ -923,14 +958,14 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     const harness = reloadHarness(storage, {
       callbacks: { onWakeMorning: (detail) => wakes.push(detail) },
     });
-    assert.equal(harness.runtime.start(), 'morning_call');
+    assert.equal(harness.runtime.start(), 'billy_call');
     assert.deepEqual(wakes, [{ restored: true }]);
     tick(harness, 0.1);
-    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.APE_MORNING.id);
+    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
     assert.equal(harness.dialogue.current, 'MORNING');
   });
 
-  await t.test('a persisted morning call completes the wake marker and rings Booski', () => {
+  await t.test('a save carrying Ape’s old call marker still receives only Booski', () => {
     const { campaign, storage } = seedWokenCabin();
     const story = prepareNightfall(createCountrysideCabinStory({ campaign }));
     for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
@@ -943,16 +978,15 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     story.drink();
     story.blackout();
     story.completeMorningCall();
-    assert.equal(story.phase(), 'morning_wake');
+    assert.equal(story.phase(), 'billy_call');
     const complete = [];
     const harness = reloadHarness(storage, {
       callbacks: { onChapterComplete: (detail) => complete.push(detail) },
     });
-    /* Restoring gets him on his feet -- and stops there. The chapter ends on
-     * Booski's call about Billy, and a reload owes the player that call rather
-     * than quietly awarding it. */
+    /* The retired marker neither resurrects Ape nor suppresses the canonical
+     * Booski handoff. Completing Booski normalizes the companion wake marker. */
     assert.equal(harness.runtime.start(), 'billy_call');
-    assert.equal(harness.story.morningWakeComplete(), true);
+    assert.equal(harness.story.morningWakeComplete(), false);
     assert.equal(harness.story.chapterComplete(), false);
     assert.deepEqual(complete, []);
 
@@ -960,6 +994,7 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
     finishCurrentCall(harness);
     assert.equal(harness.story.chapterComplete(), true);
+    assert.equal(harness.story.morningWakeComplete(), true);
     assert.deepEqual(complete, [undefined]);
   });
 });

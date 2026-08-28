@@ -99,6 +99,10 @@ import {
 } from './cabin/staging.js';
 import { INITIATION_SHOTS } from './framing.js';
 import { CardBurn } from './cabin/card-burn.js';
+import {
+  buildRoomReactionSchedule,
+  roomReactionDuration,
+} from './room-reaction.js';
 import { resolveGear } from '../world/gear.js';
 import { playFootstep } from './cabin/ambience.js';
 import {
@@ -110,7 +114,7 @@ import {
   formationTarget,
   trailNarrativeStatus,
 } from './trail-formation.js';
-import { SPEECH_MIX, speak } from '../core/dialogue.js';
+import { SPEECH_MIX, speak, speechDuration } from '../core/dialogue.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { shakeScale, bindAudioVolume } from '../core/settings.js';
@@ -605,7 +609,11 @@ function poseFirstPersonRitualHands(figure, phaseId = phase, elapsed = phaseT) {
   const raise = phaseId === 'cut'
     ? THREE.MathUtils.smoothstep(elapsed / 0.58, 0, 1)
     : 1;
-  figure.armL?.rotation.set(-0.98 * raise, 0.04 * raise, -0.28 * raise);
+  /* The saint card is a real 65 x 98 mm prop. At -0.98 the palm centre was
+   * technically in frame while the lower 5% of the card was below it. Raise
+   * the presenting elbow six degrees so the whole card, not just its socket,
+   * clears the HUD-safe frame in the actual 640 x 360 browser proof. */
+  figure.armL?.rotation.set(-1.08 * raise, 0.04 * raise, -0.28 * raise);
   figure.foreL?.rotation.set(-1.08 * raise, 0, -0.04 * raise);
   figure.armR?.rotation.set(-0.72 * raise, -0.04 * raise, 0.34 * raise);
   figure.foreR?.rotation.set(-0.92 * raise, 0, 0.04 * raise);
@@ -1187,9 +1195,10 @@ let palmBlood = null;
 let emberT = 0;
 /** How far up the trail he is, 0..1. */
 let trailK = 0;
-/** The acknowledgment queue advances on completed lines, never wall time. */
+/** The room eruption advances on its delivered-VO schedule, never wall time. */
 let roomAcknowledgementsComplete = false;
 let roomReactionHold = 0;
+let roomReaction = null;
 /** Physical state of the one ceremonial glass: table → hand → drinking → spent. */
 let ceremonialShotState = 'table';
 
@@ -2008,6 +2017,80 @@ function ritualHandWorld(out) {
   return out.set(tableSocket.x, TABLE.topY + 0.1, TABLE.z - 0.5);
 }
 
+/**
+ * What the renderer can actually see of the saint card.
+ *
+ * Parentage and `visible=true` do not prove presentation: a playing card can
+ * be edge-on, behind the camera, or four pixels tall and satisfy both. Project
+ * the real face geometry after its hand hierarchy is updated so the browser
+ * verifier can certify framing, scale, and which side faces the player.
+ */
+function ritualCardPresentation() {
+  const front = props.card?.front;
+  if (!front?.geometry) return null;
+  front.geometry.computeBoundingBox?.();
+  const bounds = front.geometry.boundingBox;
+  if (!bounds) return null;
+  front.updateWorldMatrix(true, false);
+  camera.updateMatrixWorld(true);
+
+  const corners = [
+    [bounds.min.x, bounds.min.y, 0],
+    [bounds.max.x, bounds.min.y, 0],
+    [bounds.max.x, bounds.max.y, 0],
+    [bounds.min.x, bounds.max.y, 0],
+  ].map(([x, y, z]) => new THREE.Vector3(x, y, z)
+    .applyMatrix4(front.matrixWorld)
+    .project(camera));
+  const xs = corners.map((point) => point.x);
+  const ys = corners.map((point) => point.y);
+  const zs = corners.map((point) => point.z);
+  const ndc = {
+    minX: Math.min(...xs), maxX: Math.max(...xs),
+    minY: Math.min(...ys), maxY: Math.max(...ys),
+    minZ: Math.min(...zs), maxZ: Math.max(...zs),
+  };
+  const width = renderer.domElement.clientWidth || window.innerWidth;
+  const height = renderer.domElement.clientHeight || window.innerHeight;
+  const center = front.getWorldPosition(new THREE.Vector3());
+  const normal = new THREE.Vector3(0, 0, 1)
+    .transformDirection(front.matrixWorld)
+    .normalize();
+  const towardCamera = camera.position.clone().sub(center).normalize();
+  const facing = normal.dot(towardCamera);
+  const handQuaternion = props.card.group.parent?.getWorldQuaternion(new THREE.Quaternion())
+    ?? new THREE.Quaternion();
+  const towardCameraInHand = towardCamera.clone()
+    .applyQuaternion(handQuaternion.invert());
+  const ray = new THREE.Raycaster(
+    camera.position,
+    center.clone().sub(camera.position).normalize(),
+    camera.near,
+    camera.position.distanceTo(center) + 0.03,
+  );
+  playerFigure.group.updateMatrixWorld(true);
+  const firstHit = ray.intersectObject(playerFigure.group, true)
+    .find((hit) => hit.object.visible !== false) ?? null;
+  const hitCard = Boolean(firstHit && (
+    firstHit.object === props.card.group
+    || props.card.group.children.includes(firstHit.object)
+  ));
+  return {
+    corners: corners.map((point) => point.toArray()),
+    ndc,
+    pixelWidth: Math.abs(ndc.maxX - ndc.minX) * width / 2,
+    pixelHeight: Math.abs(ndc.maxY - ndc.minY) * height / 2,
+    fullyFramed: ndc.minX >= -0.96 && ndc.maxX <= 0.96
+      && ndc.minY >= -0.96 && ndc.maxY <= 0.96
+      && ndc.minZ >= -1 && ndc.maxZ <= 1,
+    facing,
+    frontFacing: facing > 0.35,
+    towardCameraInHand: towardCameraInHand.toArray(),
+    firstHit: firstHit?.object?.name ?? null,
+    unobstructed: hitCard,
+  };
+}
+
 let dtLast = 1 / 60;
 
 /**
@@ -2502,6 +2585,114 @@ function completeRoomAcknowledgements() {
   roomReactionHold = 0.9;
 }
 
+function renderRoomReactionSubtitles() {
+  const active = roomReaction?.active ?? [];
+  if (active.length === 0) {
+    speakerEl.textContent = 'THE ROOM';
+    lineEl.textContent = '';
+    return;
+  }
+  const featured = active.find((entry) => entry.featured);
+  if (featured && active.length === 1) {
+    speakerEl.textContent = featured.line.who;
+    lineEl.textContent = featured.line.text;
+    return;
+  }
+  speakerEl.textContent = 'THE ROOM';
+  lineEl.textContent = active.slice(-4)
+    .map((entry) => `${entry.line.who} — ${entry.line.text}`)
+    .join('\n');
+}
+
+/**
+ * Start the collective congratulations without turning them into roll call.
+ *
+ * The crowd takes deliberately share the room and carry that intent through
+ * the shared audio diagnostics (`ambientVoice` + `interrupt`). Gratin and
+ * Booskibro are protected by the schedule itself, so their two payoff lines
+ * remain fully readable rather than competing with the burst.
+ */
+function startRoomReaction() {
+  const lines = [
+    ...(beatById('IN-500')?.lines ?? []),
+    ...(beatById('IN-510')?.lines ?? []),
+  ];
+  const unavailable = lines.filter((line) => !audioReady || !audio.hasSample?.(line.cue));
+  if (unavailable.length > 0) {
+    for (const line of unavailable) {
+      if (!missingVoiceCues.includes(line.cue)) missingVoiceCues.push(line.cue);
+    }
+    blockedVoiceCue = unavailable[0].cue;
+    roomReaction = {
+      elapsed: 0,
+      next: 0,
+      active: [],
+      started: [],
+      schedule: [],
+      duration: currentPhase().timeout,
+      blocked: unavailable.map((line) => line.cue),
+    };
+    setObjective(`VOICE AUDIO NOT READY: ${blockedVoiceCue}`);
+    return;
+  }
+
+  blockedVoiceCue = null;
+  const schedule = buildRoomReactionSchedule(
+    lines,
+    (line) => speechDuration(audio, line.cue),
+  );
+  roomReaction = {
+    elapsed: 0,
+    next: 0,
+    active: [],
+    started: [],
+    schedule,
+    duration: roomReactionDuration(schedule),
+    blocked: [],
+  };
+  dialogEl.classList.add('show');
+  renderRoomReactionSubtitles();
+}
+
+function updateRoomReaction(dt) {
+  if (!roomReaction || roomAcknowledgementsComplete) return;
+  roomReaction.elapsed += Math.max(0, Number(dt) || 0);
+
+  while (roomReaction.next < roomReaction.schedule.length
+    && roomReaction.schedule[roomReaction.next].at <= roomReaction.elapsed) {
+    const entry = roomReaction.schedule[roomReaction.next++];
+    const body = bodyFor(entry.line);
+    const spoken = speak(audio, entry.line.cue, {
+      speaker: body ?? (() => player.position),
+      mix: SPEECH_MIX,
+      gain: entry.featured ? 1 : 0.82,
+      speakerId: entry.line.speakerKey,
+      subtitle: entry.line.text,
+      ambientVoice: entry.ambient,
+      interrupt: entry.ambient,
+    });
+    startCeremonySalute(entry.line.speakerKey, Math.min(1.65, Math.max(1.05, spoken.seconds)));
+    const live = {
+      ...entry,
+      startedAt: roomReaction.elapsed,
+      visibleUntil: roomReaction.elapsed + spoken.seconds + 0.18,
+      acceptance: spoken.acceptance.status,
+    };
+    roomReaction.active.push(live);
+    roomReaction.started.push(live);
+  }
+
+  roomReaction.active = roomReaction.active
+    .filter((entry) => entry.visibleUntil > roomReaction.elapsed);
+  renderRoomReactionSubtitles();
+
+  if (roomReaction.elapsed >= roomReaction.duration) {
+    dialogEl.classList.remove('show');
+    lineEl.textContent = '';
+    completeRoomAcknowledgements();
+  }
+}
+
 function beginRoomAside() {
   if (phase !== 'room') return;
   setPhase('room_aside');
@@ -2568,7 +2759,12 @@ function runBlade() {
    * of them: `TABLE_SOCKETS` says which hand each object is put into, because
    * that is a property of the object and not of the code that moves it. */
   holdProp(props.knife, lou, TABLE_SOCKETS.knife.hand ?? 'R');
-  if (props.card) attachToHand(boosk, TABLE_SOCKETS.card.hand ?? 'L', props.card.group);
+  if (props.card) {
+    attachToHand(boosk, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
+      offset: props.card.grip?.offset ?? null,
+      rotation: props.card.grip?.rotation ?? null,
+    });
+  }
   sayBeat('IN-400');
 }
 
@@ -2623,6 +2819,7 @@ function doTheCut() {
    * was still holding the saint. */
   if (props.card) {
     attachToHand(playerFigure, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
+      offset: props.card.grip?.offset ?? null,
       rotation: props.card.grip?.rotation ?? null,
     });
   }
@@ -2710,7 +2907,10 @@ function runBurn() {
    * front, flame and embers; `cardBurn` owns the timing and the rules. */
   if (props.card) {
     props.card.resetBurn?.();
-    attachToHand(playerFigure, 'L', props.card.group);
+    attachToHand(playerFigure, 'L', props.card.group, {
+      offset: props.card.grip?.offset ?? null,
+      rotation: props.card.grip?.rotation ?? null,
+    });
   }
   cardBurn.reset().ignite();
   emberT = 0;
@@ -2750,10 +2950,10 @@ function tieTheBandana() {
   setPhase('room');
   roomAcknowledgementsComplete = false;
   roomReactionHold = 0;
-  /* One subtitle and one voice at a time. These are short, rapid replies, but
-   * every one gets a face and a physical acknowledgment rather than becoming
-   * twelve names fighting over one DOM node. */
-  sayBeat('IN-500', () => sayBeat('IN-510', completeRoomAcknowledgements));
+  /* Owner QA: this has to be a collective eruption, not nineteen people
+   * waiting their turn to read one line each. The schedule preserves every
+   * authored cue and face while making the first wave genuinely simultaneous. */
+  startRoomReaction();
 }
 
 /* ------------------------------------------------------------------
@@ -2997,10 +3197,12 @@ function updatePhase(dt) {
       if (phaseT > spec.timeout) runMade();
     }
   } else if (phase === 'room') {
+    updateRoomReaction(dt);
     if (roomAcknowledgementsComplete) {
       roomReactionHold -= dt;
       if (roomReactionHold <= 0) beginRoomAside();
-    } else if (phaseT > spec.timeout && !dialogActive()) {
+    } else if (phaseT > spec.timeout) {
+      dialogEl.classList.remove('show');
       completeRoomAcknowledgements();
     }
   } else if (phase === 'room_aside') {
@@ -3544,6 +3746,7 @@ window.INITIATION = {
     const cardGroup = props.card?.group ?? null;
     const hand = ritualHandWorld(new THREE.Vector3());
     const handNdc = hand.clone().project(camera);
+    const cardPresentation = ritualCardPresentation();
     return {
       phase,
       camera: currentPhase().camera,
@@ -3553,6 +3756,7 @@ window.INITIATION = {
         && FIRST_PERSON_RITUAL_PHASES.has(phase),
       cardInPlayerHand: Boolean(socket && cardGroup && cardGroup.parent === socket),
       cardVisible: props.card?.card?.visible === true,
+      cardPresentation,
       char: cardBurn.char,
       burnState: cardBurn.state,
       committed: cardBurn.committed,
@@ -3578,6 +3782,26 @@ window.INITIATION = {
        */
       aimMiss: _desiredLook.distanceTo(hand),
       lookMiss: _lookTarget.distanceTo(hand),
+    };
+  },
+  get roomReaction() {
+    return {
+      phase,
+      elapsed: roomReaction?.elapsed ?? 0,
+      duration: roomReaction?.duration ?? 0,
+      started: (roomReaction?.started ?? []).map((entry) => ({
+        cue: entry.line.cue,
+        speaker: entry.line.speakerKey,
+        at: entry.startedAt,
+        scheduledAt: entry.at,
+        end: entry.end,
+        ambient: entry.ambient,
+        featured: entry.featured,
+        acceptance: entry.acceptance,
+      })),
+      active: (roomReaction?.active ?? []).map((entry) => entry.line.cue),
+      blocked: [...(roomReaction?.blocked ?? [])],
+      complete: roomAcknowledgementsComplete,
     };
   },
   get ceremonialShot() {

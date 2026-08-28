@@ -793,20 +793,26 @@ try {
     player.handleMouseMove(-9000, 0);
     incident.applyCinematicCamera(0);
     const pinned = forward();
-
-    state.cinematic.active = false;
+    const releasePosition = { x: player.position.x, z: player.position.z };
+    incident.releaseCinematic(releasePosition);
+    const released = forward();
     return {
-      centred, swung, pinned, eyeAtCentre, eyeAfterSwing,
+      centred, swung, pinned, released, eyeAtCentre, eyeAfterSwing,
       swingAngle: Math.acos(Math.min(1, Math.max(-1,
         centred[0] * swung[0] + centred[1] * swung[1] + centred[2] * swung[2]))),
       pinnedAngle: Math.acos(Math.min(1, Math.max(-1,
         centred[0] * pinned[0] + centred[1] * pinned[1] + centred[2] * pinned[2]))),
+      releaseAngle: Math.acos(Math.min(1, Math.max(-1,
+        pinned[0] * released[0] + pinned[1] * released[1] + pinned[2] * released[2]))),
+      releasePitch: player.pitch,
     };
   });
   check('the player keeps mouse look inside an authored shot, clamped to the staging',
     cinematicLook.swingAngle > 0.15
       && cinematicLook.pinnedAngle > cinematicLook.swingAngle
       && cinematicLook.pinnedAngle <= 1.35
+      && cinematicLook.releaseAngle < 0.01
+      && Math.abs(cinematicLook.releasePitch) > 0.001
       && cinematicLook.eyeAtCentre.every((v, i) => Math.abs(v - cinematicLook.eyeAfterSwing[i]) < 1e-6),
     JSON.stringify(cinematicLook));
 
@@ -916,7 +922,7 @@ try {
   /* THE SWEEP IS NOT LOU'S ANY MORE, AND THIS FILE STILL THOUGHT IT WAS.
    * Pressing Lou with the floor clean gets the WRAP order out of him -- "Wrap
    * him. Snow gets the keys." -- and nothing else. The evidence sweep moved
-   * onto the blood itself ("Hold to sweep the floor with Aubbie's kit") and
+   * onto the blood itself ("Hold to sweep the floor with Stove's Cleaning Kit") and
    * moved to the END of the mission, after Billy is in the boot, because
    * having Lou order a sweep and Lou perform it made cleaning the room two men
    * talking. `SecondVisitMission.completeCleanup` refuses `final_sweep` in any

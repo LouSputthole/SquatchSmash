@@ -11,7 +11,8 @@ import {
   createCampaign,
 } from '../src/core/campaign.js';
 import { createSilverStory } from '../src/core/silver-story.js';
-import { Mission } from '../src/silver/mission.js';
+import { ENDINGS, Mission } from '../src/silver/mission.js';
+import { buildScripts } from '../src/silver/script.js';
 import { SILVER_ROOM_MUSIC, SupperClubScore } from '../src/silver/music.js';
 import { Performance, SET, Sway } from '../src/silver/perform.js';
 
@@ -50,9 +51,14 @@ function completedDate(outcome) {
   return createCampaign({ storage }).state.missions[MISSION_IDS.SILVER_ROOM];
 }
 
-test('every ending authored by the Silver Room mission survives the campaign handoff', () => {
+test('legacy negative outcomes still survive old saves without remaining live endings', () => {
   assert.equal(completedDate('polite').outcome, 'polite');
   assert.equal(completedDate('from-a-distance').outcome, 'from-a-distance');
+  assert.deepEqual(Object.keys(ENDINGS), ['perfect', 'strong']);
+  const scripts = buildScripts({});
+  assert.deepEqual(Object.keys(scripts.invitation).filter((key) => (
+    ['perfect', 'strong', 'good', 'gentleman', 'polite', 'awkward', 'disaster', 'insult', 'from-a-distance'].includes(key)
+  )), ['perfect', 'strong']);
 });
 
 test('Woo changes Margo\'s affirmative delivery but never gates the next scene', () => {

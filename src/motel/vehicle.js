@@ -21,6 +21,10 @@ const PASSENGER_ACTOR = new THREE.Vector3(-0.38, 0.02, 0.43);
 const DRIVER_ACTOR = new THREE.Vector3(0.05, 0.06, -0.43);
 const PASSENGER_DOOR = new THREE.Vector3(-0.20, 1.18, 0.82);
 const PASSENGER_EXIT = new THREE.Vector3(-0.20, 0, 1.72);
+// Same clear pavement as the exit, raised to door-handle height. The return
+// prompt belongs outside the car collider; putting it on the visible door leaf
+// makes that collider occlude its own [E] target once Tony is on foot.
+const PASSENGER_BOARD = new THREE.Vector3(-0.20, 1.18, 1.72);
 const DRIVER_EXIT = new THREE.Vector3(-0.20, 0, -1.72);
 const MONEY_CASE = new THREE.Vector3(-0.78, 1.05, 0.38);
 const GLOVEBOX = new THREE.Vector3(0.55, 1.20, 0.45);
@@ -157,6 +161,7 @@ export function makeMotelArrivalCar(scene) {
     },
     passengerDoorPosition: () => point(PASSENGER_DOOR),
     passengerExitPosition: () => point(PASSENGER_EXIT),
+    passengerBoardPosition: () => point(PASSENGER_BOARD),
     driverExitPosition: () => point(DRIVER_EXIT),
     moneyCasePosition: () => point(MONEY_CASE),
     gloveboxPosition: () => point(GLOVEBOX),

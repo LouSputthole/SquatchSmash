@@ -14,6 +14,7 @@ import { buildFamilyScripts } from '../src/bing/family.js';
 import { buildLicenseToGrillScript } from '../src/bing/license-to-grill.js';
 import {
   bingStandaloneVoiceLines,
+  bingVoiceForCue,
   bingVoiceForSpeaker,
   buildScripts,
   plainWords,
@@ -168,15 +169,39 @@ export function syncBingVoiceManifest(manifest) {
   return {
     ...manifest,
     sfx: [
-      ...(manifest.sfx || []).filter((cue) => !isGeneratedBingCue(cue.name)),
+      ...(manifest.sfx || [])
+        .filter((cue) => !isGeneratedBingCue(cue.name))
+        /* `vo.bj.dealer.*` is a hand-named legacy bank, so the generated Bing
+         * block must preserve its cue ids and words while still enforcing the
+         * locked dealer actor. This is deliberately the only field rewritten. */
+        .map((cue) => {
+          const voice = bingVoiceForCue(cue.name, cue.voice);
+          return voice === cue.voice ? cue : { ...cue, voice };
+        }),
       ...collectBingVoiceCues(),
     ],
   };
 }
 
+/** Casting drift for hand-named Bing banks that the generated cue block keeps. */
+export function checkBingLegacyVoiceCasting(manifest) {
+  const failures = [];
+  for (const cue of manifest.sfx || []) {
+    const expected = bingVoiceForCue(cue.name, cue.voice);
+    if (expected !== cue.voice) {
+      failures.push(`drifted voice ${cue.name}: ${cue.voice ?? '(missing)'} must be ${expected}`);
+    }
+  }
+  return failures;
+}
+
 function isGeneratedBingCue(name) {
   return name?.startsWith('vo.bing.full.')
     || name?.startsWith('vo.bing.ambient.')
+    /* Retired when Bing I was corrected to give Tony Margo's number. Owning
+     * the exact old id lets the next normal sync remove the contradicted take
+     * while the replacement is minted under `vo.bing.full.*`. */
+    || name === 'vo.bing.margo.6'
     || name === 'vo.bing.hang.shubenator.signature.cheerful'
     || name === 'vo.bing.bartender.capacity';
 }
@@ -353,6 +378,7 @@ function main() {
   if (process.argv.includes('--check')) {
     const failures = [
       ...checkBingVoiceManifest(manifest),
+      ...checkBingLegacyVoiceCasting(manifest),
       ...checkBingTreeCoverage(manifest),
       ...checkBingTreeDrift(manifest),
     ];

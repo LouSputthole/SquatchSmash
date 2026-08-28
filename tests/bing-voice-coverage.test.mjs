@@ -10,7 +10,9 @@ import { buildFamilyScripts } from '../src/bing/family.js';
 import {
   AMBIENT,
   BARTENDER_CAPACITY_LINE,
+  BING_DEALER_VOICE_PROFILE,
   bingStandaloneVoiceLines,
+  bingVoiceForCue,
   bingVoiceForSpeaker,
   buildScripts,
   plainWords,
@@ -18,6 +20,7 @@ import {
 import { buildSecondVisitLouScript, SecondVisitMission } from '../src/bing/second-visit.js';
 import {
   bingTreeLines,
+  checkBingLegacyVoiceCasting,
   checkBingTreeDrift,
   checkBingVoiceManifest,
   collectBingVoiceCues,
@@ -115,6 +118,23 @@ test('every first-visit Bing conversation leaves the script factory with an exac
   }
 });
 
+test('Lou briefs the first Motel run as the Sal and McClawsky sit-down', () => {
+  const { lou } = buildScripts(firstVisitContext());
+  const authored = Object.values(lou).flatMap((node) => [
+    plainWords(valueOf(node?.line)),
+    ...(valueOf(node?.options) || []).map((option) => plainWords(valueOf(option?.text))),
+  ]).join(' ');
+
+  assert.match(plainWords(lou.envelope.line), /Sal Sorrento.*Captain McClawsky/i);
+  assert.match(plainWords(lou.sitdown.line), /Sal carries the offer.*McClawsky watches.*worth saying/i);
+  assert.match(plainWords(lou.contact.line), /Sal Sorrento does the selling.*McClawsky watches and interrupts/i);
+  assert.doesNotMatch(plainWords(lou.contact.line), /McClawsky does not/i,
+    'the Bing briefing cannot promise silence from a man who speaks at the sit-down');
+  assert.ok(lou.warning.options.some(({ next }) => next === 'sitdown'));
+  assert.equal('jerky' in lou, false);
+  assert.doesNotMatch(authored, /they['’]re jerky dealers/i);
+});
+
 test('every second-visit Lou line and reply leaves the script factory with an exact cue', () => {
   const lou = buildSecondVisitLouScript({ mission: new SecondVisitMission() });
   assert.deepEqual(uncuedLines({ lou }), []);
@@ -147,6 +167,18 @@ test('ambient chatter, Shubenator signature, and bar capacity refusal are ledger
   assert.equal(standalone.length, AMBIENT.length + 2);
   assert.equal(BARTENDER_CAPACITY_LINE.voice, 'bartender');
   assert.equal(standalone.find((line) => line.cue === 'vo.bing.ambient.05')?.voice, 'performer');
+  const ambientProfiles = new Set(standalone
+    .filter((line) => line.cue.startsWith('vo.bing.ambient.'))
+    .map((line) => line.voice));
+  for (const profile of ['npc-male', 'npc-reserve-1', 'npc-reserve-2']) {
+    assert.equal(ambientProfiles.has(profile), true, `${profile} has no Bing ambient line`);
+  }
+  assert.ok(ambientProfiles.size >= 5, 'Bing ambient chatter still sounds like one patron');
+  assert.deepEqual(
+    AMBIENT.map(([, , , , speakerKey]) => speakerKey),
+    ['gossip1', 'gossip2', 'regular', 'patron0', 'waiter1', 'patron1', 'contractor', 'bouncer', 'patron2'],
+    'every ambient line stays pinned to its visible club speaker',
+  );
   for (const line of standalone) {
     assert.match(line.cue, /^vo\.bing\./);
     assert.deepEqual(ledger.get(line.cue), {
@@ -164,6 +196,7 @@ test('Bing manifest sync replaces only generated exact cues and stays pure', () 
     sfx: [
       { name: 'radio.click', file: 'keep.wav' },
       { name: 'vo.bing.door.in.1', voice: 'doorman', say: 'Keep this authored take.' },
+      { name: 'vo.bing.margo.6', voice: 'margo', say: 'Retired contradicted take.' },
       { name: 'vo.bing.full.stale.line.dead', voice: 'lou', say: 'stale' },
       { name: 'vo.bing.ambient.stale', voice: 'doorman', say: 'stale ambient' },
     ],
@@ -174,6 +207,7 @@ test('Bing manifest sync replaces only generated exact cues and stays pure', () 
   assert.deepEqual(original, snapshot);
   assert.deepEqual(synced.voices, original.voices);
   assert.deepEqual(synced.sfx.slice(0, 2), original.sfx.slice(0, 2));
+  assert.equal(synced.sfx.some((cue) => cue.name === 'vo.bing.margo.6'), false);
   assert.equal(synced.sfx.some((cue) => cue.name.includes('.stale.')), false);
   assert.deepEqual(synced.sfx.slice(2), collectBingVoiceCues());
   assert.deepEqual(checkBingVoiceManifest(synced), []);
@@ -196,6 +230,28 @@ test('generated NPC lines resolve their character voice while replies stay playe
   assert.ok(collectBingVoiceCues()
     .filter((cue) => cue.name.includes('.tony.'))
     .every((cue) => cue.voice === 'player'));
+});
+
+test('the legacy blackjack bank stays on the locked dealer actor', () => {
+  const oldBank = [
+    { name: 'vo.bj.dealer.minimum.1', voice: 'uncle', say: 'Table minimum is twenty-five.' },
+    { name: 'vo.bj.dealer.payout.1', voice: 'uncle', say: 'Paid.' },
+  ];
+
+  assert.equal(BING_DEALER_VOICE_PROFILE, 'dealer');
+  assert.equal(bingVoiceForCue(oldBank[0].name, oldBank[0].voice), 'dealer');
+  assert.deepEqual(
+    checkBingLegacyVoiceCasting({ sfx: oldBank }).map((failure) => failure.split(':')[0]),
+    ['drifted voice vo.bj.dealer.minimum.1', 'drifted voice vo.bj.dealer.payout.1'],
+  );
+
+  const synced = syncBingVoiceManifest({ sfx: oldBank });
+  const corrected = synced.sfx.filter(({ name }) => name.startsWith('vo.bj.dealer.'));
+  assert.deepEqual(corrected.map(({ name, voice, say }) => ({ name, voice, say })), [
+    { name: oldBank[0].name, voice: 'dealer', say: oldBank[0].say },
+    { name: oldBank[1].name, voice: 'dealer', say: oldBank[1].say },
+  ]);
+  assert.deepEqual(checkBingLegacyVoiceCasting({ sfx: corrected }), []);
 });
 
 test('Bing voice check reports missing, drifted, stale and duplicate generated cues', () => {

@@ -19,12 +19,12 @@
 # WHAT RUNS WHEN
 #   weeknights   the smoke and scene tiers      (29 gates, minutes each)
 #   Sunday       the smoke and scene tiers      (the weekend hole, closed)
-#   Saturday     everything, campaign included  (40 gates, up to ~2 h each)
+#   Saturday     everything, campaign included  (43 gates, up to ~2 h each)
 #   on demand    any tier, or a named list, from the Actions tab
 #   pull request the smoke tier, every PR       (12 cheap gates)
 #
 # THE SMOKE TIER RUNS ON EVERY PR, SINCE 2026-08-23. It started life behind a
-# `scene-gates` label because none of these forty had ever run in CI, and
+# `scene-gates` label because none of these forty-three had ever run in CI, and
 # making them blocking on day one would have stopped every pull request on
 # whatever they found first. The nightlies have since had their say; the
 # twelve cheap gates now run unconditionally, and the label is retired.

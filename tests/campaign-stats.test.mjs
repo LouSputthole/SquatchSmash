@@ -43,9 +43,9 @@ function loadLegacy(state) {
   return { storage, campaign: createCampaign({ storage }) };
 }
 
-test('schema v24 starts with one bounded top-level statistics block', () => {
+test('the current schema keeps the bounded statistics block introduced in v24', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
-  assert.equal(CAMPAIGN_VERSION, 24);
+  assert.equal(CAMPAIGN_VERSION, 25);
   assert.deepEqual(campaign.state.statistics, initialCampaignStatistics());
   assert.equal(Object.hasOwn(campaign.state.statistics, 'events'), false);
   assert.equal(Object.hasOwn(campaign.state.statistics, 'grades'), false);
@@ -66,7 +66,7 @@ test('a pre-statistics save migrates without a false recovery warning', () => {
 
   assert.equal(campaign.recoveredNow, false);
   assert.equal(storage.getItem(CAMPAIGN_RECOVERY_KEY), null);
-  assert.equal(campaign.state.version, 24);
+  assert.equal(campaign.state.version, CAMPAIGN_VERSION);
   assert.equal(campaign.state.statistics.missionsCompleted, 1);
   assert.deepEqual(campaign.state.statistics.completedMissionIds, [MISSION_IDS.NO_WAKE]);
   assert.equal(campaign.state.statistics.campaignDaysElapsed, 7);

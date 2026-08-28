@@ -7,6 +7,7 @@ import {
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  SCENES,
   TIME_EVENT_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
@@ -52,6 +53,33 @@ test('a refused scene completion never turns into a bare navigation', () => {
   assert.equal(campaign.state.scene.id, SCENE_IDS.BADA_BING_ONE);
 });
 
+test('Bing I production exits directly to Squatchfather while Apartment stays legacy-safe', () => {
+  assert.deepEqual(SCENES[SCENE_IDS.BADA_BING_ONE].next, [
+    SCENE_IDS.SQUATCHFATHER,
+    SCENE_IDS.APARTMENT,
+  ]);
+
+  const campaign = campaignAt(SCENE_IDS.BADA_BING_ONE, MISSION_IDS.BADA_BING_ONE);
+  const { assigned, location } = locationRecorder();
+  const result = createCampaignSceneSkipAdapter({
+    campaign,
+    sceneId: SCENE_IDS.BADA_BING_ONE,
+    location,
+  })();
+
+  assert.deepEqual(result, {
+    ok: true,
+    from: SCENE_IDS.BADA_BING_ONE,
+    to: SCENE_IDS.SQUATCHFATHER,
+  });
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.SQUATCHFATHER,
+    spawn: 'restaurant_exterior',
+  });
+  assert.deepEqual(assigned, ['squatchfather.html']);
+  assert.equal(campaign.hasItem(ITEM_IDS.LOU_PACKAGE), true);
+});
+
 test('HotDog skip normalizes the attack, cleanup, and loaded body before the graveyard', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
@@ -82,7 +110,13 @@ test('HotDog skip normalizes the attack, cleanup, and loaded body before the gra
   assert.equal(incident.bodyWrapped, true);
   assert.equal(incident.bodyLoaded, true);
   assert.equal(incident.checkpoint, 'body_loaded');
-  assert.equal(campaign.state.scene.id, SCENE_IDS.SQUATCH_GRAVEYARD);
+  assert.equal(campaign.state.story.timeEvents.includes(
+    TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD,
+  ), true);
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.SQUATCH_GRAVEYARD,
+    spawn: 'headlights',
+  });
   assert.deepEqual(assigned, ['graveyard.html']);
 });
 
@@ -229,7 +263,7 @@ test('the shared adapter inventory covers every non-hub campaign scene in scope'
 });
 
 const MATRIX = Object.freeze([
-  [SCENE_IDS.BADA_BING_ONE, MISSION_IDS.BADA_BING_ONE, SCENE_IDS.APARTMENT],
+  [SCENE_IDS.BADA_BING_ONE, MISSION_IDS.BADA_BING_ONE, SCENE_IDS.SQUATCHFATHER],
   /* THE RESTAURANT DOES NOT END AT HOME ANY MORE.
    *
    * The bible's beat 3: *"the driver takes him OUT OF TOWN."* A skip that

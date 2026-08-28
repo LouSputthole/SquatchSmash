@@ -288,7 +288,7 @@ test('a restart lets the crew say the beats belonging to the legs it replays, an
     'cruise.settle', 'detect.corridor', 'defense.opening', 'fighters.first',
     'bomb.cityInSight', 'bomb.packageAway', 'bomb.breakTurn',
     'explosion.flash', 'explosion.crater', 'escape.turn', 'emergency.overheat',
-    'landing.line', 'arrival.lou',
+    'landing.line', 'arrival.sasole',
   ];
   const run = (name) => {
     const played = new Set(said);
@@ -306,7 +306,7 @@ test('a restart lets the crew say the beats belonging to the legs it replays, an
   assert.deepEqual(pre.left, [
     'preflight.arrival', 'preflight.done', 'taxi.line', 'takeoff.rotate',
     'cruise.settle', 'detect.corridor', 'defense.opening', 'fighters.first',
-    'arrival.lou',
+    'arrival.sasole',
   ]);
 
   // Further back replays more of it.

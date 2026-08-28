@@ -44,6 +44,15 @@ import { PRONE_MOUTH_Y } from './voice.js';
 
 const COWER_LINES = Object.freeze(['cleaner.cower.one', 'cleaner.cower.two']);
 
+/** Dialogue cannot come from a body the rendered hierarchy has hidden. */
+function visibleInWorld(object) {
+  if (!object?.parent) return false;
+  for (let node = object; node; node = node.parent) {
+    if (node.visible === false) return false;
+  }
+  return true;
+}
+
 /**
  * Runs the estate's working civilians.
  *
@@ -83,7 +92,13 @@ export class PalaceBystanders {
    */
   notice(entry = this.cast.bystanders[0]) {
     const record = this._record(entry);
-    if (!record || record.entry.down || record.phase !== 'calm') return false;
+    /* Owner, 2026-08-28: *"Rosa must already be visibly present before her
+     * first line begins."* Her model is synchronous, built with the cast, but
+     * this guard makes that ordering a runtime invariant: a future checkpoint
+     * cleanup or visibility pass cannot leave the line live after hiding or
+     * detaching the body. */
+    if (!record || record.entry.down || record.phase !== 'calm'
+      || !visibleInWorld(record.entry.root)) return false;
     record.phase = 'startled';
     record.entry.figure.setState?.('startled', { blend: true });
     this.voice?.say?.('cleaner.spotted', {

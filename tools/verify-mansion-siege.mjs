@@ -4895,10 +4895,10 @@ try {
       replay: !!document.getElementById('replayBtn'),
     };
   });
-  check('the card offers the direct Enola Squatch handoff and keeps replay available',
+  check('the card offers the direct SQUATCHOLA GAY handoff and keeps replay available',
     card.links.includes('./enolasquatch.html') && card.replay === true, card.links.join(' '));
-  check('and says out loud that the Enola Squatch handoff is wired',
-    /handoff now carries directly into\s+the enola squatch/i.test(card.note),
+  check('and says out loud that the SQUATCHOLA GAY handoff is wired',
+    /handoff now carries directly into\s+squatchola gay/i.test(card.note),
     card.note.slice(0, 90));
   /* ## THIS CHECK IS AGAINST THE LEDGER, NOT AGAINST "MORE THAN NOUGHT"
    *

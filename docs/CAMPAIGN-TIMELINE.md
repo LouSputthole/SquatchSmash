@@ -1,4 +1,4 @@
-# Campaign timeline — current production flow (updated 2026-08-27)
+# Campaign timeline — current production flow (updated 2026-08-28)
 
 > **This file is the record of what is BUILT, not the plan.**
 >
@@ -17,7 +17,7 @@
 > and Beat 27 now rings in the luxury apartment before the existing pickup,
 > ride, trunk reveal, arrival and ceremony. All thirty-one beats are wired.
 
-The owner's connected campaign route implemented by campaign schema v24. Two
+The owner's connected campaign route implemented by campaign schema v25. Two
 homes: the starter apartment for beats 0 to 13, and the luxury apartment from
 the moment Lou hands over the keys on the eighteenth green at Silver Pines.
 The Home Ladder climbs there and never comes back down. Initiation remains a
@@ -56,12 +56,11 @@ by `npm run verify:campaign-route`:
 
 | Chapter | Apartment gate | Mission route | Return / chapter change |
 |---|---|---|---|
-| 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
-| 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Return home 4:30 AM and sleep |
+| Act One (Days 1–4) | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → Family driver directly to Squatchfather → Cabin I → Beef Run → Cabin II → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Snow waits for daylight, then drops Tony at the starter apartment once the block is clean |
 | 3 (Day 5) | Wake noon, get a game of Counter-Squatch in, answer Lou's heist call and collect seven loadout pieces | THE TAKE → apartment cleanup | Lou rings about a new space; sleep |
 | 4 (Day 6) | Wake 7:00 AM, warm the eye up on Squatch Shoot — no call, Lou rang last night | Silver Pines | Three holes and the keys: the starter flat goes dark and the route moves to the luxury apartment |
-| Luxury (Days 6–7) | GET READY FOR YOUR DATE, then Margo's call | Front and Center → luxury apartment with her; sleep; the morning; Lou's harbour call → NO WAKE → luxury apartment | Booskibro rings about something small and sensitive; the lift opens The Silver Case |
-| Final chapter | No starter-apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → Enola Squatch → repaired Mansion return → Cartel Palace → luxury-apartment call → existing Special Meeting pickup and ride | Special Meeting opens Initiation; Initiation is entered `in_progress` and remains frozen |
+| Luxury (Days 6–7) | GET READY FOR YOUR DATE — the appointment was made from the cabin | Front and Center → luxury apartment with her; sleep; the morning; Lou's harbour call → NO WAKE → luxury apartment | Booskibro rings about something small and sensitive; the lift opens The Silver Case |
+| Final chapter | No starter-apartment detour | The Silver Case → Lou's Mansion / PROJECT SILENT SQUATCH → quiet mansion evening and guest-room sleep → Mansion Under Siege → SQUATCHOLA GAY → repaired Mansion return → Cartel Palace → luxury-apartment call → existing Special Meeting pickup and ride | Special Meeting opens Initiation; Initiation is entered `in_progress` and remains frozen |
 
 Every external mission owns a registered scene/spawn and either returns to the
 apartment, passes through the later cabin hub, or hands directly to the next
@@ -116,13 +115,14 @@ tributes, and disrespect choices form an optional memorial museum with durable
 state.
 
 **The Jerky Motel.** The grimier underbelly — the point where the campaign
-stops feeling glamorous. Day 2 ends with the Prospect exhausted, rattled, and
-more valuable to the family.
+stops feeling glamorous. Snow holds Tony under the jerky cover until the block
+is clean, then gets him home in daylight at 6:30 AM on Day 5: exhausted,
+rattled, and more valuable to the family.
 
 ## Day 5 — The Take
 
-**Apartment, noon.** He gets in from the Jerky Motel at half four in the
-morning and sleeps until midday. The atmosphere turns: rain or grey light,
+**Apartment, noon.** Snow waits until the watched block is clean, drops him
+home in daylight at 6:30 AM, and Tony sleeps until midday. The atmosphere turns: rain or grey light,
 radio news about the motel, and one game of Counter-Squatch with Booskibro's
 boys before the phone. Then Lou: a car is coming, gray suit, armor underneath,
 and everything he owns on the table.
@@ -153,13 +153,15 @@ Tony home** — it hands him a set of keys, and the starter apartment goes dark
 for good.
 
 **Beat 14 — the luxury apartment, a quarter to twelve.** Two floors, a private
-lift, and the whole afternoon to GET READY FOR YOUR DATE. Margo rings once to
-fix the hour; the lift will not move until both are done.
+lift, and the whole afternoon to GET READY FOR YOUR DATE. The cabin call
+already fixed Front & Center's Silver Room table for nine; the lift waits only
+for the shower, date clothes, and phone, then goes directly to the venue.
 
 **Front and Center.** The Copacabana date with Margo, on the night of the
 handover: every door opens, the staff know him, the table is carried out front
 and center, the band plays, and Margo sees the glamorous version of his life.
-On the two best outcomes she leaves with him.
+Woo changes the warmth of her answer; both live endings send her home with him.
+The old cab, awkward and disaster endings remain save-compatible data only.
 
 **Beat 16 — the stayover.** She comes home to the new place, comments on it,
 walks the deliberate two-floor route to the loft, asks for help with the dress,
@@ -174,11 +176,13 @@ more, leaves by the two-floor path, and only then can Lou's call ring.
 
 **NO WAKE — built and connected.** The boat: dock, board with Lou Sputthole,
 Booski, Willy and the Prospect, open water, conversation souring, the family
-presenting Willy as the traitor, the others preparing, shooting him, disposing
-of the body, and riding back in silence. At this point Tony and the family
-believe they killed an enemy. The Palace evidence later proves they killed the
-wrong man and clears Willy posthumously. Willy's permanent large-belly model is
-shared with his earlier appearance so his body does not change between scenes.
+playing a wire recording that proves Willy leaked the earlier strip operation,
+the others preparing, shooting him, disposing of the body, and riding back in
+silence. Willy never confesses, but the evidence is hard. The Palace later
+proves Sauce committed the separate Silver Case/mansion betrayal tied to the
+Short Bus mole thread; it does not clear Willy's earlier leak. Willy's permanent
+large-belly model is shared with his earlier appearance so his body does not
+change between scenes.
 
 **Beat 19 — home from the dock, twenty past five.** A quiet hour in a flat he
 has lived in for a day and a half, and then Booskibro: there is a thing that
@@ -216,10 +220,10 @@ and beats 12-19 gave Chapter 3 the two days it needed.
 | Complete The Silver Case | Day 8, 5:30 PM |
 | Arrive at Lou's Mansion | Day 8, 5:55 PM |
 | Complete PROJECT SILENT SQUATCH | Day 8, 8:10 PM |
-| Sleep in the guest room | Day 9, 4:10 AM |
-| Complete Mansion Under Siege | Day 9, 6:10 AM |
-| Leave for Enola Squatch after regrouping | Day 9, 2:00 PM |
-| Complete Enola Squatch | Day 9, 6:00 PM |
+| Sleep in the guest room | Day 9, 2:10 AM |
+| Complete Mansion Under Siege | Day 9, 4:10 AM |
+| Leave for SQUATCHOLA GAY after regrouping | Day 9, 2:00 PM |
+| Complete SQUATCHOLA GAY | Day 9, 6:00 PM |
 | Return to the repaired Mansion | Day 12, 6:30 PM |
 | Complete the return briefing | Day 12, 7:15 PM |
 | Leave for Cartel Palace | Day 12, 8:30 PM |
@@ -237,10 +241,17 @@ lands the Initiation at its 7:00 PM anchor exactly. Schema v23 floors saves
 that had already consumed one of those markers; it never replays a marker,
 invents progress, or winds a later clock back.
 
+Schema v25 also carries forward two corrected clock promises without replaying
+their exact-once events. Completed Motel saves still earlier than Day 5 06:30
+are floored to that daylight return. Mansion saves are adjusted only when they
+match the exact v24 clocks produced by the retired eight-hour guest-room rest:
+04:10 before the siege or 06:10 immediately after it. A later clock is never
+rewound.
+
 The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
 label for the overnight begun on the day the case is delivered. The guest-room
 sleep crosses midnight, so the campaign's calendar clock correctly begins Siege
-on the following morning at 4:10 AM.
+on the following morning at 2:10 AM, inside the story bible's 2–3 AM window.
 
 The 2:00 PM Enola row is the drive and the aircraft prep, matching
 `campaign.js`'s own comment — Sasole's handoff at the end of the siege
@@ -343,10 +354,9 @@ authoritative for this beat; what follows is the campaign-level summary.
 
 He wakes in the middle of the night. **The attack is already happening.**
 
-The register is the SCARFACE parody: "say hello to my little friend". Read
-`docs/TONE-AND-PARODY.md` before writing a line of it — the reference is the
-scene, not a wink at the audience, and nobody in the house should notice they
-are in one.
+The register is the SCARFACE last stand. Read `docs/TONE-AND-PARODY.md` before
+writing a line of it — the reference is the scene, not a quote or a wink at the
+audience, and nobody in the house should notice they are in one.
 
 **The design problem the owner named — the player needs a REASON to go
 upstairs, so the fight happens from the balcony — is solved, and it is solved
@@ -373,30 +383,30 @@ is the cast of this attack.** Everyone the player has met in that building for
 an evening is now in a firefight in it, which is worth more than any set piece
 we could build cold.
 
-### 3 · The retaliation — the Enola Squatch
+### 3 · The retaliation — SQUATCHOLA GAY
 
 After the attack, **Lou expedites the attack plan**, and that plan is the
-Enola Squatch mission — which is already built. The bomber, the crew, the
+SQUATCHOLA GAY mission — which is already built. The bomber, the crew, the
 target city, the Fat Squatch. It currently sits in the campaign with no
 argument for why anybody would do it. This gives it one: they came to his
 house in the night.
 
-Silver Pines already seeds this — Lou, on the second green, mentions a thing
-after the thing that "needs an aeroplane", six thousand pounds of it, and a
-captain who is another Lou with a clipboard. That seed pays off here rather
-than out of nowhere.
+The post-siege phone threat establishes who attacked. Lou then names the route
+package recovered from the attackers' command car; the Family reads it as the
+location of the A-Team desert compound and gives it to Sasole. That reachable
+line is the bombing order's source. The interpretation is wrong, which is why
+the later instrument payoff matters. Silver Pines no longer spoils the bomber
+or the Initiation before either is actionable.
 
 ### 4 · The talk going in
 
 Owner: *"i'll want to plan the voice lines for this because the talk going
 into this one is going to be epic."*
 
-So: **the writing for the Enola briefing is a deliberate, separate piece of
-work, planned with the owner, and it is not to be improvised alongside the
-level.** It is the emotional payoff of the whole mansion arc — the room where
-the family decides to do the thing — and it should be written the way PROJECT
-SILENT SQUATCH's script was: as data, in one file, before anybody builds a
-scene around it.
+The counterstrike setup is authored data in the Siege aftermath: original
+A-Team phone confrontation, recovered route package, then the Sasole handoff.
+It is played straight and does not reuse the film monologue. The flight itself
+never points out the wrong-city discrepancy.
 
 ### 5 · The wrong city — back at the mansion, clean
 
@@ -410,8 +420,8 @@ HUD toast:
 
 1. They bombed the **wrong city**. The intended cartel target is untouched.
 2. While the operation was running, **Sauce was taken**.
-3. The cartel is holding him at **Mark's estate**. There is going to be a
-   final infiltration.
+3. A separate trace points to an **unnamed A-Team leadership estate**. There is
+   going to be a final infiltration. Mark's name is withheld until his fight.
 
 Grim absurdity is the register. Six thousand pounds of Fat Squatch went into
 somebody else's town and the room has to sit with that before it moves on.
@@ -423,14 +433,20 @@ Presented as a rescue. It is not one.
 **The truth the player discovers on site:** Sauce was never a prisoner. He
 moves freely, he is armed, he is treated as a guest, and he helped set the
 whole thing up — the attack, the story, the operation. The complete evidence
-trail also proves the inside leak continued after Willy's death: Willy was not
-the rat, Sauce was, and Sauce had help inside the organization. The rescue
+trail proves the inside leak continued after Willy's death: Willy's earlier
+strip leak still stands, while Sauce is the separate Short Bus mole behind the
+Silver Case/mansion betrayal and had help inside the organization. The rescue
 becomes an elimination. **Mark is the cartel boss.** Both of them are targets
 by the end.
 
 Staged, not announced: documents, radio chatter, photographs, guard
 conversation, his own belongings, security footage, and finally Sauce sitting
-at Mark's table with a weapon on it. Do not spend the twist at the gate.
+at Mark's table with a weapon on it. The office route addendum is the hard
+datum: Sauce's consultant number signs both the Silver Case delivery to Lou's
+mansion at 17:55 and the 02:10 next-morning breach window. SHORT BUS names the
+operation, and a redacted active-prospect countersign proves Sauce still had
+help inside the Family. Do not spend the
+twist at the gate or name Mark before the dining-room reveal.
 
 **Its own map — `Cartel_Palace_Final`.** Not Lou's mansion in a different
 colourway and NOT another damage layer on it. It reuses systems, proportions,
@@ -455,18 +471,19 @@ Full direction: `docs/MANSION-SIEGE-NIGHT.md` PARTS X–XIII.
 **Initiation is the ending scene, not the final mission.** The cartel palace
 is the last thing the player fights through; Initiation is what the campaign
 resolves into afterwards. The clearing now makes the Palace finding explicit:
-Willy is cleared, Sauce's unidentified inside help forces the nuclear option,
-and every remaining prospect kneels. Prospect Three, Four, Five, and Kittenboss
-are executed in Tony's view. Gratin then aims at Tony; Big Uncle Lou stops him
-with "Stop. This one is good." Tony alone is taken to the cabin because the
-family is at quota and only one place remains.
+Willy's earlier strip leak still stands, while Sauce's separate betrayal and
+unidentified inside help force the nuclear option, and every remaining
+prospect kneels. Prospect Three, Four, Five, and Kittenboss are executed in
+Tony's view. Gratin then aims at Tony; Big Uncle Lou stops him with "Stop. This
+one is good." Tony alone is taken to the cabin because the family is at quota
+and only one place remains.
 
 ### What already exists and can be reused
 
 The mansion, inside and out, staffed and dressed. The weapon system and the
 basement armory. The shared combat framework — `core/combat/*` plus
 `core/weapons/*` — which the siege now drives and the palace will drive
-after it, with `FACTIONS.CARTEL` already in the matrix. The Enola Squatch
+after it, with `FACTIONS.CARTEL` already in the matrix. SQUATCHOLA GAY
 mission entire. The campaign save, the checkpoint machinery, and the
 scene-to-scene navigation. `src/mansion/cast.js` for placing people. The
 siege's own damage-state overlay, wave director and mission model

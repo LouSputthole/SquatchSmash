@@ -10,6 +10,7 @@ import {
   cabinBeatActions,
   cabinScriptCues,
 } from '../src/cabin/script.js';
+import { callScript } from '../src/core/phone.js';
 
 test('Cabin dungeon script has stable unique voice cues', () => {
   const cues = cabinScriptCues();
@@ -38,6 +39,14 @@ test('execution offer carries a ten-second yes/no action and both outcomes', () 
   assert.ok(cabinBeat('GRATIN_EXECUTES'));
 });
 
+test('dungeon cleanup does not spoil future Wake or Billy scenes', () => {
+  const wrap = cabinBeat('WRAP_INSTRUCTIONS').lines.map((entry) => entry.text ?? '').join(' ');
+  const offer = cabinBeat('EXECUTION_OFFER').lines.map((entry) => entry.text ?? '').join(' ');
+  assert.doesNotMatch(wrap, /\bWake\b|Billy HotDog/i);
+  assert.match(offer, /sofa can['’]t tell us there is a mole/i);
+  assert.doesNotMatch(offer, /sofa doesn['’]t know who the mole is/i);
+});
+
 test('bonfire sequence contains explicit player-controlled drink checkpoints', () => {
   const actions = CABIN_BEATS.flatMap((beat) => beat.lines
     .filter((entry) => entry.action)
@@ -49,10 +58,9 @@ test('bonfire sequence contains explicit player-controlled drink checkpoints', (
 
 test('phone calls retain caller/reply parity and distinct cue banks', () => {
   const calls = Object.values(CABIN_PHONE_CALLS);
-  /* Six: Lou on the first morning, Margo after the four walks, Booski about
-   * the Captain, Gratin on the second morning, Ape after the blackout, and
-   * Booski again about Billy. Three of those are the beats the bible moved
-   * onto this porch when the cabin became an Act-One scene. */
+  /* Six definitions remain for save/audio compatibility. Fresh Act One uses
+   * five: Lou, Margo, Booski about Sasole, Gratin, and one Booski/Billy wake.
+   * Ape's old morning call is data-only for retired post-heist saves. */
   assert.equal(calls.length, 6);
   assert.equal(new Set(calls.map((call) => call.vo)).size, calls.length);
   for (const call of calls) {
@@ -66,11 +74,10 @@ test('phone calls retain caller/reply parity and distinct cue banks', () => {
  * The hook and the call are two different things, and both now exist.
  *
  * MARGO_CALL_READY is the one-line setup on the first walk -- "maybe I should
- * give that girl from the bar a call" -- and it stayed an external event so
- * the owner could hang anything he liked off it. Beat 4 then ends on the call
+ * give that girl from the bar a call" -- and it stayed a browser event so
+ * presentation and analytics can observe it. Beat 4 then ends on the one call
  * itself, which is authored here like every other call in the chapter. The
- * thing worth holding is that the SETUP is still a hook: it fires once, on the
- * first walk, and it is not the call.
+ * event must never be treated as permission to ring a second conversation.
  */
 test('Margo has both a one-shot setup hook and the authored call it sets up', () => {
   assert.equal(MARGO_CALL_READY.afterExplorationCount, 1);
@@ -82,4 +89,16 @@ test('Margo has both a one-shot setup hook and the authored call it sets up', ()
   assert.equal(margoCalls.length, 1, 'exactly one authored Margo call');
   assert.equal(margoCalls[0].id, 'cabin.margo.first_call');
   assert.equal(margoCalls[0].caller.voice, 'margo');
+  assert.equal(margoCalls[0].outgoing, true, 'Tony must choose to place this call');
+  assert.equal(margoCalls[0].vo, 'call.margo.cabin_date',
+    'materially changed lines must not reuse the old recordings');
+  assert.equal(margoCalls[0].lines.length, 3, 'the scheduling call should stay short');
+  assert.match(margoCalls[0].lines.join(' '), /Front & Center/);
+  assert.match(margoCalls[0].lines.join(' '), /Silver Room/);
+  assert.match(margoCalls[0].lines.join(' '), /Nine o’clock/);
+  assert.match(margoCalls[0].lines.join(' '), /Sunday/);
+  const turns = callScript(margoCalls[0]);
+  assert.equal(turns[0].who, 'me');
+  assert.equal(turns[0].text, 'Hello? Tony. From the Bing.');
+  assert.equal(turns[1].who, 'them');
 });

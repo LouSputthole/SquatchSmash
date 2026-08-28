@@ -62,8 +62,6 @@ export function completeCabinVisitTwo(story) {
   requireOk('fire cleanup', story.completeFireCleanup());
   requireOk('bonfire drinks', story.drink());
   requireOk('blackout', story.blackout());
-  requireOk('morning call', story.completeMorningCall());
-  requireOk('morning wake', story.completeMorningWake());
   return requireOk('Booski / Billy call', story.completeBillyCall());
 }
 

@@ -480,10 +480,10 @@ const packageAtStart = s.campaign?.inventory
   && !s.campaign.inventory.carried.includes('parcel')
   && !s.campaign.inventory.concealed.includes('parcel')
   && s.carrying !== 'parcel';
-/* One route objective and two durable soft opportunities, none complete in the
- * lot. The live card projects this ledger later; recovery keeps the full list. */
-check('the night opens on Lou’s route plus two soft opportunities',
-  s.objectives.join(',') === ' lou, margo, shot', s.objectives.join(','));
+/* Margo is a required soft story beat, but revealing her on the opening card
+ * spoils the room. She becomes the next action only after Lou is finished. */
+check('the night opens on Lou’s route without spoiling Margo',
+  s.objectives.join(',') === ' lou, shot', s.objectives.join(','));
 const displayedDay = await page.textContent('#clock .day');
 check('the first Bing visit is still Day One', displayedDay === 'Day 1', displayedDay);
 
@@ -2028,9 +2028,69 @@ check('he finishes and lets you go',
   briefFinished.mission === 'briefed' && briefFinished.mode === 'walk' && !briefFinished.locked,
   JSON.stringify(briefFinished));
 
-/* Once the job is done the front door itself offers the exit -- the owner's
- * playtest never found the wheel. The drive-out stays the canonical path
- * below; this only proves the on-foot prompt exists, arms, and is held. */
+const beforeMargo = await page.evaluate(() => ({
+  ready: window.__bing.mission.readyToLeave,
+  blocker: window.__bing.mission.leaveBlocker,
+  objectives: window.__bing.mission.objectives.map((objective) => ({ ...objective })),
+}));
+check('Lou hands off to the required soft Margo beat instead of opening the exit',
+  !beforeMargo.ready
+    && beforeMargo.blocker === 'margo_number'
+    && beforeMargo.objectives.some((objective) => objective.id === 'margo'
+      && objective.done === false && objective.optional !== true)
+    && !beforeMargo.objectives.some((objective) => objective.id === 'leave'),
+  JSON.stringify(beforeMargo));
+
+/* Walk back into the room and take the real dialogue choices: ask what she is
+ * drinking, ask her to dinner, and ask for HER number. Tone alternatives stay
+ * available; this is merely one valid route through them. */
+await page.evaluate(() => {
+  const b = window.__bing;
+  const margo = b.cast.byName.margo;
+  b.player.mode = 'walk';
+  b.player.position.set(margo.group.position.x + 0.8, 1.66, margo.group.position.z + 0.4);
+  b.player.update(0.016);
+  b.updateZones(0.016);
+});
+await tick(4);
+await page.evaluate(() => window.__bing.cast.byName.margo.group.userData.interact.onUse());
+await tick(0.5);
+const margoOpening = await state();
+check('Margo keeps all three opening tones', margoOpening.options === 3,
+  String(margoOpening.options));
+await choose(1);
+for (let i = 0; i < 12; i++) {
+  const at = await page.evaluate(() => ({
+    node: window.__bing.dialogue.nodeId,
+    options: window.__bing.dialogue.options.length,
+  }));
+  if (at.node === 'why' && at.options > 0) break;
+  await tick(1.5);
+}
+await choose(0);
+for (let i = 0; i < 12; i++) {
+  const at = await page.evaluate(() => ({
+    node: window.__bing.dialogue.nodeId,
+    options: window.__bing.dialogue.options.length,
+  }));
+  if (at.node === 'dinner' && at.options > 0) break;
+  await tick(1.5);
+}
+await choose(0);
+await tick(0.5);
+const afterMargo = await page.evaluate(() => ({
+  ready: window.__bing.mission.readyToLeave,
+  hasNumber: window.__bing.mission.flags.hasMargoNumber,
+  objective: window.__bing.mission.objectives.find((entry) => entry.id === 'margo'),
+  leave: window.__bing.mission.objectives.find((entry) => entry.id === 'leave'),
+}));
+check('getting Margo’s number completes the soft beat and opens the same exit gate',
+  afterMargo.ready && afterMargo.hasNumber
+    && afterMargo.objective?.done === true && afterMargo.leave?.done === false,
+  JSON.stringify(afterMargo));
+
+/* Once both story beats are done the front door itself offers the exit -- the
+ * owner's playtest never found the wheel. The drive-out stays canonical. */
 const leavePad = await page.evaluate(() => {
   const b = window.__bing;
   let pad = null;
@@ -2091,7 +2151,8 @@ const ended = await page.evaluate(() => ({
   title: document.querySelector('#overlay .tag')?.textContent || '',
   saved: window.__bing.campaign?.state?.missions?.bada_bing_one ?? null,
   nextMission: window.__bing.campaign?.state?.missions?.squatchfather ?? null,
-  returnHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
+  nextHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
+  nextCopy: document.getElementById('next-level')?.textContent ?? '',
 }));
 check('driving out finishes the mission', ended.over && ended.done, JSON.stringify(ended));
 check('and puts up an ending card', ended.card, ended.title);
@@ -2101,29 +2162,23 @@ check('completion is recorded in shared campaign state',
 check('the package unlocks Squatchfather',
   ended.nextMission?.status === 'available',
   JSON.stringify(ended.nextMission));
-check('the ending offers a return to the apartment',
-  ended.returnHref === 'index.html', ended.returnHref ?? 'missing');
+check('the Family driver offers the direct Squatchfather handoff',
+  ended.nextHref === 'squatchfather.html' && /Family driver/i.test(ended.nextCopy),
+  JSON.stringify({ href: ended.nextHref, copy: ended.nextCopy }));
 
-if (ended.returnHref === 'index.html') {
+if (ended.nextHref === 'squatchfather.html') {
   await page.evaluate(() => document.getElementById('next-level').click());
-  await page.waitForFunction(() => window.__squatch, null, { timeout: 90000 });
-  const returned = await page.evaluate(() => ({
-    scene: window.__squatch.campaign?.state?.scene ?? null,
-    hasPackage: window.__squatch.campaign?.hasItem('parcel') ?? false,
-    player: {
-      mode: window.__squatch.player.mode,
-      x: window.__squatch.player.position.x,
-      z: window.__squatch.player.position.z,
-    },
+  await page.waitForURL(`http://localhost:${PORT}/squatchfather.html`, { timeout: 90000 });
+  await page.waitForFunction(() => window.squatchfather?.campaign, null, { timeout: 90000 });
+  const routed = await page.evaluate(() => ({
+    scene: window.squatchfather.campaign.state.scene,
+    hasPackage: window.squatchfather.campaign.hasItem('parcel'),
   }));
-  check('returning home keeps the package and front-door spawn',
-    returned.hasPackage
-      && returned.scene?.id === 'apartment'
-      && returned.scene?.spawn === 'front_door'
-      && returned.player.mode === 'walk'
-      && Math.abs(returned.player.x - 2.55) < 0.05
-      && Math.abs(returned.player.z - 3.72) < 0.05,
-    JSON.stringify(returned));
+  check('the handoff keeps Lou’s package and lands at the restaurant exterior',
+    routed.hasPackage
+      && routed.scene?.id === 'squatchfather'
+      && routed.scene?.spawn === 'restaurant_exterior',
+    JSON.stringify(routed));
 }
 
 /* ---- one identity, before and after the Beef Run ----
@@ -2339,9 +2394,9 @@ check('every performer keeps her height, wears real hair, and has her edges take
     `${louBrief.length} + ${louBrief2.length}`);
   check('the stage and Margo retain their authored cue banks',
     ['vo.bing.stage.1', 'vo.bing.stage.2'].every((c) => authored.has(c))
-      && [...Array(6)].map((_, i) => `vo.bing.margo.${i + 1}`).every((c) => authored.has(c))
+      && [...Array(5)].map((_, i) => `vo.bing.margo.${i + 1}`).every((c) => authored.has(c))
       && authored.has('vo.bing.margo.1b'),
-    'stage 2, margo 7');
+    'stage 2, margo legacy 6 plus generated replacements');
 }
 
 /* Tony's own lines, one at a time, through the exact-name path -- and none

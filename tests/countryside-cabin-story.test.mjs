@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  EVENT_IDS,
   MISSION_IDS,
   SCENE_IDS,
   TIME_EVENT_IDS,
@@ -211,6 +212,14 @@ test('the four walks lead to Margo and Booski, and Gratin waits for the second n
     ok: false, reason: 'margo_call_incomplete',
   });
   assert.equal(story.completeMargoCall().firstTime, true);
+  assert.equal(campaign.state.events[EVENT_IDS.CABIN_MARGO_CALL].status, 'answered');
+  assert.equal(campaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered',
+    'the cabin conversation is now the sole date-scheduling seam');
+  assert.equal(
+    campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL),
+    false,
+    'retiring the later call must not charge its five minutes during the cabin call',
+  );
   assert.equal(story.completeBooskiSasoleCall().firstTime, true);
   assert.equal(story.visitOneComplete(), true);
 
@@ -317,10 +326,6 @@ test('the HUD projection exposes one parent objective and only its current soft 
   story.drink();
   expectPlan('Sit with Lag and Gratin', 'Stay by the fire');
   story.blackout();
-  expectPlan('Answer Ape’s call', 'Pick up the phone');
-  story.completeMorningCall();
-  expectPlan('Get ready to leave', 'Head outside');
-  story.completeMorningWake();
   expectPlan('Answer Booskibro’s call', 'Pick up the phone');
   story.completeBillyCall();
   expectPlan('Drive back to the Bing', 'Use the car when you are ready');
@@ -493,7 +498,7 @@ test('no response, explicit no, and timeout all choose Gratin', async (t) => {
   }
 });
 
-test('nightfall, blackout, morning call, and departure are reload-safe authored times', () => {
+test('nightfall, blackout, single Booski morning call, and departure are reload-safe authored times', () => {
   const { campaign, storage } = cabinCampaign();
   let story = finishInterrogations(reachDungeon(createCountrysideCabinStory({ campaign })));
   story.chooseExecution('player');
@@ -540,14 +545,16 @@ test('nightfall, blackout, morning call, and departure are reload-safe authored 
   assert.equal(story.gasPoured(), true);
   assert.equal(story.bonfireIgnited(), true);
   assert.equal(story.fireCleanupComplete(), true);
-  assert.equal(story.phase(), 'morning_call');
-  assert.equal(story.completeMorningCall().timeMinutes, 9 * 60 + 33);
+  assert.equal(story.phase(), 'billy_call');
   assert.equal(story.tryLeave().id, 'cabin_chapter_incomplete');
-  assert.equal(story.completeMorningWake().firstTime, true);
-  /* Getting ready to leave is not the same as being told where to go. Beat 7
-   * ends on Booski's call about Billy, and the car waits for it. */
-  assert.equal(story.tryLeave().id, 'cabin_chapter_incomplete');
-  assert.equal(story.completeBillyCall().firstTime, true);
+  const billy = story.completeBillyCall();
+  assert.equal(billy.firstTime, true);
+  assert.equal(billy.timeMinutes, 9 * 60 + 38,
+    'the one canonical call charges only Booski’s eight minutes');
+  assert.equal(story.morningCallComplete(), true,
+    'the retired Ape marker is normalized for old-save compatibility');
+  assert.equal(story.morningWakeComplete(), true,
+    'the retired wake marker is normalized for old-save compatibility');
   assert.deepEqual(story.tryLeave(), {
     kind: 'go',
     destination: SCENE_IDS.BADA_BING_TWO,
