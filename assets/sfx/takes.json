@@ -10346,7 +10346,9 @@
     },
     "vo.graveyard.snow.bark.plot": {
       "text": "d2926956e79b",
-      "source": "assumed"
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
     },
     "vo.graveyard.snow.done.watched-home": {
       "text": "a30df5974b61",

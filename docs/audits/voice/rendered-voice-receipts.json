@@ -4149,6 +4149,19 @@
       "channels": 1
     },
     {
+      "cue": "vo.graveyard.snow.bark.plot",
+      "file": "vo.graveyard.snow.bark.plot.mp3",
+      "sha256": "5ff3a5e0f9ee01a9ee0c7a51e8260b8db75b9cbdccd65903e6b1b6edd243928e",
+      "bytes": 62737,
+      "indexVersion": "80e02eb193",
+      "textHash": "d2926956e79b",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT",
+      "durationSeconds": 3.854,
+      "sampleRate": 48000,
+      "channels": 1
+    },
+    {
       "cue": "vo.graveyard.snow.done.watched-home",
       "file": "vo.graveyard.snow.done.watched-home.mp3",
       "sha256": "60e64fad6219568466630ad629c010106afa89ae4a1d8510f63ec017c4923a06",
