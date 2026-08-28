@@ -9,7 +9,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -19,7 +19,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -29,7 +29,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -39,7 +39,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -49,7 +49,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -59,7 +59,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -69,7 +69,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -79,7 +79,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -89,7 +89,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -99,7 +99,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -109,7 +109,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -119,7 +119,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -129,7 +129,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -139,7 +139,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -149,7 +149,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -159,7 +159,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -169,7 +169,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -179,7 +179,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -189,7 +189,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -199,7 +199,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -209,7 +209,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -219,7 +219,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -229,7 +229,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -239,7 +239,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -249,7 +249,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -259,7 +259,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -269,7 +269,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -279,7 +279,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -289,7 +289,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -299,7 +299,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -309,7 +309,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -319,7 +319,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -329,7 +329,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -339,7 +339,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -349,7 +349,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -359,7 +359,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -369,7 +369,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -379,7 +379,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -389,7 +389,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -399,7 +399,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -409,7 +409,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -419,7 +419,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -429,7 +429,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -439,7 +439,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -449,7 +449,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -459,7 +459,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -469,7 +469,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -479,7 +479,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -489,7 +489,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -499,7 +499,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -509,7 +509,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -519,7 +519,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -529,7 +529,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -539,7 +539,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -549,7 +549,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -559,7 +559,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -569,7 +569,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -579,7 +579,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -589,7 +589,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -599,7 +599,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -609,7 +609,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -619,7 +619,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -629,7 +629,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -639,7 +639,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -649,7 +649,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -659,7 +659,7 @@
       "actor": "lag",
       "solid": "mansion-theatre-recliner-5-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.837, 0.103 m above the cushion and 0.237 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -669,7 +669,7 @@
       "actor": "oldStove",
       "solid": "mansion-theatre-recliner-1-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.839, 0.101 m above the cushion and 0.239 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -679,7 +679,7 @@
       "actor": "seff",
       "solid": "mansion-theatre-recliner-3-collider",
       "reason": "He is sat in that recliner, which is what the evening staging puts him there to do. The chair is collided as one 0.96 x 0.90 x 0.84 m box running from the back row's riser floor at y -2.5 up to -1.6, because a cinema chair the player can walk through is not furniture; the seat pad inside that box tops out at -1.94 and the measured settling pass drops his hips onto it at -1.836, 0.104 m above the cushion and 0.236 m below the lid of the box. Nobody can sit on the pad without being inside the chair that holds it up.",
-      "source": "src/mansion/cast.js:1883",
+      "source": "src/mansion/cast.js:1894",
       "sourceAnchor": "npc.inFixture = 'theatre recliner';"
     },
     {
@@ -689,7 +689,7 @@
       "actor": "suitePerformer0",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.317, her feet are down in the footwell at 10.75 and the water at 11.48 crosses her chest, so she is 0.137 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     },
     {
@@ -699,7 +699,7 @@
       "actor": "suitePerformer1",
       "solid": "mansion-suite-hot-tub-collider",
       "reason": "She is sat on the hot tub's moulded bench ring. The drum is collided as ONE solid 4.14 x 1.04 x 4.14 m box from the suite floor at y 10.6 to the gold coping at 11.64, and it has to be: it is a marble wall the player walks round, not a hole in the floor. The bench inside it tops out at 11.18, her hips measure 11.318, her feet are down in the footwell at 10.76 and the water at 11.48 crosses her chest, so she is 0.138 m above the seat and 0.32 m below the rim. You cannot sit in a tub without being inside the tub.",
-      "source": "src/mansion/cast.js:2042",
+      "source": "src/mansion/cast.js:2053",
       "sourceAnchor": "npc.inFixture = 'the hot tub';"
     }
   ]
