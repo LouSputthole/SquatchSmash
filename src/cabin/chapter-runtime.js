@@ -27,13 +27,13 @@ export const STORY_TO_CLEANUP_BODY = Object.freeze({
  * visible tool motion and impact are still resolving.
  */
 export const CABIN_TORTURE_TOOL_PROFILES = Object.freeze({
-  pliers: Object.freeze({ duration: 0.48, flinch: 0.58, cue: 'punch.light', rate: 1.34, volume: 0.44 }),
-  saw: Object.freeze({ duration: 0.72, flinch: 0.82, cue: 'swing.whiff', rate: 0.84, volume: 0.50 }),
-  battery: Object.freeze({ duration: 0.78, flinch: 1.00, cue: 'stunprod.arc', rate: 0.96, volume: 0.58 }),
-  syringes: Object.freeze({ duration: 0.42, flinch: 0.44, cue: 'switch.click', rate: 1.62, volume: 0.38 }),
-  towels: Object.freeze({ duration: 0.62, flinch: 0.68, cue: 'cloth.snap', rate: 0.82, volume: 0.48 }),
-  leads: Object.freeze({ duration: 0.70, flinch: 0.90, cue: 'stunprod.arc', rate: 0.72, volume: 0.55 }),
-  bucket: Object.freeze({ duration: 0.68, flinch: 0.94, cue: 'punch.heavy', rate: 0.74, volume: 0.55 }),
+  pliers: Object.freeze({ duration: 0.48, flinch: 0.58, cue: 'punch.light', rate: 1.34, volume: 0.44, motion: 'clamp', feedback: 'pinch' }),
+  saw: Object.freeze({ duration: 0.72, flinch: 0.82, cue: 'swing.whiff', rate: 0.84, volume: 0.50, motion: 'saw', feedback: 'saw' }),
+  battery: Object.freeze({ duration: 0.78, flinch: 1.00, cue: 'stunprod.arc', rate: 0.96, volume: 0.58, motion: 'shock', feedback: 'shock' }),
+  syringes: Object.freeze({ duration: 0.42, flinch: 0.44, cue: 'switch.click', rate: 1.62, volume: 0.38, motion: 'jab', feedback: 'jab' }),
+  towels: Object.freeze({ duration: 0.62, flinch: 0.68, cue: 'cloth.snap', rate: 0.82, volume: 0.48, motion: 'smother', feedback: 'smother' }),
+  leads: Object.freeze({ duration: 0.70, flinch: 0.90, cue: 'silent.arc', rate: 0.72, volume: 0.55, motion: 'arc', feedback: 'arc' }),
+  bucket: Object.freeze({ duration: 0.68, flinch: 0.94, cue: 'punch.heavy', rate: 0.74, volume: 0.55, motion: 'douse', feedback: 'douse' }),
 });
 
 const CLEANUP_TO_STORY_BODY = Object.freeze(Object.fromEntries(

@@ -24,10 +24,12 @@ ensureThreeShim();
 const [
   { buildCountrysideCabin },
   { InteractionSystem },
+  { CABIN_TORTURE_TOOL_PROFILES },
   THREE,
 ] = await Promise.all([
   import('../src/cabin/world.js'),
   import('../src/core/interaction.js'),
+  import('../src/cabin/chapter-runtime.js'),
   import('three'),
 ]);
 
@@ -408,6 +410,98 @@ test('the second cellar door is concealed, campaign-gated, animated, and removes
   cabin.dispose();
 });
 
+test('holding-cell bars meet both slabs and one-way latched doors clear their honest collision', async () => {
+  const events = [];
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.045, 100);
+  const interaction = new InteractionSystem(camera, {
+    showPrompt() {}, hidePrompt() {}, setHold() {},
+  });
+  const cabin = await buildCountrysideCabin({
+    scene: new THREE.Scene(),
+    camera,
+    externalLighting: true,
+    interaction,
+    onDungeonInteract: (event) => events.push(event),
+  });
+  interaction.setOccluders(cabin.occluders ?? []);
+  const { dungeon } = cabin.basement;
+  const bars = [];
+  dungeon.root.traverse((object) => {
+    if (/^cabin-dungeon-cell-(west|east)-(bar-|door-bar-|inner-side-bar-|front-jamb-)/.test(object.name)) bars.push(object);
+  });
+  assert.ok(bars.length >= 30, 'both cell fronts and both barred door leaves must be authored');
+  dungeon.root.updateMatrixWorld(true);
+  for (const bar of bars) {
+    const bounds = new THREE.Box3().setFromObject(bar);
+    assert.ok(bounds.min.y <= CABIN_DUNGEON.floorY + 1e-6,
+      `${bar.name} floats ${(bounds.min.y - CABIN_DUNGEON.floorY).toFixed(3)} m above the slab`);
+    assert.ok(bounds.max.y >= CABIN_DUNGEON.ceilingY - 1e-6,
+      `${bar.name} stops ${(CABIN_DUNGEON.ceilingY - bounds.max.y).toFixed(3)} m below the ceiling`);
+  }
+
+  for (const [id, door] of Object.entries(dungeon.cells)) {
+    const openingCenterX = (door.opening.x0 + door.opening.x1) / 2;
+    const descriptor = door.target.userData.interact;
+    assert.ok(descriptor, `${id} cell door has no interaction descriptor`);
+    assert.match(descriptor.label(), /lift the latch/i);
+    assert.equal(descriptor.enabled(), true);
+    assert.equal(door.hinges.length, 3);
+    assert.match(door.latch.name, /door-latch$/);
+    assert.equal(door.colliderLive, true);
+    assert.ok(cabin.colliders.includes(door.collider));
+    assert.ok(cabin.colliders.includes(door.sideCollider), `${id} cell can be bypassed around its inner end`);
+    assert.ok(door.sideCollider.min.y <= CABIN_DUNGEON.floorY + 1e-6);
+    assert.ok(door.sideCollider.max.y >= CABIN_DUNGEON.ceilingY - 1e-6);
+    assert.ok(door.sideCollider.max.z - door.sideCollider.min.z >= 2.8,
+      `${id} inner return does not reach the rear shell`);
+
+    const passage = new THREE.Box3(
+      new THREE.Vector3(openingCenterX - 0.24, CABIN_DUNGEON.floorY, door.opening.z - 0.20),
+      new THREE.Vector3(openingCenterX + 0.24, CABIN_DUNGEON.floorY + 1.80, door.opening.z + 0.20),
+    );
+    assert.deepEqual(
+      cabin.colliders.filter((volume) => volume.name?.startsWith(`cabin-dungeon-cell-${id}`) && volume.intersectsBox(passage)).map(({ name }) => name),
+      [`cabin-dungeon-cell-${id}-door-live`],
+      `${id} cell must have exactly one central opening blocked only by its closed door`,
+    );
+
+    const hingeBefore = door.pivot.getWorldPosition(new THREE.Vector3());
+    const leafBefore = new THREE.Box3().setFromObject(door.leaf).getCenter(new THREE.Vector3());
+    camera.position.set(openingCenterX, CABIN_DUNGEON.floorY + 1.66, door.opening.z - 2.0);
+    camera.lookAt(openingCenterX, CABIN_DUNGEON.floorY + 1.10, door.opening.z);
+    cabin.root.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    interaction.update(0);
+    assert.equal(interaction.current, door.target, `${id} latch is not selectable from the main aisle`);
+    interaction.press();
+    assert.equal(door.open, true);
+    assert.equal(descriptor.enabled(), false, 'the opened door cannot relatch behind the player');
+    assert.equal(descriptor.onUse(), false, 'reusing an open door must not toggle it closed');
+    for (let index = 0; index < 6; index += 1) dungeon.update(0.1, index * 0.1, dungeon.spawns.room.position);
+
+    dungeon.root.updateMatrixWorld(true);
+    const hingeAfter = door.pivot.getWorldPosition(new THREE.Vector3());
+    const leafAfter = new THREE.Box3().setFromObject(door.leaf).getCenter(new THREE.Vector3());
+    assert.ok(hingeAfter.distanceTo(hingeBefore) <= 1e-8, `${id} door hinge moved with the leaf`);
+    assert.ok(leafAfter.z >= leafBefore.z + 0.42, `${id} door did not swing inward into its cell`);
+    assert.ok(door.pivot.rotation.y < -1.5, `${id} door did not clear the central opening`);
+    assert.equal(door.colliderLive, false);
+    assert.equal(cabin.colliders.includes(door.collider), false);
+    assert.deepEqual(
+      cabin.colliders.filter((volume) => volume.name?.startsWith(`cabin-dungeon-cell-${id}`) && volume.intersectsBox(passage)).map(({ name }) => name),
+      [],
+      `${id} cell opening kept a stale collider after the door cleared`,
+    );
+  }
+  assert.deepEqual(events.map(({ kind, id, action, oneWay }) => [kind, id, action, oneWay]), [
+    ['cellDoor', 'west', 'open', true],
+    ['cellDoor', 'east', 'open', true],
+  ]);
+
+  cabin.basement.dispose();
+  cabin.dispose();
+});
+
 test('the live shared armory leaves a continuous player-radius route down the ramp and clear debug poses', async () => {
   const cabin = await buildCountrysideCabin({
     scene: new THREE.Scene(),
@@ -694,6 +788,50 @@ test('Gratin and two Cabin-local disposable captives expose restrained pose, hit
   cabin.dispose();
 });
 
+test('both restrained captives play seven distinct tool-authored feedback poses', async () => {
+  const cabin = await buildCountrysideCabin({
+    scene: new THREE.Scene(),
+    externalLighting: true,
+    interaction: { register() {}, unregister() {} },
+  });
+  const { dungeon } = cabin.basement;
+  const poseValues = (actor) => [
+    actor.npc.parts.body.rotation.x,
+    actor.npc.parts.body.rotation.z,
+    actor.npc.parts.armL.rotation.x,
+    actor.npc.parts.armR.rotation.x,
+    actor.npc.parts.foreL.rotation.x,
+    actor.npc.parts.foreR.rotation.x,
+    actor.npc.parts.legL.rotation.x,
+    actor.npc.parts.legR.rotation.x,
+  ];
+  let elapsed = 0;
+
+  for (const actor of [dungeon.actors.ateam, dungeon.actors.counterStrike]) {
+    const signatures = new Set();
+    for (const [tool, profile] of Object.entries(CABIN_TORTURE_TOOL_PROFILES)) {
+      actor.setPain(0);
+      dungeon.update(1, elapsed += 1, dungeon.spawns.room.position);
+      const resting = poseValues(actor);
+      assert.equal(actor.react(profile.feedback, profile), profile.feedback);
+      assert.equal(actor.snapshot.feedback, profile.feedback);
+      dungeon.update(profile.duration * 0.31, elapsed += profile.duration * 0.31, dungeon.spawns.room.position);
+      const active = poseValues(actor);
+      assert.equal(actor.snapshot.feedback, profile.feedback, `${actor.id}/${tool} feedback ended before its tool motion`);
+      assert.ok(active.some((value, index) => Math.abs(value - resting[index]) > 1e-4),
+        `${actor.id}/${tool} did not change the restrained pose`);
+      signatures.add(active.map((value, index) => (value - resting[index]).toFixed(4)).join(','));
+      dungeon.update(profile.duration, elapsed += profile.duration, dungeon.spawns.room.position);
+      assert.equal(actor.snapshot.feedback, null, `${actor.id}/${tool} feedback did not release`);
+    }
+    assert.equal(signatures.size, Object.keys(CABIN_TORTURE_TOOL_PROFILES).length,
+      `${actor.id} collapsed multiple tools to the same victim feedback`);
+  }
+
+  cabin.basement.dispose();
+  cabin.dispose();
+});
+
 test('dead captives wrap directly and tangible table tools swap without duplicating geometry', async () => {
   const registered = new Map();
   const wrapReady = new Set();
@@ -761,5 +899,38 @@ test('the dungeon worktable viewpoint resolves the aggregate worktable interacti
     cabin.basement.dungeon.targets.tools.worktable.name,
   );
 
+  cabin.dispose();
+});
+
+test('every visible torture tool wins its authored crosshair over the soft worktable fallback', async () => {
+  const events = [];
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.045, 100);
+  const interaction = new InteractionSystem(camera, {
+    showPrompt() {}, hidePrompt() {}, setHold() {},
+  });
+  const cabin = await buildCountrysideCabin({
+    scene: new THREE.Scene(),
+    camera,
+    externalLighting: true,
+    interaction,
+    onDungeonTool: (id) => events.push(id),
+  });
+  interaction.setOccluders(cabin.occluders ?? []);
+  cabin.root.updateMatrixWorld(true);
+
+  for (const id of Object.keys(CABIN_TORTURE_TOOL_PROFILES)) {
+    const key = `dungeonTool${id[0].toUpperCase()}${id.slice(1)}`;
+    const viewpoint = cabin.interactionViewpoints[key];
+    camera.position.copy(viewpoint.position);
+    camera.lookAt(viewpoint.lookAt);
+    camera.updateMatrixWorld(true);
+    interaction.update(0);
+    assert.equal(interaction.current, cabin.basement.dungeon.targets.tools[id],
+      `${id} is swallowed by ${interaction.current?.name ?? 'no target'}`);
+    interaction.press();
+    interaction.release();
+  }
+
+  assert.deepEqual(events, Object.keys(CABIN_TORTURE_TOOL_PROFILES));
   cabin.dispose();
 });

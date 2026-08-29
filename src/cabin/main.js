@@ -1365,7 +1365,8 @@ chapter = createCabinChapterRuntime({
     },
     onTortureHit: (id, hostage, tool, profile = CABIN_TORTURE_TOOL_PROFILES[tool]) => {
       const actor = dungeonActorFor(id);
-      actor?.flinch?.(profile?.flinch ?? Math.min(1, 0.55 + hostage.hits * 0.08));
+      const reacted = actor?.react?.(profile?.feedback, profile);
+      if (!reacted) actor?.flinch?.(profile?.flinch ?? Math.min(1, 0.55 + hostage.hits * 0.08));
       tortureTools.strike(profile);
       audio.play(profile?.cue ?? 'punch.light', {
         volume: profile?.volume ?? 0.58,
@@ -1836,7 +1837,7 @@ startButton.addEventListener('click', async () => {
       'cig.pack', 'cig.light', 'cig.exhale', 'cig.stub',
       'whiskey.cap', 'whiskey.pour', 'whiskey.swig', 'whiskey.gasp',
       'pizza.take', 'egg.eat', 'tv.click', 'gun.drop.wood',
-      'punch.light', 'punch.heavy', 'swing.whiff', 'stunprod.arc',
+      'punch.light', 'punch.heavy', 'swing.whiff', 'stunprod.arc', 'silent.arc',
       'cloth.snap', 'boat.bag.zip', 'boat.body.drag',
       'silent.gas.hiss', 'heist.bullet.impact',
       ...weaponCueNames(),
@@ -2026,6 +2027,7 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   dialogue,
   executionChoice,
   weapons,
+  bloodImpacts,
   armory,
   rifleRackArmory,
   reflectionBody,

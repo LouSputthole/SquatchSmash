@@ -132,6 +132,431 @@ async function teleport(page, id, mode = 'interact') {
   return placed;
 }
 
+async function poseAtWrappedBody(page, cleanupId) {
+  const receipt = await page.evaluate((bodyId) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const descriptor = runtime.cleanup.interactionDescriptors.bodies[bodyId];
+    const target = descriptor?.target;
+    if (!target) return { placed: false, bodyId };
+    runtime.scene.updateMatrixWorld(true);
+    const focus = target.getWorldPosition(target.position.clone());
+    focus.y += 0.34;
+    const floor = runtime.dungeon.bounds.dungeon.floorY;
+    const player = runtime.player;
+    player._tween = null;
+    player.mode = 'walk';
+    player.position.set(focus.x, floor + 1.66, focus.z - 1.72);
+    player.ground = floor;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.jumpHeight = 0;
+    player.grounded = true;
+    player.crouching = false;
+    player.sprinting = false;
+    player.velocity.set(0, 0, 0);
+    player.clearKeys();
+    const delta = focus.clone().sub(player.position);
+    player.yaw = Math.atan2(-delta.x, -delta.z);
+    player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.state.level = 'basement';
+    runtime.input.clear(`cabin-verifier-wrapped-body-${bodyId}`);
+    player.update(0);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      placed: true,
+      bodyId,
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      distance: player.position.distanceTo(focus),
+      position: player.position.toArray(),
+      target: focus.toArray(),
+    };
+  }, cleanupId);
+  await nextFrames(page, 2);
+  return receipt;
+}
+
+async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null } = {}) {
+  const start = await page.evaluate((point) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const player = runtime.player;
+    const dx = point[0] - player.position.x;
+    const dz = point[1] - player.position.z;
+    player.yaw = Math.atan2(-dx, -dz);
+    player.pitch = 0;
+    player.velocity.set(0, 0, 0);
+    player.clearKeys();
+    player.camera.updateMatrixWorld(true);
+    return {
+      position: player.position.toArray(),
+      distance: Math.hypot(dx, dz),
+      movementPresses: runtime.input.snapshot().movementPresses,
+      carrying: runtime.state.carryingBody,
+    };
+  }, target);
+  await page.keyboard.down('w');
+  const frameBudget = maxFrames ?? Math.max(240, Math.ceil(start.distance * 180));
+  const end = await page.evaluate(({ point, radius, limit, priorPresses }) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const player = runtime.player;
+    const samples = [];
+    let frames = 0;
+    let distance = Math.hypot(player.position.x - point[0], player.position.z - point[1]);
+    while (distance > radius && frames < limit) {
+      player.update(1 / 60);
+      frames += 1;
+      distance = Math.hypot(player.position.x - point[0], player.position.z - point[1]);
+      if (frames === 1 || frames % 60 === 0 || distance <= radius) {
+        samples.push({
+          frame: frames,
+          position: player.position.toArray(),
+          ground: player.ground,
+          distance,
+        });
+      }
+    }
+    const feet = player.position.y - player.eyeHeight;
+    const penetrations = runtime.cabin.colliders.filter((box) => {
+      if (player.position.y + 0.05 < box.min.y || feet > box.max.y) return false;
+      if (box.max.y <= player.ground + 0.40) return false;
+      const closestX = Math.max(box.min.x, Math.min(box.max.x, player.position.x));
+      const closestZ = Math.max(box.min.z, Math.min(box.max.z, player.position.z));
+      return Math.hypot(player.position.x - closestX, player.position.z - closestZ) < 0.299;
+    }).map((box) => box.name || '(unnamed)');
+    const input = runtime.input.snapshot();
+    return {
+      position: player.position.toArray(),
+      distance,
+      movementPresses: runtime.input.snapshot().movementPresses,
+      inputDelta: input.movementPresses - priorPresses,
+      lastMovementCode: input.lastMovementCode,
+      keyHeld: player.keys.has('KeyW'),
+      carrying: runtime.state.carryingBody,
+      level: runtime.state.level,
+      ground: player.ground,
+      feet,
+      frames,
+      frameBudget: limit,
+      reached: distance <= radius,
+      samples,
+      penetrations,
+    };
+  }, {
+    point: target,
+    radius: tolerance,
+    limit: frameBudget,
+    priorPresses: start.movementPresses,
+  });
+  await page.keyboard.up('w');
+  const released = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const player = runtime.player;
+    const keyReleased = !player.keys.has('KeyW');
+    player.velocity.set(0, 0, 0);
+    return {
+      keyReleased,
+      position: player.position.toArray(),
+      carrying: runtime.state.carryingBody,
+    };
+  });
+  Object.assign(end, {
+    keyReleased: released.keyReleased,
+    positionAfterRelease: released.position,
+    carryingAfterRelease: released.carrying,
+  });
+  if (!end.reached) {
+    throw new Error(`Real W traversal exhausted its frame budget: ${JSON.stringify({ target, start, end })}`);
+  }
+  return { target, start, end };
+}
+
+async function extractBodyThroughRealRoute(page, cleanupId, { checkCarrySuppression = false } = {}) {
+  const pickupSetup = await poseAtWrappedBody(page, cleanupId);
+  const pickupBefore = await page.evaluate(() => ({
+    presses: window.COUNTRYSIDE_CABIN.input.snapshot().interactionPresses,
+    current: window.COUNTRYSIDE_CABIN.interaction.current?.name ?? null,
+  }));
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const pickup = await page.evaluate(({ bodyId, prior }) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const record = runtime.cleanup.bodies.get(bodyId);
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      carrying: runtime.state.carryingBody,
+      cleanupCarrying: runtime.cleanup.snapshot().carryingId,
+      phase: record?.phase ?? null,
+      parentIsCamera: record?.group?.parent === runtime.player.camera,
+    };
+  }, { bodyId: cleanupId, prior: pickupBefore.presses });
+
+  let carrySuppression = null;
+  if (checkCarrySuppression) {
+    await page.keyboard.down('Shift');
+    await page.keyboard.down('Space');
+    await nextFrames(page, 2);
+    carrySuppression = await page.evaluate(() => ({
+      carrying: window.COUNTRYSIDE_CABIN.state.carryingBody,
+      sprinting: window.COUNTRYSIDE_CABIN.player.sprinting,
+      shift: window.COUNTRYSIDE_CABIN.player.keys.has('ShiftLeft'),
+      jump: window.COUNTRYSIDE_CABIN.player.keys.has('Space'),
+    }));
+    await page.keyboard.up('Space');
+    await page.keyboard.up('Shift');
+  }
+
+  /* Start at the real pickup pose. These body-specific legs clear the west
+   * hanging station or east rack into the common aisle; no position mutation
+   * is allowed after the body becomes attached to the camera. */
+  const cellExitWaypoints = cleanupId === 'counterstrike-player'
+    ? [
+      [-3.18, 13.65],
+      [-2.20, 12.35],
+      [-0.20, 10.55],
+      [0.92, 9.72],
+    ]
+    : [
+      [6.24, 11.82],
+      [5.05, 10.72],
+      [3.10, 9.92],
+      [0.92, 9.72],
+    ];
+  const cellExitRoute = [];
+  for (const target of cellExitWaypoints) {
+    cellExitRoute.push(await walkPlayerTo(page, target, { tolerance: 0.08 }));
+  }
+  /* Reverse the same capsule-clear bends proved by the shared armory
+   * contract. A straight line clips the two mounted guns around z=6.7; these
+   * are steering waypoints only, while W, Player.update(), and live collision
+   * own every metre of the extraction. */
+  const corridorRoute = [];
+  for (const target of [
+    [0.92, 9.24],
+    [0.72, 8.54],
+    [0.72, 7.10],
+    [0.86, 6.77],
+    [0.98, 6.68],
+    [1.08, 6.42],
+    [1.08, 4.88],
+    [1.08, 4.05],
+  ]) {
+    corridorRoute.push(await walkPlayerTo(page, target, { tolerance: 0.08 }));
+  }
+  const corridorStart = corridorRoute[0].start;
+  const corridorExit = corridorRoute.at(-1).end;
+  const cellarTraverse = [];
+  for (const target of [
+    [3.25, 4.02],
+    [4.10, 3.24],
+    [4.52, 3.24],
+  ]) {
+    cellarTraverse.push(await walkPlayerTo(page, target, { tolerance: 0.08 }));
+  }
+  const ladderApproach = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const target = runtime.cabin.basement.exitTarget;
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.clearKeys();
+    runtime.scene.updateMatrixWorld(true);
+    const focus = target.getWorldPosition(target.position.clone());
+    const delta = focus.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.update(0);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      position: runtime.player.position.toArray(),
+      ground: runtime.player.ground,
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      presses: runtime.input.snapshot().interactionPresses,
+      carrying: runtime.state.carryingBody,
+      level: runtime.state.level,
+    };
+  });
+  if (!ladderApproach.targetResolved) {
+    throw new Error(`Real carry route could not resolve the authored ladder target: ${JSON.stringify({
+      cleanupId,
+      cellExitRoute,
+      corridorRoute,
+      cellarTraverse,
+      ladderApproach,
+    })}`);
+  }
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const ladderUp = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const record = runtime.cleanup.bodies.get(runtime.state.carryingBody);
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      level: runtime.state.level,
+      position: runtime.player.position.toArray(),
+      ground: runtime.player.ground,
+      carrying: runtime.state.carryingBody,
+      cleanupCarrying: runtime.cleanup.snapshot().carryingId,
+      parentIsCamera: record?.group?.parent === runtime.player.camera,
+    };
+  }, ladderApproach.presses);
+  if (ladderUp.inputDelta !== 1 || ladderUp.level !== 'cabin') {
+    throw new Error(`Real E did not complete the carrying ladder transition: ${JSON.stringify({
+      cleanupId,
+      ladderApproach,
+      ladderUp,
+    })}`);
+  }
+
+  /* The wardrobe-return spawn faces the concealed panel; backing up points at
+   * the refrigerator. Turn west through the authored room opening, then clear
+   * the appliance before approaching the front door. */
+  const closetExitRoute = [];
+  for (const target of [
+    [4.20, 3.42],
+    [2.65, 2.78],
+  ]) {
+    closetExitRoute.push(await walkPlayerTo(page, target, { tolerance: 0.08 }));
+  }
+  const surfaceRoute = [];
+  surfaceRoute.push(await walkPlayerTo(page, [2.65, 4.62]));
+  const cabinDoorApproach = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const target = runtime.cabin.door.target;
+    runtime.scene.updateMatrixWorld(true);
+    const focus = runtime.player.position.clone().set(2.49, 1.08, 5.48);
+    const delta = focus.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.clearKeys();
+    runtime.player.update(0);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      wasOpen: runtime.cabin.door.open,
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      presses: runtime.input.snapshot().interactionPresses,
+      openness: runtime.cabin.door.openness,
+    };
+  });
+  if (!cabinDoorApproach.wasOpen && !cabinDoorApproach.targetResolved) {
+    throw new Error(`Real carry route could not resolve the authored cabin door: ${JSON.stringify({
+      cleanupId,
+      closetExitRoute,
+      cabinDoorApproach,
+    })}`);
+  }
+  if (!cabinDoorApproach.wasOpen) {
+    await page.keyboard.press('e');
+  }
+  const cabinDoorOpen = await page.evaluate(({ prior, alreadyOpen }) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    let animationFrames = 0;
+    while (runtime.cabin.door.open
+      && runtime.cabin.door.openness <= 0.92
+      && animationFrames < 240) {
+      animationFrames += 1;
+      runtime.cabin.update(
+        1 / 60,
+        runtime.state.elapsed + animationFrames / 60,
+        runtime.player.position,
+      );
+    }
+    return {
+      open: runtime.cabin.door.open,
+      openness: runtime.cabin.door.openness,
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      carrying: runtime.state.carryingBody,
+      animationFrames,
+      animationReached: runtime.cabin.door.openness > 0.92,
+      alreadyOpen,
+    };
+  }, { prior: cabinDoorApproach.presses, alreadyOpen: cabinDoorApproach.wasOpen });
+  if (!cabinDoorOpen.open || !cabinDoorOpen.animationReached) {
+    throw new Error(`Real E did not open the authored cabin door: ${JSON.stringify({
+      cleanupId,
+      cabinDoorApproach,
+      cabinDoorOpen,
+    })}`);
+  }
+  for (const target of [
+    [2.65, 7.55],
+    [0.25, 10.10],
+    [-4.75, 13.25],
+    [-9.15, 17.35],
+    [-9.15, 20.00],
+    [-14.00, 20.00],
+    [-14.0, 17.45],
+  ]) {
+    surfaceRoute.push(await walkPlayerTo(page, target));
+  }
+  const fireApproach = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const target = runtime.cleanup.interactionDescriptors.fire.target;
+    runtime.scene.updateMatrixWorld(true);
+    const focus = target.getWorldPosition(target.position.clone());
+    const delta = focus.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.clearKeys();
+    runtime.player.update(0);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      presses: runtime.input.snapshot().interactionPresses,
+      carrying: runtime.state.carryingBody,
+    };
+  });
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const placed = await page.evaluate(({ bodyId, prior }) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      bodyPhase: runtime.cleanup.bodies.get(bodyId)?.phase ?? null,
+      carrying: runtime.state.carryingBody,
+      cleanupCarrying: runtime.cleanup.snapshot().carryingId,
+      phase: runtime.story.phase(),
+      castAtFire: runtime.chapter.snapshot().castAtFire,
+    };
+  }, { bodyId: cleanupId, prior: fireApproach.presses });
+
+  return {
+    cleanupId,
+    pickupSetup,
+    pickupBefore,
+    pickup,
+    carrySuppression,
+    cellExitRoute,
+    corridorRoute,
+    corridorStart,
+    corridorExit,
+    cellarTraverse,
+    ladderApproach,
+    ladderUp,
+    closetExitRoute,
+    surfaceRoute,
+    cabinDoorApproach,
+    cabinDoorOpen,
+    fireApproach,
+    placed,
+  };
+}
+
 try {
   check('Cabin script exposes exactly 163 authored VO cues', authoredCues.length === 163, `${authoredCues.length} cues`);
   check('Every authored Cabin VO cue is synchronized into the sound manifest', absentFromManifest.length === 0,
@@ -416,12 +841,13 @@ try {
   await teleport(page, 'basementEntrance', 'interact');
   await capture(page, '03-supreme-leader-secret');
 
+  const cellarPressesBefore = await page.evaluate(() => window.COUNTRYSIDE_CABIN.input.snapshot().interactionPresses);
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
   const cellar = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const target = runtime.cabin.basement.entryTarget;
-    const used = target.userData.interact.onUse();
     return {
-      used,
+      inputPresses: runtime.input.snapshot().interactionPresses,
       open: runtime.story.cellarOpen(),
       phase: runtime.story.phase(),
       level: runtime.state.level,
@@ -429,24 +855,86 @@ try {
       secondEnabled: runtime.dungeon.targets.door.userData.interact.enabled(),
     };
   });
-  check('First secret interaction records the cellar and moves the player below the Cabin',
-    cellar.used && cellar.open && cellar.phase === 'enter_dungeon'
+  check('Real E-key interaction records the first secret and moves the player below the Cabin',
+    cellar.inputPresses === cellarPressesBefore + 1
+      && cellar.open && cellar.phase === 'enter_dungeon'
       && cellar.level === 'basement' && cellar.floorY < -3);
   check('Opening the cellar enables—but does not auto-open—the second secret door', cellar.secondEnabled);
+
+  await clearHands(page);
+  await teleport(page, 'basementExit', 'interact');
+  const emptyLadderUpBefore = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      presses: runtime.input.snapshot().interactionPresses,
+      targetResolved: runtime.interaction.current === runtime.cabin.basement.exitTarget,
+      current: runtime.interaction.current?.name ?? null,
+      carrying: runtime.state.carryingBody,
+      tool: runtime.chapter.selectedTool,
+    };
+  });
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const emptyLadderUp = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      level: runtime.state.level,
+      ground: runtime.player.ground,
+      carrying: runtime.state.carryingBody,
+      tool: runtime.chapter.selectedTool,
+    };
+  }, emptyLadderUpBefore.presses);
+  await teleport(page, 'basementEntrance', 'interact');
+  const emptyLadderDownBefore = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      presses: runtime.input.snapshot().interactionPresses,
+      targetResolved: runtime.interaction.current === runtime.cabin.basement.entryTarget,
+      current: runtime.interaction.current?.name ?? null,
+    };
+  });
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const emptyLadderDown = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      level: runtime.state.level,
+      ground: runtime.player.ground,
+      carrying: runtime.state.carryingBody,
+      tool: runtime.chapter.selectedTool,
+    };
+  }, emptyLadderDownBefore.presses);
+  check('The wardrobe ladder completes an empty-handed real-E round trip without trapping Tony',
+    emptyLadderUpBefore.targetResolved
+      && emptyLadderDownBefore.targetResolved
+      && emptyLadderUp.inputDelta === 1
+      && emptyLadderUp.level === 'cabin'
+      && Math.abs(emptyLadderUp.ground) < 0.05
+      && emptyLadderUp.carrying === null
+      && emptyLadderUp.tool === null
+      && emptyLadderDown.inputDelta === 1
+      && emptyLadderDown.level === 'basement'
+      && emptyLadderDown.ground < -3
+      && emptyLadderDown.carrying === null
+      && emptyLadderDown.tool === null,
+    JSON.stringify({ up: emptyLadderUpBefore, afterUp: emptyLadderUp, down: emptyLadderDownBefore, afterDown: emptyLadderDown }));
+
   await clearHands(page);
   await teleport(page, 'dungeonDoor', 'interact');
   await capture(page, '04-second-secret-door-closed');
 
+  const dungeonDoorPressesBefore = await page.evaluate(() => window.COUNTRYSIDE_CABIN.input.snapshot().interactionPresses);
+  await page.keyboard.press('e');
   const dungeonEntry = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const door = runtime.dungeon.targets.door;
-    const used = door.userData.interact.onUse();
     for (let index = 0; index < 18; index += 1) {
       runtime.dungeon.update(0.1, runtime.state.elapsed + index * 0.1, runtime.player.position);
     }
     runtime.teleport('dungeonAteamCaptive', 'interact');
     return {
-      used,
+      inputPresses: runtime.input.snapshot().interactionPresses,
       entered: runtime.story.dungeonEntered(),
       phase: runtime.story.phase(),
       doorOpen: runtime.dungeon.door.open,
@@ -456,13 +944,42 @@ try {
       floorY: runtime.dungeon.bounds.dungeon.floorY,
     };
   });
-  check('Second secret-door interaction opens the expanded dungeon and removes its live collider',
-    dungeonEntry.used && dungeonEntry.entered && dungeonEntry.phase === 'interrogation'
+  check('Real E-key interaction opens the second secret and removes its live collider',
+    dungeonEntry.inputPresses === dungeonDoorPressesBefore + 1
+      && dungeonEntry.entered && dungeonEntry.phase === 'interrogation'
       && dungeonEntry.doorOpen && dungeonEntry.doorT > 0.95 && !dungeonEntry.colliderLive);
   check('Dungeon spawn lands on its own lower floor',
     Math.abs((dungeonEntry.playerY - 1.66) - dungeonEntry.floorY) < 0.06,
     `floor ${dungeonEntry.floorY.toFixed(2)} m`);
   await clearChapterPresentation(page);
+  const cellDoorReceipts = [];
+  for (const id of ['West', 'East']) {
+    await clearHands(page);
+    await teleport(page, `dungeonCellDoor${id}`, 'interact');
+    const before = await page.evaluate(() => window.COUNTRYSIDE_CABIN.input.snapshot().interactionPresses);
+    await page.keyboard.press('e');
+    await nextFrames(page, 2);
+    cellDoorReceipts.push(await page.evaluate(({ cellId, prior }) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      const id = cellId.toLowerCase();
+      for (let index = 0; index < 10; index += 1) {
+        runtime.dungeon.update(0.1, runtime.state.elapsed + index * 0.1, runtime.player.position);
+      }
+      const door = runtime.dungeon.cells[id];
+      return {
+        id,
+        inputDelta: runtime.input.snapshot().interactionPresses - prior,
+        open: door.open,
+        t: door.t,
+        colliderLive: door.colliderLive,
+        promptEnabled: door.target.userData.interact.enabled(),
+      };
+    }, { cellId: id, prior: before }));
+  }
+  check('Both barred cell doors open inward once through the real E-key path and clear collision',
+    cellDoorReceipts.every((receipt) => receipt.inputDelta === 1
+      && receipt.open && receipt.t > 0.95 && !receipt.colliderLive && !receipt.promptEnabled),
+    JSON.stringify(cellDoorReceipts));
   await clearHands(page);
   await teleport(page, 'dungeon', 'observe');
   await captureScene(page, '05-dungeon-overview-clean');
@@ -471,30 +988,195 @@ try {
   await teleport(page, 'dungeonCounterStrikeCaptive', 'interact');
   await captureScene(page, '05-dungeon-baiter-clean');
 
-  const interrogation = await page.evaluate(() => {
+  await clearChapterPresentation(page);
+  await teleport(page, 'dungeonToolPliers', 'interact');
+  await page.keyboard.press('e');
+  await nextFrames(page, 1);
+  await teleport(page, 'basementExit', 'interact');
+  const toolLadderUpBefore = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      presses: runtime.input.snapshot().interactionPresses,
+      targetResolved: runtime.interaction.current === runtime.cabin.basement.exitTarget,
+      selected: runtime.chapter.selectedTool,
+      heldVisible: runtime.tortureTools.snapshot().visible.pliers,
+    };
+  });
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const toolLadderUp = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      level: runtime.state.level,
+      selected: runtime.chapter.selectedTool,
+      heldVisible: runtime.tortureTools.snapshot().visible.pliers,
+    };
+  }, toolLadderUpBefore.presses);
+  await teleport(page, 'basementEntrance', 'interact');
+  const toolLadderDownBefore = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      presses: runtime.input.snapshot().interactionPresses,
+      targetResolved: runtime.interaction.current === runtime.cabin.basement.entryTarget,
+    };
+  });
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const toolLadderDown = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      level: runtime.state.level,
+      selected: runtime.chapter.selectedTool,
+      heldVisible: runtime.tortureTools.snapshot().visible.pliers,
+    };
+  }, toolLadderDownBefore.presses);
+  await page.keyboard.press('q');
+  await nextFrames(page, 1);
+  const returnedTool = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      selected: runtime.chapter.selectedTool,
+      tableVisible: runtime.dungeon.tools.pliers.visible,
+      heldVisible: runtime.tortureTools.snapshot().visible.pliers,
+    };
+  });
+  check('A held torture tool survives a real-E ladder round trip and real Q returns it to Gratin’s table',
+    toolLadderUpBefore.targetResolved
+      && toolLadderUpBefore.selected === 'pliers'
+      && toolLadderUpBefore.heldVisible
+      && toolLadderUp.inputDelta === 1
+      && toolLadderUp.level === 'cabin'
+      && toolLadderUp.selected === 'pliers'
+      && toolLadderUp.heldVisible
+      && toolLadderDownBefore.targetResolved
+      && toolLadderDown.inputDelta === 1
+      && toolLadderDown.level === 'basement'
+      && toolLadderDown.selected === 'pliers'
+      && toolLadderDown.heldVisible
+      && returnedTool.selected === null
+      && returnedTool.tableVisible
+      && !returnedTool.heldVisible,
+    JSON.stringify({
+      upBefore: toolLadderUpBefore,
+      up: toolLadderUp,
+      downBefore: toolLadderDownBefore,
+      down: toolLadderDown,
+      returned: returnedTool,
+    }));
+
+  const toolPlan = [
+    { tool: 'pliers', motion: 'clamp', feedback: 'pinch', cue: 'punch.light', actor: 'counterStrike', storyId: 'counter_strike_player', view: 'dungeonCounterStrikeCaptive' },
+    { tool: 'saw', motion: 'saw', feedback: 'saw', cue: 'swing.whiff', actor: 'counterStrike', storyId: 'counter_strike_player', view: 'dungeonCounterStrikeCaptive' },
+    { tool: 'battery', motion: 'shock', feedback: 'shock', cue: 'stunprod.arc', actor: 'ateam', storyId: 'ateam_member', view: 'dungeonAteamCaptive' },
+    { tool: 'syringes', motion: 'jab', feedback: 'jab', cue: 'switch.click', actor: 'ateam', storyId: 'ateam_member', view: 'dungeonAteamCaptive' },
+    { tool: 'towels', motion: 'smother', feedback: 'smother', cue: 'cloth.snap', actor: 'ateam', storyId: 'ateam_member', view: 'dungeonAteamCaptive' },
+    { tool: 'leads', motion: 'arc', feedback: 'arc', cue: 'silent.arc', actor: 'ateam', storyId: 'ateam_member', view: 'dungeonAteamCaptive' },
+    { tool: 'bucket', motion: 'douse', feedback: 'douse', cue: 'punch.heavy', actor: 'ateam', storyId: 'ateam_member', view: 'dungeonAteamCaptive' },
+  ];
+  const toolReceipts = [];
+  let previousTool = null;
+  for (const [index, plan] of toolPlan.entries()) {
+    await clearChapterPresentation(page);
+    await teleport(page, `dungeonTool${plan.tool[0].toUpperCase()}${plan.tool.slice(1)}`, 'interact');
+    const selectBefore = await page.evaluate(() => window.COUNTRYSIDE_CABIN.input.snapshot().interactionPresses);
+    await page.keyboard.press('e');
+    await nextFrames(page, 1);
+    const selection = await page.evaluate(({ tool, priorTool, priorPresses }) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      return {
+        inputDelta: runtime.input.snapshot().interactionPresses - priorPresses,
+        selected: runtime.chapter.selectedTool,
+        tableHidden: runtime.dungeon.tools[tool].visible === false,
+        heldVisible: runtime.tortureTools.snapshot().visible[tool] === true,
+        priorRestored: priorTool ? runtime.dungeon.tools[priorTool].visible === true : true,
+      };
+    }, { tool: plan.tool, priorTool: previousTool, priorPresses: selectBefore });
+
+    await teleport(page, plan.view, 'interact');
+    const hitBefore = await page.evaluate((storyId) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      return {
+        hits: runtime.story.hostageState(storyId).hits,
+        inputPresses: runtime.input.snapshot().interactionPresses,
+        playbackId: runtime.audio.lastPlaybackReceipt?.id ?? 0,
+      };
+    }, plan.storyId);
+    await page.keyboard.press('e');
+    await nextFrames(page, 1);
+    const active = await page.evaluate(({ expected, prior }) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      const actor = runtime.dungeon.actors[expected.actor].snapshot;
+      const held = runtime.tortureTools.snapshot();
+      const receipt = runtime.audio.playbackReceipts.find((row) => (
+        row.id > prior.playbackId && row.requested === expected.cue
+      ));
+      return {
+        inputDelta: runtime.input.snapshot().interactionPresses - prior.inputPresses,
+        hits: runtime.story.hostageState(expected.storyId).hits,
+        feedback: actor.feedback,
+        feedbackRemaining: actor.feedbackRemaining,
+        motion: held.motion,
+        striking: held.striking,
+        selected: runtime.chapter.selectedTool,
+        cue: receipt ? {
+          requested: receipt.requested,
+          actual: receipt.actual,
+          source: receipt.source,
+          started: receipt.started,
+        } : null,
+      };
+    }, { expected: plan, prior: hitBefore });
+
+    let busyBlocked = true;
+    if (index === 0) {
+      await page.keyboard.press('e');
+      await nextFrames(page, 1);
+      busyBlocked = await page.evaluate(({ storyId, hits }) => (
+        window.COUNTRYSIDE_CABIN.story.hostageState(storyId).hits === hits
+          && window.COUNTRYSIDE_CABIN.chapter.toolUseRemaining > 0
+      ), { storyId: plan.storyId, hits: active.hits });
+    }
+    await page.evaluate(() => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      while (runtime.chapter.toolUseRemaining > 0) {
+        runtime.chapter.update(0.1, {
+          playerPosition: runtime.player.position,
+          cabinPosition: { x: 0, z: 0 },
+        });
+      }
+      runtime.chapter.dialogue.stop?.();
+      runtime.chapter.beatQueue.length = 0;
+    });
+    toolReceipts.push({ ...plan, selection, active, busyBlocked });
+    previousTool = plan.tool;
+  }
+
+  check('All seven tools select, swap, animate, react, and sound distinct through real E-key interactions',
+    toolReceipts.every(({ tool, motion, feedback, cue, selection, active }) => (
+      selection.inputDelta === 1 && selection.selected === tool
+        && selection.tableHidden && selection.heldVisible && selection.priorRestored
+        && active.inputDelta === 1 && active.motion === motion && active.striking
+        && active.feedback === feedback && active.feedbackRemaining > 0
+        && active.selected === tool && active.cue?.requested === cue
+        && active.cue?.actual === cue && active.cue?.source === 'buffer' && active.cue?.started
+    ))
+      && new Set(toolReceipts.map(({ active }) => active.motion)).size === toolPlan.length
+      && new Set(toolReceipts.map(({ active }) => active.feedback)).size === toolPlan.length
+      && new Set(toolReceipts.map(({ active }) => active.cue?.requested)).size === toolPlan.length,
+    JSON.stringify(toolReceipts));
+  check('A second input during a tool animation cannot stack interrogation damage', toolReceipts[0].busyBlocked);
+
+  await clearChapterPresentation(page);
+  await teleport(page, 'dungeonAteamCaptive', 'interact');
+  const finalHitBefore = await page.evaluate(() => window.COUNTRYSIDE_CABIN.story.hostageState('ateam_member').hits);
+  await page.keyboard.press('e');
+  await nextFrames(page, 1);
+  const interrogation = await page.evaluate(({ priorHits, toolIds }) => {
     const runtime = window.COUNTRYSIDE_CABIN;
     const { chapter, dungeon, story } = runtime;
-    dungeon.targets.tools.pliers.userData.interact.onUse();
-    const selectedBeforeHits = chapter.selectedTool;
-    const tableToolHidden = dungeon.tools.pliers.visible === false;
-    const heldToolVisible = runtime.tortureTools?.snapshot?.().visible?.pliers === true;
-    const apply = (id, count) => {
-      const outcomes = [];
-      for (let index = 0; index < count; index += 1) {
-        chapter.dialogue.stop?.();
-        chapter.beatQueue.length = 0;
-        outcomes.push(runtime.torture(id));
-        while (chapter.toolUseRemaining > 0) {
-          chapter.update(0.1, {
-            playerPosition: runtime.player.position,
-            cabinPosition: { x: 0, z: 0 },
-          });
-        }
-      }
-      return outcomes;
-    };
-    const baiter = apply('counter_strike_player', 2);
-    const ateam = apply('ateam_member', 6);
+    const finalHitApplied = story.hostageState('ateam_member').hits === priorHits + 1;
     const revealStarted = chapter.dialogue.current;
     let revealTicks = 0;
     while (!story.ateamIntelLearned() && revealTicks < 300) {
@@ -513,14 +1195,10 @@ try {
     chapter.beatQueue.length = 0;
     chapter.callbacks.onSync?.();
     return {
-      selectedBeforeHits,
-      tableToolHidden,
-      heldToolVisible,
+      finalHitApplied,
       selectedAfterReveal: chapter.selectedTool,
-      tableToolRestored: dungeon.tools.pliers.visible,
+      tableToolsRestored: toolIds.every((tool) => dungeon.tools[tool].visible),
       heldToolsCleared: !Object.values(runtime.tortureTools?.snapshot?.().visible ?? {}).some(Boolean),
-      baiterApplied: baiter.every((result) => result.ok && result.applied),
-      ateamApplied: ateam.every((result) => result.ok && result.applied),
       revealBeat,
       baiter: story.hostageState('counter_strike_player'),
       ateam: story.hostageState('ateam_member'),
@@ -529,17 +1207,15 @@ try {
       baiterActor: dungeon.actors.counterStrike.snapshot,
       ateamActor: dungeon.actors.ateam.snapshot,
     };
-  });
-  check('Pliers selection drives one visible production tool and returns it before the pistol',
-    interrogation.selectedBeforeHits === 'pliers'
-      && interrogation.tableToolHidden && interrogation.heldToolVisible
-      && interrogation.selectedAfterReveal === null
-      && interrogation.tableToolRestored && interrogation.heldToolsCleared);
+  }, { priorHits: finalHitBefore, toolIds: toolPlan.map(({ tool }) => tool) });
+  check('Completing the interrogation clears the scene-limited tool before the pistol',
+    interrogation.finalHitApplied && interrogation.selectedAfterReveal === null
+      && interrogation.tableToolsRestored && interrogation.heldToolsCleared);
   check('CS baiter breaks at 2 hits while preserving 8-hit execution durability',
-    interrogation.baiterApplied && interrogation.baiter.hits === 2
+    interrogation.baiter.hits === 2
       && interrogation.baiter.threshold === 2 && interrogation.baiter.maxHits === 8);
   check('A-Team captive resists until 6 hits, reveals the intel, and preserves 8-hit durability',
-    interrogation.ateamApplied && interrogation.ateam.hits === 6
+    interrogation.ateam.hits === 6
       && interrogation.ateam.threshold === 6 && interrogation.ateam.maxHits === 8
       && interrogation.revealBeat.started === interrogation.revealBeat.expected
       && interrogation.revealBeat.completed
@@ -560,49 +1236,80 @@ try {
     choiceUi.active && !choiceUi.hidden && choiceUi.seconds === 10 && choiceUi.remaining > 9.7
       && /Would you mind taking care of these two for me/i.test(choiceUi.text));
   await capture(page, '06-polite-execution-choice');
+  await page.keyboard.press('Digit2');
+  await nextFrames(page, 1);
 
   const execution = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
     const { chapter, story } = runtime;
-    runtime.chooseExecution('yes');
     const branchStarted = chapter.dialogue.current;
     let branchTicks = 0;
     while (!story.executionBranchVoComplete() && branchTicks < 300) {
-      chapter.dialogue.update(0.1);
+      chapter.update(0.1, {
+        playerPosition: runtime.player.position,
+        cabinPosition: { x: 0, z: 0 },
+      });
       branchTicks += 1;
     }
     const branchBeat = {
-      expected: 'EXECUTION_YES',
+      expected: 'EXECUTION_NO',
       started: branchStarted,
       completed: story.executionBranchVoComplete(),
       ticks: branchTicks,
     };
-    const baiterOne = runtime.shootHostage('counter_strike_player', 4);
-    const baiterTwo = runtime.shootHostage('counter_strike_player', 4);
-    const ateam = runtime.shootHostage('ateam_member', 4);
-    chapter.update(0.1, { playerPosition: runtime.player.position, cabinPosition: { x: 0, z: 0 } });
-    const nightfallStarted = chapter.dialogue.current;
+    let executionTicks = 0;
+    while (!story.deathsComplete() && executionTicks < 120) {
+      chapter.update(0.1, {
+        playerPosition: runtime.player.position,
+        cabinPosition: { x: 0, z: 0 },
+      });
+      executionTicks += 1;
+    }
+    chapter.update(0.1, {
+      playerPosition: runtime.player.position,
+      cabinPosition: { x: 0, z: 0 },
+    });
+    const aftermathStarted = chapter.dialogue.current;
     let nightfallTicks = 0;
     while (!story.nightfallBriefingComplete() && nightfallTicks < 600) {
-      chapter.dialogue.update(0.1);
+      chapter.update(0.1, {
+        playerPosition: runtime.player.position,
+        cabinPosition: { x: 0, z: 0 },
+      });
       nightfallTicks += 1;
     }
     const nightfallBeats = {
-      expected: 'BOTH_DEAD',
-      started: nightfallStarted,
+      expected: 'GRATIN_EXECUTES',
+      started: aftermathStarted,
       completed: story.nightfallBriefingComplete(),
       ticks: nightfallTicks,
     };
     chapter.callbacks.onSync?.();
+    runtime.scene.updateMatrixWorld(true);
+    const markReport = (actor) => {
+      const head = actor.headAnchor.getWorldPosition(actor.headAnchor.position.clone());
+      const body = actor.bodyAnchor.getWorldPosition(actor.bodyAnchor.position.clone());
+      return runtime.bloodImpacts.marksFor(actor).map((mark) => {
+        const point = mark.getWorldPosition(mark.position.clone());
+        return {
+          name: mark.name,
+          owner: mark.userData.hitOwner === actor,
+          parent: mark.parent?.name ?? null,
+          distance: Math.min(point.distanceTo(head), point.distanceTo(body)),
+        };
+      });
+    };
     return {
       choice: story.executionChoice(),
       branchBeat,
+      executionTicks,
       nightfallBeats,
-      baiterOne,
-      baiterTwo,
-      ateam,
       baiter: story.hostageState('counter_strike_player'),
       ateamState: story.hostageState('ateam_member'),
+      marks: {
+        baiter: markReport(runtime.dungeon.actors.counterStrike),
+        ateam: markReport(runtime.dungeon.actors.ateam),
+      },
       deaths: story.deathsComplete(),
       night: story.nightfallComplete(),
       phase: story.phase(),
@@ -611,13 +1318,20 @@ try {
       dark: runtime.time.isDark,
     };
   });
-  check('YES branch hands off the pistol and consumes all eight durability slots',
-    execution.choice === 'player'
+  check('Real 2-key refusal lets Gratin perform both executions after his NO branch',
+    execution.choice === 'gratin'
       && execution.branchBeat.started === execution.branchBeat.expected
       && execution.branchBeat.completed
+      && execution.executionTicks > 0
       && execution.baiter.hits === 8 && execution.ateamState.hits === 8
       && execution.baiter.dead && execution.ateamState.dead,
     JSON.stringify(execution.branchBeat));
+  check('Both Gratin shots leave bounded body-attached impact and spatter marks',
+    Object.values(execution.marks).every((marks) => marks.length === 2
+      && marks.every((mark) => mark.owner
+        && /blood\.(?:impact|spatter)/.test(mark.name)
+        && mark.distance < 0.75)),
+    JSON.stringify(execution.marks));
   /* CABIN_NIGHTFALL moved Day 5 -> Day 3 with the beats 3-7 rewire; the hour
    * it names, 20:45, never changed. Same for the blackout below at 09:30. */
   check('Both deaths switch the Cabin world to Day 3 at 20:45 nightfall',
@@ -631,31 +1345,65 @@ try {
   await teleport(page, 'dungeonCounterStrikeCaptive', 'interact');
   await capture(page, '07-night-dungeon-aftermath');
 
+  const wrapPlan = [
+    { storyId: 'counter_strike_player', cleanupId: 'counterstrike-player', actor: 'counterStrike', view: 'dungeonCounterStrikeCaptive' },
+    { storyId: 'ateam_member', cleanupId: 'a-team-member', actor: 'ateam', view: 'dungeonAteamCaptive' },
+  ];
+  const wrapReceipts = [];
+  for (const plan of wrapPlan) {
+    await clearHands(page);
+    await teleport(page, plan.view, 'interact');
+    const before = await page.evaluate(({ actor }) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      const target = runtime.dungeon.actors[actor].bodyTarget;
+      return {
+        presses: runtime.input.snapshot().interactionPresses,
+        targetResolved: runtime.interaction.current === target,
+        current: runtime.interaction.current?.name ?? null,
+        enabled: target.userData.interact.enabled(),
+        label: target.userData.interact.label(),
+      };
+    }, plan);
+    await page.keyboard.press('e');
+    await nextFrames(page, 2);
+    const after = await page.evaluate(({ storyId, cleanupId, actor, prior }) => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      return {
+        inputDelta: runtime.input.snapshot().interactionPresses - prior,
+        story: runtime.story.hostageState(storyId),
+        cleanupPhase: runtime.cleanup.bodies.get(cleanupId)?.phase ?? null,
+        actorWrapped: runtime.dungeon.actors[actor].snapshot.wrapped,
+        directPromptDisabled: !runtime.dungeon.actors[actor].bodyTarget.userData.interact.enabled(),
+        phase: runtime.story.phase(),
+      };
+    }, { ...plan, prior: before.presses });
+    wrapReceipts.push({ ...plan, before, after });
+    await clearChapterPresentation(page);
+  }
   const wrapped = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const firstTarget = runtime.dungeon.actors.counterStrike.bodyTarget.userData.interact;
-    const secondTarget = runtime.dungeon.actors.ateam.bodyTarget.userData.interact;
-    const directPrompts = [firstTarget, secondTarget].map((descriptor) => ({
-      enabled: descriptor.enabled(),
-      label: descriptor.label(),
-    }));
-    firstTarget.onUse();
-    secondTarget.onUse();
-    runtime.chapter.dialogue.stop?.();
-    runtime.chapter.beatQueue.length = 0;
-    const cleanup = runtime.cleanup.snapshot();
     return {
-      directPrompts,
-      cleanup,
+      cleanup: runtime.cleanup.snapshot(),
       phase: runtime.story.phase(),
       gratinZ: runtime.dungeon.actors.gratin.group.position.z,
       gratinVisible: runtime.dungeon.actors.gratin.group.visible,
     };
   });
-  check('Each dead captive prompt wraps its shared canonical body directly in the dungeon',
-    wrapped.directPrompts.every(({ enabled, label }) => enabled && /^Wrap the /i.test(label))
+  check('Real E on each dead captive wraps its canonical body directly and disables the living prompt',
+    wrapReceipts.every(({ before, after }) => (
+      before.targetResolved
+        && before.enabled
+        && /^Wrap the /i.test(before.label)
+        && after.inputDelta === 1
+        && after.story.dead
+        && after.story.wrapped
+        && after.cleanupPhase === 'wrapped'
+        && after.actorWrapped
+        && after.directPromptDisabled
+    ))
       && Object.values(wrapped.cleanup.bodies).every(({ phase }) => phase === 'wrapped')
-      && wrapped.phase === 'carry_bodies');
+      && wrapped.phase === 'carry_bodies',
+    JSON.stringify(wrapReceipts));
   check('Gratin stays in the dungeon until the physical carry is actually complete',
     wrapped.gratinVisible && wrapped.gratinZ > 10);
   await clearHands(page);
@@ -663,43 +1411,163 @@ try {
   await capture(page, '08-wrapped-bodies-in-dungeon');
   await captureScene(page, '08-wrapped-bodies-clean');
 
-  const firstCarry = await page.evaluate(() => {
+  const firstCarryRoute = await extractBodyThroughRealRoute(page, 'counterstrike-player');
+  check('Real-E carry keeps the first body attached through corridor, ladder, cabin, yard, and pyre',
+    firstCarryRoute.pickupSetup.targetResolved
+      && /^Carry /i.test(firstCarryRoute.pickupSetup.label)
+      && firstCarryRoute.pickup.inputDelta === 1
+      && firstCarryRoute.pickup.carrying === 'counterstrike-player'
+      && firstCarryRoute.pickup.cleanupCarrying === 'counterstrike-player'
+      && firstCarryRoute.pickup.phase === 'carrying'
+      && firstCarryRoute.pickup.parentIsCamera
+      && firstCarryRoute.cellExitRoute.length === 4
+      && Math.hypot(
+        firstCarryRoute.cellExitRoute[0].start.position[0] - firstCarryRoute.pickupSetup.position[0],
+        firstCarryRoute.cellExitRoute[0].start.position[2] - firstCarryRoute.pickupSetup.position[2],
+      ) < 0.02
+      && firstCarryRoute.cellExitRoute.every(({ start, end }) => (
+        start.carrying === 'counterstrike-player'
+          && end.carrying === 'counterstrike-player'
+          && end.level === 'basement'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'counterstrike-player'
+          && end.penetrations.length === 0
+          && Math.abs(end.feet - end.ground) < 0.08
+          && end.movementPresses > start.movementPresses
+      ))
+      && firstCarryRoute.corridorStart.position[2] - firstCarryRoute.corridorExit.position[2] > 5.5
+      && firstCarryRoute.corridorExit.movementPresses > firstCarryRoute.corridorStart.movementPresses
+      && firstCarryRoute.corridorExit.carrying === 'counterstrike-player'
+      && firstCarryRoute.corridorRoute.length === 8
+      && firstCarryRoute.corridorRoute.every(({ start, end }) => (
+        start.carrying === 'counterstrike-player'
+          && end.carrying === 'counterstrike-player'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'counterstrike-player'
+          && end.penetrations.length === 0
+          && end.movementPresses > start.movementPresses
+      ))
+      && firstCarryRoute.cellarTraverse.length === 3
+      && firstCarryRoute.cellarTraverse.every(({ start, end }) => (
+        start.carrying === 'counterstrike-player'
+          && end.carrying === 'counterstrike-player'
+          && end.level === 'basement'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'counterstrike-player'
+          && end.penetrations.length === 0
+          && Math.abs(end.feet - end.ground) < 0.08
+          && end.movementPresses > start.movementPresses
+      ))
+      && firstCarryRoute.ladderApproach.targetResolved
+      && firstCarryRoute.ladderApproach.level === 'basement'
+      && firstCarryRoute.ladderApproach.carrying === 'counterstrike-player'
+      && /^Climb back up /i.test(firstCarryRoute.ladderApproach.label)
+      && firstCarryRoute.ladderUp.inputDelta === 1
+      && firstCarryRoute.ladderUp.level === 'cabin'
+      && firstCarryRoute.ladderUp.carrying === 'counterstrike-player'
+      && firstCarryRoute.ladderUp.cleanupCarrying === 'counterstrike-player'
+      && firstCarryRoute.ladderUp.parentIsCamera
+      && firstCarryRoute.closetExitRoute.length === 2
+      && Math.hypot(
+        firstCarryRoute.closetExitRoute[0].start.position[0] - firstCarryRoute.ladderUp.position[0],
+        firstCarryRoute.closetExitRoute[0].start.position[2] - firstCarryRoute.ladderUp.position[2],
+      ) < 0.02
+      && firstCarryRoute.closetExitRoute.every(({ start, end }) => (
+        start.carrying === 'counterstrike-player'
+          && end.carrying === 'counterstrike-player'
+          && end.level === 'cabin'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'counterstrike-player'
+          && end.penetrations.length === 0
+          && Math.abs(end.feet - end.ground) < 0.08
+          && end.movementPresses > start.movementPresses
+      ))
+      && firstCarryRoute.surfaceRoute.length === 8
+      && firstCarryRoute.surfaceRoute.every(({ start, end }) => (
+        start.carrying === 'counterstrike-player'
+          && end.carrying === 'counterstrike-player'
+          && end.level === 'cabin'
+          && end.distance <= 0.25
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'counterstrike-player'
+          && end.penetrations.length === 0
+          && end.movementPresses > start.movementPresses
+      ))
+      && !firstCarryRoute.cabinDoorApproach.wasOpen
+      && firstCarryRoute.cabinDoorApproach.targetResolved
+      && /^Open the /i.test(firstCarryRoute.cabinDoorApproach.label)
+      && firstCarryRoute.cabinDoorOpen.inputDelta === 1
+      && firstCarryRoute.cabinDoorOpen.open
+      && firstCarryRoute.cabinDoorOpen.openness > 0.92
+      && firstCarryRoute.cabinDoorOpen.animationReached
+      && firstCarryRoute.cabinDoorOpen.animationFrames > 0
+      && !firstCarryRoute.cabinDoorOpen.alreadyOpen
+      && firstCarryRoute.cabinDoorOpen.carrying === 'counterstrike-player'
+      && firstCarryRoute.fireApproach.targetResolved
+      && /^Place the body /i.test(firstCarryRoute.fireApproach.label)
+      && firstCarryRoute.placed.inputDelta === 1
+      && firstCarryRoute.placed.bodyPhase === 'at-fire'
+      && firstCarryRoute.placed.carrying === null
+      && firstCarryRoute.placed.cleanupCarrying === null
+      && firstCarryRoute.placed.phase === 'carry_bodies'
+      && !firstCarryRoute.placed.castAtFire,
+    JSON.stringify(firstCarryRoute));
+  await clearHands(page);
+  await teleport(page, 'basementEntrance', 'interact');
+  const secondDescentBefore = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const begun = runtime.carryBody('counterstrike-player');
-    runtime.player.keys.add('ShiftLeft');
-    runtime.player.keys.add('Space');
-    runtime.player.sprinting = true;
     return {
-      begun,
-      cleanup: runtime.cleanup.snapshot(),
-      carrying: runtime.state.carryingBody,
-      parentIsCamera: runtime.cleanup.bodies.get('counterstrike-player').group.parent === runtime.player.camera,
+      presses: runtime.input.snapshot().interactionPresses,
+      targetResolved: runtime.interaction.current === runtime.cabin.basement.entryTarget,
+      current: runtime.interaction.current?.name ?? null,
     };
   });
+  await page.keyboard.press('e');
   await nextFrames(page, 2);
-  const carrySuppression = await page.evaluate(() => ({
-    sprinting: window.COUNTRYSIDE_CABIN.player.sprinting,
-    shift: window.COUNTRYSIDE_CABIN.player.keys.has('ShiftLeft'),
-    jump: window.COUNTRYSIDE_CABIN.player.keys.has('Space'),
-  }));
-  check('Wrapped body attaches to the first-person carry rig inside the dungeon',
-    firstCarry.begun && firstCarry.cleanup.carryingId === 'counterstrike-player'
-      && firstCarry.carrying === 'counterstrike-player' && firstCarry.parentIsCamera);
-  check('Carrying suppresses sprint and jump to protect the ladder/door route',
-    !carrySuppression.sprinting && !carrySuppression.shift && !carrySuppression.jump);
+  const secondDescent = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      level: runtime.state.level,
+      ground: runtime.player.ground,
+      carrying: runtime.state.carryingBody,
+    };
+  }, secondDescentBefore.presses);
+  const secondCarryRoute = await extractBodyThroughRealRoute(page, 'a-team-member', {
+    checkCarrySuppression: true,
+  });
 
   const carryRoute = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const upOne = runtime.transitionBasement('up');
-    runtime.teleport('firepit', 'observe');
-    const placeOne = runtime.placeBodyAtFire('counterstrike-player');
-    const gratinAfterOne = runtime.dungeon.actors.gratin.group.position.z;
-    const castAtFireAfterOne = runtime.chapter.snapshot().castAtFire;
-    const downTwo = runtime.transitionBasement('down');
-    const carryTwo = runtime.carryBody('a-team-member');
-    const upTwo = runtime.transitionBasement('up');
-    runtime.teleport('firepit', 'observe');
-    const placeTwo = runtime.placeBodyAtFire('a-team-member');
     const castAtFireAfterTwo = runtime.chapter.snapshot().castAtFire;
     const lagNpc = runtime.cabin.lag.npc;
     const gratinNpc = runtime.dungeon.actors.gratin;
@@ -712,14 +1580,11 @@ try {
       .map((item) => item.textContent.trim());
     const objectiveHint = document.querySelector('#objectives .ohint')?.textContent.trim() ?? '';
     return {
-      upOne, placeOne, downTwo, carryTwo, upTwo, placeTwo,
       cleanup: runtime.cleanup.snapshot(),
       phase: runtime.story.phase(),
       objectiveRows,
       objectiveHint,
       objectivePlan: runtime.story.objectivePlan(),
-      gratinAfterOne,
-      castAtFireAfterOne,
       castAtFireAfterTwo,
       lagSeatDistance: Math.hypot(lagAt.x - lagSeat.x, lagAt.z - lagSeat.z),
       gratinSeatDistance: Math.hypot(gratinAt.x - gratinSeat.x, gratinAt.z - gratinSeat.z),
@@ -729,18 +1594,146 @@ try {
       gratinSeated: gratinNpc.seated,
     };
   });
-  check('Each body travels through the wardrobe ladder route and is placed individually on the pyre',
-    carryRoute.upOne && carryRoute.placeOne.ok && carryRoute.downTwo && carryRoute.carryTwo
-      && carryRoute.upTwo && carryRoute.placeTwo.ok
-      && Object.values(carryRoute.cleanup.bodies).every(({ phase }) => phase === 'at-fire'));
+  check('The second body repeats the real corridor, ladder, cabin, yard, and pyre route without a soft lock',
+    secondDescentBefore.targetResolved
+      && secondDescent.inputDelta === 1
+      && secondDescent.level === 'basement'
+      && secondDescent.ground < -3
+      && secondDescent.carrying === null
+      && secondCarryRoute.pickupSetup.targetResolved
+      && secondCarryRoute.pickup.inputDelta === 1
+      && secondCarryRoute.pickup.carrying === 'a-team-member'
+      && secondCarryRoute.pickup.parentIsCamera
+      && secondCarryRoute.cellExitRoute.length === 4
+      && Math.hypot(
+        secondCarryRoute.cellExitRoute[0].start.position[0] - secondCarryRoute.pickupSetup.position[0],
+        secondCarryRoute.cellExitRoute[0].start.position[2] - secondCarryRoute.pickupSetup.position[2],
+      ) < 0.02
+      && secondCarryRoute.cellExitRoute.every(({ start, end }) => (
+        start.carrying === 'a-team-member'
+          && end.carrying === 'a-team-member'
+          && end.level === 'basement'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'a-team-member'
+          && end.penetrations.length === 0
+          && Math.abs(end.feet - end.ground) < 0.08
+          && end.movementPresses > start.movementPresses
+      ))
+      && secondCarryRoute.corridorStart.position[2] - secondCarryRoute.corridorExit.position[2] > 5.5
+      && secondCarryRoute.corridorExit.movementPresses > secondCarryRoute.corridorStart.movementPresses
+      && secondCarryRoute.corridorExit.carrying === 'a-team-member'
+      && secondCarryRoute.corridorRoute.length === 8
+      && secondCarryRoute.corridorRoute.every(({ start, end }) => (
+        start.carrying === 'a-team-member'
+          && end.carrying === 'a-team-member'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'a-team-member'
+          && end.penetrations.length === 0
+          && end.movementPresses > start.movementPresses
+      ))
+      && secondCarryRoute.cellarTraverse.length === 3
+      && secondCarryRoute.cellarTraverse.every(({ start, end }) => (
+        start.carrying === 'a-team-member'
+          && end.carrying === 'a-team-member'
+          && end.level === 'basement'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'a-team-member'
+          && end.penetrations.length === 0
+          && Math.abs(end.feet - end.ground) < 0.08
+          && end.movementPresses > start.movementPresses
+      ))
+      && secondCarryRoute.ladderApproach.targetResolved
+      && secondCarryRoute.ladderApproach.level === 'basement'
+      && secondCarryRoute.ladderApproach.carrying === 'a-team-member'
+      && secondCarryRoute.ladderUp.inputDelta === 1
+      && secondCarryRoute.ladderUp.level === 'cabin'
+      && secondCarryRoute.ladderUp.carrying === 'a-team-member'
+      && secondCarryRoute.ladderUp.parentIsCamera
+      && secondCarryRoute.closetExitRoute.length === 2
+      && Math.hypot(
+        secondCarryRoute.closetExitRoute[0].start.position[0] - secondCarryRoute.ladderUp.position[0],
+        secondCarryRoute.closetExitRoute[0].start.position[2] - secondCarryRoute.ladderUp.position[2],
+      ) < 0.02
+      && secondCarryRoute.closetExitRoute.every(({ start, end }) => (
+        start.carrying === 'a-team-member'
+          && end.carrying === 'a-team-member'
+          && end.level === 'cabin'
+          && end.distance <= 0.10
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'a-team-member'
+          && end.penetrations.length === 0
+          && Math.abs(end.feet - end.ground) < 0.08
+          && end.movementPresses > start.movementPresses
+      ))
+      && secondCarryRoute.surfaceRoute.length === 8
+      && secondCarryRoute.surfaceRoute.every(({ start, end }) => (
+        start.carrying === 'a-team-member'
+          && end.carrying === 'a-team-member'
+          && end.level === 'cabin'
+          && end.distance <= 0.25
+          && end.reached
+          && end.frames > 0
+          && end.inputDelta === 1
+          && end.lastMovementCode === 'KeyW'
+          && end.keyHeld
+          && end.keyReleased
+          && end.carryingAfterRelease === 'a-team-member'
+          && end.penetrations.length === 0
+          && end.movementPresses > start.movementPresses
+      ))
+      && secondCarryRoute.cabinDoorApproach.wasOpen
+      && secondCarryRoute.cabinDoorApproach.openness > 0.92
+      && secondCarryRoute.cabinDoorOpen.inputDelta === 0
+      && secondCarryRoute.cabinDoorOpen.open
+      && secondCarryRoute.cabinDoorOpen.openness > 0.92
+      && secondCarryRoute.cabinDoorOpen.animationReached
+      && secondCarryRoute.cabinDoorOpen.animationFrames === 0
+      && secondCarryRoute.cabinDoorOpen.alreadyOpen
+      && secondCarryRoute.cabinDoorOpen.carrying === 'a-team-member'
+      && secondCarryRoute.fireApproach.targetResolved
+      && secondCarryRoute.placed.inputDelta === 1
+      && secondCarryRoute.placed.bodyPhase === 'at-fire'
+      && secondCarryRoute.placed.carrying === null
+      && secondCarryRoute.placed.phase === 'pour_gas'
+      && secondCarryRoute.placed.castAtFire
+      && Object.values(carryRoute.cleanup.bodies).every(({ phase }) => phase === 'at-fire'),
+    JSON.stringify({ descent: secondDescent, route: secondCarryRoute }));
+  check('A real carry input suppresses sprint and jump to protect the corridor and ladder route',
+    secondCarryRoute.carrySuppression?.carrying === 'a-team-member'
+      && !secondCarryRoute.carrySuppression?.sprinting
+      && !secondCarryRoute.carrySuppression?.shift
+      && !secondCarryRoute.carrySuppression?.jump,
+    JSON.stringify(secondCarryRoute.carrySuppression));
   check('Lag and Gratin move to the bonfire only after both bodies arrive',
-    carryRoute.gratinAfterOne > 10
-      && !carryRoute.castAtFireAfterOne && carryRoute.castAtFireAfterTwo
+    !firstCarryRoute.placed.castAtFire && carryRoute.castAtFireAfterTwo
       && carryRoute.lagSeatDistance < 0.05 && carryRoute.gratinSeatDistance < 0.05
       && carryRoute.lagJob === 'drink' && carryRoute.gratinJob === 'drink'
       && carryRoute.lagSeated && carryRoute.gratinSeated,
     JSON.stringify({
-      castAfterOne: carryRoute.castAtFireAfterOne,
+      castAfterOne: firstCarryRoute.placed.castAtFire,
       castAfterTwo: carryRoute.castAtFireAfterTwo,
       lagSeatDistance: carryRoute.lagSeatDistance,
       gratinSeatDistance: carryRoute.gratinSeatDistance,
@@ -755,27 +1748,115 @@ try {
       && !/light|ignite/i.test(cleanupObjectiveText),
     JSON.stringify({ rows: carryRoute.objectiveRows, hint: carryRoute.objectiveHint }));
 
-  const fire = await page.evaluate(() => {
+  const gasApproach = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const gas = runtime.pourGas();
+    const target = runtime.cleanup.interactionDescriptors.gasCan.target;
+    runtime.scene.updateMatrixWorld(true);
+    const focus = target.getWorldPosition(target.position.clone());
+    focus.y += 0.36;
+    const player = runtime.player;
+    const stand = focus.clone();
+    stand.z += 1.62;
+    const floor = runtime.cabin.groundAt(stand.x, stand.z, player.position.y - player.eyeHeight);
+    player._tween = null;
+    player.mode = 'walk';
+    player.position.set(stand.x, floor + 1.66, stand.z);
+    player.ground = floor;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.jumpHeight = 0;
+    player.grounded = true;
+    player.crouching = false;
+    player.sprinting = false;
+    player.velocity.set(0, 0, 0);
+    player.clearKeys();
+    const delta = focus.clone().sub(player.position);
+    player.yaw = Math.atan2(-delta.x, -delta.z);
+    player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.state.level = 'cabin';
+    runtime.input.clear('cabin-verifier-gas-can');
+    player.update(0);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      presses: runtime.input.snapshot().interactionPresses,
+      position: player.position.toArray(),
+      target: focus.toArray(),
+    };
+  });
+  await nextFrames(page, 2);
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const gas = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return {
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
+      storyGas: runtime.story.gasPoured(),
+      cleanupGas: runtime.cleanup.snapshot().gasPoured,
+      phase: runtime.story.phase(),
+    };
+  }, gasApproach.presses);
+  await clearChapterPresentation(page);
+
+  const ignitionSetupTeleport = await teleport(page, 'firepit', 'interact');
+  const ignitionApproach = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const target = runtime.cleanup.interactionDescriptors.fire.target;
+    runtime.scene.updateMatrixWorld(true);
+    const focus = target.getWorldPosition(target.position.clone());
+    const delta = focus.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.clearKeys();
+    runtime.player.update(0);
+    runtime.player.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      presses: runtime.input.snapshot().interactionPresses,
+    };
+  });
+  await page.keyboard.press('e');
+  await nextFrames(page, 2);
+  const fire = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
     runtime.chapter.dialogue.stop?.();
     runtime.chapter.beatQueue.length = 0;
-    const ignition = runtime.ignitePyre();
     runtime.cleanup.update(1.5);
     return {
-      gas,
-      ignition,
+      inputDelta: runtime.input.snapshot().interactionPresses - prior,
       cleanup: runtime.cleanup.snapshot(),
       storyGas: runtime.story.gasPoured(),
       storyIgnited: runtime.story.bonfireIgnited(),
       phase: runtime.story.phase(),
       dressing: runtime.cleanup.geometry.dressing,
     };
-  });
-  check('Gasoline and ignition interactions light the two-body pyre',
-    fire.gas.ok && fire.ignition.ok && fire.storyGas && fire.storyIgnited
+  }, ignitionApproach.presses);
+  check('Real E on the authored gasoline can and pyre lights both bodies',
+    gasApproach.targetResolved
+      && /gasoline/i.test(gasApproach.label)
+      && gas.inputDelta === 1
+      && gas.storyGas
+      && gas.cleanupGas
+      && gas.phase === 'ignite_bonfire'
+      && ignitionSetupTeleport
+      && ignitionApproach.targetResolved
+      && /ignite/i.test(ignitionApproach.label)
+      && fire.inputDelta === 1
+      && fire.storyGas
+      && fire.storyIgnited
       && fire.cleanup.gasPoured && fire.cleanup.ignited
-      && Object.values(fire.cleanup.bodies).every(({ phase }) => phase === 'burning'));
+      && Object.values(fire.cleanup.bodies).every(({ phase }) => phase === 'burning'),
+    JSON.stringify({ gasApproach, gas, ignitionApproach, fire }));
   check('Bonfire dressing includes the authored drinks, whiskey, and cigarettes',
     fire.dressing.beerCans >= 1 && fire.dressing.whiskeyBottles >= 1 && fire.dressing.cigarettePacks >= 1,
     JSON.stringify(fire.dressing));
@@ -784,6 +1865,11 @@ try {
   await capture(page, '09-night-bonfire-bonding');
   await captureScene(page, '09-night-bonfire-clean');
 
+  /* Keep the authored 950/1150 ms blackout curtains, but install the test
+   * clock immediately before they are scheduled. SwiftShader can starve these
+   * late nested timers after both physical extraction routes; runFor executes
+   * the same callbacks deterministically without changing shipping timing. */
+  await page.clock.install({ time: Date.now() });
   const blackoutStarted = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
     runtime.story.completeFireCleanup();
@@ -793,10 +1879,15 @@ try {
     return runtime.chapter._blackout();
   });
   check('Fire bonding can enter the authored blackout transition', blackoutStarted);
-  await page.waitForFunction(() => (
+  await page.clock.runFor(2300);
+  await page.clock.resume();
+  const blackoutSettled = await page.evaluate(() => (
     window.COUNTRYSIDE_CABIN.story.blackedOut()
       && window.COUNTRYSIDE_CABIN.state.resting === false
   ));
+  if (!blackoutSettled) {
+    throw new Error('Authored blackout timers did not settle after 2300 deterministic milliseconds');
+  }
   const morning = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
     const wakeCheckpoint = {
@@ -862,6 +1953,74 @@ try {
       && morning.afterBillyCall.leave.destination === 'bada_bing_two',
     JSON.stringify(morning.afterBillyCall));
   await capture(page, '10-morning-wake');
+
+  await clearHands(page);
+  const exitSetupTeleport = await teleport(page, 'car', 'interact');
+  const exitBefore = await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const loopKeys = [...runtime.audio.loops.keys()];
+    const currentLabel = runtime.interaction.current?.userData?.interact?.label;
+    return {
+      targetResolved: runtime.interaction.current === runtime.cabin.carTarget,
+      current: runtime.interaction.current?.name ?? null,
+      label: typeof currentLabel === 'function' ? currentLabel() : currentLabel ?? null,
+      presses: runtime.input.snapshot().interactionPresses,
+      leave: runtime.story.tryLeave(),
+      receiverOn: runtime.radio.on,
+      receiverPreferredOn: runtime.radio.preferredOn,
+      receiverPaused: runtime.radio._paused,
+      receiverVoiceActive: runtime.radio._voice !== null,
+      receiverSongPlaying: runtime.radio.songPlaying,
+      receiverMediaPaused: !runtime.radio.el || runtime.radio.el.paused,
+      receiverPlacement: runtime.radio.position.distanceTo(runtime.cabin.radioPos),
+      loopKeys,
+      radioLoopKeys: loopKeys.filter((key) => key.startsWith('radio.')),
+    };
+  });
+  await page.keyboard.press('e');
+  const exitAfter = await page.evaluate((prior) => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    const loopKeys = [...runtime.audio.loops.keys()];
+    const input = runtime.input.snapshot();
+    return {
+      inputDelta: input.interactionPresses - prior,
+      phase: runtime.state.phase,
+      inputSuspended: input.suspended,
+      interactionPaused: runtime.interaction.paused,
+      interactionCleared: runtime.interaction.current === null,
+      receiverOn: runtime.radio.on,
+      receiverPreferredOn: runtime.radio.preferredOn,
+      receiverPaused: runtime.radio._paused,
+      receiverVoiceCleared: runtime.radio._voice === null,
+      receiverMediaPaused: !runtime.radio.el || runtime.radio.el.paused,
+      loopKeys,
+      radioLoopKeys: loopKeys.filter((key) => key.startsWith('radio.')),
+      cabinLoopKeys: loopKeys.filter((key) => key.startsWith('cabin.')),
+    };
+  }, exitBefore.presses);
+  check('the Cabin chapter exit tears down the physical receiver with no stale radio beds',
+    exitSetupTeleport
+      && exitBefore.targetResolved
+      && exitBefore.leave.kind === 'go'
+      && exitBefore.leave.destination === 'bada_bing_two'
+      && exitBefore.receiverOn
+      && exitBefore.receiverPreferredOn
+      && !exitBefore.receiverPaused
+      && exitBefore.receiverPlacement < 0.001
+      && exitBefore.radioLoopKeys.length > 0
+      && exitAfter.inputDelta === 1
+      && exitAfter.phase === 'leaving'
+      && exitAfter.inputSuspended
+      && exitAfter.interactionPaused
+      && exitAfter.interactionCleared
+      && exitAfter.receiverOn
+      && exitAfter.receiverPreferredOn
+      && exitAfter.receiverPaused
+      && exitAfter.receiverVoiceCleared
+      && exitAfter.receiverMediaPaused
+      && exitAfter.radioLoopKeys.length === 0
+      && exitAfter.cabinLoopKeys.length === 0,
+    JSON.stringify({ before: exitBefore, after: exitAfter }));
 
   check('Live Cabin browser produced no page, console, or request failures', problems.length === 0,
     problems.slice(0, 3).join(' | '));

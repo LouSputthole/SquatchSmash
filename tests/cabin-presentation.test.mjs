@@ -12,7 +12,8 @@ const [
   playerBody,
   { FirstPersonBody, DEFAULT_PLAYER_OUTFIT },
   { CabinRangeSession },
-  { createCabinTortureToolPresentation },
+  { CABIN_TORTURE_TOOL_MOTIONS, createCabinTortureToolPresentation },
+  { CABIN_TORTURE_TOOL_PROFILES },
   THREE,
 ] = await Promise.all([
   import('../src/cabin/presentation.js'),
@@ -20,35 +21,83 @@ const [
   import('../src/core/first-person-body.js'),
   import('../src/cabin/shooting-range.js'),
   import('../src/cabin/torture-tool-presentation.js'),
+  import('../src/cabin/chapter-runtime.js'),
   import('three'),
 ]);
 
 const mainSource = readFileSync(new URL('../src/cabin/main.js', import.meta.url), 'utf8');
 
-test('Cabin dungeon tools are camera-held, mutually exclusive, and animate one controlled strike', () => {
+test('all seven Cabin dungeon tools have distinct held motions and feedback while preserving their cues', () => {
   const camera = new THREE.PerspectiveCamera(68, 1, 0.05, 100);
   const tools = createCabinTortureToolPresentation({ camera });
-
-  assert.deepEqual(Object.keys(tools.tools).sort(), [
+  const ids = [
     'battery', 'bucket', 'leads', 'pliers', 'saw', 'syringes', 'towels',
-  ]);
-  assert.equal(tools.select('battery'), 'battery');
-  assert.deepEqual(
-    Object.entries(tools.snapshot().visible).filter(([, visible]) => visible).map(([id]) => id),
-    ['battery'],
-  );
-  const resting = tools.tools.battery.position.clone();
-  assert.equal(tools.strike({ duration: 0.6 }), true);
-  tools.update(0.3);
-  assert.equal(tools.snapshot().striking, true);
-  assert.notDeepEqual(tools.tools.battery.position.toArray(), resting.toArray(),
-    'the strike must be visible rather than a logical damage callback');
-  tools.update(0.3);
-  assert.equal(tools.snapshot().striking, false);
+  ];
+  const expectedCues = {
+    battery: 'stunprod.arc',
+    bucket: 'punch.heavy',
+    leads: 'silent.arc',
+    pliers: 'punch.light',
+    saw: 'swing.whiff',
+    syringes: 'switch.click',
+    towels: 'cloth.snap',
+  };
+  const articulatedParts = {
+    battery: [() => tools.tools.battery.getObjectByName('cabin-held-battery-positive').scale, 'y'],
+    bucket: [() => tools.tools.bucket.getObjectByName('cabin-held-bucket-handle').rotation, 'x'],
+    leads: [() => tools.tools.leads.getObjectByName('cabin-held-leads-clip').rotation, 'z'],
+    pliers: [() => tools.tools.pliers.getObjectByName('cabin-held-pliers-jaw-1').rotation, 'z'],
+    saw: [() => tools.tools.saw.getObjectByName('cabin-held-saw-handle').rotation, 'z'],
+    syringes: [() => tools.tools.syringes.getObjectByName('cabin-held-syringe-plunger').position, 'y'],
+    towels: [() => tools.tools.towels.getObjectByName('cabin-held-towel-fold').position, 'y'],
+  };
+  const transform = (tool) => [
+    ...tool.position.toArray(),
+    tool.rotation.x, tool.rotation.y, tool.rotation.z,
+    ...tool.scale.toArray(),
+  ];
+  const near = (actual, expected) => Math.abs(actual - expected) <= 1e-8;
+  const motionSignatures = new Set();
 
-  assert.equal(tools.select('saw'), 'saw');
-  assert.equal(tools.tools.battery.visible, false);
-  assert.equal(tools.tools.saw.visible, true);
+  assert.deepEqual(Object.keys(tools.tools).sort(), ids);
+  assert.deepEqual(Object.keys(CABIN_TORTURE_TOOL_PROFILES).sort(), ids);
+  assert.equal(new Set(Object.values(CABIN_TORTURE_TOOL_MOTIONS)).size, ids.length);
+  assert.equal(new Set(Object.values(CABIN_TORTURE_TOOL_PROFILES).map(({ feedback }) => feedback)).size, ids.length);
+  assert.equal(new Set(Object.values(CABIN_TORTURE_TOOL_PROFILES).map(({ cue }) => cue)).size, ids.length,
+    'each dungeon tool needs its own audible identity');
+
+  for (const id of ids) {
+    const profile = CABIN_TORTURE_TOOL_PROFILES[id];
+    assert.equal(profile.cue, expectedCues[id], `${id} changed its established cue identity`);
+    assert.equal(profile.motion, CABIN_TORTURE_TOOL_MOTIONS[id]);
+    assert.equal(tools.select(id), id);
+    assert.deepEqual(
+      Object.entries(tools.snapshot().visible).filter(([, visible]) => visible).map(([toolId]) => toolId),
+      [id],
+    );
+
+    const resting = transform(tools.tools[id]);
+    const [part, property] = articulatedParts[id];
+    const restingPart = part()[property];
+    assert.equal(tools.strike(profile), true);
+    assert.equal(tools.snapshot().motion, profile.motion);
+    tools.update(profile.duration * 0.31);
+    const active = transform(tools.tools[id]);
+    assert.equal(tools.snapshot().striking, true);
+    assert.ok(active.some((value, index) => !near(value, resting[index])),
+      `${id} needs visible held motion rather than a logical damage callback`);
+    assert.ok(!near(part()[property], restingPart), `${id} needs tool-specific articulation`);
+    motionSignatures.add(active.map((value, index) => (value - resting[index]).toFixed(4)).join(','));
+
+    tools.update(profile.duration);
+    assert.equal(tools.snapshot().striking, false);
+    assert.equal(tools.snapshot().motion, null);
+    assert.ok(transform(tools.tools[id]).every((value, index) => near(value, resting[index])),
+      `${id} did not return to its held pose`);
+    assert.ok(near(part()[property], restingPart), `${id} articulation did not reset`);
+  }
+  assert.equal(motionSignatures.size, ids.length, 'the seven held motions collapsed to a shared strike arc');
+
   assert.equal(tools.select(null), null);
   assert.equal(Object.values(tools.snapshot().visible).some(Boolean), false);
 });

@@ -79,6 +79,94 @@ export const CABIN_DUNGEON_CLEANUP_LAYOUT = Object.freeze({
 const WALK_EYE_HEIGHT = 1.66;
 const DOOR_TRAVEL = 1.82;
 const DOOR_SPEED = 1.55;
+const CELL_DOOR_SPEED = 2.20;
+const CELL_DOOR_OPEN_ANGLE = -Math.PI * 0.52;
+const CAPTIVE_FEEDBACK_IDS = new Set([
+  'impact', 'pinch', 'saw', 'shock', 'jab', 'smother', 'arc', 'douse',
+]);
+
+const NO_CAPTIVE_FEEDBACK = Object.freeze({
+  groupRoll: 0,
+  bodyPitch: 0,
+  bodyRoll: 0,
+  headRoll: 0,
+  armL: 0,
+  armR: 0,
+  foreL: 0,
+  foreR: 0,
+  legL: 0,
+  legR: 0,
+});
+
+function captiveFeedbackFrame(state) {
+  if (!state.feedback || state.feedbackRemaining <= 0 || state.dead || state.wrapped) {
+    return NO_CAPTIVE_FEEDBACK;
+  }
+  const progress = 1 - state.feedbackRemaining / Math.max(0.001, state.feedbackDuration);
+  const envelope = Math.sin(THREE.MathUtils.clamp(progress, 0, 1) * Math.PI)
+    * state.feedbackStrength;
+  const frame = { ...NO_CAPTIVE_FEEDBACK };
+  if (state.feedback === 'pinch') {
+    frame.groupRoll = 0.025 * envelope;
+    frame.bodyRoll = 0.11 * envelope;
+    frame.headRoll = -0.10 * envelope;
+    frame.foreL = 0.16 * envelope;
+    frame.foreR = -0.12 * envelope;
+  } else if (state.feedback === 'saw') {
+    const sweep = Math.sin(progress * Math.PI * 8) * envelope;
+    frame.groupRoll = 0.12 * sweep;
+    frame.bodyRoll = -0.14 * sweep;
+    frame.headRoll = 0.10 * sweep;
+    frame.armL = -0.18 * envelope;
+    frame.armR = 0.06 * envelope;
+  } else if (state.feedback === 'shock') {
+    const jolt = Math.sin(progress * Math.PI * 18) * envelope;
+    frame.groupRoll = 0.10 * jolt;
+    frame.bodyPitch = -0.12 * envelope;
+    frame.bodyRoll = -0.08 * jolt;
+    frame.headRoll = 0.15 * jolt;
+    frame.armL = -0.18 * envelope;
+    frame.armR = -0.18 * envelope;
+    frame.legL = 0.08 * jolt;
+    frame.legR = -0.08 * jolt;
+  } else if (state.feedback === 'jab') {
+    frame.groupRoll = -0.02 * envelope;
+    frame.bodyPitch = -0.08 * envelope;
+    frame.bodyRoll = 0.03 * envelope;
+    frame.headRoll = -0.14 * envelope;
+    frame.armL = -0.03 * envelope;
+    frame.armR = -0.12 * envelope;
+  } else if (state.feedback === 'smother') {
+    frame.groupRoll = -0.07 * envelope;
+    frame.bodyPitch = 0.18 * envelope;
+    frame.bodyRoll = -0.04 * envelope;
+    frame.headRoll = 0.16 * envelope;
+    frame.armL = 0.12 * envelope;
+    frame.armR = 0.12 * envelope;
+  } else if (state.feedback === 'arc') {
+    const jolt = Math.sin(progress * Math.PI * 12) * envelope;
+    frame.groupRoll = 0.15 * jolt;
+    frame.bodyPitch = -0.06 * envelope;
+    frame.bodyRoll = 0.12 * jolt;
+    frame.headRoll = -0.18 * jolt;
+    frame.foreL = -0.14 * envelope;
+    frame.foreR = -0.18 * envelope;
+  } else if (state.feedback === 'douse') {
+    frame.groupRoll = 0.14 * envelope;
+    frame.bodyPitch = 0.24 * envelope;
+    frame.bodyRoll = 0.08 * envelope;
+    frame.headRoll = -0.22 * envelope;
+    frame.armL = 0.16 * envelope;
+    frame.armR = 0.10 * envelope;
+  } else {
+    frame.groupRoll = 0.05 * envelope;
+    frame.bodyRoll = 0.08 * envelope;
+    frame.headRoll = -0.06 * envelope;
+    frame.armL = -0.05 * envelope;
+    frame.armR = -0.05 * envelope;
+  }
+  return frame;
+}
 
 export function insideCabinDungeon(x, z) {
   const corridor = x >= CABIN_DUNGEON_CORRIDOR.x0 && x <= CABIN_DUNGEON_CORRIDOR.x1
@@ -627,10 +715,10 @@ export function buildCabinDungeon({
     }));
   }
   const leadMaterial = [materials.redRubber, materials.rubber];
-  for (const [index, x] of [-4.70, -4.32].entries()) {
+  for (const [index, x] of [-6.75, -6.35].entries()) {
     const lead = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.018, 7, 22, Math.PI * 1.6), leadMaterial[index]);
     lead.name = `cabin-dungeon-electrical-lead-${index + 1}`;
-    lead.position.set(x, workAt.topY + 0.20, 10.92);
+    lead.position.set(x, workAt.topY + 0.20, 10.78);
     lead.rotation.x = Math.PI / 2;
     toolPart('leads', lead);
   }
@@ -648,40 +736,84 @@ export function buildCabinDungeon({
   add(gasCan, 'cabin-dungeon-tools');
   tools.gasCan = gasCan;
 
-  // Two holding cells at the back. Their open centre gates leave a clear
-  // cleanup route; bars, benches and sparse personal effects do the dressing.
+  // Two holding cells at the back. Each fence is continuous from slab to
+  // ceiling except for one authored central door. The doors only open inward
+  // and never relatch during the page instance: they have honest closed
+  // collision, but cannot close behind Tony and strand him inside a cell.
   const cellSpecs = [
-    { id: 'west', x0: -7.75, x1: -1.45, gateX: -4.55 },
-    { id: 'east', x0: 1.62, x1: 7.82, gateX: 4.70 },
+    { id: 'west', x0: D.x0 + t, x1: -1.45, gateX: -4.55 },
+    { id: 'east', x0: 1.62, x1: D.x1 - t, gateX: 4.70 },
   ];
+  const cellDoorRecords = [];
+  const cellDoors = {};
+  const cellDoorTargets = {};
   for (const cell of cellSpecs) {
     const frontZ = 17.72;
+    const openingX0 = cell.gateX - 0.62;
+    const openingX1 = cell.gateX + 0.62;
+    const cellHeight = D.ceilingY - D.floorY;
     for (let x = cell.x0 + 0.24, index = 0; x <= cell.x1 - 0.20; x += 0.36, index += 1) {
       if (Math.abs(x - cell.gateX) < 0.62) continue;
       add(cylinder({
         name: `cabin-dungeon-cell-${cell.id}-bar-${index}`,
         r: 0.026,
-        h: 2.50,
-        pos: [x, D.floorY + 1.25, frontZ],
+        h: cellHeight,
+        pos: [x, (D.floorY + D.ceilingY) / 2, frontZ],
         mat: materials.blackSteel,
       }), 'cabin-dungeon-cells');
     }
-    for (const y of [D.floorY + 0.22, D.floorY + 2.35]) {
+    for (const [side, x] of [['west', cell.x0], ['east', cell.x1]]) {
       add(box({
-        name: `cabin-dungeon-cell-${cell.id}-rail-${y}`,
-        size: [cell.x1 - cell.x0, 0.075, 0.075],
-        pos: [(cell.x0 + cell.x1) / 2, y, frontZ],
+        name: `cabin-dungeon-cell-${cell.id}-front-jamb-${side}`,
+        size: [0.075, cellHeight, 0.075],
+        pos: [x, (D.floorY + D.ceilingY) / 2, frontZ],
         mat: materials.blackSteel,
       }), 'cabin-dungeon-cells');
     }
+    for (const [railIndex, y] of [D.floorY + 0.18, D.ceilingY - 0.18].entries()) {
+      for (const [side, x0, x1] of [
+        ['west', cell.x0, openingX0],
+        ['east', openingX1, cell.x1],
+      ]) {
+        add(box({
+          name: `cabin-dungeon-cell-${cell.id}-rail-${railIndex + 1}-${side}`,
+          size: [x1 - x0, 0.075, 0.075],
+          pos: [(x0 + x1) / 2, y, frontZ],
+          mat: materials.blackSteel,
+        }), 'cabin-dungeon-cells');
+      }
+    }
+    const innerX = cell.id === 'west' ? cell.x1 : cell.x0;
+    const backZ = D.z1 - t;
+    for (let z = frontZ, index = 0; z <= backZ; z += 0.36, index += 1) {
+      add(cylinder({
+        name: `cabin-dungeon-cell-${cell.id}-inner-side-bar-${index + 1}`,
+        r: 0.026,
+        h: cellHeight,
+        pos: [innerX, (D.floorY + D.ceilingY) / 2, z],
+        mat: materials.blackSteel,
+      }), 'cabin-dungeon-cells');
+    }
+    for (const [railIndex, y] of [D.floorY + 0.18, D.ceilingY - 0.18].entries()) {
+      add(box({
+        name: `cabin-dungeon-cell-${cell.id}-inner-side-rail-${railIndex + 1}`,
+        size: [0.075, 0.075, backZ - frontZ],
+        pos: [innerX, y, (frontZ + backZ) / 2],
+        mat: materials.blackSteel,
+      }), 'cabin-dungeon-cells');
+    }
+    const sideCollider = addCollider([
+      [innerX - 0.08, D.floorY, frontZ],
+      [innerX + 0.08, D.ceilingY, backZ],
+    ], `cabin-dungeon-cell-${cell.id}-inner-side`, 'prop');
     add(box({
       name: `cabin-dungeon-cell-${cell.id}-bench`,
       size: [2.55, 0.16, 0.72],
       pos: [(cell.x0 + cell.x1) / 2, D.floorY + 0.46, D.z1 - 0.84],
       mat: materials.oldWood,
     }), 'cabin-dungeon-cells');
-    addCollider([[cell.x0, D.floorY, frontZ - 0.08], [cell.gateX - 0.62, D.floorY + 2.55, frontZ + 0.08]], `cabin-dungeon-cell-${cell.id}-front-a`, 'prop');
-    addCollider([[cell.gateX + 0.62, D.floorY, frontZ - 0.08], [cell.x1, D.floorY + 2.55, frontZ + 0.08]], `cabin-dungeon-cell-${cell.id}-front-b`, 'prop');
+    addCollider([[cell.x0, D.floorY, frontZ - 0.08], [openingX0, D.ceilingY, frontZ + 0.08]], `cabin-dungeon-cell-${cell.id}-front-a`, 'prop');
+    addCollider([[openingX1, D.floorY, frontZ - 0.08], [cell.x1, D.ceilingY, frontZ + 0.08]], `cabin-dungeon-cell-${cell.id}-front-b`, 'prop');
     addCollider([[cell.x0 + 1.80, D.floorY, D.z1 - 1.24], [cell.x1 - 1.80, D.floorY + 0.54, D.z1 - 0.45]], `cabin-dungeon-cell-${cell.id}-bench`, 'prop');
     for (const [index, offset] of [-0.52, 0.18, 0.58].entries()) {
       add(box({
@@ -697,6 +829,123 @@ export function buildCabinDungeon({
       pos: [cell.gateX + (cell.id === 'west' ? -0.95 : 0.95), D.floorY + 0.08, D.z1 - 1.18],
       mat: materials.steel, cast: false,
     }), 'cabin-dungeon-cells');
+
+    const doorRoot = group(`cabin-dungeon-cell-${cell.id}-door`);
+    markAssembly(doorRoot, 'cabin-dungeon-cells', { structural: true });
+    const pivot = group(`cabin-dungeon-cell-${cell.id}-door-hinge`);
+    pivot.position.set(openingX0 + 0.05, 0, frontZ);
+    markAssembly(pivot, 'cabin-dungeon-cells', { structural: true });
+    const leaf = group(`cabin-dungeon-cell-${cell.id}-door-leaf`);
+    markAssembly(leaf, 'cabin-dungeon-cells', { structural: true });
+    const leafWidth = openingX1 - openingX0 - 0.10;
+    for (const x of [0.035, leafWidth - 0.035]) {
+      leaf.add(box({
+        name: `cabin-dungeon-cell-${cell.id}-door-stile-${x < leafWidth / 2 ? 'hinge' : 'latch'}`,
+        size: [0.07, cellHeight, 0.075],
+        pos: [x, (D.floorY + D.ceilingY) / 2, 0],
+        mat: materials.blackSteel,
+      }));
+    }
+    for (let x = 0.18, index = 0; x < leafWidth - 0.12; x += 0.22, index += 1) {
+      leaf.add(cylinder({
+        name: `cabin-dungeon-cell-${cell.id}-door-bar-${index + 1}`,
+        r: 0.024,
+        h: cellHeight,
+        pos: [x, (D.floorY + D.ceilingY) / 2, 0],
+        mat: materials.blackSteel,
+      }));
+    }
+    for (const [rail, y] of [['bottom', D.floorY + 0.18], ['middle', D.floorY + 1.12], ['top', D.ceilingY - 0.18]]) {
+      leaf.add(box({
+        name: `cabin-dungeon-cell-${cell.id}-door-rail-${rail}`,
+        size: [leafWidth, 0.075, 0.075],
+        pos: [leafWidth / 2, y, 0],
+        mat: materials.blackSteel,
+      }));
+    }
+    const hinges = [];
+    for (const [index, y] of [D.floorY + 0.42, D.floorY + 1.60, D.ceilingY - 0.42].entries()) {
+      const hinge = cylinder({
+        name: `cabin-dungeon-cell-${cell.id}-door-hinge-barrel-${index + 1}`,
+        r: 0.055,
+        h: 0.24,
+        pos: [0, y, 0],
+        mat: materials.rust,
+      });
+      hinges.push(hinge);
+      leaf.add(hinge);
+    }
+    const latch = box({
+      name: `cabin-dungeon-cell-${cell.id}-door-latch`,
+      size: [0.28, 0.11, 0.12],
+      pos: [leafWidth - 0.12, D.floorY + 1.13, -0.06],
+      mat: materials.rust,
+    });
+    leaf.add(latch);
+    add(box({
+      name: `cabin-dungeon-cell-${cell.id}-door-latch-receiver`,
+      size: [0.10, 0.22, 0.14],
+      pos: [openingX1 + 0.015, D.floorY + 1.13, frontZ],
+      mat: materials.rust,
+    }), 'cabin-dungeon-cells');
+    pivot.add(leaf);
+    doorRoot.add(pivot);
+    dungeonRoot.add(doorRoot);
+
+    const target = invisibleTarget(`cabin-dungeon-cell-${cell.id}-door-target`, [leafWidth - 0.10, 1.72, 0.16], [
+      cell.gateX,
+      D.floorY + 1.10,
+      frontZ - 0.18,
+    ]);
+    target.userData.cabinCellDoorId = cell.id;
+    add(target, 'cabin-dungeon-interaction');
+    utilityTargets[`dungeonCellDoor${cell.id[0].toUpperCase()}${cell.id.slice(1)}`] = target;
+    cellDoorTargets[cell.id] = target;
+
+    const doorCollider = addCollider([
+      [openingX0, D.floorY, frontZ - 0.09],
+      [openingX1, D.ceilingY, frontZ + 0.09],
+    ], `cabin-dungeon-cell-${cell.id}-door-live`, 'door');
+    const doorState = { desiredOpen: false, t: 0, colliderLive: true };
+    const removeCollider = () => {
+      if (!doorState.colliderLive) return false;
+      const index = colliders.indexOf(doorCollider);
+      if (index >= 0) colliders.splice(index, 1);
+      doorState.colliderLive = false;
+      return true;
+    };
+    const open = () => {
+      if (doorState.desiredOpen) return false;
+      doorState.desiredOpen = true;
+      notify('cellDoor', cell.id, 'open', { oneWay: true });
+      return true;
+    };
+    interaction.register(target, {
+      label: () => doorState.desiredOpen
+        ? `The <b>${cell.id} cell door</b> stands open`
+        : `Lift the latch on the <b>${cell.id} cell door</b>`,
+      enabled: () => !doorState.desiredOpen,
+      onUse: open,
+    });
+
+    const record = { id: cell.id, pivot, leaf, state: doorState, collider: doorCollider, removeCollider };
+    cellDoorRecords.push(record);
+    cellDoors[cell.id] = Object.freeze({
+      id: cell.id,
+      root: doorRoot,
+      pivot,
+      leaf,
+      target,
+      hinges: Object.freeze(hinges),
+      latch,
+      opening: Object.freeze({ x0: openingX0, x1: openingX1, z: frontZ }),
+      sideCollider,
+      get collider() { return doorCollider; },
+      get colliderLive() { return doorState.colliderLive; },
+      get t() { return doorState.t; },
+      get open() { return doorState.desiredOpen; },
+      openDoor: open,
+    });
   }
 
   // Blood is restrained but unmistakable: old cleaning arcs, a rack stain
@@ -913,6 +1162,10 @@ export function buildCabinDungeon({
     const state = {
       pain: 0,
       flinch: 0,
+      feedback: null,
+      feedbackDuration: 0,
+      feedbackRemaining: 0,
+      feedbackStrength: 0,
       dead: false,
       wrapped: false,
       cause: null,
@@ -958,11 +1211,21 @@ export function buildCabinDungeon({
         return true;
       },
       flinch(amount = 1) {
+        return controller.react('impact', { flinch: amount, duration: 0.30 }) !== false;
+      },
+      react(feedback = 'impact', profile = {}) {
         if (state.dead || state.wrapped) return false;
-        state.flinch = Math.max(state.flinch, THREE.MathUtils.clamp(Number(amount) || 0, 0, 1));
+        const next = CAPTIVE_FEEDBACK_IDS.has(feedback) ? feedback : 'impact';
+        const strength = THREE.MathUtils.clamp(Number(profile.flinch) || 0.65, 0.08, 1);
+        const duration = Math.max(0.18, Number(profile.duration) || 0.42);
+        state.flinch = Math.max(state.flinch, strength);
         state.pain = Math.max(state.pain, state.flinch * 0.65);
+        state.feedback = next;
+        state.feedbackDuration = duration;
+        state.feedbackRemaining = duration;
+        state.feedbackStrength = strength;
         blood.visible = true;
-        return true;
+        return next;
       },
       setPain(amount = 0) {
         state.pain = THREE.MathUtils.clamp(Number(amount) || 0, 0, 1);
@@ -971,6 +1234,10 @@ export function buildCabinDungeon({
       setDead(dead = true, cause = null) {
         state.dead = dead === true;
         state.cause = state.dead ? cause ?? state.cause : null;
+        if (state.dead) {
+          state.feedback = null;
+          state.feedbackRemaining = 0;
+        }
         npc.look = !state.dead;
         if (state.dead) npc.hush();
         blood.visible = state.dead || state.flinch > 0.01;
@@ -978,6 +1245,10 @@ export function buildCabinDungeon({
       },
       setWrapped(wrapped = true) {
         state.wrapped = wrapped === true;
+        if (state.wrapped) {
+          state.feedback = null;
+          state.feedbackRemaining = 0;
+        }
         npc.group.visible = !state.wrapped;
         bodyTarget.visible = !state.wrapped;
         headTarget.visible = !state.wrapped;
@@ -997,6 +1268,10 @@ export function buildCabinDungeon({
         const step = finiteStep(dt);
         state.flinch = Math.max(0, state.flinch - step * 3.8);
         state.pain = Math.max(0, state.pain - step * 0.11);
+        if (state.feedbackRemaining > 0) {
+          state.feedbackRemaining = Math.max(0, state.feedbackRemaining - step);
+          if (state.feedbackRemaining <= 0) state.feedback = null;
+        }
         npc.update(step, playerPosition);
         // Npc owns mouth and head gaze. The restraint pose is re-applied only
         // to the group/body/limbs after that update, so neither gets erased.
@@ -1007,6 +1282,8 @@ export function buildCabinDungeon({
           id,
           pain: state.pain,
           flinch: state.flinch,
+          feedback: state.feedback,
+          feedbackRemaining: state.feedbackRemaining,
           dead: state.dead,
           alive: !state.dead,
           wrapped: state.wrapped,
@@ -1018,32 +1295,38 @@ export function buildCabinDungeon({
   };
 
   const applyRackPose = (npc, state) => {
+    const feedback = captiveFeedbackFrame(state);
     const painTremor = state.dead ? 0 : Math.sin((npc.t ?? 0) * 7.2) * state.pain * 0.018;
     npc.group.rotation.x = -Math.PI / 2;
     npc.group.rotation.z = state.dead
       ? -0.035
-      : Math.sin(state.flinch * Math.PI) * 0.025 + painTremor;
-    npc.parts.body.rotation.z = state.dead ? 0.10 : (state.flinch * 0.12 + painTremor);
-    npc.parts.armL.rotation.set(-1.48 - state.pain * 0.025, 0, -0.20 - state.flinch * 0.10);
-    npc.parts.armR.rotation.set(-1.48 - state.pain * 0.025, 0, 0.20 + state.flinch * 0.10);
-    npc.parts.foreL.rotation.set(-0.08, 0, 0);
-    npc.parts.foreR.rotation.set(-0.08, 0, 0);
-    npc.parts.legL.rotation.set(state.dead ? -0.04 : 0.04, 0, -0.10);
-    npc.parts.legR.rotation.set(state.dead ? 0.04 : -0.04, 0, 0.10);
+      : Math.sin(state.flinch * Math.PI) * 0.025 + painTremor + feedback.groupRoll;
+    npc.parts.body.rotation.x = feedback.bodyPitch;
+    npc.parts.body.rotation.z = state.dead ? 0.10 : (state.flinch * 0.12 + painTremor + feedback.bodyRoll);
+    npc.parts.head.rotation.z += feedback.headRoll;
+    npc.parts.armL.rotation.set(-1.48 - state.pain * 0.025 + feedback.armL, 0, -0.20 - state.flinch * 0.10);
+    npc.parts.armR.rotation.set(-1.48 - state.pain * 0.025 + feedback.armR, 0, 0.20 + state.flinch * 0.10);
+    npc.parts.foreL.rotation.set(-0.08 + feedback.foreL, 0, 0);
+    npc.parts.foreR.rotation.set(-0.08 + feedback.foreR, 0, 0);
+    npc.parts.legL.rotation.set((state.dead ? -0.04 : 0.04) + feedback.legL, 0, -0.10);
+    npc.parts.legR.rotation.set((state.dead ? 0.04 : -0.04) + feedback.legR, 0, 0.10);
     npc.parts.shinL.rotation.x = state.dead ? 0.08 : 0;
     npc.parts.shinR.rotation.x = state.dead ? 0.08 : 0;
   };
   const applyHangingPose = (npc, state, step) => {
+    const feedback = captiveFeedbackFrame(state);
     const sway = state.dead ? 0.018 : 0.025 + state.flinch * 0.08;
     npc.group.rotation.x = 0;
-    npc.group.rotation.z = Math.PI + Math.sin((npc.t ?? 0) * 1.15) * sway;
-    npc.parts.body.rotation.z = state.dead ? -0.09 : state.flinch * 0.15;
-    npc.parts.armL.rotation.set(-0.14 - state.pain * 0.10, 0, -0.18);
-    npc.parts.armR.rotation.set(-0.12 - state.pain * 0.08, 0, 0.20);
-    npc.parts.foreL.rotation.x = -0.38 - state.flinch * 0.30;
-    npc.parts.foreR.rotation.x = -0.42 - state.flinch * 0.26;
-    npc.parts.legL.rotation.set(0, 0, -0.09);
-    npc.parts.legR.rotation.set(0, 0, 0.09);
+    npc.group.rotation.z = Math.PI + Math.sin((npc.t ?? 0) * 1.15) * sway + feedback.groupRoll;
+    npc.parts.body.rotation.x = feedback.bodyPitch;
+    npc.parts.body.rotation.z = state.dead ? -0.09 : state.flinch * 0.15 + feedback.bodyRoll;
+    npc.parts.head.rotation.z += feedback.headRoll;
+    npc.parts.armL.rotation.set(-0.14 - state.pain * 0.10 + feedback.armL, 0, -0.18);
+    npc.parts.armR.rotation.set(-0.12 - state.pain * 0.08 + feedback.armR, 0, 0.20);
+    npc.parts.foreL.rotation.x = -0.38 - state.flinch * 0.30 + feedback.foreL;
+    npc.parts.foreR.rotation.x = -0.42 - state.flinch * 0.26 + feedback.foreR;
+    npc.parts.legL.rotation.set(feedback.legL, 0, -0.09);
+    npc.parts.legR.rotation.set(feedback.legR, 0, 0.09);
     npc.parts.shinL.rotation.x = state.dead ? 0.16 : 0.05;
     npc.parts.shinR.rotation.x = state.dead ? 0.18 : 0.05;
     void step;
@@ -1091,9 +1374,19 @@ export function buildCabinDungeon({
     gasCan: 'Inspect the red <b>gas can</b>',
   });
   for (const [id, target] of Object.entries(tools)) {
-    toolTargets[id] = target;
-    utilityTargets[`dungeonTool${id[0].toUpperCase()}${id.slice(1)}`] = target;
-    interaction.register(target, {
+    // A torus has a literal hole under the crosshair. Give the visible coil a
+    // tight surface around its wire so aiming at its centre cannot select the
+    // battery behind it. This remains local to the prop, not a table-wide
+    // shortcut.
+    const interactionTarget = id === 'leads'
+      ? invisibleTarget('cabin-dungeon-electrical-leads-target', [0.36, 0.26, 0.26], [
+        -6.75, workAt.topY + 0.20, 10.78,
+      ])
+      : target;
+    if (interactionTarget !== target) add(interactionTarget, 'cabin-dungeon-interaction');
+    toolTargets[id] = interactionTarget;
+    utilityTargets[`dungeonTool${id[0].toUpperCase()}${id.slice(1)}`] = interactionTarget;
+    interaction.register(interactionTarget, {
       label: () => {
         if (!['pliers', 'saw', 'battery', 'syringes', 'towels', 'leads', 'bucket'].includes(id)) {
           return toolLabels[id] ?? `Inspect the <b>${id}</b>`;
@@ -1116,7 +1409,14 @@ export function buildCabinDungeon({
     add(target, 'cabin-dungeon-interaction');
     toolTargets[id] = target;
     utilityTargets[`dungeon${id[0].toUpperCase()}${id.slice(1)}`] = target;
-    interaction.register(target, { label, onUse: () => notify('tool', id) });
+    interaction.register(target, {
+      label,
+      // The broad table proxy is only a convenience surface. Without the
+      // shared InteractionSystem's soft-target discipline it sits in front
+      // of the small physical tools and turns them back into scenery.
+      soft: id === 'worktable',
+      onUse: () => notify('tool', id),
+    });
   }
 
   const anchors = Object.freeze({
@@ -1162,14 +1462,32 @@ export function buildCabinDungeon({
   };
   const armoryViewFloor = cabinDungeonFloorAt(0.72, 8.54);
   const armoryLookFloor = cabinDungeonFloorAt(0.92, 6.64);
-  const viewpoints = Object.freeze({
+  const viewpointMap = {
     dungeonDoor: makeViewpoint('dungeonDoor', [0.92, doorSpec.floorY + WALK_EYE_HEIGHT, 3.02], [0.92, doorSpec.floorY + 1.08, 4.62], doorSpec.floorY),
     dungeonGratin: makeViewpoint('dungeonGratin', [0.45, D.floorY + WALK_EYE_HEIGHT, 10.82], [gratinAt.x, D.floorY + 1.47, gratinAt.z]),
     dungeonAteamCaptive: makeViewpoint('dungeonAteamCaptive', [1.46, D.floorY + WALK_EYE_HEIGHT, 14.30], [rackAt.x, D.floorY + 1.20, rackAt.z]),
     dungeonCounterStrikeCaptive: makeViewpoint('dungeonCounterStrikeCaptive', [-1.05, D.floorY + WALK_EYE_HEIGHT, 14.78], [-3.18, D.floorY + 1.05, 14.78]),
     dungeonWorktable: makeViewpoint('dungeonWorktable', [-2.92, D.floorY + WALK_EYE_HEIGHT, 10.55], [workAt.x, D.floorY + 1.25, workAt.z + 0.72]),
     dungeonArmory: makeViewpoint('dungeonArmory', [0.72, armoryViewFloor + WALK_EYE_HEIGHT, 8.54], [0.92, armoryLookFloor + 1.26, 6.64], armoryViewFloor),
-  });
+  };
+  for (const [id, door] of Object.entries(cellDoors)) {
+    const cameraZ = door.opening.z - 1.72;
+    viewpointMap[`dungeonCellDoor${id[0].toUpperCase()}${id.slice(1)}`] = makeViewpoint(
+      `dungeonCellDoor${id[0].toUpperCase()}${id.slice(1)}`,
+      [(door.opening.x0 + door.opening.x1) / 2, D.floorY + WALK_EYE_HEIGHT, cameraZ],
+      [(door.opening.x0 + door.opening.x1) / 2, D.floorY + 1.10, door.opening.z],
+    );
+  }
+  for (const id of Object.keys(toolLabels).filter((toolId) => toolId !== 'gasCan')) {
+    const target = toolTargets[id];
+    const focus = target.getWorldPosition(new THREE.Vector3());
+    viewpointMap[`dungeonTool${id[0].toUpperCase()}${id.slice(1)}`] = makeViewpoint(
+      `dungeonTool${id[0].toUpperCase()}${id.slice(1)}`,
+      [focus.x, D.floorY + WALK_EYE_HEIGHT, focus.z + 1.68],
+      [focus.x, focus.y, focus.z],
+    );
+  }
+  const viewpoints = Object.freeze(viewpointMap);
 
   const actors = Object.freeze({ gratin, ateam, counterStrike });
   const targets = Object.freeze({
@@ -1177,6 +1495,7 @@ export function buildCabinDungeon({
     gratin: gratinTarget,
     ateam: ateam.bodyTarget,
     counterStrike: counterStrike.bodyTarget,
+    cellDoors: Object.freeze({ ...cellDoorTargets }),
     tools: Object.freeze(toolTargets),
   });
   const hitTargets = Object.freeze([
@@ -1212,6 +1531,13 @@ export function buildCabinDungeon({
     doorRoot.position.x = (doorSpec.x0 + doorSpec.x1) / 2 - DOOR_TRAVEL * easedDoor;
     if (doorState.t >= 0.72) removeDoorCollider();
     else if (doorState.t <= 0.08) restoreDoorCollider();
+    for (const record of cellDoorRecords) {
+      if (record.state.desiredOpen) {
+        record.state.t = THREE.MathUtils.clamp(record.state.t + step * CELL_DOOR_SPEED, 0, 1);
+      }
+      record.pivot.rotation.y = CELL_DOOR_OPEN_ANGLE * smoothUnit(record.state.t);
+      if (record.state.t >= 0.72) record.removeCollider();
+    }
 
     const feetY = playerPosition ? playerPosition.y - WALK_EYE_HEIGHT : Infinity;
     const occupied = Boolean(playerPosition)
@@ -1251,7 +1577,14 @@ export function buildCabinDungeon({
   };
 
   const dispose = () => {
-    for (const target of [doorTarget, gratinTarget, ateam.bodyTarget, counterStrike.bodyTarget, ...Object.values(toolTargets)]) {
+    for (const target of [
+      doorTarget,
+      gratinTarget,
+      ateam.bodyTarget,
+      counterStrike.bodyTarget,
+      ...Object.values(cellDoorTargets),
+      ...Object.values(toolTargets),
+    ]) {
       interaction.unregister?.(target);
     }
     gratin.hush();
@@ -1272,6 +1605,7 @@ export function buildCabinDungeon({
       get open() { return doorState.desiredOpen; },
       setOpen: setDoorOpen,
     }),
+    cells: Object.freeze({ ...cellDoors }),
     actors,
     targets,
     hitTargets,
