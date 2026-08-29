@@ -425,7 +425,13 @@ try {
     };
   });
   check('the three visible get-ready facts spend their exact-once beat',
-    ready.completed.every(Boolean)
+    ready.completed[0] === true
+      && ready.completed[1] === true
+      /* The campaign phone is already in inventory on this routed landing.
+       * `complete()` returning false is the exact-once receipt: the visible
+       * tally remains complete without pretending the same phone was taken
+       * twice. */
+      && ready.completed[2] === false
       && ready.tally.completedCount === 3
       && ready.tally.ready
       && ready.story.timeEvents.includes('activity.luxury.get_ready')
