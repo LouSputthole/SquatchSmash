@@ -300,6 +300,8 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   assert.equal(heist.checkpoint('vehicle_swap', {
     playerDroveEscape: true, vehicleDamage: 41,
   }), true);
+  assert.equal(heist.checkpoint('safehouse_debrief'), true);
+  assert.equal(heist.answerDebriefCall(), true);
   assert.equal(heist.complete({
     bagsRecovered: 7,
     grossTake: 1_260_000,

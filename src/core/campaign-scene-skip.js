@@ -465,6 +465,7 @@ const HEIST_CHECKPOINT_FACTS = Object.freeze({
   street_withdrawal: { primaryVanLost: true, policeHeat: 0 },
   mercer_garage: { bagsRecovered: 7, crewInjuries: {}, droppedBagRecovered: false },
   vehicle_swap: { playerDroveEscape: true, vehicleDamage: 0 },
+  safehouse_debrief: {},
 });
 
 function completeBankHeist(campaign) {
@@ -475,6 +476,7 @@ function completeBankHeist(campaign) {
   for (const id of BANK_HEIST_CHECKPOINT_IDS.slice(current + 1)) {
     if (!story.checkpoint(id, HEIST_CHECKPOINT_FACTS[id])) return false;
   }
+  if (story.debriefCallStatus() === 'ringing' && !story.answerDebriefCall()) return false;
   return story.complete({
     bagsStaged: 7,
     bagsRecovered: 7,

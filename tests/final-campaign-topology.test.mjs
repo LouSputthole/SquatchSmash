@@ -99,7 +99,7 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 25);
+  assert.equal(CAMPAIGN_VERSION, 26);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');
@@ -390,7 +390,10 @@ test('THE TAKE cleanup routes through beat 12’s call and into the round', () =
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
   });
 
-  assert.equal(createBankHeistStory({ campaign }).complete(), true);
+  const heistStory = createBankHeistStory({ campaign });
+  assert.equal(heistStory.checkpoint('safehouse_debrief'), true);
+  assert.equal(heistStory.answerDebriefCall(), true);
+  assert.equal(heistStory.complete(), true);
   assert.equal(campaign.state.story.chapter, 'post_heist');
   assert.equal(campaign.state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');

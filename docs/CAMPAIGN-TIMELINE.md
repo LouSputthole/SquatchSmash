@@ -17,7 +17,7 @@
 > and Beat 27 now rings in the luxury apartment before the existing pickup,
 > ride, trunk reveal, arrival and ceremony. All thirty-one beats are wired.
 
-The owner's connected campaign route implemented by campaign schema v25. Two
+The owner's connected campaign route implemented by campaign schema v26. Two
 homes: the starter apartment for beats 0 to 13, and the luxury apartment from
 the moment Lou hands over the keys on the eighteenth green at Silver Pines.
 The Home Ladder climbs there and never comes back down. Initiation remains a
@@ -247,6 +247,13 @@ are floored to that daylight return. Mansion saves are adjusted only when they
 match the exact v24 clocks produced by the retired eight-hour guest-room rest:
 04:10 before the siege or 06:10 immediately after it. A later clock is never
 rewound.
+
+Schema v26 adds bounded final `shotsFired` and `peopleKilled` counters to THE
+TAKE's durable mission record. The safehouse debrief saves them before Lou's
+phone rings, so a reload during the ring or after answering cannot zero the
+campaign-wide Prospect's Record or fold it twice. Version 25 saves migrate both
+new counters to zero because their old summaries cannot prove missed rounds or
+officer kills; already-recorded aggregate statistics are preserved.
 
 The workbook's **Day 5 night** label for Mansion Under Siege is a narrative
 label for the overnight begun on the day the case is delivered. The guest-room

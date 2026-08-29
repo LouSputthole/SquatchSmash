@@ -9,6 +9,18 @@ export const HEIST_SLOT_KEYS = Object.freeze({
 });
 
 /**
+ * Persist the exact-once answer receipt before the shared Phone stops ringing.
+ * Required-save failures deliberately escape with the Phone untouched, so a
+ * failed disk write cannot turn a still-pending story call into dead silence.
+ */
+export function answerDurablePhoneCall({ phone, persistAnswer } = {}) {
+  if (!phone?.ringing || typeof persistAnswer !== 'function') return false;
+  if (!persistAnswer()) return false;
+  phone.press();
+  return phone.inCall === true;
+}
+
+/**
  * Heist-specific policy for the canonical browser input Adapter.
  *
  * The shared Adapter owns browser events, capture, translated releases and
@@ -32,6 +44,8 @@ export function createHeistControlPolicy({
   pause,
   resumeSimulation,
   pauseMenuOpen,
+  phoneRinging = () => false,
+  answerPhone = () => false,
 } = {}) {
   if (typeof state !== 'function') throw new TypeError('Heist controls require state()');
 
@@ -58,7 +72,15 @@ export function createHeistControlPolicy({
     routes: Object.freeze({
       keyDown(event, context) {
         const current = state();
-        if (event.repeat && REPEAT_GUARDED_CODES.has(event.code)) return true;
+        if (event.repeat && REPEAT_GUARDED_CODES.has(context.code)) return true;
+
+        /* A ringing campaign phone is not under the crosshair. Route the
+         * configured interaction action before any world target so E answers
+         * from every legal position in the safehouse. */
+        if (context.code === 'KeyE' && phoneRinging()) {
+          answerPhone();
+          return true;
+        }
 
         const movement = preserveMovementBinding(event, context.code);
         // The escape car used keyboard input independently of pointer lock.
@@ -70,7 +92,7 @@ export function createHeistControlPolicy({
         }
         if (event.code === 'BracketLeft') { cycleSlot(-1); return true; }
         if (event.code === 'BracketRight') { cycleSlot(1); return true; }
-        if (event.code === 'KeyE') { interaction.press(); return true; }
+        if (context.code === 'KeyE') { interaction.press(); return true; }
         if (event.code === 'KeyF') { hostageVerb('reassure'); return true; }
         if (event.code === 'KeyG') { hostageVerb('demand'); return true; }
         if (event.code === 'KeyR') { reload(); return true; }
@@ -80,10 +102,8 @@ export function createHeistControlPolicy({
         // An ordinary movement binding continues through the canonical path.
         return undefined;
       },
-      keyUp(event) {
-        // This is intentionally the physical E, matching the old scene even
-        // when movement has been rebound onto the same key.
-        if (event.code === 'KeyE') interaction.release();
+      keyUp(_event, context) {
+        if (context.code === 'KeyE') interaction.release();
         return undefined;
       },
       mouseDown(event, context) {

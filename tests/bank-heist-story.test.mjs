@@ -110,6 +110,14 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
   assert.equal(story.checkpoint('vehicle_swap', {
     playerDroveEscape: true, vehicleDamage: 38,
   }), true);
+  assert.equal(story.complete({ bagsRecovered: 7 }), false,
+    'the mission cannot finish before Lou\'s debrief call is answered');
+  assert.equal(story.checkpoint('safehouse_debrief'), true);
+  assert.equal(story.debriefCallStatus(), 'ringing');
+  assert.equal(story.answerDebriefCall(), true);
+  assert.equal(story.answerDebriefCall(), false,
+    'answering is a durable exact-once campaign transition');
+  assert.equal(story.debriefCallStatus(), 'answered');
   assert.equal(story.complete({
     bagsRecovered: 7,
     grossTake: 1_260_000,
@@ -121,6 +129,8 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
   const state = campaign.state;
   assert.equal(state.story.chapter, 'post_heist');
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'complete');
+  assert.equal(state.missions[MISSION_IDS.BANK_HEIST].checkpoint, 'vehicle_swap',
+    'completed saves keep the established canonical completion receipt');
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST].outcome, 'professional');
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST].grossTake, 1_260_000);
   assert.deepEqual({
@@ -154,6 +164,64 @@ test('THE TAKE records authored checkpoints exactly once and folds its result in
   assert.deepEqual(apartment.sleep(), {
     ok: true, chapter: 'golf_morning', day: 6, timeMinutes: 7 * 60,
   });
+});
+
+test('THE TAKE reloads safely while Lou is ringing and immediately after answer', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    state.story.chapter = 'heist_day';
+    state.story.day = 5;
+    state.story.timeMinutes = 12 * 60;
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    const mission = state.missions[MISSION_IDS.BANK_HEIST];
+    mission.status = 'in_progress';
+    mission.checkpoint = 'vehicle_swap';
+    mission.vaultOpened = true;
+    mission.cleanup.finalCalls = false;
+    state.statistics.shotsFired = 11;
+    state.statistics.peopleKilled = 2;
+  });
+  const checkpointStory = createBankHeistStory({ campaign });
+  assert.equal(checkpointStory.checkpoint('safehouse_debrief', {
+    shotsFired: 37,
+    peopleKilled: 4,
+  }), true);
+
+  const ringingReload = createCampaign({ storage });
+  const ringingStory = createBankHeistStory({ campaign: ringingReload });
+  assert.deepEqual(ringingStory.begin(), {
+    ok: true, resumed: true, checkpoint: 'safehouse_debrief',
+  });
+  assert.equal(ringingStory.debriefCallStatus(), 'ringing');
+  assert.equal(ringingStory.answerDebriefCall(), true);
+
+  const answeredReload = createCampaign({ storage });
+  const answeredStory = createBankHeistStory({ campaign: answeredReload });
+  assert.deepEqual(answeredStory.begin(), {
+    ok: true, resumed: true, checkpoint: 'safehouse_debrief',
+  });
+  assert.equal(answeredStory.debriefCallStatus(), 'answered');
+  assert.equal(answeredStory.answerDebriefCall(), false);
+  assert.equal(answeredStory.complete({
+    bagsRecovered: 7,
+    shotsFired: 0,
+    peopleKilled: 0,
+  }), true,
+    'an answered call resumes to completion without ringing or softlocking');
+  assert.equal(answeredReload.state.missions[MISSION_IDS.BANK_HEIST].checkpoint, 'vehicle_swap');
+  assert.equal(answeredReload.state.missions[MISSION_IDS.BANK_HEIST].shotsFired, 37);
+  assert.equal(answeredReload.state.missions[MISSION_IDS.BANK_HEIST].peopleKilled, 4);
+  assert.equal(answeredReload.state.statistics.shotsFired, 48);
+  assert.equal(answeredReload.state.statistics.peopleKilled, 6);
+
+  const completedReload = createCampaign({ storage });
+  const completedStory = createBankHeistStory({ campaign: completedReload });
+  assert.equal(completedStory.complete({ shotsFired: 99, peopleKilled: 99 }), false,
+    'a completed reload cannot fold the mission statistics a second time');
+  assert.equal(completedReload.state.statistics.shotsFired, 48);
+  assert.equal(completedReload.state.statistics.peopleKilled, 6);
 });
 
 test('required heist progress refuses to advance when persistence is unavailable', () => {

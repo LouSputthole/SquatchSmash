@@ -7,7 +7,9 @@ import * as THREE from 'three';
 
 import { HEIST_PHASE_PLAYER_BOUNDS, HEIST_STATES } from '../src/heist/config.js';
 import { buildHeistLevel } from '../src/heist/level.js';
-import { SAFEHOUSE_DEBRIEF_STEPS, debriefStep } from '../src/heist/orders.js';
+import {
+  SAFEHOUSE_DEBRIEF_STEPS, debriefStep, objectiveForState,
+} from '../src/heist/orders.js';
 
 /**
  * THE LAST CAR, AND RIPPINFLOW'S LEG.
@@ -175,6 +177,14 @@ test('wrapping the leg is on the man with the wound', () => {
   assert.match(firstAid.doneLabel, /leg/i);
 });
 
+test('Lou rings Tony\'s campaign phone without a safehouse location objective', () => {
+  const call = debriefStep('lou_call');
+  assert.equal(call.target, 'campaign_phone');
+  assert.match(call.label, /^4\/4/);
+  assert.doesNotMatch(call.label, /van|table|bench|at the/i);
+  assert.doesNotMatch(objectiveForState('DEBRIEF', { weaponsDown: true }), /van|table|bench/i);
+});
+
 /**
  * The wiring, checked in the source.
  *
@@ -197,10 +207,12 @@ test('the debrief branch registers the step table’s prop, not the vest', () =>
     .replaceAll(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(branch.includes('debriefProps[firstAid.target]'),
     'step 1/4 no longer reads its prop from SAFEHOUSE_DEBRIEF_STEPS');
-  assert.equal((branch.match(/use\(debriefProps\[/g) ?? []).length, 4,
-    'all four numbered steps take their prop from the step table');
+  assert.equal((branch.match(/use\(debriefProps\[/g) ?? []).length, 3,
+    'only the three physical debrief steps take a world prop');
   assert.ok(!branch.includes('interactables.armor'),
     'the debrief is registering an interaction on the plate-carrier stand again');
+  assert.ok(!branch.includes("debriefStep('lou_call')"),
+    'Lou\'s call has returned to a world interaction hotspot');
   /* And it must not quietly move armour either way while it is at it. */
   assert.ok(!/preparation\.(equipArmor|armorReady|restore)/.test(branch.split('firstAid')[1]?.slice(0, 900) ?? ''),
     'the first-aid handler is touching the armour state');

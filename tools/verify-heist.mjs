@@ -427,6 +427,71 @@ async function verifyEscapeVehicleCheckpoint() {
     problems.length === 0, problems.join(' | ').slice(0, 600));
 }
 
+/** Reload the real drive checkpoint twice; every document may own one score. */
+async function verifyEscapeScoreReloadOwnership() {
+  const scorePage = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  scorePage.on('pageerror', (error) => problems.push(`score-reload: ${error.message}`));
+  scorePage.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`score-reload: ${message.text()}`);
+  });
+  const open = async ({ reload = false } = {}) => {
+    if (reload) await scorePage.reload({ waitUntil: 'load' });
+    else {
+      await scorePage.goto(
+        `http://localhost:${PORT}/heist.html?preview=1&checkpoint=vehicle_escape`,
+        { waitUntil: 'load' },
+      );
+    }
+    await scorePage.waitForFunction(() => window.__heistDebug?.start,
+      null, { timeout: 60000 });
+    await scorePage.evaluate(() => document.getElementById('start').click());
+    await scorePage.waitForFunction(() => {
+      const snap = window.__heistDebug?.snapshot();
+      const score = snap?.musicLifecycle.escapeScore;
+      return snap?.state === 'PLAYER_TAKES_WHEEL'
+        && score?.activeLoopCount === 1
+        && score.unreleasedStreamHandles === 1;
+    }, null, { timeout: 120000, polling: 100 });
+    return scorePage.evaluate(() => window.__heistDebug.snapshot());
+  };
+
+  try {
+    const first = await open();
+    /* This checkpoint has exactly one authored line at entry. It isolates the
+     * shared music-bus release from the main run's still-draining command
+     * backlog while keeping the real start button, real AudioEngine and real
+     * `rippin_drive` take. */
+    await scorePage.waitForFunction(() => {
+      const snap = window.__heistDebug?.snapshot();
+      return snap?.voice.currentDialogue?.id === 'rippin_drive'
+        && snap.musicLifecycle.duck.active
+        && snap.musicLifecycle.duck.music.ratio < 0.7;
+    }, null, { timeout: 60000, polling: 50 });
+    const duringLine = await scorePage.evaluate(() => window.__heistDebug.snapshot());
+    await scorePage.waitForFunction(() => {
+      const mix = window.__heistDebug?.snapshot().musicLifecycle;
+      return mix && !mix.duck.active && mix.duck.music.ratio >= 0.95;
+    }, null, { timeout: 60000, polling: 100 });
+    const afterLine = await scorePage.evaluate(() => window.__heistDebug.snapshot());
+    await scorePage.evaluate(() => window.__heistDebug.fail('escape_score_lifecycle_probe'));
+    await scorePage.waitForFunction(() => window.__heistDebug.state === 'FAILED',
+      null, { timeout: 30000, polling: 50 });
+    await scorePage.waitForFunction(() => {
+      const snap = window.__heistDebug?.snapshot();
+      const score = snap?.musicLifecycle.escapeScore;
+      return snap?.state === 'PLAYER_TAKES_WHEEL'
+        && score?.activeLoopCount === 1
+        && score.unreleasedStreamHandles === 1
+        && score.lastRetiredReleased;
+    }, null, { timeout: 60000, polling: 100 });
+    const failure = await scorePage.evaluate(() => window.__heistDebug.snapshot());
+    const second = await open({ reload: true });
+    return { first, duringLine, afterLine, failure, second };
+  } finally {
+    await scorePage.close();
+  }
+}
+
 async function verifyManagerAndActorRecovery() {
   const managerPage = await browser.newPage({ viewport: { width: 960, height: 540 } });
   managerPage.on('pageerror', (error) => problems.push(`manager-recovery: ${error.message}`));
@@ -665,6 +730,31 @@ try {
   markInputOnlyPhase('real-input');
   let state = await snapshot();
 
+  /* The safehouse record is owned by the real fresh-prep route. Observe the
+   * shared ambience-bus duck while Snow's actual arrival take is playing,
+   * then observe the same bus return to its authored resting level. */
+  await page.waitForFunction(() => {
+    const snap = window.__heistDebug?.snapshot();
+    return snap?.voice.currentDialogue?.id === 'snow_arrival'
+      && snap.musicLifecycle.duck.active
+      && snap.musicLifecycle.duck.ambience.ratio < 0.8;
+  }, null, { timeout: 60000, polling: 50 });
+  const safehouseRecordDuringLine = await snapshot();
+  await page.waitForFunction(() => {
+    const mix = window.__heistDebug?.snapshot().musicLifecycle;
+    return mix && !mix.duck.active && mix.duck.ambience.ratio >= 0.95;
+  }, null, { timeout: 60000, polling: 100 });
+  const safehouseRecordAfterLine = await snapshot();
+  let safehouseRecordBeforeBank = null;
+  const escapeScoreEvidence = {
+    duringLine: null,
+    afterLine: null,
+    afterFailure: null,
+    afterSwap: null,
+    reload: null,
+    handoff: null,
+  };
+
   /* Cross the browser-to-Player Seam before any verifier pose or interaction
    * helper can make this mission look playable. The click is trusted browser
    * input, the frame loop moves the real Player, and the Adapter's own
@@ -846,9 +936,9 @@ try {
       && state.presentation.carbineVisible,
     JSON.stringify(state.inventory));
   check('the expanded heist dialogue bank is wired and recorded lines drive real timing',
-    state.voice.authored >= 56
-      && state.voice.decoded >= 40
-      && state.voice.pending >= 35
+    state.voice.authored >= 55
+      && state.voice.decoded === state.voice.authored
+      && state.voice.authored + state.voice.pending === 156
       && state.voice.longest > 0
       && state.voice.lastPlayback?.duration > 0
       && state.voice.subtitleRemaining > 0,
@@ -999,6 +1089,41 @@ try {
   await page.keyboard.press('KeyE');
   await page.waitForFunction(() => window.__heistDebug.state === 'BANK_ENTRY',
     null, { timeout: 30000, polling: 300 });
+  await page.waitForFunction(() => {
+    const record = window.__heistDebug.snapshot().musicLifecycle.safehouseRecord;
+    return record.activeLoopCount === 0
+      && record.unreleasedStreamHandles === 0
+      && record.lastRetiredReleased;
+  }, null, { timeout: 30000, polling: 100 });
+  safehouseRecordBeforeBank = await snapshot();
+  const prepDuring = safehouseRecordDuringLine.musicLifecycle;
+  const prepRestored = safehouseRecordAfterLine.musicLifecycle;
+  const prepRetired = safehouseRecordBeforeBank.musicLifecycle;
+  check('THE TAKE safehouse record starts once, ducks under dialogue, and tears down before the bank',
+    safehouseRecordDuringLine.voice.currentDialogue?.id === 'snow_arrival'
+      && prepDuring.safehouseRecord.startCount === 1
+      && prepDuring.safehouseRecord.activeLoopCount === 1
+      && prepDuring.safehouseRecord.unreleasedStreamHandles === 1
+      && prepDuring.loopKeys.filter((key) => key === 'heist.morning.radio').length === 1
+      && prepDuring.streamedLoopKeys.filter((key) => key === 'heist.morning.radio').length === 1
+      && prepDuring.duck.active
+      && prepDuring.duck.ambience.ratio < 0.8
+      && !prepRestored.duck.active
+      && prepRestored.duck.ambience.ratio >= 0.95
+      && prepRetired.safehouseRecord.activeLoopCount === 0
+      && prepRetired.safehouseRecord.unreleasedStreamHandles === 0
+      && prepRetired.safehouseRecord.lastRetiredReleased
+      && !prepRetired.loopKeys.includes('heist.morning.radio')
+      && !prepRetired.streamedLoopKeys.includes('heist.morning.radio'),
+    JSON.stringify({
+      duringLine: {
+        line: safehouseRecordDuringLine.voice.currentDialogue?.id,
+        lifecycle: prepDuring.safehouseRecord,
+        duck: prepDuring.duck.ambience,
+      },
+      restored: prepRestored.duck.ambience,
+      beforeBank: prepRetired.safehouseRecord,
+    }));
   check('the doors open from the seat too, once the mask is down',
     /van doors/i.test(doorPrompt ?? ''), String(doorPrompt));
 
@@ -1355,7 +1480,18 @@ try {
   }
   await page.waitForFunction(() => window.__heistDebug.state === 'VEHICLE_SWAP',
     null, { timeout: 30000, polling: 300 });
+  await page.waitForFunction(() => {
+    const score = window.__heistDebug.snapshot().musicLifecycle.escapeScore;
+    return score.activeLoopCount === 0
+      && score.unreleasedStreamHandles === 0
+      && score.lastRetiredReleased;
+  }, null, { timeout: 30000, polling: 100 });
   state = await snapshot();
+  escapeScoreEvidence.afterSwap = state;
+  escapeScoreEvidence.reload = await verifyEscapeScoreReloadOwnership();
+  escapeScoreEvidence.duringLine = escapeScoreEvidence.reload.duringLine;
+  escapeScoreEvidence.afterLine = escapeScoreEvidence.reload.afterLine;
+  escapeScoreEvidence.afterFailure = escapeScoreEvidence.reload.failure;
   check('the authored drive crosses every turn, the roadblock, and the canal node',
     routeStates.map((entry) => entry.node).join(',')
       === 'garage_left,warehouse_left,tower_right,roadblock,canal_turn,industrial_swap'
@@ -1477,16 +1613,36 @@ try {
       && /Taken off customers/.test(boardText ?? '')
       && /COSTLY SUCCESS/.test(boardText ?? ''),
     String(boardText).replace(/\s+/g, ' ').slice(0, 240));
-  /* Spoken OR still sequenced: a seventeen-line debrief is a minute of speech,
-   * and the point of the check is that none of it is dropped. The old bank
-   * pushed all of it in one frame into a four-deep queue and lost ten lines. */
+  /* Spoken OR still sequenced: the dirty branch is sixteen lines (the clean
+   * branch is seventeen), and the point of the check is that none of the
+   * selected branch is dropped. The old bank pushed all of it in one frame
+   * into a four-deep queue and lost ten lines. */
   const debriefSaid = [...state.voice.spoken, ...state.voice.queued];
+  const expectedDirtyDebrief = [
+    'snow_debrief_open',
+    'numb_debrief_ledger',
+    'death_debrief_count',
+    'lou_debrief_open',
+    'snow_debrief_people',
+    'lou_debrief_people_dirty',
+    'snow_debrief_money',
+    'lou_debrief_money_full',
+    'lou_debrief_souvenirs',
+    'lou_debrief_verdict_bad',
+    'snow_debrief_ugly',
+    'shubes_signature_cleanup',
+    'shubes_defend',
+    'death_ammo',
+    'numb_home',
+    'prospect_debrief_dirty',
+  ];
+  const dirtyDebriefIndexes = expectedDirtyDebrief.map((id) => debriefSaid.indexOf(id));
   check('the whole debrief is scheduled — nothing is dropped on the floor',
-    debriefSaid.includes('shubes_signature_cleanup')
-      && debriefSaid.includes('snow_good')
-      && debriefSaid.includes('prospect_debrief')
-      && state.voice.queued.length + state.voice.spoken.length > 0,
-    JSON.stringify(state.voice.queued));
+    dirtyDebriefIndexes.every((index) => index >= 0)
+      && dirtyDebriefIndexes.every((index, position) => (
+        position === 0 || index > dirtyDebriefIndexes[position - 1]
+      )),
+    JSON.stringify({ expectedDirtyDebrief, dirtyDebriefIndexes, queued: state.voice.queued }));
   check('Big Uncle Lou frames the debrief and says both objective numbers back',
     debriefSaid.includes('lou_debrief_open')
       && debriefSaid.includes('lou_debrief_people_dirty')
@@ -1510,10 +1666,70 @@ try {
       backlog: state.voice.commandBacklog.filter((id) => id.startsWith('lou_radio')),
     }));
   await shot('11-safehouse-money-count');
-  await use('safehouse-loadout');
-  await use('van-door');
-  await page.waitForFunction(() => window.__heistDebug.snapshot().missionCompleted, null, { timeout: 60000, polling: 400 });
   state = await snapshot();
+  check('the campaign phone remains dormant through the money count and weapon handoff',
+    state.state === 'DEBRIEF'
+      && !state.phone.ringing
+      && !state.phone.inCall
+      && state.phone.sceneCopies === 0
+      && state.campaignMission.cleanup.finalCalls === false,
+    JSON.stringify({ state: state.state, phone: state.phone }));
+  await use('safehouse-loadout');
+  await page.waitForFunction(() => {
+    const snap = window.__heistDebug.snapshot();
+    return snap.state === 'DEBRIEF' && snap.phone.ringing;
+  }, null, { timeout: 60000, polling: 200 });
+  state = await snapshot();
+  const ringingCampaignState = structuredClone(state.campaignState);
+  const ringingObjective = await page.locator('#objectives').textContent();
+  check('Lou rings Tony\'s one persistent campaign phone only at debrief step 4/4',
+    state.checkpoint === 'safehouse_debrief'
+      && state.phone.ringing
+      && state.phone.ringLoopActive
+      && state.phone.callId === 'heist_safehouse_lou_debrief'
+      && state.phone.campaignCopies === 1
+      && state.phone.carried
+      && state.phone.sceneCopies === 0,
+    JSON.stringify({ checkpoint: state.checkpoint, phone: state.phone }));
+  check('the ringing objective has no van or world-location handoff',
+    /4\/4/.test(ringingObjective ?? '')
+      && /Press E anywhere/i.test(ringingObjective ?? '')
+      && !/van|at the van/i.test(ringingObjective ?? '')
+      && !state.interactionTargets.some((target) => target.name === 'van-door'),
+    JSON.stringify({ objective: ringingObjective, targets: state.interactionTargets }));
+
+  /* Stand at an unrelated crew member, not at a phone prop or the van, and
+   * answer through the same configured KeyE route a player uses. */
+  await page.evaluate(() => window.__heistDebug.poseForCrew('rippinflow'));
+  await page.waitForTimeout(180);
+  const callPose = await page.evaluate(() => ({
+    probe: window.__heistDebug.probeCrosshair(),
+    current: window.__heistDebug.snapshot().currentInteraction,
+  }));
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => {
+    const snap = window.__heistDebug.snapshot();
+    return snap.state === 'LOU_CALL_SAFEHOUSE' && snap.phone.inCall
+      && snap.phone.status === 'answered';
+  }, null, { timeout: 30000, polling: 100 });
+  state = await snapshot();
+  check('configured E answers the ringing phone away from every world-phone hotspot',
+    callPose.current?.name !== 'van-door'
+      && state.phone.inCall
+      && !state.phone.ringing
+      && !state.phone.ringLoopActive
+      && state.campaignMission.cleanup.finalCalls === true,
+    JSON.stringify({ callPose, phone: state.phone }));
+
+  await page.waitForFunction(() => window.__heistDebug.snapshot().missionCompleted, null, { timeout: 120000, polling: 300 });
+  state = await snapshot();
+  const finalCallOrder = ['lou_phone_home', 'lou_home_order', 'prospect_phone_home']
+    .map((id) => state.voice.spoken.indexOf(id));
+  check('the shared phone handoff preserves all three authored lines in order',
+    finalCallOrder.every((index) => index >= 0)
+      && finalCallOrder[0] < finalCallOrder[1]
+      && finalCallOrder[1] < finalCallOrder[2],
+    JSON.stringify({ finalCallOrder, spoken: state.voice.spoken.slice(-8) }));
   check('THE TAKE completes and writes an honest verdict into the campaign',
     state.state === 'SCENE_COMPLETE'
       && state.campaignMission.status === 'complete'
@@ -1534,6 +1750,122 @@ try {
       && /COSTLY SUCCESS/.test(cardText ?? '')
       && /Compromised cash/.test(cardText ?? ''),
     String(cardText).replace(/\s+/g, ' ').slice(0, 220));
+
+  /* ---- the durable call seam, in an ordinary save rather than preview ----
+   * Preview deliberately reseeds on every load, so this page starts from the
+   * real ringing campaign record captured above and then reloads twice: once
+   * before answer and once immediately after the exact-once receipt is saved. */
+  const phoneReloadPage = await browser.newPage({ viewport: { width: 960, height: 540 } });
+  phoneReloadPage.on('pageerror', (error) => problems.push(`phone-reload: ${error.message}`));
+  phoneReloadPage.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`phone-reload: ${message.text()}`);
+  });
+  const ringingSave = structuredClone(ringingCampaignState);
+  ringingSave.scene = { id: 'bank_heist', spawn: 'safehouse' };
+  ringingSave.missions.bank_heist.status = 'in_progress';
+  ringingSave.missions.bank_heist.checkpoint = 'safehouse_debrief';
+  ringingSave.missions.bank_heist.cleanup.finalCalls = false;
+  /* Non-zero counters make the reload proof bite: a freshly reconstructed
+   * scene ledger is zeroed, so only the durable debrief seam can preserve
+   * these through completion into The Prospect's Record. */
+  ringingSave.missions.bank_heist.shotsFired = 37;
+  ringingSave.missions.bank_heist.peopleKilled = 4;
+  const statisticsBeforeDebrief = structuredClone(ringingSave.statistics);
+  await phoneReloadPage.addInitScript((record) => {
+    const marker = 'squatchlife.verify.heist.phone-reload.seeded';
+    if (sessionStorage.getItem(marker)) return;
+    localStorage.setItem('squatchlife.campaign', JSON.stringify(record));
+    sessionStorage.setItem(marker, '1');
+  }, ringingSave);
+  const openSavedDebrief = async () => {
+    await phoneReloadPage.goto(`http://localhost:${PORT}/heist.html`, { waitUntil: 'load' });
+    await phoneReloadPage.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 60000 });
+    await phoneReloadPage.locator('#start').click();
+    await phoneReloadPage.waitForFunction(() => {
+      const snap = window.__heistDebug?.snapshot();
+      return snap?.state === 'DEBRIEF' && snap?.phone?.ringing;
+    }, null, { timeout: 120000, polling: 200 });
+    return phoneReloadPage.evaluate(() => window.__heistDebug.snapshot());
+  };
+  const firstRingingLoad = await openSavedDebrief();
+  await phoneReloadPage.reload({ waitUntil: 'load' });
+  await phoneReloadPage.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 60000 });
+  await phoneReloadPage.locator('#start').click();
+  await phoneReloadPage.waitForFunction(() => {
+    const snap = window.__heistDebug?.snapshot();
+    return snap?.state === 'DEBRIEF' && snap?.phone?.ringing;
+  }, null, { timeout: 120000, polling: 200 });
+  const secondRingingLoad = await phoneReloadPage.evaluate(() => window.__heistDebug.snapshot());
+  check('save/load during the ring restores one phone and the pending debrief call',
+    firstRingingLoad.phone.campaignCopies === 1
+      && secondRingingLoad.phone.campaignCopies === 1
+      && firstRingingLoad.phone.sceneCopies === 0
+      && secondRingingLoad.phone.sceneCopies === 0
+      && secondRingingLoad.phone.ringing
+      && secondRingingLoad.campaignMission.cleanup.finalCalls === false,
+    JSON.stringify({ first: firstRingingLoad.phone, second: secondRingingLoad.phone }));
+
+  /* Acquire ordinary first-person input, then answer with the real key. */
+  if (!(await phoneReloadPage.evaluate(() => window.__heistDebug.inputState().adapter?.captured))) {
+    await phoneReloadPage.locator('#scene').click({ position: { x: 480, y: 270 } });
+  }
+  await phoneReloadPage.keyboard.press('KeyE');
+  const savedAfterAnswer = await phoneReloadPage.evaluate(() => ({
+    state: window.__heistDebug.state,
+    phone: window.__heistDebug.snapshot().phone,
+    finalCalls: JSON.parse(localStorage.getItem('squatchlife.campaign'))
+      .missions.bank_heist.cleanup.finalCalls,
+  }));
+  check('ordinary configured E durably answers before the phone leaves ringing state',
+    savedAfterAnswer.state === 'LOU_CALL_SAFEHOUSE'
+      && savedAfterAnswer.phone.inCall
+      && savedAfterAnswer.finalCalls === true,
+    JSON.stringify(savedAfterAnswer));
+
+  /* Reload before the three authored lines drain. The persisted answer must
+   * complete directly: no second ringtone, no duplicate dialogue, no lock. */
+  await phoneReloadPage.reload({ waitUntil: 'load' });
+  await phoneReloadPage.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 60000 });
+  await phoneReloadPage.locator('#start').click();
+  await phoneReloadPage.waitForFunction(
+    () => window.__heistDebug?.snapshot().missionCompleted,
+    null, { timeout: 120000, polling: 200 },
+  );
+  const answeredReload = await phoneReloadPage.evaluate(() => window.__heistDebug.snapshot());
+  const completionEvents = answeredReload.campaignState.story.timeEvents
+    .filter((id) => id === 'mission.bank_heist').length;
+  check('reload after answer neither rerings nor replays and completes exactly once',
+    answeredReload.state === 'SCENE_COMPLETE'
+      && !answeredReload.phone.ringing
+      && !answeredReload.phone.inCall
+      && answeredReload.phone.campaignCopies === 1
+      && answeredReload.phone.sceneCopies === 0
+      && answeredReload.campaignMission.checkpoint === 'vehicle_swap'
+      && answeredReload.campaignMission.cleanup.finalCalls === true
+      && answeredReload.campaignMission.shotsFired === 37
+      && answeredReload.campaignMission.peopleKilled === 4
+      && answeredReload.campaignState.statistics.shotsFired
+        === statisticsBeforeDebrief.shotsFired + 37
+      && answeredReload.campaignState.statistics.peopleKilled
+        === statisticsBeforeDebrief.peopleKilled + 4
+      && !answeredReload.voice.spoken.some((id) => [
+        'lou_phone_home', 'lou_home_order', 'prospect_phone_home',
+      ].includes(id))
+      && completionEvents === 1,
+    JSON.stringify({
+      phone: answeredReload.phone,
+      checkpoint: answeredReload.campaignMission.checkpoint,
+      missionCounters: {
+        shotsFired: answeredReload.campaignMission.shotsFired,
+        peopleKilled: answeredReload.campaignMission.peopleKilled,
+      },
+      statisticsBeforeDebrief,
+      statisticsAfterDebrief: answeredReload.campaignState.statistics,
+      spoken: answeredReload.voice.spoken,
+      completionEvents,
+    }));
+  await phoneReloadPage.close();
+
   check('preview play leaves canonical localStorage byte-for-byte untouched',
     await page.evaluate((value) => localStorage.getItem('squatchlife.campaign') === value, SENTINEL));
 
@@ -1550,8 +1882,77 @@ try {
       && returnBox.x + returnBox.width <= 1280
       && returnBox.y + returnBox.height <= 720,
     JSON.stringify(returnBox));
+  await page.evaluate(() => {
+    const key = 'squatchlife.verify.heist.audio-teardown';
+    sessionStorage.removeItem(key);
+    window.addEventListener('heist:audio-teardown', (event) => {
+      sessionStorage.setItem(key, JSON.stringify(event.detail));
+    }, { once: true });
+  });
   await page.evaluate(() => document.getElementById('return-home').click());
   await page.waitForURL(/\/index\.html(?:\?|$)/, { timeout: 20000 });
+  escapeScoreEvidence.handoff = await page.evaluate(() => {
+    const value = sessionStorage.getItem('squatchlife.verify.heist.audio-teardown');
+    return value ? JSON.parse(value) : null;
+  });
+  const driveDuring = escapeScoreEvidence.duringLine;
+  const driveRestored = escapeScoreEvidence.afterLine;
+  const driveAfterFailure = escapeScoreEvidence.afterFailure;
+  const driveAfterSwap = escapeScoreEvidence.afterSwap;
+  const scoreReloadFirst = escapeScoreEvidence.reload?.first;
+  const scoreReloadSecond = escapeScoreEvidence.reload?.second;
+  const scoreHandoff = escapeScoreEvidence.handoff;
+  const oneLiveScore = (snap) => {
+    const lifecycle = snap?.musicLifecycle;
+    const score = lifecycle?.escapeScore;
+    return score?.activeLoopCount === 1
+      && score.unreleasedStreamHandles === 1
+      && lifecycle.loopKeys.filter((key) => key === 'music.heist.escape-drive').length === 1
+      && lifecycle.streamedLoopKeys
+        .filter((key) => key === 'music.heist.escape-drive').length === 1;
+  };
+  check('THE TAKE escape score starts once, ducks under dialogue, and tears down at the final handoff',
+    driveDuring?.voice.currentDialogue?.id === 'rippin_drive'
+      && driveDuring.musicLifecycle.escapeScore.startCount === 1
+      && oneLiveScore(driveDuring)
+      && driveDuring.musicLifecycle.duck.active
+      && driveDuring.musicLifecycle.duck.music.ratio < 0.7
+      && !driveRestored?.musicLifecycle.duck.active
+      && driveRestored.musicLifecycle.duck.music.ratio >= 0.95
+      && driveAfterFailure?.musicLifecycle.escapeScore.startCount === 2
+      && driveAfterFailure.musicLifecycle.escapeScore.retiredCount === 1
+      && driveAfterFailure.musicLifecycle.escapeScore.lastRetiredReleased
+      && oneLiveScore(driveAfterFailure)
+      && !driveAfterFailure.musicLifecycle.loopKeys.includes('heist.morning.radio')
+      && scoreReloadFirst?.musicLifecycle.escapeScore.startCount === 1
+      && scoreReloadSecond?.musicLifecycle.escapeScore.startCount === 1
+      && oneLiveScore(scoreReloadFirst)
+      && oneLiveScore(scoreReloadSecond)
+      && driveAfterSwap?.musicLifecycle.escapeScore.activeLoopCount === 0
+      && driveAfterSwap.musicLifecycle.escapeScore.unreleasedStreamHandles === 0
+      && driveAfterSwap.musicLifecycle.escapeScore.lastRetiredReleased
+      && !driveAfterSwap.musicLifecycle.loopKeys.includes('music.heist.escape-drive')
+      && scoreHandoff?.activeOwnedKeys.length === 0
+      && scoreHandoff?.activeOwnedStreamKeys.length === 0
+      && scoreHandoff?.safehouseRecord.lastRetiredReleased
+      && scoreHandoff?.safehouseRecord.unreleasedStreamHandles === 0
+      && scoreHandoff?.escapeScore.lastRetiredReleased
+      && scoreHandoff?.escapeScore.unreleasedStreamHandles === 0,
+    JSON.stringify({
+      duringLine: driveDuring ? {
+        line: driveDuring.voice.currentDialogue?.id,
+        lifecycle: driveDuring.musicLifecycle.escapeScore,
+        duck: driveDuring.musicLifecycle.duck.music,
+      } : null,
+      restored: driveRestored?.musicLifecycle.duck.music,
+      failure: driveAfterFailure?.musicLifecycle.escapeScore,
+      reload: [
+        scoreReloadFirst?.musicLifecycle.escapeScore,
+        scoreReloadSecond?.musicLifecycle.escapeScore,
+      ],
+      swap: driveAfterSwap?.musicLifecycle.escapeScore,
+      handoff: scoreHandoff,
+    }));
   check('the completion card return control navigates to the apartment',
     new URL(page.url()).pathname.endsWith('/index.html'), page.url());
 
@@ -1615,11 +2016,11 @@ try {
       .map((id) => window.__squatch.apartment.dressing.get(id).group.visible),
     door: window.__squatch.apartmentStory.tryLeave(window.__squatch.activityContext()),
   }));
-  check('physical cleanup persists and the post-job night correctly requires sleep',
+  check('physical cleanup persists and the post-job night correctly waits for Lou\'s phone',
     apartment.cleanupComplete
       && apartment.visible.every((visible) => !visible)
-      && apartment.door.kind === 'stay'
-      && apartment.door.id === 'sleep_before_the_course',
+      && apartment.door.kind === 'call'
+      && apartment.door.id === 'lou_golf_call',
     JSON.stringify(apartment));
   await apartmentPage.screenshot({ path: path.join(SHOTS, '13-apartment-cleanup-complete.png') });
   await apartmentPage.close();
@@ -1656,8 +2057,10 @@ try {
     ['street_withdrawal', 'STREET_BLOCK_ONE', 'street'],
     ['mercer_garage', 'GARAGE_HOLD', 'garage'],
     ['vehicle_swap', 'SAFEHOUSE_RETURN', 'safehouse'],
+    ['safehouse_debrief', 'DEBRIEF', 'safehouse'],
   ];
   let resumed = 0;
+  let combatPhoneDormant = 0;
   for (const [checkpointId, expectedState, expectedPhase] of resumeCases) {
     const saved = structuredClone(apartmentState);
     saved.scene = { id: 'bank_heist', spawn: 'safehouse' };
@@ -1665,6 +2068,10 @@ try {
     saved.missions.bank_heist.status = 'in_progress';
     saved.missions.bank_heist.checkpoint = checkpointId;
     saved.missions.bank_heist.outcome = null;
+    /* `apartmentState` is cloned from a completed run. Every in-progress
+     * fixture must put the exact-once call receipt back into its pending
+     * shape, especially the new ring-ready checkpoint. */
+    saved.missions.bank_heist.cleanup.finalCalls = false;
     saved.missions.initiation.status = 'locked';
     const resumePage = await browser.newPage({ viewport: { width: 960, height: 540 } });
     resumePage.on('pageerror', (error) => problems.push(`resume:${checkpointId}: ${error.message}`));
@@ -1682,7 +2089,14 @@ try {
     const initialOk = resumedState.checkpoint === checkpointId
       && resumedState.geometry.colliders > 0
       && resumedState.geometry.floorZones > 0
-      && (expectedPhase !== 'bank' || resumedState.inventory.maskWorn === true);
+      && (expectedPhase !== 'bank' || resumedState.inventory.maskWorn === true)
+      && (checkpointId !== 'safehouse_debrief' || resumedState.phone.ringing === true);
+    if (['bank', 'street', 'garage'].includes(expectedPhase)
+      && resumedState.phone.owned
+      && resumedState.phone.campaignCopies === 1
+      && resumedState.phone.sceneCopies === 0
+      && !resumedState.phone.ringing
+      && !resumedState.phone.inCall) combatPhoneDormant++;
     await resumePage.evaluate(() => window.__heistDebug.fail('reload_recovery_probe'));
     await resumePage.waitForFunction(() => window.__heistDebug.state === 'FAILED', null, { timeout: 30000 });
     await resumePage.waitForFunction((stateName) => window.__heistDebug.state === stateName,
@@ -1694,6 +2108,8 @@ try {
   }
   check('save/load and failure recovery rebuild every durable heist checkpoint',
     resumed === resumeCases.length, `${resumed}/${resumeCases.length}`);
+  check('the persistent campaign phone stays out of weapon and combat phases',
+    combatPhoneDormant === 4, `${combatPhoneDormant}/4 combat resumes kept it dormant`);
   check('browser completed without page, console, or request failures', problems.length === 0,
     problems.join(' | ').slice(0, 600));
   }

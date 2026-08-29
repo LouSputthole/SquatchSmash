@@ -45,7 +45,7 @@ function loadLegacy(state) {
 
 test('the current schema keeps the bounded statistics block introduced in v24', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
-  assert.equal(CAMPAIGN_VERSION, 25);
+  assert.equal(CAMPAIGN_VERSION, 26);
   assert.deepEqual(campaign.state.statistics, initialCampaignStatistics());
   assert.equal(Object.hasOwn(campaign.state.statistics, 'events'), false);
   assert.equal(Object.hasOwn(campaign.state.statistics, 'grades'), false);

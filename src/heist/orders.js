@@ -299,7 +299,7 @@ export const HEIST_ORDERS = Object.freeze({
   FIRST_AID: '2/4 — Empty the bags onto the briefing table and count the take. HOLD E at the table.',
   MONEY_COUNT: '2/4 — Empty the bags onto the briefing table and count the take. HOLD E at the table.',
   DEBRIEF: (c = {}) => `${c.weaponsDown
-    ? '4/4 — Answer Lou’s call at the van.'
+    ? '4/4 — Answer Lou’s call. Press E anywhere.'
     : '3/4 — Put the weapons down on the bench.'} ${takeLine(c)}`,
   LOU_CALL_SAFEHOUSE: (c = {}) => `Hear Lou out. ${takeLine(c)}`,
 
@@ -411,9 +411,10 @@ export const SAFEHOUSE_DEBRIEF_STEPS = Object.freeze([
   }),
   Object.freeze({
     id: 'lou_call',
-    target: 'van',
+    /* A campaign inventory capability, deliberately not a world prop. */
+    target: 'campaign_phone',
     state: 'DEBRIEF',
-    label: '4/4 — Answer Lou\u2019s call',
+    label: '4/4 — Answer Lou\u2019s call. Press E anywhere',
     hold: 0,
   }),
 ]);

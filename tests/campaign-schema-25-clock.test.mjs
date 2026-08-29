@@ -145,7 +145,7 @@ test('v24 clock migration does not rewind later or already-correct clocks', () =
   }
 });
 
-test('a schema-25 clock repair is byte-stable on its next reload', () => {
+test('a v24 clock repair is byte-stable after current migrations', () => {
   const { storage, campaign } = loadV24((state) => {
     state.story.day = 9;
     state.story.timeMinutes = 6 * 60 + 10;
@@ -163,5 +163,5 @@ test('a schema-25 clock repair is byte-stable on its next reload', () => {
   assert.equal(reloaded.recoveredNow, false);
   assert.deepEqual(reloaded.state, firstState);
   assert.equal(storage.getItem(CAMPAIGN_STORAGE_KEY), firstPersisted,
-    'a stable schema-25 reload rewrote the save');
+    'a stable current-schema reload rewrote the save');
 });

@@ -60,6 +60,7 @@ export const HEIST_CHECKPOINT_STATE = Object.freeze({
   street_withdrawal: 'STREET_BLOCK_ONE',
   mercer_garage: 'GARAGE_HOLD',
   vehicle_swap: 'SAFEHOUSE_RETURN',
+  safehouse_debrief: 'DEBRIEF',
 });
 
 export const PREVIEW_START_STATE = Object.freeze({

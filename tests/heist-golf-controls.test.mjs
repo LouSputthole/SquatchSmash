@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { createHeistControlPolicy } from '../src/heist/controls.js';
+import {
+  answerDurablePhoneCall, createHeistControlPolicy,
+} from '../src/heist/controls.js';
 import { createGolfControlPolicy } from '../src/golf/controls.js';
 
 const HEIST_MAIN = await readFile(new URL('../src/heist/main.js', import.meta.url), 'utf8');
@@ -91,6 +93,73 @@ test('Heist policy owns capture loss, blur recovery, firing, and aim cleanup', (
   policy.onClear('blur');
 
   assert.deepEqual(calls, ['fire', 'aim:true', 'aim:false', 'pause', 'resume', 'aim:false', 'pause']);
+});
+
+test('Heist answers a ringing campaign phone with the configured interaction binding', () => {
+  const current = { started: true, paused: false, driving: false, completed: false };
+  const player = playerSpy();
+  const interaction = interactionSpy();
+  let ringing = true;
+  let answers = 0;
+  const policy = createHeistControlPolicy({
+    state: () => current,
+    player,
+    interaction,
+    isPreview: () => false,
+    selectSlot() {}, cycleSlot() {}, hostageVerb() {}, reload() {}, dropBag() {}, failPreview() {},
+    fireWeapon() {}, setAimed() {}, pause() {}, resumeSimulation() {}, pauseMenuOpen: () => false,
+    phoneRinging: () => ringing,
+    answerPhone: () => { answers += 1; ringing = false; },
+  });
+
+  /* Physical X is rebound to the configured interaction action, KeyE. The
+   * call is global, so it wins before any crosshair/world interaction. */
+  assert.equal(policy.routes.keyDown(
+    { code: 'KeyX', repeat: false, preventDefault() {} },
+    { code: 'KeyE' },
+  ), true);
+  assert.equal(answers, 1);
+  assert.equal(interaction.presses, 0);
+
+  ringing = true;
+  assert.equal(policy.routes.keyDown(
+    { code: 'KeyX', repeat: true, preventDefault() {} },
+    { code: 'KeyE' },
+  ), true);
+  assert.equal(answers, 1, 'key repeat cannot answer a second time');
+  assert.equal(interaction.presses, 0);
+
+  ringing = false;
+  policy.routes.keyDown(
+    { code: 'KeyX', repeat: false, preventDefault() {} },
+    { code: 'KeyE' },
+  );
+  assert.equal(interaction.presses, 1, 'configured E falls through to the world when no call rings');
+});
+
+test('Heist leaves the phone ringing when the exact-once answer receipt cannot be saved', () => {
+  const phone = {
+    ringing: true,
+    inCall: false,
+    presses: 0,
+    press() {
+      this.presses += 1;
+      this.ringing = false;
+      this.inCall = true;
+    },
+  };
+  assert.throws(() => answerDurablePhoneCall({
+    phone,
+    persistAnswer() { throw new Error('required write failed'); },
+  }), /required write failed/);
+  assert.equal(phone.ringing, true);
+  assert.equal(phone.inCall, false);
+  assert.equal(phone.presses, 0);
+
+  assert.equal(answerDurablePhoneCall({ phone, persistAnswer: () => true }), true);
+  assert.equal(phone.ringing, false);
+  assert.equal(phone.inCall, true);
+  assert.equal(phone.presses, 1);
 });
 
 test('Golf policy routes address aim and swing without leaking movement defaults', () => {

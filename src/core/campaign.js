@@ -81,10 +81,11 @@ export const SCENE_IDS = Object.freeze({
   SILVER_ROOM: 'silver_room',
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
-  /* Tony's second home base. Lou sends him out of the city after THE TAKE to
-   * wait out the heat in a furnished cabin, with the surrounding property
-   * left open for exploration. It is a scene rather than a mission: nothing
-   * here can be failed and the existing Silver Case remains the next job. */
+  /* Act One's single Cabin Hideaway scene. Cabin I's lay-low and four walks
+   * lead into Beef Run; Cabin II returns to this same property for the cellar,
+   * dungeon, interrogation, executions, pyre and blackout before Booski sends
+   * Tony back to the Bing. It is not a post-heist lay-low, and Silver Case is
+   * reached later from the Luxury Apartment. */
   COUNTRYSIDE_CABIN: 'countryside_cabin',
   /* The second home. Lou gives it to the Prospect after Silver Pines as a
    * reward for taking care of that thing for him, and from that moment the
@@ -932,7 +933,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 25;
+export const CAMPAIGN_VERSION = 26;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1074,6 +1075,10 @@ export const BANK_HEIST_CHECKPOINT_IDS = Object.freeze([
   'street_withdrawal',
   'mercer_garage',
   'vehicle_swap',
+  /* The job is still live here: the guns are down and Lou is ringing Tony's
+   * campaign phone. Keeping this distinct from `vehicle_swap` lets a reload
+   * resume the call instead of replaying first aid, the count, and cleanup. */
+  'safehouse_debrief',
 ]);
 
 export const BANK_HEIST_OUTCOMES = Object.freeze([
@@ -1993,6 +1998,8 @@ function initialState() {
           finalCalls: false,
         },
         bankEntered: false,
+        shotsFired: 0,
+        peopleKilled: 0,
         civiliansHarmed: 0,
         guardsDisarmed: 0,
         alarmTriggered: false,
@@ -3034,6 +3041,31 @@ const MIGRATIONS = Object.freeze({
       } : {}),
     };
   },
+  25(saved) {
+    /**
+     * Schema 26 banks THE TAKE's final firearm counters before Lou's
+     * safehouse call.
+     *
+     * Version 25 saves can prove only civilian casualties from the old
+     * mission summary; they never stored missed rounds or officer kills,
+     * so zero is the honest migration value. Explicitly adding both keys here
+     * also marks the shape change as intentional, preventing a healthy v25
+     * save from being misreported as recovered when normalisation sees them.
+     */
+    const bankHeist = saved.missions?.[MISSION_IDS.BANK_HEIST] ?? {};
+    return {
+      ...saved,
+      version: 26,
+      missions: {
+        ...(saved.missions ?? {}),
+        [MISSION_IDS.BANK_HEIST]: {
+          ...bankHeist,
+          shotsFired: boundedNumber(bankHeist.shotsFired, 0, 1_000_000, 0, true),
+          peopleKilled: boundedNumber(bankHeist.peopleKilled, 0, 1_000_000, 0, true),
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -3417,6 +3449,8 @@ function normalize(saved) {
           finalCalls: bankHeist.cleanup?.finalCalls === true,
         },
         bankEntered: bankHeist.bankEntered === true,
+        shotsFired: boundedNumber(bankHeist.shotsFired, 0, 1_000_000, 0, true),
+        peopleKilled: boundedNumber(bankHeist.peopleKilled, 0, 1_000_000, 0, true),
         civiliansHarmed: boundedNumber(bankHeist.civiliansHarmed, 0, 99, 0, true),
         guardsDisarmed: boundedNumber(bankHeist.guardsDisarmed, 0, 16, 0, true),
         alarmTriggered: bankHeist.alarmTriggered === true,

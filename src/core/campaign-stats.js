@@ -114,7 +114,13 @@ function durableMissionFacts(state, missionId) {
     case 'silent_squatch':
       return { peopleKilled: integer(mission.scientistsLost, 6) };
     case 'bank_heist':
-      return { peopleKilled: integer(mission.civiliansHarmed, 99) };
+      return {
+        shotsFired: integer(mission.shotsFired),
+        peopleKilled: Math.max(
+          integer(mission.peopleKilled),
+          integer(mission.civiliansHarmed, 99),
+        ),
+      };
     case 'cartel_palace':
       return {
         peopleKilled: Number(mission.markEliminated === true)

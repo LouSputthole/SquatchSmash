@@ -412,7 +412,10 @@ export const SCENE_CONTRACTS = deepFreeze([
       camera: localCamera('Walking, combat, van, and player-driven escape phases change camera policy.', 'heist_camera'),
       objective: localObjective('heist/HeistObjectiveLedger'),
       interaction: sharedInteraction,
-      checkpoints: runtimeCheckpoints(['safehouse_ready', 'bank_secured', 'vault_open', 'street_withdrawal', 'mercer_garage', 'vehicle_swap']),
+      checkpoints: runtimeCheckpoints([
+        'safehouse_ready', 'bank_secured', 'vault_open', 'street_withdrawal',
+        'mercer_garage', 'vehicle_swap', 'safehouse_debrief',
+      ]),
     },
     goldenPath: 'Brief and load out, control the bank, open the vault, fight through street and garage, drive the escape, swap vehicles, and debrief.',
     debt: [{ id: 'heist_local_directors', summary: 'HUD, objectives, dialogue, AI, hostages, and navigation use Heist-only Interfaces.' }],

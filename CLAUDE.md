@@ -154,6 +154,11 @@ markers without replaying it or rewinding a later clock. Schema v25 preserves
 that discipline for two later clock corrections: it floors completed Motel
 saves to the new Day 5 06:30 daylight landing, and repairs only the exact v24
 04:10/06:10 mansion clocks produced by the retired eight-hour guest-room rest.
+Schema v26 adds bounded `shotsFired` and `peopleKilled` facts to THE TAKE's
+mission record at the safehouse-debrief seam, before Lou's phone rings. A
+reload during or after that ring therefore folds the played firefight into the
+Prospect's Record exactly once; v25 saves receive honest zero defaults because
+their old summaries cannot prove missed rounds or officer kills.
 
 **Anchors move WITH the route, in the same commit.** Leaving one behind does
 not fail anywhere:

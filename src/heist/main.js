@@ -8,10 +8,11 @@ import { SuppressionModel } from '../core/combat/suppression.js';
 import { TracerPool } from '../core/combat/tracers.js';
 import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
-  CHARACTER_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS,
+  CHARACTER_IDS, ITEM_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS,
   createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createBankHeistStory } from '../core/bank-heist-story.js';
+import { Phone } from '../core/phone.js';
 import { InteractionSystem } from '../core/interaction.js';
 import {
   SPEECH_GAIN, speak, speechDuration,
@@ -36,7 +37,7 @@ import {
 } from '../core/preview-mode.js';
 import { FixedStepRunner } from '../core/vehicles/fixed-step.js';
 import { GroundVehicle } from '../core/vehicles/ground-vehicle.js';
-import { createHeistControlPolicy } from './controls.js';
+import { answerDurablePhoneCall, createHeistControlPolicy } from './controls.js';
 import {
   buildHeistCrew, crewHeadingForPhase, HEIST_CREW_IDS, setCrewMasked, updateCrew,
 } from './cast.js';
@@ -71,7 +72,7 @@ import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
 import { HEIST_CAMERA_MARKS, publishHeistFramingBeats } from './shots.js';
 import { makeHeistViewModel } from './weapons.js';
-import { HeistDrivingScore } from './music.js';
+import { HeistDrivingScore, HeistSafehouseRecord } from './music.js';
 import {
   CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES,
   SNOW_CASUALTY_LADDER, dialogueLine, heistDebriefClosingLines,
@@ -110,10 +111,29 @@ scene.add(camera);
 
 const hud = new HeistHud();
 const audio = new AudioEngine();
+const safehouseRecord = new HeistSafehouseRecord(audio);
 const driveScore = new HeistDrivingScore(audio);
 const campaign = createCampaign();
 campaign.enter(SCENE_IDS.BANK_HEIST);
 const story = createBankHeistStory({ campaign });
+const heistPhoneTime = {
+  get day() { return campaign.state.story.day; },
+  get hour() { return campaign.state.story.timeMinutes / 60; },
+};
+/* Tony already owns this phone in campaign inventory. THE TAKE does not put
+ * it in the weapon hotbar or render a second handset; the shared Phone owns
+ * only the incoming-call lifecycle when the safehouse debrief reaches it. */
+const phone = new Phone({ time: heistPhoneTime, audio, calls: [], threads: [] });
+const SAFEHOUSE_LOU_CALL = Object.freeze({
+  id: 'heist_safehouse_lou_debrief',
+  from: 'Big Uncle Lou',
+  vo: 'heist.lou.safehouse',
+  lines: [],
+  allowHangup: false,
+});
+phone.onAnswered = (definition) => {
+  if (definition?.id === SAFEHOUSE_LOU_CALL.id) connectHeistDebriefPhone();
+};
 const level = buildHeistLevel(scene);
 
 /* Static, named geometry evidence for the browser verifier. A screenshot of a
@@ -740,6 +760,7 @@ let latestCheckpoint = null;
 let recoveryCheckpoint = null;
 let activePhase = null;
 let missionCompleted = false;
+let debriefCompletionTimer = null;
 let simulationPaused = false;
 const activeEffects = [];
 const clock = new THREE.Clock();
@@ -1425,6 +1446,58 @@ function debugDriveAudioSnapshot() {
   };
 }
 
+/** Live bus + owned-stream facts used by the scene's browser contract. */
+function debugHeistMusicLifecycle() {
+  const now = audio.ctx?.currentTime ?? 0;
+  const restingMusic = audio._busMusicLevel?.() ?? 0.7;
+  const restingAmbience = audio._busAmbLevel?.() ?? 0.55;
+  const bus = (node, resting) => {
+    const gain = Number(node?.gain?.value ?? resting);
+    return {
+      resting,
+      gain,
+      ratio: resting > 0 ? gain / resting : 1,
+    };
+  };
+  const activeLoops = [...audio.loops.entries()].map(([key, handle]) => ({
+    key,
+    streamed: handle?.streamed === true,
+    released: handle?.released === true,
+    failed: handle?.failed === true,
+  }));
+  return {
+    loopKeys: activeLoops.map(({ key }) => key),
+    streamedLoopKeys: activeLoops.filter(({ streamed }) => streamed).map(({ key }) => key),
+    duck: {
+      active: (audio._voiceDuckUntil ?? 0) > now,
+      until: Math.max(0, (audio._voiceDuckUntil ?? 0) - now),
+      music: bus(audio.busMusic, restingMusic),
+      ambience: bus(audio.busAmb, restingAmbience),
+    },
+    safehouseRecord: safehouseRecord.snapshot(),
+    escapeScore: driveScore.snapshot(),
+  };
+}
+
+/** Synchronously release the two streamed records before cross-scene handoff. */
+function disposeHeistMusic() {
+  const safehouse = safehouseRecord.dispose();
+  const escape = driveScore.dispose();
+  const active = [...audio.loops.entries()];
+  return Object.freeze({
+    safehouseRecord: safehouse,
+    escapeScore: escape,
+    activeOwnedKeys: active
+      .map(([key]) => key)
+      .filter((key) => key === safehouse.key || key === escape.key),
+    activeOwnedStreamKeys: active
+      .filter(([key, handle]) => (
+        (key === safehouse.key || key === escape.key) && handle?.streamed
+      ))
+      .map(([key]) => key),
+  });
+}
+
 function debugSnapshot() {
   const hotbar = document.getElementById('hotbar');
   const heistPlaybacks = audio.playbacks.filter((entry) => HEIST_VOICE_CUES.includes(entry.name));
@@ -1510,6 +1583,7 @@ function debugSnapshot() {
     swap: { ...swapProgress },
     squadAnchors: { ...window.__heistDebug.squadAnchors },
     audioZone,
+    musicLifecycle: debugHeistMusicLifecycle(),
     drivingMusic: driveScore.snapshot(),
     missionCompleted,
     simulationPaused,
@@ -1529,6 +1603,20 @@ function debugSnapshot() {
       magazine: loadout.activeWeapon?.magazine ?? null,
       weaponCooldown: loadout.activeWeapon?.cooldown ?? null,
       weaponName: loadout.activeWeapon?.definition.name ?? null,
+    },
+    phone: {
+      owned: campaign.hasItem(ITEM_IDS.PHONE),
+      campaignCopies: [
+        ...campaign.state.inventory.carried,
+        ...campaign.state.inventory.concealed,
+      ].filter((id) => id === ITEM_IDS.PHONE).length,
+      carried: campaign.state.inventory.carried.includes(ITEM_IDS.PHONE),
+      sceneCopies: sceneInventory.items.filter((id) => id === ITEM_IDS.PHONE).length,
+      ringing: phone.ringing,
+      inCall: phone.inCall,
+      callId: phone.call?.def?.id ?? null,
+      ringLoopActive: audio.loops.has('phone.ring'),
+      status: story.debriefCallStatus(),
     },
     hostages: hostages.summary(),
     hostageStates: hostages.hostages.map((person) => person.state),
@@ -2346,6 +2434,11 @@ function recordCheckpoint(id, resumeState, facts = {}) {
 }
 
 function startVanRide() {
+  /* The morning needle-drop belongs to preparation, not to the van or the
+   * robbery. Retire its map key at the loading-bay threshold; the retained
+   * handle receipt below lets the browser gate also prove the streamed media
+   * element finishes its fade before the bank is entered. */
+  safehouseRecord.stop();
   advanceTo('VAN_APPROACH');
   activatePhase('van');
   player.mode = 'walk';
@@ -2542,6 +2635,68 @@ function returnSafehouse() {
   say('snow_return');
 }
 
+/** Keep the campaign-owned handset canonical: carried once, never concealed. */
+function ensureCampaignPhone() {
+  const carried = campaign.state.inventory.carried;
+  const concealed = campaign.state.inventory.concealed;
+  if (carried.filter((id) => id === ITEM_IDS.PHONE).length === 1
+    && !concealed.includes(ITEM_IDS.PHONE)) return true;
+  campaign.updateRequired((state) => {
+    state.inventory.concealed = state.inventory.concealed
+      .filter((id) => id !== ITEM_IDS.PHONE);
+    state.inventory.carried = state.inventory.carried
+      .filter((id) => id !== ITEM_IDS.PHONE);
+    state.inventory.carried.push(ITEM_IDS.PHONE);
+  });
+  return campaign.hasItem(ITEM_IDS.PHONE);
+}
+
+/** Ring only at debrief step 4/4; no world position participates. */
+function ringHeistDebriefPhone() {
+  if (!started
+    || activePhase !== 'safehouse'
+    || machine.state !== 'DEBRIEF'
+    || !weaponsDown
+    || story.debriefCallStatus() !== 'ringing'
+    || phone.call) return false;
+  ensureCampaignPhone();
+  return phone.ring(SAFEHOUSE_LOU_CALL);
+}
+
+function scheduleDebriefCompletion({ waitForDialogue = true } = {}) {
+  if (debriefCompletionTimer != null || missionCompleted) return false;
+  const finish = () => {
+    if (waitForDialogue
+      && (dialogue.current || dialogue.capture().queue.length || scriptedSpeech.length)) {
+      debriefCompletionTimer = setTimeout(finish, 100);
+      return;
+    }
+    debriefCompletionTimer = null;
+    if (phone.call) phone.hangUp({ force: true });
+    completeMission();
+  };
+  debriefCompletionTimer = setTimeout(finish, 0);
+  return true;
+}
+
+/** Phone.onAnswered lands here only after its durable answer receipt exists. */
+function connectHeistDebriefPhone() {
+  advanceTo('LOU_CALL_SAFEHOUSE');
+  scriptedSpeech.length = 0;
+  /* Preserve the authored cues, subtitles, speaker labels, and exact order.
+   * Phone owns ring/answer/hang-up; DialogueArbiter remains Heist speech truth. */
+  sayInTurn('lou_phone_home', 'lou_home_order', 'prospect_phone_home');
+  scheduleDebriefCompletion();
+  return true;
+}
+
+/** An answer saved before reload must finish without ringing or replaying it. */
+function resumeAnsweredDebriefCall() {
+  if (story.debriefCallStatus() !== 'answered' || missionCompleted) return false;
+  advanceTo('LOU_CALL_SAFEHOUSE');
+  return scheduleDebriefCompletion({ waitForDialogue: false });
+}
+
 /**
  * The end card, which now reads the two things the job was scored on.
  *
@@ -2585,7 +2740,15 @@ function returnToApartment() {
    * graph before asking the Apartment to create and decode another one; leaving
    * both contexts for browser GC can starve Chromium's decoder pool and strand
    * the next scene behind its Start card. Mission state is already durable. */
-  driveScore.stop(0.12);
+  /* This is the final document handoff, so do not leave either owned media
+   * element waiting on a fade timer that page unload may never service. The
+   * event is factual teardown telemetry; the verifier listens during the real
+   * return-button path and carries the receipt across the navigation itself. */
+  const musicTeardown = disposeHeistMusic();
+  window.__heistDebug.musicTeardown = musicTeardown;
+  window.dispatchEvent(new CustomEvent('heist:audio-teardown', {
+    detail: musicTeardown,
+  }));
   try {
     /* Start teardown immediately, but never make campaign navigation wait for
      * Chromium to settle every decoded source. Some WebAudio implementations
@@ -2612,18 +2775,27 @@ function completeMission() {
    * what the player had done in that lobby. They are now derived from what
    * actually happened, and `civiliansHarmed` is a real count. */
   const report = objective.report();
+  const durable = campaign.state.missions[MISSION_IDS.BANK_HEIST];
   const completed = story.complete({
     bagsStaged: bankBagsStaged,
     bagsRecovered: summary.recoveredBags,
     grossTake: summary.grossRecovered,
     compromisedCash: summary.compromisedCash,
     crewInjuries: { [CHARACTER_IDS.RIPPINFLOW]: 'moderate' },
-    optionalVaultBagTaken: droppedBagDecision === 'recovered',
-    /* One bounded record at the mission seam, never one save per round. The
-     * objective ledger already owns both honest counters. */
-    shotsFired: objective.shotsFired,
-    peopleKilled: objective.officersDown + objective.civilianCasualties,
+    optionalVaultBagTaken: durable.optionalVaultBagTaken,
+    /* The debrief seam banked both counters before the ring. This remains the
+     * authority after a reload, when the scene-local objective ledger starts
+     * fresh but the exact played result must not. */
+    shotsFired: durable.shotsFired,
+    peopleKilled: durable.peopleKilled,
     ...report,
+    /* `safehouse_debrief` captured this verdict before the ring. On a reload
+     * after answer, the world ledger is reconstructed but the exact authored
+     * job result remains the durable authority. */
+    civiliansHarmed: durable.civiliansHarmed,
+    followedSnow: durable.followedSnow,
+    disciplinedFire: durable.disciplinedFire,
+    outcome: durable.outcome ?? report.outcome,
   });
   if (!completed) return;
   advanceTo('SCENE_COMPLETE');
@@ -3095,7 +3267,6 @@ function refreshInteractions() {
       rippin: rippin.group,
       briefing: p.safehouse.interactables.briefing,
       loadout: p.safehouse.interactables.loadout,
-      van: p.safehouse.interactables.van,
     };
     const firstAid = debriefStep('first_aid');
     use(debriefProps[firstAid.target],
@@ -3162,17 +3333,23 @@ function refreshInteractions() {
       preparation.reset();
       syncSafehousePresentation();
       syncHeistInventory(true);
+      const summary = loot.summary();
+      objective.syncLoot(summary);
+      objective.syncHostages(hostages.summary());
+      recordCheckpoint('safehouse_debrief', 'DEBRIEF', {
+        bagsStaged: bankBagsStaged,
+        bagsRecovered: summary.recoveredBags,
+        grossTake: summary.grossRecovered,
+        compromisedCash: summary.compromisedCash,
+        shotsFired: objective.shotsFired,
+        peopleKilled: objective.officersDown + objective.civilianCasualties,
+        optionalVaultBagTaken: droppedBagDecision === 'recovered',
+        ...objective.report(),
+      });
+      ringHeistDebriefPhone();
       refreshObjective();
       refreshInteractions();
     }, { enabled: () => machine.state === weaponsStep.state && !weaponsDown });
-    const louStep = debriefStep('lou_call');
-    use(debriefProps[louStep.target], louStep.label, () => {
-      if (machine.state !== louStep.state || !weaponsDown) return;
-      advanceTo('LOU_CALL_SAFEHOUSE');
-      scriptedSpeech.length = 0;
-      sayInTurn('lou_phone_home', 'lou_home_order', 'prospect_phone_home');
-      setTimeout(completeMission, 3200);
-    }, { enabled: () => machine.state === louStep.state && weaponsDown });
   }
 }
 
@@ -4304,6 +4481,7 @@ checkpoints.register('mission-local', {
     officersDown, driving, roadblockHit, routeIndex, offroadHitCooldown,
     driveCollisionCooldown, swapProgress: { ...swapProgress },
     driveInvalidFor, driveStuckFor, drivingRecovery,
+    weaponsDown,
     suppression: suppression.value,
   }),
   reset: () => {
@@ -4327,6 +4505,7 @@ checkpoints.register('mission-local', {
     driveInvalidFor = 0;
     driveStuckFor = 0;
     drivingRecovery = false;
+    weaponsDown = false;
     Object.keys(swapProgress).forEach((key) => { swapProgress[key] = false; });
     suppression.value = 0;
     resetLobbyCombatActor(rearGuardActor);
@@ -4360,6 +4539,7 @@ checkpoints.register('mission-local', {
     driveInvalidFor = snapshot.driveInvalidFor ?? 0;
     driveStuckFor = snapshot.driveStuckFor ?? 0;
     drivingRecovery = snapshot.drivingRecovery === true;
+    weaponsDown = snapshot.weaponsDown === true;
     Object.assign(swapProgress, snapshot.swapProgress ?? {});
     suppression.value = snapshot.suppression ?? 0;
     guardThreat.restore(snapshot.guardThreat);
@@ -4418,15 +4598,18 @@ checkpoints.register('crew', {
 });
 
 function seedLootForCheckpoint(checkpoint, mission) {
-  const atOrAfterStreet = ['street_withdrawal', 'mercer_garage', 'vehicle_swap'].includes(checkpoint);
+  const atOrAfterStreet = [
+    'street_withdrawal', 'mercer_garage', 'vehicle_swap', 'safehouse_debrief',
+  ].includes(checkpoint);
   if (!atOrAfterStreet) return;
   bankBagsStaged = 8;
   stageBankBags(8);
-  const atGarage = ['mercer_garage', 'vehicle_swap'].includes(checkpoint);
+  const atGarage = ['mercer_garage', 'vehicle_swap', 'safehouse_debrief'].includes(checkpoint);
+  const afterSwap = ['vehicle_swap', 'safehouse_debrief'].includes(checkpoint);
   const recoveredIds = Array.from({ length: mission.droppedBagRecovered ? 8 : 7 }, (_, index) => `cash_${index + 1}`);
   for (const id of recoveredIds) {
     loot.carry(id, CHARACTER_IDS.DEATHMEGATRON);
-    if (checkpoint === 'vehicle_swap') loot.load(id, 'clean_swap_car');
+    if (afterSwap) loot.load(id, 'clean_swap_car');
     else if (atGarage) continue;
     else loot.drop(id, { anchor: 'bank_exit', position: { x: 0, y: 0.3, z: 8.5 } });
   }
@@ -4467,6 +4650,10 @@ function resumePersistedCheckpoint(checkpoint) {
       state: 'SAFEHOUSE_RETURN', phase: 'safehouse',
       injury: 'moderate', swapDone: true,
     },
+    safehouse_debrief: {
+      state: 'DEBRIEF', phase: 'safehouse',
+      injury: 'stabilized', swapDone: true, debriefReady: true,
+    },
   }[checkpoint];
   if (!setup) return false;
   machine.restore(setup.state);
@@ -4475,7 +4662,9 @@ function resumePersistedCheckpoint(checkpoint) {
   loadout.wearMask(setup.masked === true);
   /* Resuming past the vault means the vault is open; a shut door with the cash
    * already staged behind it is the sort of thing a resume used to leave. */
-  if (['vault_open', 'street_withdrawal', 'mercer_garage', 'vehicle_swap'].includes(checkpoint)) {
+  if ([
+    'vault_open', 'street_withdrawal', 'mercer_garage', 'vehicle_swap', 'safehouse_debrief',
+  ].includes(checkpoint)) {
     level.phases.bank.interactables.vault.userData.setOpen?.(true);
   }
   if (['bank_secured', 'vault_open'].includes(checkpoint)) {
@@ -4492,6 +4681,13 @@ function resumePersistedCheckpoint(checkpoint) {
   }
   if (setup.injury) crew.get(CHARACTER_IDS.RIPPINFLOW).injury = setup.injury;
   if (setup.swapDone) Object.keys(swapProgress).forEach((key) => { swapProgress[key] = true; });
+  if (setup.debriefReady) {
+    weaponsDown = true;
+    preparation.reset();
+    syncSafehousePresentation();
+    syncHeistInventory(true);
+    showDebriefBoard();
+  }
   if (setup.policeBlock) spawnPolice(setup.policeBlock, setup.policeCount);
   player.mode = 'walk';
   player.moveScale = setup.phase === 'van' ? 0 : 1;
@@ -4503,6 +4699,10 @@ function resumePersistedCheckpoint(checkpoint) {
   window.__heistDebug.checkpoint = checkpoint;
   objective.syncLoot(vaultSummary());
   objective.syncHostages(hostages.summary());
+  if (setup.debriefReady) {
+    if (story.debriefCallStatus() === 'answered') resumeAnsweredDebriefCall();
+    else ringHeistDebriefPhone();
+  }
   return true;
 }
 
@@ -4577,7 +4777,10 @@ async function begin() {
    * Without the second list the stand-ins are names with no buffer behind
    * them and the guns go quiet. */
   await audio.loadManifest({
-    names: [...HEIST_VOICE_CUES, ...weaponCueNames()], prefixes: ['heist.'],
+    names: [
+      ...HEIST_VOICE_CUES, ...weaponCueNames(), 'phone.ring', 'phone.hangup',
+    ],
+    prefixes: ['heist.'],
   });
   const opening = story.begin();
   if (!opening.ok) {
@@ -4603,9 +4806,7 @@ async function begin() {
      * safehouse prep, same "record on in the corner" mechanism as Lou's
      * office. Once only, on the way in -- `returnSafehouse()` and the
      * preview/resume paths above deliberately do not call this again. */
-    audio.startMusicLoop('heist.morning.radio', 'assets/music/codename-sasquatch.mp3', {
-      volume: 0.14, ambience: true, fade: 1.6,
-    });
+    safehouseRecord.start();
     refreshObjective();
     setTimeout(() => {
       advanceTo('CREW_INTRO');
@@ -4691,6 +4892,11 @@ const heistControls = createHeistControlPolicy({
   pause: () => pauseMenu.pause(),
   resumeSimulation: () => setSimulationPaused(false),
   pauseMenuOpen: () => pauseMenu.isPaused(),
+  phoneRinging: () => phone.ringing,
+  answerPhone: () => answerDurablePhoneCall({
+    phone,
+    persistAnswer: () => story.answerDebriefCall(),
+  }),
 });
 input = createFirstPersonInput({
   player,
