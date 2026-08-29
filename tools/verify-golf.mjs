@@ -1763,7 +1763,7 @@ const played = await page.evaluate(async () => {
         }
       }
     }
-    if (g.cues.heard('golf.h1.lou.you_did_good')) louPrivate = true;
+    if (g.cues.heard('golf.h1.lou.take_brought_everybody_home')) louPrivate = true;
     if (g.dialogue.active && g.dialogue.options.length) g.dialogue.choose(0);
 
     /* Play the hole out using the game's own shot solver, so the autoplayer
@@ -2097,7 +2097,11 @@ await page.evaluate(() => window.__golf.campaign.update((state) => {
   if (!state.story.timeEvents.includes('travel.silver_pines')) {
     state.story.timeEvents.push('travel.silver_pines');
   }
-  state.missions.silver_room.status = 'complete';
+  /* The campaign reorder put THE TAKE before golf. The old resume fixture
+   * still completed Silver Room instead, so GolfStory correctly rejected the
+   * save as `heist_incomplete` and the opaque tee wait timed out. Seed the
+   * prerequisite the production route actually owns. */
+  state.missions.bank_heist.status = 'complete';
   state.events.lou_golf_call.status = 'answered';
   state.missions.silver_pines = {
     ...state.missions.silver_pines,
@@ -2117,11 +2121,27 @@ await page.evaluate(() => window.__golf.campaign.update((state) => {
 await page.reload({ waitUntil: 'load' });
 await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
 await page.click('#start-btn');
-await page.waitForFunction(
-  'window.__golf.HOLE.number === 3 && window.__golf.round.beat === "tee_talk"',
-  null,
-  { timeout: 60000 },
-);
+await page.waitForFunction(() => (
+  document.getElementById('overlay').classList.contains('hidden')
+    || Boolean(window.__golfStartBlocked)
+), null, { timeout: 60000 });
+const resumedStart = await page.evaluate(() => ({
+  blocked: window.__golfStartBlocked ?? null,
+  overlayHidden: document.getElementById('overlay').classList.contains('hidden'),
+  scene: window.__golf.campaign.state.scene,
+  heist: window.__golf.campaign.state.missions.bank_heist.status,
+}));
+check('29a. the production Golf prerequisites admit the saved round',
+  resumedStart.overlayHidden && resumedStart.blocked === null
+    && resumedStart.heist === 'complete' && resumedStart.scene.id === 'silver_pines',
+  JSON.stringify(resumedStart));
+if (resumedStart.overlayHidden) {
+  await page.waitForFunction(
+    'window.__golf.HOLE.number === 3 && window.__golf.round.beat === "tee_talk"',
+    null,
+    { timeout: 60000 },
+  );
+}
 const resumedRound = await page.evaluate(() => ({
   hole: window.__golf.HOLE.number,
   priorStrokes: window.__golf.round.card.line('prospect').strokes,
