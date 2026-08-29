@@ -2938,6 +2938,14 @@
           }
         },
         {
+          "id": "bank_heist:bank_heist_canonical:checkpoint:safehouse_debrief",
+          "status": "declaration_only",
+          "evidence": {
+            "area": "checkpoint",
+            "disposition": "required"
+          }
+        },
+        {
           "id": "bank_heist:bank_heist_canonical:checkpoint:safehouse_ready",
           "status": "declaration_only",
           "evidence": {
@@ -8169,7 +8177,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "PASS",
-            "typed": 949,
+            "typed": 953,
             "unmarkedRigs": 0,
             "untyped": 0,
             "visibilityFilteredActorIds": [],
