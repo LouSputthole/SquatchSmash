@@ -2298,7 +2298,7 @@ function frame() {
 const START_BLOCK_COPY = Object.freeze({
   already_complete: 'This morning is already on the card. Return to the apartment.',
   mission_locked: 'Lou has not invited you to Silver Pines yet. Return to the apartment and keep moving through the campaign.',
-  silver_incomplete: 'Finish the Silver Room before this morning becomes available.',
+  heist_incomplete: 'Finish THE TAKE before this morning at Silver Pines becomes available.',
   wrong_chapter: 'This is not the morning Lou invited you to Silver Pines.',
   lou_call_incomplete: 'Lou has not made the golf call yet. Return to the apartment.',
   travel_incomplete: 'Leave for Silver Pines through the apartment after Lou calls.',

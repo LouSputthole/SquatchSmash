@@ -2158,6 +2158,34 @@ check('29b. reloading an in-progress round resumes at the first unfinished tee',
     && resumedRound.hasBag && resumedRound.card.startsWith('HOLE 3 ·'),
   JSON.stringify(resumedRound));
 
+/* A bare URL with the old route's prerequisite must fail honestly. This is a
+ * title-card path, so exercise the real visible button and read the player
+ * copy rather than accepting GolfStory's reason code as presentation proof. */
+await page.evaluate(() => window.__golf.campaign.update((state) => {
+  state.missions.bank_heist.status = 'available';
+  state.missions.silver_pines.status = 'available';
+  state.missions.silver_pines.holes = [];
+  state.missions.silver_pines.holesPlayed = 0;
+}));
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+await page.click('#start-btn');
+await page.waitForFunction(() => window.__golfStartBlocked === 'heist_incomplete', null, {
+  timeout: 5000,
+});
+const blockedHeistCopy = await page.evaluate(() => ({
+  reason: window.__golfStartBlocked,
+  tag: document.querySelector('#overlay .tag')?.textContent?.trim() || '',
+  button: document.getElementById('start-btn')?.textContent?.trim() || '',
+  disabled: document.getElementById('start-btn')?.disabled === true,
+}));
+check('29c. an early direct load names THE TAKE instead of the retired Silver prerequisite',
+  blockedHeistCopy.reason === 'heist_incomplete'
+    && /THE TAKE/.test(blockedHeistCopy.tag)
+    && !/Silver Room/.test(blockedHeistCopy.tag)
+    && blockedHeistCopy.button === 'Scene locked' && blockedHeistCopy.disabled,
+  JSON.stringify(blockedHeistCopy));
+
 /* ------------------------------------------------------------------ */
 /* Preview checkpoint links (?preview=1&checkpoint=...)                 */
 /*
