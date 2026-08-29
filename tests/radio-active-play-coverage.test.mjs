@@ -48,8 +48,18 @@ test('the generated revamp separates mechanical ownership coverage from owner li
   const orphans = data.rows['Problems and Decisions']
     .find((row) => row['Station or cue'] === 'Cue inventory');
 
-  assert.match(lifecycle.Status, /SOURCE CONTRACT COMPLETE/);
+  assert.match(lifecycle.Status, /SOURCE \+ MAPPING CONTRACT GREEN/);
+  assert.doesNotMatch(lifecycle.Status, /RERUN DUE|PENDING/,
+    'the generated audit still describes the mapped source receipts as unfinished');
   assert.match(lifecycle.Problem, /26\/26/);
   assert.match(mix.Status, /OWNER AUDIBLE MIX REVIEW/);
   assert.match(orphans.Status, /OWNER — LEGACY IDENTITY CUES/);
+
+  const receiptPlan = data.rows['Revamp Plan'].find((row) => row.Order === 4);
+  const finalPlan = data.rows['Revamp Plan'].find((row) => row.Order === 9);
+  assert.match(receiptPlan.Status, /^DONE — 26\/26 OWNERS MAPPED; SOURCE RECEIPTS GREEN$/);
+  assert.match(finalPlan.Status,
+    /^RELEASE-CANDIDATE LEDGERS \+ MAPPED RECEIPTS GREEN — FINAL HOSTED RECEIPT EXTERNAL$/);
+  assert.doesNotMatch(`${receiptPlan.Status}\n${finalPlan.Status}`,
+    /BROWSER RERUN DUE|FULL GATES PENDING/);
 });
