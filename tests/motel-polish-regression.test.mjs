@@ -199,8 +199,21 @@ test('footsteps use quiet banks, cadence protection, positional NPCs, and no exi
   assert.match(step, /step-suppressed/);
   assert.match(step, /sampleVolume = \(running \? 0\.20 : 0\.16\)/);
   assert.match(step, /position,/);
-  assert.match(AUDIO, /footstep\.leather\.tile/);
-  assert.match(AUDIO, /footstep\.wood\.a/);
+  const motelStepCues = [
+    'motel.footstep.concrete.a', 'motel.footstep.concrete.b',
+    'motel.footstep.asphalt.a', 'motel.footstep.asphalt.b',
+    'motel.footstep.carpet.a', 'motel.footstep.carpet.b',
+    'motel.footstep.tile.a', 'motel.footstep.tile.b',
+    'motel.footstep.stairs.a', 'motel.footstep.stairs.b',
+    'motel.footstep.pool.a', 'motel.footstep.pool.b',
+  ];
+  for (const cue of motelStepCues) {
+    assert.match(AUDIO, new RegExp(cue.replaceAll('.', '\\.')));
+    assert.equal(existsSync(new URL(`../assets/sfx/${cue}.mp3`, import.meta.url)), true,
+      `${cue} is not recorded`);
+  }
+  assert.doesNotMatch(AUDIO, /'footstep\.leather\.tile'/);
+  assert.doesNotMatch(AUDIO, /'footstep\.wood\.a'/);
   assert.match(bodyOf('exitCar'), /playerFootstepReadyAt = performance\.now\(\) \+ 360/);
   assert.match(bodyOf('carDoor', AUDIO), /lastCarDoorAt/);
 

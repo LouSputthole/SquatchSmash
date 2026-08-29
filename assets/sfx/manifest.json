@@ -8087,6 +8087,66 @@
       "say": "The zip. Come here. That’s not a request, and don’t take all night about it, I’ve been thinking about this since the second course."
     },
     {
+      "name": "motel.footstep.concrete.a",
+      "duration": 0.6,
+      "prompt": "one heavy rubber-soled work boot footfall on cracked motel concrete, deep dull heel thud with a small amount of grit, close and dry, no scrape, no metallic ring, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.concrete.b",
+      "duration": 0.6,
+      "prompt": "a second distinct heavy work boot step on rough outdoor motel concrete, low weighty impact and brief stone grit crunch, no fork-like scrape, no click, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.asphalt.a",
+      "duration": 0.6,
+      "prompt": "one heavy rubber-soled boot step on an old asphalt motel parking lot, low compact thump with loose aggregate shifting, no squeak, no slap, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.asphalt.b",
+      "duration": 0.6,
+      "prompt": "a second distinct heavy boot footfall on weathered asphalt, deep muted impact with a tiny dry gravel crunch, close, no high-frequency click, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.carpet.a",
+      "duration": 0.6,
+      "prompt": "one heavy boot step on thin worn motel carpet over a concrete slab, soft dead low thump with a faint synthetic fiber brush, no click, no ring, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.carpet.b",
+      "duration": 0.6,
+      "prompt": "a second distinct heavy boot footfall on cheap motel carpet over concrete, muffled weight and a short cloth compression, no sharp transient, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.tile.a",
+      "duration": 0.6,
+      "prompt": "one heavy rubber-soled boot step on old motel bathroom tile, low solid thud with a very short small-room reflection, no bright clack, no scrape, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.tile.b",
+      "duration": 0.6,
+      "prompt": "a second distinct heavy boot footfall on worn ceramic bathroom tile, weighty muted impact and brief dull room slap, no heel click, no metallic sound, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.stairs.a",
+      "duration": 0.6,
+      "prompt": "one heavy work boot landing on a painted steel motel stair tread, deep weighty impact with one short damped metal knock, no long clang, no scrape, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.stairs.b",
+      "duration": 0.6,
+      "prompt": "a second distinct heavy boot step on an exterior steel motel stair, low boot thump with a brief restrained metal resonance, no harsh ringing, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.pool.a",
+      "duration": 0.6,
+      "prompt": "one heavy boot footfall on the dusty painted concrete floor of a drained motel pool, deep hollow thump with fine dry grit, no splash, no scrape, no voice, no music"
+    },
+    {
+      "name": "motel.footstep.pool.b",
+      "duration": 0.6,
+      "prompt": "a second distinct heavy boot step on empty painted pool concrete, low hollow impact with a tiny dusty crunch, no water, no bright click, no voice, no music"
+    },
+    {
       "name": "footstep.concrete",
       "duration": 0.5,
       "prompt": "single footstep on bare concrete, hard flat scuff of a rubber sole with a little grit under it, dry, outdoors, no reverb tail, no voice, no music"
@@ -15968,6 +16028,46 @@
       "say": "…which is the traffic. Back to Lou."
     },
     {
+      "name": "vo.margo.wake.dress.1",
+      "voice": "margo",
+      "say": "Can you get this? The clasp is winning."
+    },
+    {
+      "name": "vo.mail.flying.1",
+      "voice": "player",
+      "say": "He gets one safe landing and starts recruiting."
+    },
+    {
+      "name": "vo.mail.flying.2",
+      "voice": "player",
+      "say": "Love to. Absolutely. After my hands stop shaking."
+    },
+    {
+      "name": "vo.mail.flying.3",
+      "voice": "player",
+      "say": "“Nothing mad,” he says, after the meat run."
+    },
+    {
+      "name": "vo.mail.flying.4",
+      "voice": "player",
+      "say": "I will reply to that later. I will not reply to that."
+    },
+    {
+      "name": "vo.toilet.hint.1",
+      "voice": "player",
+      "say": "Nothing doing yet. Couple of cigarettes usually gets that moving."
+    },
+    {
+      "name": "vo.toilet.hint.2",
+      "voice": "player",
+      "say": "Not yet. Give it a few smokes and we will be back in here."
+    },
+    {
+      "name": "vo.toilet.hint.3",
+      "voice": "player",
+      "say": "Empty. It always turns up about four cigarettes in."
+    },
+    {
       "name": "vo.bing2.shubenator.intro",
       "voice": "shubenator",
       "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
@@ -18122,6 +18222,787 @@
       "name": "vo.call.lou.no_wake.tony.4",
       "voice": "player",
       "say": "I will be there."
+    },
+    {
+      "name": "heist.crew_snow",
+      "voice": "snow",
+      "say": "Snow. I call the move. You keep the clock honest."
+    },
+    {
+      "name": "heist.crew_rippin",
+      "voice": "rippinflow",
+      "say": "Rippinflow. I drive us in. If the day gets ambitious, you drive us out."
+    },
+    {
+      "name": "heist.crew_shubes",
+      "voice": "shubenator",
+      "say": "Shubenator. Blue case, vault panel, and every wire you do not touch."
+    },
+    {
+      "name": "heist.crew_death",
+      "voice": "deathmegatron",
+      "say": "DeathMegatron. I move bags and bad ideas out of doorways."
+    },
+    {
+      "name": "heist.crew_numb",
+      "voice": "numbskull",
+      "say": "Numbskull. I own the lobby. People calm down when I sound bored."
+    },
+    {
+      "name": "heist.snow_arrival",
+      "voice": "snow",
+      "say": "Door shut. Phone off. We use names until the masks go on."
+    },
+    {
+      "name": "heist.snow_plan",
+      "voice": "snow",
+      "say": "Inside, six people do one job. Outside, six targets move as one."
+    },
+    {
+      "name": "heist.snow_rules",
+      "voice": "snow",
+      "say": "No civilians. No souvenirs. Nobody leaves a person to save a bag."
+    },
+    {
+      "name": "heist.rippin_route",
+      "voice": "rippinflow",
+      "say": "Route Green behaves at lunch. Today every light is going to discover a personality."
+    },
+    {
+      "name": "heist.shubes_case",
+      "voice": "shubenator",
+      "say": "The blue case is organized. Your hands are not part of the organization."
+    },
+    {
+      "name": "heist.death_bags",
+      "voice": "deathmegatron",
+      "say": "Lou bought bigger bags. Apparently confidence has handles."
+    },
+    {
+      "name": "heist.numb_alarm",
+      "voice": "numbskull",
+      "say": "I am nowhere near the alarms. This is me saying it before anybody asks."
+    },
+    {
+      "name": "heist.prospect_ready",
+      "voice": "player",
+      "say": "I'm set. Vest is on, mags are full, and my hands won't stop."
+    },
+    {
+      "name": "heist.rippin_two_lights",
+      "voice": "rippinflow",
+      "say": "Two lights."
+    },
+    {
+      "name": "heist.snow_time",
+      "voice": "snow",
+      "say": "Time."
+    },
+    {
+      "name": "heist.shubes_loop",
+      "voice": "shubenator",
+      "say": "Exterior loop is live. It will remain useful until somebody looks out a window."
+    },
+    {
+      "name": "heist.death_breathe",
+      "voice": "deathmegatron",
+      "say": "Breathe now. It costs more in there."
+    },
+    {
+      "name": "heist.guard_warning",
+      "voice": "heist-guard",
+      "say": "Stop right there. Hands where I can see them."
+    },
+    {
+      "name": "heist.snow_guard",
+      "voice": "snow",
+      "say": "Prospect, visible guard. Put him on the floor."
+    },
+    {
+      "name": "heist.prospect_lobby_quiet",
+      "voice": "player",
+      "say": "Huh. It's a lot slower than you'd think. That's the part nobody mentions."
+    },
+    {
+      "name": "heist.snow_scoreboard",
+      "voice": "snow",
+      "say": "Save the scoreboard. Watch the lobby."
+    },
+    {
+      "name": "heist.death_floor",
+      "voice": "deathmegatron",
+      "say": "Hands clear. Eyes down. Nobody here needs to be brave."
+    },
+    {
+      "name": "heist.civilian_please",
+      "voice": "heist-customer",
+      "say": "Nobody move. Please, just do what they say."
+    },
+    {
+      "name": "heist.numb_manager",
+      "voice": "numbskull",
+      "say": "Manager is mine. Teller line is listening."
+    },
+    {
+      "name": "heist.manager_delay",
+      "voice": "heist-manager",
+      "say": "You do not know the delay. That door will not care who is holding the gun."
+    },
+    {
+      "name": "heist.shubes_answer",
+      "voice": "shubenator",
+      "say": "He does not have to know it. I know the panel."
+    },
+    {
+      "name": "heist.shubes_vault",
+      "voice": "shubenator",
+      "say": "Panel first. Time-delay second. Nobody touches the leads."
+    },
+    {
+      "name": "heist.snow_clock",
+      "voice": "snow",
+      "say": "Four minutes became two. Fill the bags we have and leave the rest."
+    },
+    {
+      "name": "heist.snow_insured",
+      "voice": "snow",
+      "say": "We came for insured paper, not uninsured people. Keep it clean."
+    },
+    {
+      "name": "heist.numb_signal",
+      "voice": "numbskull",
+      "say": "Foot switch. I stopped the teller. I did not stop what she already sent."
+    },
+    {
+      "name": "heist.rippin_street",
+      "voice": "rippinflow",
+      "say": "Blue lights on both ends. Route Green is turning brown."
+    },
+    {
+      "name": "heist.snow_exit_alarm",
+      "voice": "snow",
+      "say": "The sirens are the clock now. Bags, tools, people. Move."
+    },
+    {
+      "name": "heist.snow_contact",
+      "voice": "snow",
+      "say": "Planters first. Prospect, right side!"
+    },
+    {
+      "name": "heist.death_suppress",
+      "voice": "deathmegatron",
+      "say": "Intersection is occupied. I am correcting it."
+    },
+    {
+      "name": "heist.rippin_van",
+      "voice": "rippinflow",
+      "say": "Van is boxed. Give me five seconds and a miracle with keys."
+    },
+    {
+      "name": "heist.rippin_hit",
+      "voice": "rippinflow",
+      "say": "That is my leg. Route Green is officially cancelled."
+    },
+    {
+      "name": "heist.snow_fallback",
+      "voice": "snow",
+      "say": "Mercer garage. Pairs. Leave the van and keep Rippin between us."
+    },
+    {
+      "name": "heist.numb_bag",
+      "voice": "numbskull",
+      "say": "Bag is down. Rippin is not. Make the choice fast."
+    },
+    {
+      "name": "heist.snow_leave_it",
+      "voice": "snow",
+      "say": "Do not trade a person for paper."
+    },
+    {
+      "name": "heist.shubes_garage",
+      "voice": "shubenator",
+      "say": "Sedan is live. The ignition was never the difficult system."
+    },
+    {
+      "name": "heist.death_load",
+      "voice": "deathmegatron",
+      "say": "Cover me. Bags are heavier when everybody is shooting at the handles."
+    },
+    {
+      "name": "heist.rippin_drive",
+      "voice": "rippinflow",
+      "say": "Prospect drives. Left out, wrong way on purpose, then the warehouse lights."
+    },
+    {
+      "name": "heist.rippin_market_left",
+      "voice": "rippinflow",
+      "say": "Left at the warehouse. Hold it through Market, then right at the glass tower."
+    },
+    {
+      "name": "heist.snow_roadblock",
+      "voice": "snow",
+      "say": "Roadblock. Center gap. Do not argue with the cruisers."
+    },
+    {
+      "name": "heist.rippin_canal",
+      "voice": "rippinflow",
+      "say": "Canal road next. Narrow means they cannot put three cars beside us."
+    },
+    {
+      "name": "heist.shubes_swap",
+      "voice": "shubenator",
+      "say": "Cash first, coats second, weapons in the lined bin. In that order."
+    },
+    {
+      "name": "heist.death_swap_bags",
+      "voice": "deathmegatron",
+      "say": "Eight bags moved. Nobody leaves a handle in the dirty car."
+    },
+    {
+      "name": "heist.rippin_swap_aid",
+      "voice": "rippinflow",
+      "say": "Tie it above the tear. I can complain in the clean car."
+    },
+    {
+      "name": "heist.snow_return",
+      "voice": "snow",
+      "say": "Nobody celebrates until I count six people and every bag in this room."
+    },
+    {
+      "name": "heist.rippin_aid",
+      "voice": "rippinflow",
+      "say": "The van had one job and chose performance art. Wrap the leg tighter."
+    },
+    {
+      "name": "heist.shubes_defend",
+      "voice": "shubenator",
+      "say": "The vault opened on schedule. The alarm was a separate and inferior system."
+    },
+    {
+      "name": "heist.shubes_signature_cleanup",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Pleasant, deadpan, and entirely untroubled during mission cleanup. He sounds as though he has just joined an ordinary group chat."
+    },
+    {
+      "name": "heist.death_ammo",
+      "voice": "deathmegatron",
+      "say": "Ammunition accounted for. Everybody else is somebody else’s paperwork."
+    },
+    {
+      "name": "heist.numb_home",
+      "voice": "numbskull",
+      "say": "I saw the tracker late. I saw it. We are still all standing here."
+    },
+    {
+      "name": "heist.snow_good",
+      "voice": "snow",
+      "say": "You moved when I said move. You covered people before money. Lou will hear that."
+    },
+    {
+      "name": "heist.snow_mask_call",
+      "voice": "snow",
+      "say": "Two blocks. Masks on now, while there is nobody outside to watch us do it."
+    },
+    {
+      "name": "heist.prospect_mask_on",
+      "voice": "player",
+      "say": "Mask's down. I can hear my own heart in this thing."
+    },
+    {
+      "name": "heist.numb_van_count",
+      "voice": "numbskull",
+      "say": "Four minutes on the floor, one on the vault, one to walk out. That is the whole plan."
+    },
+    {
+      "name": "heist.numb_lobby_order",
+      "voice": "numbskull",
+      "say": "Everybody on the floor. Face down, hands out. This takes four minutes and then we are gone."
+    },
+    {
+      "name": "heist.snow_lobby_open",
+      "voice": "snow",
+      "say": "The room is yours, Prospect. Get them flat and keep them flat."
+    },
+    {
+      "name": "heist.snow_control_slipping",
+      "voice": "snow",
+      "say": "Half your room is up on its knees again. Fix it before I have to."
+    },
+    {
+      "name": "heist.numb_lobby_held",
+      "voice": "numbskull",
+      "say": "Lobby is tied off. Nobody in here is going anywhere on their own."
+    },
+    {
+      "name": "heist.numb_alarm_reached",
+      "voice": "numbskull",
+      "say": "Somebody got a hand to a switch. Whatever clock you thought you had, it is shorter."
+    },
+    {
+      "name": "heist.death_runner",
+      "voice": "deathmegatron",
+      "say": "Runner. West side, and he is four seconds from the street."
+    },
+    {
+      "name": "heist.snow_no_souvenirs",
+      "voice": "snow",
+      "say": "That is a man’s wallet in your hand. Put it down, or carry it into Lou’s office and explain it."
+    },
+    {
+      "name": "heist.snow_casualty",
+      "voice": "snow",
+      "say": "That was a customer. That is the one thing we do not do."
+    },
+    {
+      "name": "heist.snow_casualty_alt",
+      "voice": "snow",
+      "say": "He was queuing. He had a paying-in book in his hand."
+    },
+    {
+      "name": "heist.snow_casualty_alt_two",
+      "voice": "snow",
+      "say": "Nobody in here owns the money. Aim at the ones who are paid to stop us."
+    },
+    {
+      "name": "heist.snow_casualty_two",
+      "voice": "snow",
+      "say": "That is two. Two is not an accident. Two is how you are doing this."
+    },
+    {
+      "name": "heist.snow_casualty_two_alt",
+      "voice": "snow",
+      "say": "Second one. I am going to have to say who that was, out loud, to Lou."
+    },
+    {
+      "name": "heist.snow_casualty_two_alt_two",
+      "voice": "snow",
+      "say": "Put it down. Every one of these costs us a year we have not got."
+    },
+    {
+      "name": "heist.snow_casualty_three",
+      "voice": "snow",
+      "say": "Three. You are not robbing this bank any more. You are clearing it."
+    },
+    {
+      "name": "heist.snow_casualty_three_alt",
+      "voice": "snow",
+      "say": "Three of them. Whatever this is, it stopped being the plan two ago."
+    },
+    {
+      "name": "heist.snow_casualty_three_alt_two",
+      "voice": "snow",
+      "say": "I am asking once more, and then I stop asking. Off the customers."
+    },
+    {
+      "name": "heist.snow_committed",
+      "voice": "snow",
+      "say": "All right. We are committed now. Nobody in this room gets to describe us. Finish it, and be quick, because the ones at the back have started counting doors."
+    },
+    {
+      "name": "heist.snow_sweep",
+      "voice": "snow",
+      "say": "Anyone still moving is a statement to a detective. Keep working."
+    },
+    {
+      "name": "heist.snow_sweep_two",
+      "voice": "snow",
+      "say": "Check behind the desks. The quiet ones are the ones who remember faces."
+    },
+    {
+      "name": "heist.snow_sweep_three",
+      "voice": "snow",
+      "say": "We do not get to stop halfway through this. Not now."
+    },
+    {
+      "name": "heist.snow_sweep_clear",
+      "voice": "snow",
+      "say": "Room is quiet. Take the bags. We never talk about this one again."
+    },
+    {
+      "name": "heist.snow_friendly_fire",
+      "voice": "snow",
+      "say": "Muzzle. Off me. Now."
+    },
+    {
+      "name": "heist.snow_friendly_fire_two",
+      "voice": "snow",
+      "say": "That is twice you have put that barrel across me. Pick a direction."
+    },
+    {
+      "name": "heist.death_friendly_fire",
+      "voice": "deathmegatron",
+      "say": "Hey. I am on your side and I am standing right here."
+    },
+    {
+      "name": "heist.prospect_reassure_one",
+      "voice": "player",
+      "say": "Nobody here wants your money. It is the bank’s, it is insured, and it is not worth your life."
+    },
+    {
+      "name": "heist.prospect_reassure_two",
+      "voice": "player",
+      "say": "Look at me. Do what I say and you go home to whoever is waiting on you."
+    },
+    {
+      "name": "heist.prospect_order_down",
+      "voice": "player",
+      "say": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice."
+    },
+    {
+      "name": "heist.prospect_order_two",
+      "voice": "player",
+      "say": "On the floor. All the way down, and stay there."
+    },
+    {
+      "name": "heist.prospect_order_three",
+      "voice": "player",
+      "say": "Flat. Palms open, arms out. Nobody has to look at anybody."
+    },
+    {
+      "name": "heist.prospect_order_four",
+      "voice": "player",
+      "say": "You are already doing fine. Keep doing it lying down."
+    },
+    {
+      "name": "heist.prospect_order_five",
+      "voice": "player",
+      "say": "Knees, then chest, then hands. In that order and no faster."
+    },
+    {
+      "name": "heist.prospect_demand",
+      "voice": "player",
+      "say": "Wallet. Watch. On the tile in front of you."
+    },
+    {
+      "name": "heist.prospect_demand_two",
+      "voice": "player",
+      "say": "Whatever is in the coat. Out, on the floor, slide it."
+    },
+    {
+      "name": "heist.prospect_demand_three",
+      "voice": "player",
+      "say": "Pockets. Both of them. Do not make me go in there."
+    },
+    {
+      "name": "heist.prospect_tie",
+      "voice": "player",
+      "say": "Hands behind your back. This is so I can stop watching you."
+    },
+    {
+      "name": "heist.prospect_tie_two",
+      "voice": "player",
+      "say": "Wrists together. It is plastic, it comes off with scissors."
+    },
+    {
+      "name": "heist.prospect_tie_three",
+      "voice": "player",
+      "say": "Do not pull against it. Pulling is the only way it hurts."
+    },
+    {
+      "name": "heist.prospect_tie_four",
+      "voice": "player",
+      "say": "That is you finished. Nothing else happens to you today."
+    },
+    {
+      "name": "heist.prospect_tie_five",
+      "voice": "player",
+      "say": "Behind your back. Breathe out. There — done."
+    },
+    {
+      "name": "heist.hostage_plead_one",
+      "voice": "heist-customer",
+      "say": "Please. Please don’t shoot."
+    },
+    {
+      "name": "heist.hostage_plead_two",
+      "voice": "heist-customer",
+      "say": "I’m not doing anything. I’m not doing anything."
+    },
+    {
+      "name": "heist.hostage_plead_three",
+      "voice": "heist-customer",
+      "say": "Okay. Okay. It’s okay, I’m looking at the floor."
+    },
+    {
+      "name": "heist.hostage_plead_four",
+      "voice": "heist-customer",
+      "say": "I have a daughter. I have a daughter at home."
+    },
+    {
+      "name": "heist.hostage_plead_five",
+      "voice": "heist-customer",
+      "say": "Nobody’s moving. Look — nobody in here is moving."
+    },
+    {
+      "name": "heist.hostage_plead_teller",
+      "voice": "heist-customer",
+      "say": "There’s nothing back here. There’s nothing in my drawer."
+    },
+    {
+      "name": "heist.hostage_plead_teller_two",
+      "voice": "heist-customer",
+      "say": "The drawers are on a timer. I couldn’t open them if you made me."
+    },
+    {
+      "name": "heist.hostage_plead_teller_three",
+      "voice": "heist-customer",
+      "say": "I do this for eleven dollars an hour. Please point that somewhere else."
+    },
+    {
+      "name": "heist.hostage_reassured_one",
+      "voice": "heist-customer",
+      "say": "It isn’t mine. None of it is mine. Take it."
+    },
+    {
+      "name": "heist.hostage_reassured_two",
+      "voice": "heist-customer",
+      "say": "Thank you. Thank you. I’m staying right here."
+    },
+    {
+      "name": "heist.hostage_reassured_three",
+      "voice": "heist-customer",
+      "say": "Alright. Alright. I believe you."
+    },
+    {
+      "name": "heist.hostage_reassured_four",
+      "voice": "heist-customer",
+      "say": "I’m not going to be a problem. I promise I’m not going to be a problem."
+    },
+    {
+      "name": "heist.hostage_reassured_hard",
+      "voice": "heist-customer",
+      "say": "Then take it and go. Please just take it and go."
+    },
+    {
+      "name": "heist.hostage_reassured_hard_two",
+      "voice": "heist-customer",
+      "say": "Don’t tell me it’s fine. Nothing about this is fine."
+    },
+    {
+      "name": "heist.hostage_reassured_hard_three",
+      "voice": "heist-customer",
+      "say": "Just say how long. Somebody tell me how long."
+    },
+    {
+      "name": "heist.hostage_hands_over",
+      "voice": "heist-customer",
+      "say": "That’s all of it. That’s everything I have on me."
+    },
+    {
+      "name": "heist.hostage_hands_over_two",
+      "voice": "heist-customer",
+      "say": "Take the watch too. It was a gift, but take it."
+    },
+    {
+      "name": "heist.hostage_hands_over_three",
+      "voice": "heist-customer",
+      "say": "There. There, it’s yours, it’s all yours."
+    },
+    {
+      "name": "heist.hostage_refuses",
+      "voice": "heist-customer",
+      "say": "I don’t have anything. I came in to pay a bill."
+    },
+    {
+      "name": "heist.hostage_refuses_two",
+      "voice": "heist-customer",
+      "say": "You’ve had it. There is nothing else in these pockets."
+    },
+    {
+      "name": "heist.hostage_refuses_three",
+      "voice": "heist-customer",
+      "say": "I’m overdrawn. That’s why I’m standing in a bank with nothing in my pockets."
+    },
+    {
+      "name": "heist.hostage_tied",
+      "voice": "heist-customer",
+      "say": "It’s too tight. It’s too tight."
+    },
+    {
+      "name": "heist.hostage_tied_two",
+      "voice": "heist-customer",
+      "say": "Okay. Okay, I’m not fighting it."
+    },
+    {
+      "name": "heist.hostage_tied_three",
+      "voice": "heist-customer",
+      "say": "My hands are going numb. Are they meant to go numb?"
+    },
+    {
+      "name": "heist.hostage_caught",
+      "voice": "heist-customer",
+      "say": "I wasn’t reaching for anything. I wasn’t."
+    },
+    {
+      "name": "heist.hostage_caught_two",
+      "voice": "heist-customer",
+      "say": "It’s a phone. It’s only a phone, I’m putting it down."
+    },
+    {
+      "name": "heist.hostage_witness",
+      "voice": "heist-customer",
+      "say": "You shot him. Oh God, you shot him."
+    },
+    {
+      "name": "heist.hostage_witness_two",
+      "voice": "heist-customer",
+      "say": "He’s not moving. Somebody — he isn’t moving."
+    },
+    {
+      "name": "heist.manager_second",
+      "voice": "heist-manager",
+      "say": "The timer does not care that you are in a hurry. Neither do I."
+    },
+    {
+      "name": "heist.rippin_tower_right",
+      "voice": "rippinflow",
+      "say": "Glass tower on the corner. Right there, and do not slow down for the light."
+    },
+    {
+      "name": "heist.rippin_swap_ahead",
+      "voice": "rippinflow",
+      "say": "Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in."
+    },
+    {
+      "name": "heist.snow_lost_them",
+      "voice": "snow",
+      "say": "Nothing behind us. Nothing above us. We are a grey car on a service road."
+    },
+    {
+      "name": "heist.rippin_pursuit_close",
+      "voice": "rippinflow",
+      "say": "He is on the bumper. Do not brake for him, he will just get braver."
+    },
+    {
+      "name": "heist.snow_pursuit_stopped",
+      "voice": "snow",
+      "say": "Why are we stationary? A parked car is a surrender. Move it."
+    },
+    {
+      "name": "heist.rippin_pursuit_ram",
+      "voice": "rippinflow",
+      "say": "That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again."
+    },
+    {
+      "name": "heist.lou_radio_open",
+      "voice": "lou",
+      "say": "Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with."
+    },
+    {
+      "name": "heist.lou_radio_lobby",
+      "voice": "lou",
+      "say": "Those people on the floor are the bank’s problem, not yours. Do not make them yours."
+    },
+    {
+      "name": "heist.lou_radio_vault",
+      "voice": "lou",
+      "say": "Eight bags on that trolley. Eight is the number. I do not want to hear a seven."
+    },
+    {
+      "name": "heist.lou_radio_street",
+      "voice": "lou",
+      "say": "I can hear the sirens from my office. Get off that street."
+    },
+    {
+      "name": "heist.lou_debrief_open",
+      "voice": "lou",
+      "say": "Sit down, all of you. I only ever ask two things after a day like this."
+    },
+    {
+      "name": "heist.lou_debrief_people_clean",
+      "voice": "lou",
+      "say": "First one. Everybody who walked into that lobby walked back out of it. That is the whole reason I use you and not somebody cheaper."
+    },
+    {
+      "name": "heist.lou_debrief_people_dirty",
+      "voice": "lou",
+      "say": "First one, and you already know the answer. Somebody who came in to cash a cheque did not walk back out. That follows this family around for years."
+    },
+    {
+      "name": "heist.lou_debrief_money_full",
+      "voice": "lou",
+      "say": "Second one. All eight bags, insured paper, nothing on anybody’s person. That is the number I wanted and that is the number I got."
+    },
+    {
+      "name": "heist.lou_debrief_money_short",
+      "voice": "lou",
+      "say": "Second one. You left money on Mercer Street. It is insured, so nobody cries — but I asked for eight and I am counting less than eight."
+    },
+    {
+      "name": "heist.lou_debrief_souvenirs",
+      "voice": "lou",
+      "say": "And there is money in that bag that came out of a man’s coat. Take it off the table. We are not muggers, and it is coming out of your end."
+    },
+    {
+      "name": "heist.lou_debrief_verdict_good",
+      "voice": "lou",
+      "say": "Then it was a good day. Nobody hurt, everything counted, and tomorrow it is a paragraph nobody reads. Well done, kid."
+    },
+    {
+      "name": "heist.lou_debrief_verdict_bad",
+      "voice": "lou",
+      "say": "So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean."
+    },
+    {
+      "name": "heist.lou_phone_home",
+      "voice": "lou",
+      "say": "Everybody breathing? Good. Prospect, go home, clean up, and stay by your phone. Nobody sees anybody tonight."
+    },
+    {
+      "name": "heist.lou_home_order",
+      "voice": "lou",
+      "say": "You came home with the crew and you came home with the money. That is what I needed to know. The rest can wait."
+    },
+    {
+      "name": "heist.prospect_phone_home",
+      "voice": "player",
+      "say": "Home. Stay by the phone. I got it."
+    },
+    {
+      "name": "heist.snow_debrief_open",
+      "voice": "snow",
+      "say": "Sit down, all of you. We do this the same way every time."
+    },
+    {
+      "name": "heist.snow_debrief_people",
+      "voice": "snow",
+      "say": "People first. I count six of us. Now somebody tell me the other number."
+    },
+    {
+      "name": "heist.snow_debrief_money",
+      "voice": "snow",
+      "say": "Then the money. What went in the car, and what we left on Mercer."
+    },
+    {
+      "name": "heist.snow_debrief_clean",
+      "voice": "snow",
+      "say": "Nothing on the news tonight but a number. That is what a good day looks like."
+    },
+    {
+      "name": "heist.snow_debrief_ugly",
+      "voice": "snow",
+      "say": "That was not a job. That was a mess we walked out of. Lou hears it from me first."
+    },
+    {
+      "name": "heist.numb_debrief_ledger",
+      "voice": "numbskull",
+      "say": "Eight bags came off the trolleys. Here is what actually got home."
+    },
+    {
+      "name": "heist.death_debrief_count",
+      "voice": "deathmegatron",
+      "say": "Count it twice. I am not doing this again on Lou’s carpet."
+    },
+    {
+      "name": "heist.prospect_debrief",
+      "voice": "player",
+      "say": "First one. I moved when Snow said move and I did not make anything worse."
+    },
+    {
+      "name": "heist.prospect_debrief_dirty",
+      "voice": "player",
+      "say": "First one. I did what Snow said until I did not. The rest is mine."
     },
     {
       "name": "vo.bing.ambient.01",
@@ -25064,827 +25945,6 @@
       "name": "vo.siege.sasole.sasole.tonight",
       "voice": "lou2",
       "say": "Get some sleep. We fly tonight, and you are coming with me."
-    },
-    {
-      "name": "vo.margo.wake.dress.1",
-      "voice": "margo",
-      "say": "Can you get this? The clasp is winning."
-    },
-    {
-      "name": "heist.crew_snow",
-      "voice": "snow",
-      "say": "Snow. I call the move. You keep the clock honest."
-    },
-    {
-      "name": "heist.crew_rippin",
-      "voice": "rippinflow",
-      "say": "Rippinflow. I drive us in. If the day gets ambitious, you drive us out."
-    },
-    {
-      "name": "heist.crew_shubes",
-      "voice": "shubenator",
-      "say": "Shubenator. Blue case, vault panel, and every wire you do not touch."
-    },
-    {
-      "name": "heist.crew_death",
-      "voice": "deathmegatron",
-      "say": "DeathMegatron. I move bags and bad ideas out of doorways."
-    },
-    {
-      "name": "heist.crew_numb",
-      "voice": "numbskull",
-      "say": "Numbskull. I own the lobby. People calm down when I sound bored."
-    },
-    {
-      "name": "heist.snow_arrival",
-      "voice": "snow",
-      "say": "Door shut. Phone off. We use names until the masks go on."
-    },
-    {
-      "name": "heist.snow_plan",
-      "voice": "snow",
-      "say": "Inside, six people do one job. Outside, six targets move as one."
-    },
-    {
-      "name": "heist.snow_rules",
-      "voice": "snow",
-      "say": "No civilians. No souvenirs. Nobody leaves a person to save a bag."
-    },
-    {
-      "name": "heist.rippin_route",
-      "voice": "rippinflow",
-      "say": "Route Green behaves at lunch. Today every light is going to discover a personality."
-    },
-    {
-      "name": "heist.shubes_case",
-      "voice": "shubenator",
-      "say": "The blue case is organized. Your hands are not part of the organization."
-    },
-    {
-      "name": "heist.death_bags",
-      "voice": "deathmegatron",
-      "say": "Lou bought bigger bags. Apparently confidence has handles."
-    },
-    {
-      "name": "heist.numb_alarm",
-      "voice": "numbskull",
-      "say": "I am nowhere near the alarms. This is me saying it before anybody asks."
-    },
-    {
-      "name": "heist.prospect_ready",
-      "voice": "player",
-      "say": "I'm set. Vest is on, mags are full, and my hands won't stop."
-    },
-    {
-      "name": "heist.rippin_two_lights",
-      "voice": "rippinflow",
-      "say": "Two lights."
-    },
-    {
-      "name": "heist.snow_time",
-      "voice": "snow",
-      "say": "Time."
-    },
-    {
-      "name": "heist.shubes_loop",
-      "voice": "shubenator",
-      "say": "Exterior loop is live. It will remain useful until somebody looks out a window."
-    },
-    {
-      "name": "heist.death_breathe",
-      "voice": "deathmegatron",
-      "say": "Breathe now. It costs more in there."
-    },
-    {
-      "name": "heist.guard_warning",
-      "voice": "heist-guard",
-      "say": "Stop right there. Hands where I can see them."
-    },
-    {
-      "name": "heist.snow_guard",
-      "voice": "snow",
-      "say": "Prospect, visible guard. Put him on the floor."
-    },
-    {
-      "name": "heist.prospect_lobby_quiet",
-      "voice": "player",
-      "say": "Huh. It's a lot slower than you'd think. That's the part nobody mentions."
-    },
-    {
-      "name": "heist.snow_scoreboard",
-      "voice": "snow",
-      "say": "Save the scoreboard. Watch the lobby."
-    },
-    {
-      "name": "heist.death_floor",
-      "voice": "deathmegatron",
-      "say": "Hands clear. Eyes down. Nobody here needs to be brave."
-    },
-    {
-      "name": "heist.civilian_please",
-      "voice": "heist-customer",
-      "say": "Nobody move. Please, just do what they say."
-    },
-    {
-      "name": "heist.numb_manager",
-      "voice": "numbskull",
-      "say": "Manager is mine. Teller line is listening."
-    },
-    {
-      "name": "heist.manager_delay",
-      "voice": "heist-manager",
-      "say": "You do not know the delay. That door will not care who is holding the gun."
-    },
-    {
-      "name": "heist.shubes_answer",
-      "voice": "shubenator",
-      "say": "He does not have to know it. I know the panel."
-    },
-    {
-      "name": "heist.shubes_vault",
-      "voice": "shubenator",
-      "say": "Panel first. Time-delay second. Nobody touches the leads."
-    },
-    {
-      "name": "heist.snow_clock",
-      "voice": "snow",
-      "say": "Four minutes became two. Fill the bags we have and leave the rest."
-    },
-    {
-      "name": "heist.snow_insured",
-      "voice": "snow",
-      "say": "We came for insured paper, not uninsured people. Keep it clean."
-    },
-    {
-      "name": "heist.numb_signal",
-      "voice": "numbskull",
-      "say": "Foot switch. I stopped the teller. I did not stop what she already sent."
-    },
-    {
-      "name": "heist.rippin_street",
-      "voice": "rippinflow",
-      "say": "Blue lights on both ends. Route Green is turning brown."
-    },
-    {
-      "name": "heist.snow_exit_alarm",
-      "voice": "snow",
-      "say": "The sirens are the clock now. Bags, tools, people. Move."
-    },
-    {
-      "name": "heist.snow_contact",
-      "voice": "snow",
-      "say": "Planters first. Prospect, right side!"
-    },
-    {
-      "name": "heist.death_suppress",
-      "voice": "deathmegatron",
-      "say": "Intersection is occupied. I am correcting it."
-    },
-    {
-      "name": "heist.rippin_van",
-      "voice": "rippinflow",
-      "say": "Van is boxed. Give me five seconds and a miracle with keys."
-    },
-    {
-      "name": "heist.rippin_hit",
-      "voice": "rippinflow",
-      "say": "That is my leg. Route Green is officially cancelled."
-    },
-    {
-      "name": "heist.snow_fallback",
-      "voice": "snow",
-      "say": "Mercer garage. Pairs. Leave the van and keep Rippin between us."
-    },
-    {
-      "name": "heist.numb_bag",
-      "voice": "numbskull",
-      "say": "Bag is down. Rippin is not. Make the choice fast."
-    },
-    {
-      "name": "heist.snow_leave_it",
-      "voice": "snow",
-      "say": "Do not trade a person for paper."
-    },
-    {
-      "name": "heist.shubes_garage",
-      "voice": "shubenator",
-      "say": "Sedan is live. The ignition was never the difficult system."
-    },
-    {
-      "name": "heist.death_load",
-      "voice": "deathmegatron",
-      "say": "Cover me. Bags are heavier when everybody is shooting at the handles."
-    },
-    {
-      "name": "heist.rippin_drive",
-      "voice": "rippinflow",
-      "say": "Prospect drives. Left out, wrong way on purpose, then the warehouse lights."
-    },
-    {
-      "name": "heist.rippin_market_left",
-      "voice": "rippinflow",
-      "say": "Left at the warehouse. Hold it through Market, then right at the glass tower."
-    },
-    {
-      "name": "heist.snow_roadblock",
-      "voice": "snow",
-      "say": "Roadblock. Center gap. Do not argue with the cruisers."
-    },
-    {
-      "name": "heist.rippin_canal",
-      "voice": "rippinflow",
-      "say": "Canal road next. Narrow means they cannot put three cars beside us."
-    },
-    {
-      "name": "heist.shubes_swap",
-      "voice": "shubenator",
-      "say": "Cash first, coats second, weapons in the lined bin. In that order."
-    },
-    {
-      "name": "heist.death_swap_bags",
-      "voice": "deathmegatron",
-      "say": "Eight bags moved. Nobody leaves a handle in the dirty car."
-    },
-    {
-      "name": "heist.rippin_swap_aid",
-      "voice": "rippinflow",
-      "say": "Tie it above the tear. I can complain in the clean car."
-    },
-    {
-      "name": "heist.snow_return",
-      "voice": "snow",
-      "say": "Nobody celebrates until I count six people and every bag in this room."
-    },
-    {
-      "name": "heist.rippin_aid",
-      "voice": "rippinflow",
-      "say": "The van had one job and chose performance art. Wrap the leg tighter."
-    },
-    {
-      "name": "heist.shubes_defend",
-      "voice": "shubenator",
-      "say": "The vault opened on schedule. The alarm was a separate and inferior system."
-    },
-    {
-      "name": "heist.shubes_signature_cleanup",
-      "voice": "shubenator",
-      "say": "Hey guys, what’s going on?",
-      "direction": "Pleasant, deadpan, and entirely untroubled during mission cleanup. He sounds as though he has just joined an ordinary group chat."
-    },
-    {
-      "name": "heist.death_ammo",
-      "voice": "deathmegatron",
-      "say": "Ammunition accounted for. Everybody else is somebody else’s paperwork."
-    },
-    {
-      "name": "heist.numb_home",
-      "voice": "numbskull",
-      "say": "I saw the tracker late. I saw it. We are still all standing here."
-    },
-    {
-      "name": "heist.snow_good",
-      "voice": "snow",
-      "say": "You moved when I said move. You covered people before money. Lou will hear that."
-    },
-    {
-      "name": "heist.snow_mask_call",
-      "voice": "snow",
-      "say": "Two blocks. Masks on now, while there is nobody outside to watch us do it."
-    },
-    {
-      "name": "heist.prospect_mask_on",
-      "voice": "player",
-      "say": "Mask's down. I can hear my own heart in this thing."
-    },
-    {
-      "name": "heist.numb_van_count",
-      "voice": "numbskull",
-      "say": "Four minutes on the floor, one on the vault, one to walk out. That is the whole plan."
-    },
-    {
-      "name": "heist.numb_lobby_order",
-      "voice": "numbskull",
-      "say": "Everybody on the floor. Face down, hands out. This takes four minutes and then we are gone."
-    },
-    {
-      "name": "heist.snow_lobby_open",
-      "voice": "snow",
-      "say": "The room is yours, Prospect. Get them flat and keep them flat."
-    },
-    {
-      "name": "heist.snow_control_slipping",
-      "voice": "snow",
-      "say": "Half your room is up on its knees again. Fix it before I have to."
-    },
-    {
-      "name": "heist.numb_lobby_held",
-      "voice": "numbskull",
-      "say": "Lobby is tied off. Nobody in here is going anywhere on their own."
-    },
-    {
-      "name": "heist.numb_alarm_reached",
-      "voice": "numbskull",
-      "say": "Somebody got a hand to a switch. Whatever clock you thought you had, it is shorter."
-    },
-    {
-      "name": "heist.death_runner",
-      "voice": "deathmegatron",
-      "say": "Runner. West side, and he is four seconds from the street."
-    },
-    {
-      "name": "heist.snow_no_souvenirs",
-      "voice": "snow",
-      "say": "That is a man’s wallet in your hand. Put it down, or carry it into Lou’s office and explain it."
-    },
-    {
-      "name": "heist.snow_casualty",
-      "voice": "snow",
-      "say": "That was a customer. That is the one thing we do not do."
-    },
-    {
-      "name": "heist.snow_casualty_alt",
-      "voice": "snow",
-      "say": "He was queuing. He had a paying-in book in his hand."
-    },
-    {
-      "name": "heist.snow_casualty_alt_two",
-      "voice": "snow",
-      "say": "Nobody in here owns the money. Aim at the ones who are paid to stop us."
-    },
-    {
-      "name": "heist.snow_casualty_two",
-      "voice": "snow",
-      "say": "That is two. Two is not an accident. Two is how you are doing this."
-    },
-    {
-      "name": "heist.snow_casualty_two_alt",
-      "voice": "snow",
-      "say": "Second one. I am going to have to say who that was, out loud, to Lou."
-    },
-    {
-      "name": "heist.snow_casualty_two_alt_two",
-      "voice": "snow",
-      "say": "Put it down. Every one of these costs us a year we have not got."
-    },
-    {
-      "name": "heist.snow_casualty_three",
-      "voice": "snow",
-      "say": "Three. You are not robbing this bank any more. You are clearing it."
-    },
-    {
-      "name": "heist.snow_casualty_three_alt",
-      "voice": "snow",
-      "say": "Three of them. Whatever this is, it stopped being the plan two ago."
-    },
-    {
-      "name": "heist.snow_casualty_three_alt_two",
-      "voice": "snow",
-      "say": "I am asking once more, and then I stop asking. Off the customers."
-    },
-    {
-      "name": "heist.snow_committed",
-      "voice": "snow",
-      "say": "All right. We are committed now. Nobody in this room gets to describe us. Finish it, and be quick, because the ones at the back have started counting doors."
-    },
-    {
-      "name": "heist.snow_sweep",
-      "voice": "snow",
-      "say": "Anyone still moving is a statement to a detective. Keep working."
-    },
-    {
-      "name": "heist.snow_sweep_two",
-      "voice": "snow",
-      "say": "Check behind the desks. The quiet ones are the ones who remember faces."
-    },
-    {
-      "name": "heist.snow_sweep_three",
-      "voice": "snow",
-      "say": "We do not get to stop halfway through this. Not now."
-    },
-    {
-      "name": "heist.snow_sweep_clear",
-      "voice": "snow",
-      "say": "Room is quiet. Take the bags. We never talk about this one again."
-    },
-    {
-      "name": "heist.snow_friendly_fire",
-      "voice": "snow",
-      "say": "Muzzle. Off me. Now."
-    },
-    {
-      "name": "heist.snow_friendly_fire_two",
-      "voice": "snow",
-      "say": "That is twice you have put that barrel across me. Pick a direction."
-    },
-    {
-      "name": "heist.death_friendly_fire",
-      "voice": "deathmegatron",
-      "say": "Hey. I am on your side and I am standing right here."
-    },
-    {
-      "name": "heist.prospect_reassure_one",
-      "voice": "player",
-      "say": "Nobody here wants your money. It is the bank’s, it is insured, and it is not worth your life."
-    },
-    {
-      "name": "heist.prospect_reassure_two",
-      "voice": "player",
-      "say": "Look at me. Do what I say and you go home to whoever is waiting on you."
-    },
-    {
-      "name": "heist.prospect_order_down",
-      "voice": "player",
-      "say": "DOWN. On the floor, face down, hands out. Nobody makes me say it twice."
-    },
-    {
-      "name": "heist.prospect_order_two",
-      "voice": "player",
-      "say": "On the floor. All the way down, and stay there."
-    },
-    {
-      "name": "heist.prospect_order_three",
-      "voice": "player",
-      "say": "Flat. Palms open, arms out. Nobody has to look at anybody."
-    },
-    {
-      "name": "heist.prospect_order_four",
-      "voice": "player",
-      "say": "You are already doing fine. Keep doing it lying down."
-    },
-    {
-      "name": "heist.prospect_order_five",
-      "voice": "player",
-      "say": "Knees, then chest, then hands. In that order and no faster."
-    },
-    {
-      "name": "heist.prospect_demand",
-      "voice": "player",
-      "say": "Wallet. Watch. On the tile in front of you."
-    },
-    {
-      "name": "heist.prospect_demand_two",
-      "voice": "player",
-      "say": "Whatever is in the coat. Out, on the floor, slide it."
-    },
-    {
-      "name": "heist.prospect_demand_three",
-      "voice": "player",
-      "say": "Pockets. Both of them. Do not make me go in there."
-    },
-    {
-      "name": "heist.prospect_tie",
-      "voice": "player",
-      "say": "Hands behind your back. This is so I can stop watching you."
-    },
-    {
-      "name": "heist.prospect_tie_two",
-      "voice": "player",
-      "say": "Wrists together. It is plastic, it comes off with scissors."
-    },
-    {
-      "name": "heist.prospect_tie_three",
-      "voice": "player",
-      "say": "Do not pull against it. Pulling is the only way it hurts."
-    },
-    {
-      "name": "heist.prospect_tie_four",
-      "voice": "player",
-      "say": "That is you finished. Nothing else happens to you today."
-    },
-    {
-      "name": "heist.prospect_tie_five",
-      "voice": "player",
-      "say": "Behind your back. Breathe out. There — done."
-    },
-    {
-      "name": "heist.hostage_plead_one",
-      "voice": "heist-customer",
-      "say": "Please. Please don’t shoot."
-    },
-    {
-      "name": "heist.hostage_plead_two",
-      "voice": "heist-customer",
-      "say": "I’m not doing anything. I’m not doing anything."
-    },
-    {
-      "name": "heist.hostage_plead_three",
-      "voice": "heist-customer",
-      "say": "Okay. Okay. It’s okay, I’m looking at the floor."
-    },
-    {
-      "name": "heist.hostage_plead_four",
-      "voice": "heist-customer",
-      "say": "I have a daughter. I have a daughter at home."
-    },
-    {
-      "name": "heist.hostage_plead_five",
-      "voice": "heist-customer",
-      "say": "Nobody’s moving. Look — nobody in here is moving."
-    },
-    {
-      "name": "heist.hostage_plead_teller",
-      "voice": "heist-customer",
-      "say": "There’s nothing back here. There’s nothing in my drawer."
-    },
-    {
-      "name": "heist.hostage_plead_teller_two",
-      "voice": "heist-customer",
-      "say": "The drawers are on a timer. I couldn’t open them if you made me."
-    },
-    {
-      "name": "heist.hostage_plead_teller_three",
-      "voice": "heist-customer",
-      "say": "I do this for eleven dollars an hour. Please point that somewhere else."
-    },
-    {
-      "name": "heist.hostage_reassured_one",
-      "voice": "heist-customer",
-      "say": "It isn’t mine. None of it is mine. Take it."
-    },
-    {
-      "name": "heist.hostage_reassured_two",
-      "voice": "heist-customer",
-      "say": "Thank you. Thank you. I’m staying right here."
-    },
-    {
-      "name": "heist.hostage_reassured_three",
-      "voice": "heist-customer",
-      "say": "Alright. Alright. I believe you."
-    },
-    {
-      "name": "heist.hostage_reassured_four",
-      "voice": "heist-customer",
-      "say": "I’m not going to be a problem. I promise I’m not going to be a problem."
-    },
-    {
-      "name": "heist.hostage_reassured_hard",
-      "voice": "heist-customer",
-      "say": "Then take it and go. Please just take it and go."
-    },
-    {
-      "name": "heist.hostage_reassured_hard_two",
-      "voice": "heist-customer",
-      "say": "Don’t tell me it’s fine. Nothing about this is fine."
-    },
-    {
-      "name": "heist.hostage_reassured_hard_three",
-      "voice": "heist-customer",
-      "say": "Just say how long. Somebody tell me how long."
-    },
-    {
-      "name": "heist.hostage_hands_over",
-      "voice": "heist-customer",
-      "say": "That’s all of it. That’s everything I have on me."
-    },
-    {
-      "name": "heist.hostage_hands_over_two",
-      "voice": "heist-customer",
-      "say": "Take the watch too. It was a gift, but take it."
-    },
-    {
-      "name": "heist.hostage_hands_over_three",
-      "voice": "heist-customer",
-      "say": "There. There, it’s yours, it’s all yours."
-    },
-    {
-      "name": "heist.hostage_refuses",
-      "voice": "heist-customer",
-      "say": "I don’t have anything. I came in to pay a bill."
-    },
-    {
-      "name": "heist.hostage_refuses_two",
-      "voice": "heist-customer",
-      "say": "You’ve had it. There is nothing else in these pockets."
-    },
-    {
-      "name": "heist.hostage_refuses_three",
-      "voice": "heist-customer",
-      "say": "I’m overdrawn. That’s why I’m standing in a bank with nothing in my pockets."
-    },
-    {
-      "name": "heist.hostage_tied",
-      "voice": "heist-customer",
-      "say": "It’s too tight. It’s too tight."
-    },
-    {
-      "name": "heist.hostage_tied_two",
-      "voice": "heist-customer",
-      "say": "Okay. Okay, I’m not fighting it."
-    },
-    {
-      "name": "heist.hostage_tied_three",
-      "voice": "heist-customer",
-      "say": "My hands are going numb. Are they meant to go numb?"
-    },
-    {
-      "name": "heist.hostage_caught",
-      "voice": "heist-customer",
-      "say": "I wasn’t reaching for anything. I wasn’t."
-    },
-    {
-      "name": "heist.hostage_caught_two",
-      "voice": "heist-customer",
-      "say": "It’s a phone. It’s only a phone, I’m putting it down."
-    },
-    {
-      "name": "heist.hostage_witness",
-      "voice": "heist-customer",
-      "say": "You shot him. Oh God, you shot him."
-    },
-    {
-      "name": "heist.hostage_witness_two",
-      "voice": "heist-customer",
-      "say": "He’s not moving. Somebody — he isn’t moving."
-    },
-    {
-      "name": "heist.manager_second",
-      "voice": "heist-manager",
-      "say": "The timer does not care that you are in a hurry. Neither do I."
-    },
-    {
-      "name": "heist.rippin_tower_right",
-      "voice": "rippinflow",
-      "say": "Glass tower on the corner. Right there, and do not slow down for the light."
-    },
-    {
-      "name": "heist.rippin_swap_ahead",
-      "voice": "rippinflow",
-      "say": "Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in."
-    },
-    {
-      "name": "heist.snow_lost_them",
-      "voice": "snow",
-      "say": "Nothing behind us. Nothing above us. We are a grey car on a service road."
-    },
-    {
-      "name": "heist.rippin_pursuit_close",
-      "voice": "rippinflow",
-      "say": "He is on the bumper. Do not brake for him, he will just get braver."
-    },
-    {
-      "name": "heist.snow_pursuit_stopped",
-      "voice": "snow",
-      "say": "Why are we stationary? A parked car is a surrender. Move it."
-    },
-    {
-      "name": "heist.rippin_pursuit_ram",
-      "voice": "rippinflow",
-      "say": "That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again."
-    },
-    {
-      "name": "heist.lou_radio_open",
-      "voice": "lou",
-      "say": "Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with."
-    },
-    {
-      "name": "heist.lou_radio_lobby",
-      "voice": "lou",
-      "say": "Those people on the floor are the bank’s problem, not yours. Do not make them yours."
-    },
-    {
-      "name": "heist.lou_radio_vault",
-      "voice": "lou",
-      "say": "Eight bags on that trolley. Eight is the number. I do not want to hear a seven."
-    },
-    {
-      "name": "heist.lou_radio_street",
-      "voice": "lou",
-      "say": "I can hear the sirens from my office. Get off that street."
-    },
-    {
-      "name": "heist.lou_debrief_open",
-      "voice": "lou",
-      "say": "Sit down, all of you. I only ever ask two things after a day like this."
-    },
-    {
-      "name": "heist.lou_debrief_people_clean",
-      "voice": "lou",
-      "say": "First one. Everybody who walked into that lobby walked back out of it. That is the whole reason I use you and not somebody cheaper."
-    },
-    {
-      "name": "heist.lou_debrief_people_dirty",
-      "voice": "lou",
-      "say": "First one, and you already know the answer. Somebody who came in to cash a cheque did not walk back out. That follows this family around for years."
-    },
-    {
-      "name": "heist.lou_debrief_money_full",
-      "voice": "lou",
-      "say": "Second one. All eight bags, insured paper, nothing on anybody’s person. That is the number I wanted and that is the number I got."
-    },
-    {
-      "name": "heist.lou_debrief_money_short",
-      "voice": "lou",
-      "say": "Second one. You left money on Mercer Street. It is insured, so nobody cries — but I asked for eight and I am counting less than eight."
-    },
-    {
-      "name": "heist.lou_debrief_souvenirs",
-      "voice": "lou",
-      "say": "And there is money in that bag that came out of a man’s coat. Take it off the table. We are not muggers, and it is coming out of your end."
-    },
-    {
-      "name": "heist.lou_debrief_verdict_good",
-      "voice": "lou",
-      "say": "Then it was a good day. Nobody hurt, everything counted, and tomorrow it is a paragraph nobody reads. Well done, kid."
-    },
-    {
-      "name": "heist.lou_debrief_verdict_bad",
-      "voice": "lou",
-      "say": "So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean."
-    },
-    {
-      "name": "heist.lou_phone_home",
-      "voice": "lou",
-      "say": "Everybody breathing? Good. Prospect, go home, clean up, and stay by your phone. Nobody sees anybody tonight."
-    },
-    {
-      "name": "heist.lou_home_order",
-      "voice": "lou",
-      "say": "You came home with the crew and you came home with the money. That is what I needed to know. The rest can wait."
-    },
-    {
-      "name": "heist.prospect_phone_home",
-      "voice": "player",
-      "say": "Home. Stay by the phone. I got it."
-    },
-    {
-      "name": "heist.snow_debrief_open",
-      "voice": "snow",
-      "say": "Sit down, all of you. We do this the same way every time."
-    },
-    {
-      "name": "heist.snow_debrief_people",
-      "voice": "snow",
-      "say": "People first. I count six of us. Now somebody tell me the other number."
-    },
-    {
-      "name": "heist.snow_debrief_money",
-      "voice": "snow",
-      "say": "Then the money. What went in the car, and what we left on Mercer."
-    },
-    {
-      "name": "heist.snow_debrief_clean",
-      "voice": "snow",
-      "say": "Nothing on the news tonight but a number. That is what a good day looks like."
-    },
-    {
-      "name": "heist.snow_debrief_ugly",
-      "voice": "snow",
-      "say": "That was not a job. That was a mess we walked out of. Lou hears it from me first."
-    },
-    {
-      "name": "heist.numb_debrief_ledger",
-      "voice": "numbskull",
-      "say": "Eight bags came off the trolleys. Here is what actually got home."
-    },
-    {
-      "name": "heist.death_debrief_count",
-      "voice": "deathmegatron",
-      "say": "Count it twice. I am not doing this again on Lou’s carpet."
-    },
-    {
-      "name": "heist.prospect_debrief",
-      "voice": "player",
-      "say": "First one. I moved when Snow said move and I did not make anything worse."
-    },
-    {
-      "name": "heist.prospect_debrief_dirty",
-      "voice": "player",
-      "say": "First one. I did what Snow said until I did not. The rest is mine."
-    },
-    {
-      "name": "vo.mail.flying.1",
-      "voice": "player",
-      "say": "He gets one safe landing and starts recruiting."
-    },
-    {
-      "name": "vo.mail.flying.2",
-      "voice": "player",
-      "say": "Love to. Absolutely. After my hands stop shaking."
-    },
-    {
-      "name": "vo.mail.flying.3",
-      "voice": "player",
-      "say": "“Nothing mad,” he says, after the meat run."
-    },
-    {
-      "name": "vo.mail.flying.4",
-      "voice": "player",
-      "say": "I will reply to that later. I will not reply to that."
-    },
-    {
-      "name": "vo.toilet.hint.1",
-      "voice": "player",
-      "say": "Nothing doing yet. Couple of cigarettes usually gets that moving."
-    },
-    {
-      "name": "vo.toilet.hint.2",
-      "voice": "player",
-      "say": "Not yet. Give it a few smokes and we will be back in here."
-    },
-    {
-      "name": "vo.toilet.hint.3",
-      "voice": "player",
-      "say": "Empty. It always turns up about four cigarettes in."
     }
   ]
 }

@@ -81,13 +81,19 @@ const SAMPLE_CUES = [...new Set([
   'car.tire.skid', 'car.horn', 'car.impact.metal', 'gun.shot',
   // The motel was synthesising all of these while the recordings sat on disk.
   'door.locked', 'car.door', 'ice.drop', 'pipe.knock.cistern',
-  'footstep.tile', 'footstep.wood', 'footstep.rug', 'footstep.street.wet',
-  'footstep.carpet', 'footstep.leather.tile', 'footstep.leather.wood',
-  'footstep.wood.a', 'footstep.wood.b', 'footstep.puddle',
+  /* Owner playtest: the old shared samples sounded like forks scraping
+   * plates. Motel movement owns a recorded two-take bank per surface now;
+   * the shared footsteps remain untouched for scenes already mixed to them. */
+  'motel.footstep.concrete.a', 'motel.footstep.concrete.b',
+  'motel.footstep.asphalt.a', 'motel.footstep.asphalt.b',
+  'motel.footstep.carpet.a', 'motel.footstep.carpet.b',
+  'motel.footstep.tile.a', 'motel.footstep.tile.b',
+  'motel.footstep.stairs.a', 'motel.footstep.stairs.b',
+  'motel.footstep.pool.a', 'motel.footstep.pool.b',
   // Promoted from assets/audio/sound-queue.json — see tools/legacy-sfx.
   'alarm.counter', 'body.fall.carpet', 'door.knock.motel', 'door.open.motel',
-  'door.slam', 'door.splinter', 'fan.sparks', 'footstep.asphalt',
-  'footstep.concrete', 'glass.settle', 'grapple.struggle', 'gun.dry',
+  'door.slam', 'door.splinter', 'fan.sparks',
+  'glass.settle', 'grapple.struggle', 'gun.dry',
   'jerky.bite', 'jerky.chew', 'knife.tap', 'land.heavy',
   'neon.short', 'punch.heavy', 'punch.light', 'shipment.burn',
   'siege.glass.shatter', 'silent.case.latches', 'siren.close', 'siren.distant',
@@ -829,12 +835,12 @@ const STEP_SURFACES = {
  * those full-volume transients are the fork-on-a-plate sound from the
  * playtest. These are surface texture at 0.14-0.2, not the whole foot. */
 const STEP_SAMPLES = {
-  concrete: ['footstep.concrete'],
-  asphalt: ['footstep.asphalt'],
-  carpet: ['footstep.carpet', 'footstep.rug'],
-  tile: ['footstep.leather.tile'],
-  stairs: ['footstep.leather.wood', 'footstep.wood.a', 'footstep.wood.b'],
-  pool: ['footstep.puddle', 'footstep.street.wet'],
+  concrete: ['motel.footstep.concrete.a', 'motel.footstep.concrete.b'],
+  asphalt: ['motel.footstep.asphalt.a', 'motel.footstep.asphalt.b'],
+  carpet: ['motel.footstep.carpet.a', 'motel.footstep.carpet.b'],
+  tile: ['motel.footstep.tile.a', 'motel.footstep.tile.b'],
+  stairs: ['motel.footstep.stairs.a', 'motel.footstep.stairs.b'],
+  pool: ['motel.footstep.pool.a', 'motel.footstep.pool.b'],
 };
 
 const lastStepAt = new Map();
