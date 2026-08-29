@@ -947,30 +947,44 @@ try {
    * synchronous block, so `prepareVoice` found nothing decoded and returned
    * silence every time. Measured on `e2d9e96`: at the frame the subtitle
    * appeared, the only buffers that had ever started were three 1.5 s noise
-   * beds, and `voice.playing()` was false 1.5 s later. */
-  await previewPage.waitForFunction(
-    () => document.getElementById('subtitle')?.textContent.includes('Room twelve. Meat first'),
-    null,
-    { timeout: SCENE_WAIT_MS },
-  );
-  const openingVoice = await previewPage.evaluate(() => ({
-    cue: window.MOTEL.openingCue,
-    decoded: window.MOTEL.voiceReadyFor(window.MOTEL.openingCue),
-    played: window.MOTEL.voice.played.filter((entry) => entry.cue === window.MOTEL.openingCue),
-    subtitle: document.getElementById('subtitle').textContent,
-    /* Under the old code this line arrived four seconds before the wheel, from
-     * `startScene`, and the wheel then said the whole sentence again. */
-    node: window.MOTEL.dialogue?.nodeId ?? null,
-  }));
+   * beds, and `voice.playing()` was false 1.5 s later.
+   *
+   * The subtitle is not the receipt. It is deliberately transient and may be
+   * replaced before Playwright's next poll under a slow rasteriser. The scene
+   * already owns two bounded records: `spoken` is appended when the words
+   * reach the speech floor, and `voice.played` is appended when the decoded
+   * take starts. Wait on both exact records instead. */
+  const openingLine = 'Room twelve. The jerky deal is our cover until daylight. Meat first. Money second.';
+  await previewPage.waitForFunction((line) => {
+    const motel = window.MOTEL;
+    return motel.spoken.includes(`Snow — ${line}`)
+      && motel.voice.played.some((entry) => entry.cue === motel.openingCue);
+  }, openingLine, { timeout: SCENE_WAIT_MS, polling: 80 });
+  const openingVoice = await previewPage.evaluate((line) => {
+    const motel = window.MOTEL;
+    return {
+      line,
+      cue: motel.openingCue,
+      decoded: motel.voiceReadyFor(motel.openingCue),
+      played: motel.voice.played.filter((entry) => entry.cue === motel.openingCue),
+      spoken: motel.spoken.filter((entry) => entry === `Snow — ${line}`),
+      /* Under the old code this line arrived four seconds before the wheel,
+       * from `startScene`, and the wheel then said the whole sentence again. */
+      node: motel.dialogue?.nodeId ?? null,
+    };
+  }, openingLine);
   check("Snow's opening line is voiced, not just subtitled",
     openingVoice.decoded
       && openingVoice.played.length === 1
       && openingVoice.played[0].duration > 0.5
-      && openingVoice.subtitle.includes('Room twelve. Meat first'),
+      && openingVoice.spoken.length === 1,
     JSON.stringify(openingVoice));
   check('the briefing is delivered once, by the wheel that asks for an answer',
-    openingVoice.node === 'snowBrief' && openingVoice.played.length === 1,
-    JSON.stringify({ node: openingVoice.node, plays: openingVoice.played.length }));
+    openingVoice.node === 'snowBrief'
+      && openingVoice.played.length === 1
+      && openingVoice.spoken.length === 1,
+    JSON.stringify({ node: openingVoice.node, plays: openingVoice.played.length,
+      spoken: openingVoice.spoken.length }));
 
   const moneyCaseAim = await aimPublicInteract(previewPage, 'moneyCase');
   check('aiming at Tony\'s case selects the case rather than a cabin neighbour',

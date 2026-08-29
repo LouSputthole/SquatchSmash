@@ -103,6 +103,27 @@ test('the two wheel prompts are spoken once, by the wheel that asks for an answe
   assert.match(source, /sfx\.init\(\{ priorityVoice: \[OPENING_CUE\] \}\)/);
 });
 
+test('the Motel verifier proves the current opening from durable speech receipts', () => {
+  const verifier = fs.readFileSync(new URL('../tools/verify-motel.mjs', import.meta.url), 'utf8');
+  const start = verifier.indexOf("/* The scene's first line is Snow's");
+  const end = verifier.indexOf('const moneyCaseAim', start);
+  assert.notEqual(start, -1, 'the opening proof section disappeared');
+  assert.notEqual(end, -1, 'the opening proof section has no bounded end');
+  const openingProof = verifier.slice(start, end);
+
+  assert.match(openingProof,
+    /Room twelve\. The jerky deal is our cover until daylight\. Meat first\. Money second\./,
+    'the browser proof drifted from the authored opening');
+  assert.match(openingProof, /motel\.spoken/,
+    'the browser proof must wait on the bounded, race-free spoken receipt');
+  assert.match(openingProof, /motel\.voice\.played/,
+    'the browser proof must also prove that the decoded take played');
+  assert.doesNotMatch(openingProof, /document\.getElementById\('subtitle'\)/,
+    'a transient subtitle sample cannot prove that the opening was delivered');
+  assert.doesNotMatch(openingProof, /Room twelve\. Meat first/,
+    'the retired opening substring must not govern the live verifier');
+});
+
 test('the Motel deal is one step machine, and the HUD only follows a character', () => {
   const source = fs.readFileSync(new URL('../src/motel/main.js', import.meta.url), 'utf8');
 
