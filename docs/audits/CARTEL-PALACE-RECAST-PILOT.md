@@ -72,7 +72,7 @@ Recast only solves the physical route back to it.
 Measured in the same 2026-08-27 browser run:
 
 - Checked-in navmesh: 32,400 bytes.
-- Palace-only vendored runtime plus navmesh: 1,145,750 decoded bytes.
+- Palace-only vendored runtime plus navmesh: 1,145,745 decoded bytes.
 - Local HTTP transfer reported by Chromium: 1,146,950 bytes.
 - Browser WASM-compat initialization: 1,574.9 ms, started behind the mission
   menu.
