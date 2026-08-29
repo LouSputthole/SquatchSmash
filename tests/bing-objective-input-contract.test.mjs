@@ -8,6 +8,7 @@ import { buildScripts, plainWords } from '../src/bing/script.js';
 
 const bingMain = readFileSync(new URL('../src/bing/main.js', import.meta.url), 'utf8');
 const hotdogMain = readFileSync(new URL('../src/bing/hotdog-main.js', import.meta.url), 'utf8');
+const licenseVerifier = readFileSync(new URL('../tools/verify-license-to-grill.mjs', import.meta.url), 'utf8');
 const optionalStart = bingMain.indexOf('function optionalObjectives()');
 const optionalEnd = bingMain.indexOf('function repaintObjectives()', optionalStart);
 const optionalObjectivesSource = bingMain.slice(optionalStart, optionalEnd);
@@ -31,6 +32,30 @@ test('Bada Bing One shows Help Au Gratin as featured soft work, not an exit gate
   assert.match(bingMain,
     /initialPersisted: loadLicenseToGrillProgress\(\)/,
     'the stored completion is not supplied to the room runtime');
+});
+
+test('the License to Grill browser verifier preserves the featured soft-work contract', () => {
+  assert.match(licenseVerifier,
+    /requested back-room objective is optional, exact and incomplete/,
+    'the browser receipt still describes Gratin as required route work');
+  assert.match(licenseVerifier,
+    /objective\.entry\?\.optional === true[\s\S]*?objective\.classes\.includes\('optional'\)/,
+    'the browser gate does not require the authored optional objective state');
+  assert.doesNotMatch(licenseVerifier,
+    /requested back-room objective is required/,
+    'the stale required-objective receipt can regress the scene gate');
+});
+
+test('the License to Grill fatal-path verifier measures the connected whole-figure pivot', () => {
+  assert.match(licenseVerifier,
+    /wholeFigureRotation: q\.blond\.group\.rotation\.z/,
+    'the fatal route does not inspect the root moved around Blond’s hips');
+  assert.match(licenseVerifier,
+    /Math\.abs\(fatal\.wholeFigureRotation\) > 0\.1/,
+    'the fatal route no longer requires a visible connected death tilt');
+  assert.doesNotMatch(licenseVerifier,
+    /q\.blond\.parts\.body\.rotation\.z/,
+    'the verifier still measures the intentionally neutral torso branch');
 });
 
 test('Bada Bing One exit and live objective share Lou’s completed briefing state', () => {
