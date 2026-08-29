@@ -30,6 +30,7 @@ const WALL = LUXURY_LAYOUT.wall;
 const MAIN_Y = LUXURY_LAYOUT.mainY;
 const LOFT_Y = LUXURY_LAYOUT.loftY;
 const CEILING_Y = LUXURY_LAYOUT.ceilingY;
+const BATHROOM_CEILING_Y = 2.66;
 const DOOR_H = LUXURY_LAYOUT.entry.h;
 const STAIR_STEPS = LUXURY_LAYOUT.stair.steps;
 
@@ -730,6 +731,7 @@ export async function buildLuxuryApartment(ctx = {}) {
       bounds: Object.freeze({ ...LUXURY_APARTMENT.bathroom }),
       floorY: MAIN_Y,
       shell: domestic.bathShell,
+      ceiling: domestic.bathCeiling,
       door: domestic.bathDoor,
       sink: domestic.sink,
       toilet: domestic.toilet,
@@ -1968,7 +1970,13 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
     mat: M.trim,
   }), 'luxury-loft-edge'));
 
-  return { group: g, stepRise: LUXURY_STAIR_RISE, stepRun: LUXURY_STAIR_RUN, width };
+  return {
+    group: g,
+    stepRise: LUXURY_STAIR_RISE,
+    stepRun: LUXURY_STAIR_RUN,
+    width,
+    bounds: Object.freeze({ ...stair }),
+  };
 }
 
 function buildLighting({ root, architecture, loftContents, M }) {
@@ -1984,9 +1992,18 @@ function buildLighting({ root, architecture, loftContents, M }) {
   sun.target.position.set(0, 1.5, 0);
   lightRoot.add(ambient, sun, sun.target);
 
-  const makeFixture = (id, x, y, z, intensity, distance, color = 0xffd3a0) => {
+  const makeFixture = (
+    id,
+    x,
+    y,
+    z,
+    intensity,
+    distance,
+    color = 0xffd3a0,
+    { ceilingY = CEILING_Y } = {},
+  ) => {
     const fixture = group(`luxury-light-${id}`);
-    const stemTop = CEILING_Y - 0.04;
+    const stemTop = ceilingY - 0.04;
     const stemLength = Math.max(0.18, stemTop - y);
     fixture.add(cylinder({
       name: `luxury-light-${id}-stem`,
@@ -2016,17 +2033,28 @@ function buildLighting({ root, architecture, loftContents, M }) {
     return { fixture, bulb, light, intensity };
   };
 
+  const bath = LUXURY_APARTMENT.bathroom;
+  const bathroom = makeFixture(
+    'main-bathroom',
+    (bath.x0 + bath.x1) / 2,
+    BATHROOM_CEILING_Y - 0.24,
+    (bath.z0 + bath.z1) / 2,
+    4,
+    5.2,
+    0xe9f2ff,
+    { ceilingY: BATHROOM_CEILING_Y },
+  );
   const main = [
     makeFixture('main-lounge-a', 2.2, 5.12, 2.2, 82, 9.5),
     makeFixture('main-lounge-b', 5.1, 4.72, 4.7, 72, 8.5),
     makeFixture('main-kitchen', 8.8, 4.92, 2.3, 84, 8.2),
     makeFixture('main-games', -4.1, 4.85, 3.2, 76, 8.8),
     makeFixture('main-entry', -8.4, 4.60, 6.0, 64, 7.5),
+    bathroom,
   ];
   const loft = [
     makeFixture('loft-office', 0.0, 6.36, -5.25, 62, 6.0),
     makeFixture('loft-bedroom', 6.5, 6.28, -5.45, 68, 6.5),
-    makeFixture('loft-bath', -4.8, 6.28, -5.95, 74, 5.6, 0xe9f2ff),
     makeFixture('loft-gallery', -7.5, 6.34, -2.25, 66, 5.8),
   ];
 
@@ -2081,6 +2109,7 @@ function buildLighting({ root, architecture, loftContents, M }) {
     chandelierLight,
     chandelierBulb,
     chandelierIntensity,
+    bathroom,
   };
 }
 
@@ -2447,7 +2476,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   const bath = LUXURY_APARTMENT.bathroom;
   const bathShell = group('luxury-under-stair-bathroom');
   const bathWallMat = M.marble;
-  const bathWallHeight = 2.66;
+  const bathWallHeight = BATHROOM_CEILING_Y;
   bathShell.add(structural(boxFrom(
     bath.x0,
     -0.04,
@@ -2458,6 +2487,17 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     M.splash,
     { name: 'luxury-bath-floor' },
   ), 'luxury-bath-shell'));
+  const bathCeiling = structural(boxFrom(
+    bath.x0,
+    bathWallHeight,
+    bath.z0,
+    bath.x1,
+    bathWallHeight + 0.10,
+    bath.z1,
+    M.ceiling,
+    { name: 'luxury-bath-ceiling', cast: false },
+  ), 'luxury-bath-shell');
+  bathShell.add(bathCeiling);
   const bathWalls = [
     boxFrom(bath.x0, 0, bath.z0, bath.x1, bathWallHeight, bath.z0 + 0.10, bathWallMat, { name: 'luxury-bath-wall-north' }),
     boxFrom(bath.x0, 0, bath.z0, bath.x0 + 0.10, bathWallHeight, bath.z1, bathWallMat, { name: 'luxury-bath-wall-west' }),
@@ -2606,6 +2646,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     entertainmentConsole,
     stairFocal,
     bathShell,
+    bathCeiling,
     bathDoor,
     toiletPaper,
     targets: {

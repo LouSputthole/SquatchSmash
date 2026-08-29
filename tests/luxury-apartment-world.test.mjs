@@ -28,7 +28,7 @@ const {
   buildLuxuryApartment,
 } = worldModule;
 const { WALL_SLOTS, BATH_SLOTS } = apartmentModule;
-const { validateLuxuryWorld } = runtimeModule;
+const { createFloorAwarePlayerWorld, validateLuxuryWorld } = runtimeModule;
 const { Player } = playerModule;
 
 const cssSource = readFileSync(new URL('../src/luxury-apartment/luxury-apartment.css', import.meta.url), 'utf8');
@@ -374,10 +374,188 @@ test('the main-floor bathroom is physically traversable through its live door co
   assert.ok(player.position.x >= bath.x0 + 0.30 && player.position.x <= bath.x1 - 0.30,
     `player capsule remains inside the finished side walls at x=${player.position.x.toFixed(3)}`);
 
+  const returnX = player.position.x;
+  player.setKey('KeyD', true);
+  for (let index = 0; index < 300 && player.position.x < -8.55; index++) player.update(1 / 120);
+  player.setKey('KeyD', false);
+  assert.ok(player.position.x >= -8.55,
+    `player crosses the bathroom turning bay at x=${player.position.x.toFixed(3)}`);
+  player.setKey('KeyA', true);
+  for (let index = 0; index < 300 && player.position.x > returnX + 0.06; index++) player.update(1 / 120);
+  player.setKey('KeyA', false);
+  assert.ok(player.position.x <= returnX + 0.06,
+    `player returns across the turning bay at x=${player.position.x.toFixed(3)}`);
+
   player.setKey('KeyS', true);
   for (let index = 0; index < 240 && player.position.z < -0.40; index++) player.update(1 / 120);
   player.setKey('KeyS', false);
   assert.ok(player.position.z >= -0.40, `player exited back to the main floor at z=${player.position.z.toFixed(3)}`);
+  world.dispose();
+});
+
+test('the bathroom practical is mounted under its real ceiling and follows the main-floor circuit', async () => {
+  const { world } = await build();
+  world.root.updateMatrixWorld(true);
+  const bath = LUXURY_APARTMENT.bathroom;
+  const fixture = world.lights.bathroom;
+  const point = fixture.light.getWorldPosition(new THREE.Vector3());
+  const stem = fixture.fixture.getObjectByName('luxury-light-main-bathroom-stem');
+  const fixtureBounds = new THREE.Box3().setFromObject(fixture.fixture);
+  const stemBounds = new THREE.Box3().setFromObject(stem);
+  const ceilingBounds = new THREE.Box3().setFromObject(world.bathroom.ceiling);
+
+  assert.equal(fixture.fixture.name, 'luxury-light-main-bathroom');
+  assert.equal(world.bathroom.ceiling.name, 'luxury-bath-ceiling');
+  assert.ok(ceilingBounds.min.x <= bath.x0 + 1e-6 && ceilingBounds.max.x >= bath.x1 - 1e-6
+    && ceilingBounds.min.z <= bath.z0 + 1e-6 && ceilingBounds.max.z >= bath.z1 - 1e-6,
+  'the authored ceiling closes the complete bathroom shell');
+  assert.equal(world.root.getObjectByName('luxury-light-loft-bath'), undefined,
+    'the retired loft bathroom light cannot survive as a second false practical');
+  assert.ok(world.lights.main.includes(fixture), 'the bathroom practical is on the main-floor switch');
+  assert.ok(!world.lights.loft.includes(fixture), 'the loft switch cannot own a downstairs room');
+  assert.ok(point.x > bath.x0 && point.x < bath.x1 && point.z > bath.z0 && point.z < bath.z1,
+    `bathroom light is inside the room at ${point.toArray().map((value) => value.toFixed(2)).join(', ')}`);
+  assert.ok(point.y > 2.20 && fixtureBounds.max.y < ceilingBounds.min.y,
+    `the complete practical stays below the real bathroom ceiling (${fixtureBounds.max.y.toFixed(3)}m)`);
+  assert.ok(stem?.isMesh && stemBounds.max.y - stemBounds.min.y <= 0.24,
+    'the stem mounts to the under-stair ceiling instead of passing through the loft');
+  assert.ok(ceilingBounds.min.y - stemBounds.max.y >= 0
+    && ceilingBounds.min.y - stemBounds.max.y <= 0.05,
+  'the practical stem meets the underside of the authored ceiling slab');
+
+  world.setLights('main', true);
+  world.setLights('loft', false);
+  assert.equal(fixture.light.intensity, fixture.intensity);
+  assert.ok(fixture.light.intensity === 4 && fixture.light.distance >= 5,
+    'the calibrated close-room practical covers the turning bay without a pin-bright glare source');
+  assert.equal(fixture.bulb.material, world.materials.bulbOn);
+  world.setLights('main', false);
+  assert.equal(fixture.light.intensity, 0);
+  assert.equal(fixture.bulb.material, world.materials.bulbOff);
+  world.dispose();
+});
+
+test('the complete stair stays traversable off-centre across walk, sprint, crouch and stable timesteps', async () => {
+  const { world } = await build();
+  const stair = LUXURY_APARTMENT.stair;
+  const centerX = (stair.x0 + stair.x1) / 2;
+  const cases = [
+    { label: 'walk up at 30 Hz', direction: 'up', dt: 1 / 30, offset: -0.46, modifier: null },
+    { label: 'walk down at 120 Hz', direction: 'down', dt: 1 / 120, offset: 0.46, modifier: null },
+    { label: 'sprint up at 60 Hz', direction: 'up', dt: 1 / 60, offset: 0.46, modifier: 'ShiftLeft' },
+    { label: 'sprint down at 30 Hz', direction: 'down', dt: 1 / 30, offset: -0.46, modifier: 'ShiftLeft' },
+    { label: 'crouch up at 120 Hz', direction: 'up', dt: 1 / 120, offset: -0.34, modifier: 'KeyC' },
+    { label: 'crouch down at 60 Hz', direction: 'down', dt: 1 / 60, offset: 0.34, modifier: 'KeyC' },
+  ];
+
+  for (const spec of cases) {
+    const camera = new THREE.PerspectiveCamera();
+    let player;
+    const playerWorld = createFloorAwarePlayerWorld(world, () => player);
+    player = new Player(camera, playerWorld);
+    const upward = spec.direction === 'up';
+    const startGround = upward ? LUXURY_APARTMENT.mainY : LUXURY_APARTMENT.loftY;
+    const startZ = upward ? stair.z1 + 0.22 : stair.z0 - 0.18;
+    const targetZ = upward ? stair.z0 - 0.18 : stair.z1 + 0.22;
+    const startX = centerX + spec.offset;
+    player.position.set(startX, startGround + 1.66, startZ);
+    player.ground = startGround;
+    player.yaw = upward ? 0 : Math.PI;
+    player.mode = 'walk';
+    player.enabled = true;
+    player.setKey('KeyW', true);
+    if (spec.modifier) player.setKey(spec.modifier, true);
+
+    let reached = false;
+    let minX = player.position.x;
+    let maxX = player.position.x;
+    let minGround = player.ground;
+    let maxGround = player.ground;
+    let previousGround = player.ground;
+    let maxReverseStep = 0;
+    const limit = Math.ceil(9 / spec.dt);
+    for (let frame = 0; frame < limit; frame++) {
+      player.update(spec.dt);
+      minX = Math.min(minX, player.position.x);
+      maxX = Math.max(maxX, player.position.x);
+      minGround = Math.min(minGround, player.ground);
+      maxGround = Math.max(maxGround, player.ground);
+      maxReverseStep = Math.max(maxReverseStep,
+        upward ? previousGround - player.ground : player.ground - previousGround);
+      previousGround = player.ground;
+      if (upward ? player.position.z <= targetZ : player.position.z >= targetZ) {
+        reached = true;
+        break;
+      }
+    }
+
+    assert.ok(reached, `${spec.label} stopped at z=${player.position.z.toFixed(3)}`);
+    assert.ok(Math.max(Math.abs(minX - startX), Math.abs(maxX - startX)) <= 0.03,
+      `${spec.label} drifted laterally between the rails`);
+    assert.ok(minGround >= -1e-6 && maxGround <= LUXURY_APARTMENT.loftY + 1e-6,
+      `${spec.label} left the authored stair elevation band`);
+    assert.ok(upward
+      ? player.ground >= LUXURY_APARTMENT.loftY - 0.25
+      : player.ground <= LUXURY_APARTMENT.mainY + 0.12,
+    `${spec.label} reached z without reaching the destination floor`);
+    assert.ok(maxGround - minGround >= LUXURY_APARTMENT.loftY - LUXURY_APARTMENT.mainY - 0.30,
+      `${spec.label} did not traverse the complete stair elevation`);
+    assert.ok(maxReverseStep <= 0.06,
+      `${spec.label} reversed elevation by ${maxReverseStep.toFixed(3)}m in one step`);
+    assert.equal(player.sprinting, spec.modifier === 'ShiftLeft', `${spec.label} sprint state`);
+    assert.equal(player.crouching, spec.modifier === 'KeyC', `${spec.label} crouch state`);
+  }
+  world.dispose();
+});
+
+test('the bedroom doorway reaches the wardrobe and both finished faces of its privacy wall', async () => {
+  const { world } = await build();
+  const camera = new THREE.PerspectiveCamera();
+  let player;
+  player = new Player(camera, createFloorAwarePlayerWorld(world, () => player));
+  player.position.set(3.80, LUXURY_APARTMENT.loftY + 1.66, -2.72);
+  player.ground = LUXURY_APARTMENT.loftY;
+  player.yaw = 0;
+  player.mode = 'walk';
+  player.enabled = true;
+
+  const driveUntil = (code, predicate, label) => {
+    player.setKey(code, true);
+    for (let frame = 0; frame < 720 && !predicate(); frame++) player.update(1 / 120);
+    player.setKey(code, false);
+    assert.ok(predicate(), `${label}: ${player.position.toArray().map((value) => value.toFixed(3)).join(', ')}`);
+  };
+  driveUntil('KeyW', () => player.position.z <= -3.82, 'bedroom opening blocked');
+  driveUntil('KeyD', () => player.position.x >= 8.00, 'wardrobe approach blocked');
+  driveUntil('KeyA', () => player.position.x <= 3.88, 'bedroom cross-room return blocked');
+  driveUntil('KeyS', () => player.position.z >= -2.72, 'bedroom doorway return blocked');
+
+  world.root.updateMatrixWorld(true);
+  const panel = world.root.getObjectByName('luxury-bedroom-wall-panel-1');
+  const visibleHit = (raycaster) => raycaster.intersectObject(world.root, true).find(({ object }) => {
+    if (!object.isMesh) return false;
+    for (let current = object; current; current = current.parent) {
+      if (!current.visible) return false;
+    }
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    return materials.some((material) => material?.visible !== false && (material?.opacity ?? 1) > 0.05);
+  });
+  const fromLounge = visibleHit(new THREE.Raycaster(
+    new THREE.Vector3(4.80, LUXURY_APARTMENT.loftY + 1.35, -2.40),
+    new THREE.Vector3(0, 0, -1),
+    0,
+    2,
+  ));
+  const fromBedroom = visibleHit(new THREE.Raycaster(
+    new THREE.Vector3(4.80, LUXURY_APARTMENT.loftY + 1.35, -4.05),
+    new THREE.Vector3(0, 0, 1),
+    0,
+    2,
+  ));
+  assert.equal(fromLounge?.object, panel, 'the privacy wall is not the first visible lounge-side surface');
+  assert.equal(fromBedroom?.object, panel, 'the privacy wall is not the first visible bedroom-side surface');
+  assert.ok(fromLounge.face.normal.z > 0.9 && fromBedroom.face.normal.z < -0.9,
+    'both finished box-geometry faces point toward their respective rooms');
   world.dispose();
 });
 

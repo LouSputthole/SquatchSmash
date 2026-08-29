@@ -22,6 +22,13 @@ const SCREENSHOT_DIR = process.env.LUXURY_APARTMENT_SCREENSHOT_DIR
   : process.argv.includes('--screenshots')
     ? path.join(ROOT, '.artifacts', 'luxury-apartment')
     : null;
+const AUXILIARY_VIEWPORT = Object.freeze({
+  width: 640,
+  height: 400,
+  deviceScaleFactor: 0.5,
+  mobile: false,
+});
+const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: 180000 });
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -126,6 +133,91 @@ async function capture(page, name) {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, `${name}.png`) });
 }
 
+async function settleRenderedFrames(page, count = 2) {
+  await page.evaluate((frames) => new Promise((resolve) => {
+    let remaining = Math.max(1, frames);
+    const next = () => {
+      remaining -= 1;
+      if (remaining <= 0) resolve();
+      else requestAnimationFrame(next);
+    };
+    requestAnimationFrame(next);
+  }), count);
+}
+
+/**
+ * Keep the saved Beat-27 journey playable under SwiftShader without shrinking
+ * the CSS viewport (the real Start control and canvas interactions still need
+ * their normal layout). CDP metrics are document-scoped in some Chromium
+ * builds, so reapply them after every navigation/reload; the explicit renderer
+ * pin is a verifier-only backstop for the apartment's deterministic dpr seam.
+ */
+async function applyAuxiliaryMetrics(page, session, { pinLuxuryRenderer = false } = {}) {
+  await session.send('Emulation.setDeviceMetricsOverride', AUXILIARY_VIEWPORT);
+  if (!pinLuxuryRenderer) return null;
+  return page.evaluate(({ width, height, deviceScaleFactor }) => {
+    const renderer = window.LUXURY_APARTMENT?.renderer;
+    if (!renderer) throw new Error('Luxury renderer unavailable for auxiliary metrics');
+    renderer.setPixelRatio(deviceScaleFactor);
+    renderer.setSize(width, height, false);
+    return {
+      css: [innerWidth, innerHeight],
+      dpr: devicePixelRatio,
+      rendererDpr: renderer.getPixelRatio(),
+      backing: [renderer.domElement.width, renderer.domElement.height],
+    };
+  }, AUXILIARY_VIEWPORT);
+}
+
+/** Read back a sparse crop immediately after rendering the shipping scene. */
+async function sampleCanvasTone(page, crop = 0.68) {
+  return page.evaluate((cropRatio) => {
+    const runtime = window.LUXURY_APARTMENT;
+    const renderer = runtime.renderer;
+    const source = renderer.domElement;
+    const width = source.width;
+    const height = source.height;
+    const cropWidth = Math.max(1, Math.floor(width * cropRatio));
+    const cropHeight = Math.max(1, Math.floor(height * cropRatio));
+    const x0 = Math.floor((width - cropWidth) / 2);
+    const y0 = Math.floor((height - cropHeight) / 2);
+    const gl = renderer.getContext();
+    const pixels = new Uint8Array(cropWidth * cropHeight * 4);
+    // preserveDrawingBuffer is intentionally disabled in production. Render
+    // and sample in this same task so headless Chromium cannot discard the
+    // back buffer before verification reads it.
+    renderer.render(runtime.scene, runtime.camera);
+    gl.readPixels(x0, y0, cropWidth, cropHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    const readError = gl.getError();
+    const values = [];
+    let clipped = 0;
+    let dark = 0;
+    for (let index = 0; index < pixels.length; index += 4 * 11) {
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+      values.push(luminance);
+      if (red >= 250 && green >= 250 && blue >= 250) clipped += 1;
+      if (luminance <= 12) dark += 1;
+    }
+    values.sort((left, right) => left - right);
+    const mean = values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+    const percentile = (ratio) => values[Math.min(values.length - 1, Math.floor(values.length * ratio))] ?? 0;
+    return {
+      mean,
+      p10: percentile(0.10),
+      p50: percentile(0.50),
+      p95: percentile(0.95),
+      p99: percentile(0.99),
+      clippedFraction: clipped / Math.max(1, values.length),
+      darkFraction: dark / Math.max(1, values.length),
+      samples: values.length,
+      readError,
+    };
+  }, crop);
+}
+
 try {
   server = http.createServer(async (req, res) => {
     try {
@@ -167,7 +259,7 @@ try {
    * explicit context instead of Browser.newPage's one-page convenience
    * context (which Playwright deliberately refuses to extend). */
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-  const page = await context.newPage();
+  let page = await context.newPage();
   page.setDefaultTimeout(180000);
   page.setDefaultNavigationTimeout(180000);
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
@@ -306,6 +398,15 @@ try {
     const bathroomZone = home.floorZones.find(({ name }) => name === 'luxury-bath-tile-zone');
     const bathroomThresholdZone = home.floorZones.find(({ name }) => name === 'luxury-bathroom-threshold-zone');
     const bathroomWestRail = home.colliders.find(({ name }) => name === 'luxury-stair-rail-west-collider');
+    const bathroomLight = home.lights.bathroom;
+    const bathroomCeiling = home.bathroom.ceiling;
+    bathroomCeiling.geometry.computeBoundingBox();
+    const bathroomCeilingBounds = bathroomCeiling.geometry.boundingBox.clone()
+      .applyMatrix4(bathroomCeiling.matrixWorld);
+    const bathroomStem = bathroomLight.fixture.getObjectByName('luxury-light-main-bathroom-stem');
+    bathroomStem.geometry.computeBoundingBox();
+    const bathroomStemBounds = bathroomStem.geometry.boundingBox.clone()
+      .applyMatrix4(bathroomStem.matrixWorld);
     const bathroomParts = [];
     home.bathroom.shell.traverse((object) => bathroomParts.push(object.name));
     const toiletPaperParts = [];
@@ -432,6 +533,12 @@ try {
         highGround: home.groundAt(bathroomCenter.x, bathroomCenter.z, home.metrics.bathroomFloorY + 4.98),
         shellName: home.bathroom.shell.name,
         floorPresent: bathroomParts.includes('luxury-bath-floor'),
+        ceiling: {
+          name: bathroomCeiling.name,
+          min: bathroomCeilingBounds.min.toArray(),
+          max: bathroomCeilingBounds.max.toArray(),
+          stemGap: bathroomCeilingBounds.min.y - bathroomStemBounds.max.y,
+        },
         walls: bathroomParts.filter((name) => name.startsWith('luxury-bath-wall-')).length,
         doorPresent: Boolean(home.bathroom.door?.target),
         doorInitiallyOpen: home.bathroom.door?.isOpen?.() === true,
@@ -454,6 +561,16 @@ try {
           && toiletPaperParts.includes('luxury-toilet-paper-holder')
           && toiletPaperParts.includes('luxury-toilet-paper-roll'),
         artZone: home.artTargets['luxury.bath.monochrome']?.userData?.artZone ?? null,
+        light: {
+          fixtureName: bathroomLight?.fixture?.name ?? null,
+          position: worldPoint(bathroomLight?.light),
+          intensity: bathroomLight?.intensity ?? null,
+          distance: bathroomLight?.light?.distance ?? null,
+          color: bathroomLight?.light?.color?.getHex?.() ?? null,
+          mainCircuit: home.lights.main.includes(bathroomLight),
+          loftCircuit: home.lights.loft.includes(bathroomLight),
+          retiredLoftFixtureAbsent: !home.root.getObjectByName('luxury-light-loft-bath'),
+        },
         bounds: bathroomBounds,
       },
       workstation: {
@@ -569,12 +686,24 @@ try {
     !authored.campaignAssigned,
     JSON.stringify({ campaignAssigned: authored.campaignAssigned }));
 
+  /* SwiftShader has one software GPU process for the whole browser context.
+   * The authored snapshot above is now ordinary data, so close this untouched
+   * menu page while the saved Beat-27 page owns the process. Background-page
+   * lifecycle throttling still made its simulation six times slower even when
+   * this page was frozen; serial pages keep both receipts on production timing.
+   * A clean standalone page is reopened after the campaign handoff. */
+  await page.close();
+
   /* The ordinary page above is intentionally a fresh, unrouted apartment: it
    * must still begin with the table phone and a 0/3 get-ready tally. Persistent
    * ownership only exists on campaign landings. Prove the restoration on the
    * canonical beat-27 direct-entry state instead of asking the standalone page
    * for campaign state it deliberately does not publish. */
   const specialMeetingPage = await context.newPage();
+  await specialMeetingPage.bringToFront();
+  await specialMeetingPage.setViewportSize({ width: 640, height: 400 });
+  const specialMeetingPageSession = await context.newCDPSession(specialMeetingPage);
+  await applyAuxiliaryMetrics(specialMeetingPage, specialMeetingPageSession);
   specialMeetingPage.setDefaultTimeout(180000);
   specialMeetingPage.setDefaultNavigationTimeout(180000);
   specialMeetingPage.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
@@ -585,14 +714,17 @@ try {
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
   await specialMeetingPage.goto(
-    `http://127.0.0.1:${PORT}/luxury-apartment.html?preview=1&beat=special_meeting_call`,
+    `http://127.0.0.1:${PORT}/luxury-apartment.html?preview=1&beat=special_meeting_call&dpr=0.5`,
     { waitUntil: 'domcontentloaded' },
   );
   await specialMeetingPage.waitForFunction(() => Boolean(
     window.LUXURY_APARTMENT?.home
       && window.__squatchLifePreviewRuntime?.seeded
       && window.__squatchLifePreviewRuntime.storage?.getItem?.('squatchlife.campaign'),
-  ));
+  ), null, AUXILIARY_WAIT);
+  await applyAuxiliaryMetrics(specialMeetingPage, specialMeetingPageSession, {
+    pinLuxuryRenderer: true,
+  });
   const persistentPhone = await specialMeetingPage.evaluate(() => {
     const runtime = window.LUXURY_APARTMENT;
     const saved = JSON.parse(
@@ -618,70 +750,19 @@ try {
       && persistentPhone.tablePropHidden
       && persistentPhone.callStatus === 'pending',
     JSON.stringify(persistentPhone));
-
-  /* Beat 27's phone is inventory, not furniture. Start the real runtime, let
-   * the real scheduler ring, move to the loft only as deterministic setup, and
-   * answer with the player's actual E key while the handset remains pocketed. */
-  await specialMeetingPage.locator('#start-btn').click();
-  await specialMeetingPage.waitForFunction(() => (
-    window.LUXURY_APARTMENT?.state?.phase === 'active'
-      && window.LUXURY_APARTMENT.phone.ringing === true
-  ));
-  const distantRing = await specialMeetingPage.evaluate(() => {
-    const runtime = window.LUXURY_APARTMENT;
-    runtime.teleport('loft');
-    return {
-      ringing: runtime.phone.ringing,
-      held: runtime.home.inventory.held,
-      floor: runtime.player.position.y > 3 ? 'loft' : 'main',
-      objective: document.getElementById('objectives')?.textContent ?? '',
-    };
-  });
-  await specialMeetingPage.keyboard.press('e');
-  await specialMeetingPage.waitForFunction(() => {
-    const runtime = window.LUXURY_APARTMENT;
-    const saved = JSON.parse(
-      window.__squatchLifePreviewRuntime.storage.getItem('squatchlife.campaign'),
-    );
-    return runtime.phone.inCall
-      && !runtime.phone.ringing
-      && saved.events.booski_special_meeting_call?.status === 'answered';
-  });
-  const distantAnswer = await specialMeetingPage.evaluate(() => {
-    const runtime = window.LUXURY_APARTMENT;
-    const saved = JSON.parse(
-      window.__squatchLifePreviewRuntime.storage.getItem('squatchlife.campaign'),
-    );
-    return {
-      ringing: runtime.phone.ringing,
-      inCall: runtime.phone.inCall,
-      held: runtime.home.inventory.held,
-      floor: runtime.player.position.y > 3 ? 'loft' : 'main',
-      callStatus: saved.events.booski_special_meeting_call?.status ?? null,
-      objective: document.getElementById('objectives')?.textContent ?? '',
-      ringLoop: runtime.audio.loops.has('phone.ring'),
-    };
-  });
-  check('Beat 27 answers the pocketed inventory phone from the loft with the real interaction key',
-    distantRing.ringing
-      && distantRing.held === null
-      && distantRing.floor === 'loft'
-      && /Answer Booskibro/i.test(distantRing.objective)
-      && !distantAnswer.ringing
-      && distantAnswer.inCall
-      && distantAnswer.held === null
-      && distantAnswer.floor === 'loft'
-      && distantAnswer.callStatus === 'answered'
-      && /Stay on the line/i.test(distantAnswer.objective)
-      && !distantAnswer.ringLoop,
-    JSON.stringify({ before: distantRing, after: distantAnswer }));
   await specialMeetingPage.close();
 
   /* A preview reload intentionally reseeds. Copy the same normalized Beat-27
    * state into ordinary localStorage so this second receipt is a real save:
-   * reload once while ringing, answer downstairs, reload again, and prove the
-   * durable event suppresses every duplicate ring. */
+   * reload once while ringing, answer from the loft, drain the whole call, reload
+   * again, and then take the real lift into the real pickup. This is one saved
+   * page from ring to SM-100 -- no standalone Special Meeting preview can stand
+   * in for the apartment handoff. */
   const ringingReloadPage = await context.newPage();
+  await ringingReloadPage.bringToFront();
+  await ringingReloadPage.setViewportSize({ width: 640, height: 400 });
+  const ringingReloadPageSession = await context.newCDPSession(ringingReloadPage);
+  await applyAuxiliaryMetrics(ringingReloadPage, ringingReloadPageSession);
   ringingReloadPage.setDefaultTimeout(180000);
   ringingReloadPage.setDefaultNavigationTimeout(180000);
   ringingReloadPage.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
@@ -697,12 +778,28 @@ try {
   await ringingReloadPage.evaluate((seed) => {
     localStorage.setItem('squatchlife.campaign', seed);
   }, persistentPhoneSeed);
-  await ringingReloadPage.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html`, {
+  await ringingReloadPage.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html?dpr=0.5`, {
     waitUntil: 'domcontentloaded',
   });
-  await ringingReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await ringingReloadPage.bringToFront();
+  await ringingReloadPage.waitForFunction(
+    () => Boolean(window.LUXURY_APARTMENT?.home),
+    null,
+    AUXILIARY_WAIT,
+  );
+  const initialAuxiliaryMetrics = await applyAuxiliaryMetrics(
+    ringingReloadPage,
+    ringingReloadPageSession,
+    { pinLuxuryRenderer: true },
+  );
+  console.log('  ...   Beat 27 saved page ready; starting the real phone scheduler');
   await ringingReloadPage.locator('#start-btn').click();
-  await ringingReloadPage.waitForFunction(() => window.LUXURY_APARTMENT.phone.ringing === true);
+  await ringingReloadPage.waitForFunction(
+    () => window.LUXURY_APARTMENT.phone.ringing === true,
+    null,
+    AUXILIARY_WAIT,
+  );
+  console.log('  ...   Beat 27 first scheduled ring received; reloading mid-ring');
   const beforeRingReload = await ringingReloadPage.evaluate(() => ({
     ringing: window.LUXURY_APARTMENT.phone.ringing,
     held: window.LUXURY_APARTMENT.home.inventory.held,
@@ -710,26 +807,111 @@ try {
       .events.booski_special_meeting_call?.status ?? null,
   }));
   await ringingReloadPage.reload({ waitUntil: 'domcontentloaded' });
-  await ringingReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await ringingReloadPage.bringToFront();
+  await ringingReloadPage.waitForFunction(
+    () => Boolean(window.LUXURY_APARTMENT?.home),
+    null,
+    AUXILIARY_WAIT,
+  );
+  const ringingAuxiliaryMetrics = await applyAuxiliaryMetrics(
+    ringingReloadPage,
+    ringingReloadPageSession,
+    { pinLuxuryRenderer: true },
+  );
   await ringingReloadPage.locator('#start-btn').click();
-  await ringingReloadPage.waitForFunction(() => window.LUXURY_APARTMENT.phone.ringing === true);
-  await ringingReloadPage.evaluate(() => window.LUXURY_APARTMENT.teleport('main'));
+  await ringingReloadPage.waitForFunction(
+    () => window.LUXURY_APARTMENT.phone.ringing === true,
+    null,
+    AUXILIARY_WAIT,
+  );
+  console.log('  ...   Beat 27 scheduled ring recovered after reload; answering with real E');
+  const savedDistantRing = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.teleport('loft');
+    /* `teleportToSpawn` moves the eye but intentionally leaves the shared
+     * Player's last sampled ground alone. Seed the authored loft support as
+     * part of this deterministic setup so the next production frame cannot
+     * reinterpret a loft spawn with the main floor's stale support hint. */
+    const loftGround = runtime.home.spawns.loft.position.y - 1.68;
+    runtime.player.position.y = loftGround + 1.66;
+    runtime.player.ground = loftGround;
+    runtime.player.grounded = true;
+    runtime.player.jumpHeight = 0;
+    runtime.player.update(0.001);
+    return {
+      ringing: runtime.phone.ringing,
+      held: runtime.home.inventory.held,
+      floor: runtime.player.position.y > 3 ? 'loft' : 'main',
+      objective: document.getElementById('objectives')?.textContent ?? '',
+    };
+  });
   await ringingReloadPage.keyboard.press('e');
   await ringingReloadPage.waitForFunction(() => (
     window.LUXURY_APARTMENT.phone.inCall
       && JSON.parse(localStorage.getItem('squatchlife.campaign'))
         .events.booski_special_meeting_call?.status === 'answered'
-  ));
+  ), null, AUXILIARY_WAIT);
   const afterRingReload = await ringingReloadPage.evaluate(() => ({
     ringing: window.LUXURY_APARTMENT.phone.ringing,
     inCall: window.LUXURY_APARTMENT.phone.inCall,
     held: window.LUXURY_APARTMENT.home.inventory.held,
+    floor: window.LUXURY_APARTMENT.player.position.y > 3 ? 'loft' : 'main',
     status: JSON.parse(localStorage.getItem('squatchlife.campaign'))
       .events.booski_special_meeting_call?.status ?? null,
+    objective: document.getElementById('objectives')?.textContent ?? '',
     ringLoop: window.LUXURY_APARTMENT.audio.loops.has('phone.ring'),
   }));
+  check('Beat 27 answers the pocketed saved-game phone from the loft with the real interaction key',
+    savedDistantRing.ringing
+      && savedDistantRing.held === null
+      && savedDistantRing.floor === 'loft'
+      && /Answer Booskibro/i.test(savedDistantRing.objective)
+      && !afterRingReload.ringing
+      && afterRingReload.inCall
+      && afterRingReload.held === null
+      && afterRingReload.floor === 'loft'
+      && afterRingReload.status === 'answered'
+      && /Stay on the line/i.test(afterRingReload.objective)
+      && !afterRingReload.ringLoop,
+    JSON.stringify({
+      initialAuxiliaryMetrics,
+      ringingAuxiliaryMetrics,
+      before: savedDistantRing,
+      after: afterRingReload,
+    }));
+  console.log('  ...   Beat 27 real E answer received; draining the complete authored call');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.phone.inCall === false
+      && window.LUXURY_APARTMENT.phone.ringing === false
+      && /Leave for the car downstairs/i.test(
+        document.getElementById('objectives')?.textContent ?? '',
+      )
+  ), null, AUXILIARY_WAIT);
+  const afterCallDrained = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const saved = JSON.parse(localStorage.getItem('squatchlife.campaign'));
+    return {
+      ringing: runtime.phone.ringing,
+      inCall: runtime.phone.inCall,
+      status: saved.events.booski_special_meeting_call?.status ?? null,
+      timeEventCopies: saved.story.timeEvents
+        .filter((id) => id === 'call.booski_special_meeting').length,
+      objective: document.getElementById('objectives')?.textContent ?? '',
+    };
+  });
   await ringingReloadPage.reload({ waitUntil: 'domcontentloaded' });
-  await ringingReloadPage.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await ringingReloadPage.bringToFront();
+  await ringingReloadPage.waitForFunction(
+    () => Boolean(window.LUXURY_APARTMENT?.home),
+    null,
+    AUXILIARY_WAIT,
+  );
+  const answeredAuxiliaryMetrics = await applyAuxiliaryMetrics(
+    ringingReloadPage,
+    ringingReloadPageSession,
+    { pinLuxuryRenderer: true },
+  );
+  console.log('  ...   Beat 27 call drained; reloading the answered save for duplicate suppression');
   await ringingReloadPage.locator('#start-btn').click();
   await ringingReloadPage.waitForTimeout(7200);
   const afterAnsweredReload = await ringingReloadPage.evaluate(() => {
@@ -741,10 +923,11 @@ try {
       hotbarCopies: runtime.home.inventory.items.filter((id) => id === 'phone').length,
       campaignCopies: saved.inventory.carried.filter((id) => id === 'phone').length,
       status: saved.events.booski_special_meeting_call?.status ?? null,
+      timeEventCopies: saved.story.timeEvents
+        .filter((id) => id === 'call.booski_special_meeting').length,
       objective: document.getElementById('objectives')?.textContent ?? '',
     };
   });
-  await ringingReloadPage.close();
   check('a real save reload during the ring recovers the call, while an answered reload cannot duplicate it',
     beforeRingReload.ringing
       && beforeRingReload.held === null
@@ -754,14 +937,201 @@ try {
       && afterRingReload.held === null
       && afterRingReload.status === 'answered'
       && !afterRingReload.ringLoop
+      && !afterCallDrained.ringing
+      && !afterCallDrained.inCall
+      && afterCallDrained.status === 'answered'
+      && afterCallDrained.timeEventCopies === 1
+      && /Leave for the car downstairs/i.test(afterCallDrained.objective)
       && !afterAnsweredReload.ringing
       && !afterAnsweredReload.inCall
       && afterAnsweredReload.hotbarCopies === 1
       && afterAnsweredReload.campaignCopies === 1
       && afterAnsweredReload.status === 'answered'
-      && !/Answer Booskibro/i.test(afterAnsweredReload.objective),
-    JSON.stringify({ beforeRingReload, afterRingReload, afterAnsweredReload }));
-  check('the authored walkable contract is two disjoint floors joined by elevation',
+      && afterAnsweredReload.timeEventCopies === 1
+      && !/Answer Booskibro/i.test(afterAnsweredReload.objective)
+      && [initialAuxiliaryMetrics, ringingAuxiliaryMetrics, answeredAuxiliaryMetrics]
+        .every((metrics) => (
+          metrics.css[0] === 640
+            && metrics.css[1] === 400
+            && metrics.dpr === 0.5
+            && metrics.rendererDpr === 0.5
+            && metrics.backing[0] === 320
+            && metrics.backing[1] === 200
+        )),
+    JSON.stringify({
+      beforeRingReload,
+      afterRingReload,
+      afterCallDrained,
+      afterAnsweredReload,
+      auxiliaryMetrics: {
+        initial: initialAuxiliaryMetrics,
+        ringing: ringingAuxiliaryMetrics,
+        answered: answeredAuxiliaryMetrics,
+      },
+    }));
+
+  /* The `teleport` and pose calls below are setup only: they put the player
+   * at the authored arrival spawn and aim the production camera. Both verbs --
+   * calling the lift and riding it -- still have to resolve through the live
+   * raycaster and the physical E key. */
+  const beat27ElevatorApproach = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const target = runtime.home.utilityTargets.elevator;
+    const moved = runtime.teleport('arrival');
+    const targetPosition = target.getWorldPosition(new target.position.constructor());
+    const delta = targetPosition.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    return {
+      moved,
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      elevatorOpen: runtime.home.state.elevatorOpen,
+      colliderDisabled: runtime.home.doors.elevator.collider.max.y < 0,
+      objective: document.getElementById('objectives')?.textContent ?? '',
+    };
+  });
+  console.log('  ...   Beat 27 answered save stable; calling and riding the lift with two real E presses');
+  await ringingReloadPage.keyboard.press('e');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.home.state.elevatorOpen
+      && window.LUXURY_APARTMENT.home.doors.elevator.collider.max.y < 0
+  ), null, AUXILIARY_WAIT);
+  const beat27ElevatorCalled = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const target = runtime.home.utilityTargets.elevator;
+    runtime.player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.update(0);
+    return {
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      elevatorOpen: runtime.home.state.elevatorOpen,
+      colliderDisabled: runtime.home.doors.elevator.collider.max.y < 0,
+      phase: runtime.state.phase,
+    };
+  });
+  const beat27Navigation = ringingReloadPage.waitForURL('**/specialmeeting.html*', {
+    waitUntil: 'domcontentloaded',
+    timeout: 30000,
+  });
+  await ringingReloadPage.keyboard.press('e');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT?.state?.phase === 'exiting'
+  ), null, AUXILIARY_WAIT);
+  await beat27Navigation;
+  await ringingReloadPage.bringToFront();
+  await applyAuxiliaryMetrics(ringingReloadPage, ringingReloadPageSession);
+  await ringingReloadPage.waitForFunction(
+    () => Boolean(window.SPECIAL_MEETING),
+    null,
+    AUXILIARY_WAIT,
+  );
+  /* A real click on the destination canvas is its canonical browser-required
+   * audio gesture (the scene's own verifier uses the same path). The
+   * pickup cannot enter SM-100 until the voice bank is ready and the authored
+   * street arrival has physically settled, so this wait proves the real first
+   * scene beat rather than merely accepting a URL. */
+  await ringingReloadPage.locator('#scene').click({ position: { x: 320, y: 180 } });
+  await ringingReloadPage.waitForFunction(() => {
+    const runtime = window.SPECIAL_MEETING;
+    return runtime.voiceReady || runtime.voiceLoadError;
+  }, null, { polling: 200, timeout: 120000 });
+  const beat27Voice = await ringingReloadPage.evaluate(() => {
+    const runtime = window.SPECIAL_MEETING;
+    return {
+      ready: runtime.voiceReady,
+      expected: runtime.expectedVoiceCueCount,
+      decoded: runtime.decodedVoiceCueCount,
+      missing: runtime.missingVoiceCues,
+      failed: runtime.failedCues,
+      error: runtime.voiceLoadError,
+    };
+  });
+  console.log(`  ...   Beat 27 destination voice bank ready: ${beat27Voice.decoded}/${beat27Voice.expected}`);
+  await ringingReloadPage.waitForFunction(() => {
+    const runtime = window.SPECIAL_MEETING;
+    return runtime.stage.arrival?.settled
+      && runtime.ride.beatId === 'SM-100';
+  }, null, { polling: 200, timeout: 90000 });
+  const beat27Landing = await ringingReloadPage.evaluate(() => {
+    const runtime = window.SPECIAL_MEETING;
+    const saved = JSON.parse(localStorage.getItem('squatchlife.campaign'));
+    return {
+      path: location.pathname,
+      requestedSpawn: runtime.certification.requestedSpawn,
+      effectiveSpawn: runtime.certification.effectiveSpawn,
+      campaignScene: runtime.certification.campaignScene,
+      featuredPickup: Boolean(runtime.stage.block.group.getObjectByName('featured-pickup')),
+      voiceReady: runtime.voiceReady,
+      expectedVoiceCues: runtime.expectedVoiceCueCount,
+      decodedVoiceCues: runtime.decodedVoiceCueCount,
+      missingVoiceCues: runtime.missingVoiceCues,
+      failedVoiceCues: runtime.failedCues,
+      voiceLoadError: runtime.voiceLoadError,
+      arrival: runtime.certification.arrival,
+      rideBeat: runtime.certification.rideBeat,
+      callStatus: saved.events.booski_special_meeting_call?.status ?? null,
+      timeEventCopies: saved.story.timeEvents
+        .filter((id) => id === 'call.booski_special_meeting').length,
+    };
+  });
+  check('Beat 27 uses two real elevator E presses and lands at the authored kerb pickup',
+    beat27ElevatorApproach.moved
+      && beat27ElevatorApproach.targetResolved
+      && !beat27ElevatorApproach.elevatorOpen
+      && !beat27ElevatorApproach.colliderDisabled
+      && /Leave for the car downstairs/i.test(beat27ElevatorApproach.objective)
+      && beat27ElevatorCalled.targetResolved
+      && beat27ElevatorCalled.elevatorOpen
+      && beat27ElevatorCalled.colliderDisabled
+      && beat27ElevatorCalled.phase === 'active'
+      && beat27Landing.path.endsWith('/specialmeeting.html')
+      && beat27Landing.requestedSpawn === 'kerb'
+      && beat27Landing.effectiveSpawn === 'kerb'
+      && beat27Landing.campaignScene.id === 'special_meeting'
+      && beat27Landing.campaignScene.spawn === 'kerb'
+      && beat27Landing.featuredPickup
+      && beat27Landing.voiceReady
+      && beat27Landing.decodedVoiceCues === beat27Landing.expectedVoiceCues
+      && beat27Landing.missingVoiceCues.length === 0
+      && beat27Landing.failedVoiceCues.length === 0
+      && !beat27Landing.voiceLoadError
+      && beat27Landing.arrival.settled
+      && beat27Landing.rideBeat === 'SM-100'
+      && beat27Landing.callStatus === 'answered'
+      && beat27Landing.timeEventCopies === 1,
+    JSON.stringify({
+      approach: beat27ElevatorApproach,
+      called: beat27ElevatorCalled,
+      voice: beat27Voice,
+      landing: beat27Landing,
+    }));
+  await ringingReloadPage.close();
+  page = await context.newPage();
+  page.setDefaultTimeout(180000);
+  page.setDefaultNavigationTimeout(180000);
+  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
+  });
+  page.on('requestfailed', (request) => {
+    problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
+  });
+  await page.bringToFront();
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.waitForFunction(() => Boolean(window.LUXURY_APARTMENT?.home));
+  await settleRenderedFrames(page, 2);
+  if (process.env.LUXURY_APARTMENT_BEAT27_ONLY !== '1') {
+    check('the authored walkable contract is two disjoint floors joined by elevation',
     authored.metrics.floors === 2
       && authored.mainFloorY === 0
       && authored.loftFloorY > authored.mainFloorY
@@ -917,6 +1287,13 @@ try {
       && authored.bathroom.highGround === authored.loftFloorY
       && authored.bathroom.shellName === 'luxury-under-stair-bathroom'
       && authored.bathroom.floorPresent
+      && authored.bathroom.ceiling.name === 'luxury-bath-ceiling'
+      && authored.bathroom.ceiling.min[0] <= authored.bathroom.bounds.x0 + 1e-6
+      && authored.bathroom.ceiling.max[0] >= authored.bathroom.bounds.x1 - 1e-6
+      && authored.bathroom.ceiling.min[2] <= authored.bathroom.bounds.z0 + 1e-6
+      && authored.bathroom.ceiling.max[2] >= authored.bathroom.bounds.z1 - 1e-6
+      && authored.bathroom.ceiling.stemGap >= 0
+      && authored.bathroom.ceiling.stemGap <= 0.05
       && authored.bathroom.walls === 5
       && authored.bathroom.doorPresent
       && authored.bathroom.doorInitiallyOpen
@@ -942,7 +1319,20 @@ try {
       && authored.bathroom.sink.z > authored.bathroom.bounds.z0
       && authored.bathroom.sink.z < authored.bathroom.bounds.z1
       && Math.abs(authored.bathroom.bounds.x1 - authored.bathroom.toiletPaper.x) <= 0.15
-      && authored.bathroom.toiletPaper.y > 0.5,
+      && authored.bathroom.toiletPaper.y > 0.5
+      && authored.bathroom.light.fixtureName === 'luxury-light-main-bathroom'
+      && authored.bathroom.light.position.x > authored.bathroom.bounds.x0
+      && authored.bathroom.light.position.x < authored.bathroom.bounds.x1
+      && authored.bathroom.light.position.y > 2.2
+      && authored.bathroom.light.position.y < 2.66
+      && authored.bathroom.light.position.z > authored.bathroom.bounds.z0
+      && authored.bathroom.light.position.z < authored.bathroom.bounds.z1
+      && authored.bathroom.light.intensity === 4
+      && authored.bathroom.light.distance >= 5
+      && authored.bathroom.light.color === 0xe9f2ff
+      && authored.bathroom.light.mainCircuit
+      && !authored.bathroom.light.loftCircuit
+      && authored.bathroom.light.retiredLoftFixtureAbsent,
     JSON.stringify(authored.bathroom));
   check('the workstation, poker room, darts wall, bedroom, and skyline retain the authored polish contracts',
     authored.workstation.chairMaterial === 'dark'
@@ -1321,6 +1711,250 @@ try {
       && cleanStartYaw >= 0.01,
     JSON.stringify({ before: cleanStartBefore, after: cleanStartAfter, cleanStartDistance, cleanStartYaw }));
 
+  /* Staging establishes only a known pose. Every traversal below enters the
+   * production Player through the canonical browser Adapter's real keyboard
+   * listeners; no teleport crosses a tread, and no debug interaction fires. */
+  const stageStairPose = async ({ direction = 'up', offset = 0 } = {}) => page.evaluate((spec) => {
+    const runtime = window.LUXURY_APARTMENT;
+    const bounds = runtime.home.stairs.bounds;
+    const authoredStair = {
+      x0: bounds.x0,
+      x1: bounds.x1,
+      z0: bounds.z0,
+      z1: bounds.z1,
+      loftY: runtime.home.spawns.loft.position.y - 1.66,
+    };
+    const upward = spec.direction === 'up';
+    const floor = upward ? 0 : authoredStair.loftY;
+    const player = runtime.player;
+    player._tween = null;
+    player.position.set(
+      (authoredStair.x0 + authoredStair.x1) / 2 + spec.offset,
+      floor + 1.66,
+      upward ? authoredStair.z1 + 0.22 : authoredStair.z0 - 0.18,
+    );
+    player.ground = floor;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.velocity.set(0, 0, 0);
+    player.jumpHeight = 0;
+    player.grounded = true;
+    player.crouching = false;
+    player.sprinting = false;
+    player.mode = 'walk';
+    player.yaw = upward ? 0 : Math.PI;
+    player.pitch = 0;
+    player.clearKeys();
+    runtime.interaction.setPaused(false);
+    runtime.input.refresh(`stair-${spec.direction}-setup`);
+    return {
+      position: player.position.toArray(),
+      ground: player.ground,
+      input: runtime.input.snapshot(),
+      stair: authoredStair,
+    };
+  }, { direction, offset });
+
+  if (!await page.evaluate(() => window.LUXURY_APARTMENT.input.captured)) {
+    await page.locator('canvas').click({ position: { x: 640, y: 360 } });
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.input.captured === true);
+  }
+
+  const liveStairStart = await stageStairPose({ direction: 'up', offset: -0.44 });
+  let liveStairUpReached = true;
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(({ topZ, loftY }) => {
+      const player = window.LUXURY_APARTMENT.player;
+      return player.position.z <= topZ && player.ground >= loftY - 0.22;
+    }, { topZ: liveStairStart.stair.z0 - 0.14, loftY: liveStairStart.stair.loftY }, {
+      timeout: 60000,
+      polling: 50,
+    });
+  } catch {
+    liveStairUpReached = false;
+  }
+  const liveStairTop = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      position: runtime.player.position.toArray(),
+      ground: runtime.player.ground,
+      held: [...runtime.player.keys],
+      input: runtime.input.snapshot(),
+    };
+  });
+  await page.keyboard.up('w');
+
+  let liveStairDownReached = true;
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(({ bottomZ }) => {
+      const player = window.LUXURY_APARTMENT.player;
+      return player.position.z >= bottomZ && player.ground <= 0.22;
+    }, { bottomZ: liveStairStart.stair.z1 + 0.16 }, {
+      timeout: 60000,
+      polling: 50,
+    });
+  } catch {
+    liveStairDownReached = false;
+  }
+  const liveStairBottom = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      position: runtime.player.position.toArray(),
+      ground: runtime.player.ground,
+      held: [...runtime.player.keys],
+      input: runtime.input.snapshot(),
+    };
+  });
+  await page.keyboard.up('s');
+  const liveStairReleased = await page.evaluate(() => window.LUXURY_APARTMENT.player.keys.size);
+  check('real W climbs the complete off-centre stair and real S walks back down to the main floor',
+    liveStairStart.input.enabled
+      && liveStairUpReached
+      && liveStairTop.position[2] <= liveStairStart.stair.z0 - 0.14
+      && liveStairTop.ground >= liveStairStart.stair.loftY - 0.22
+      && liveStairTop.held.includes('KeyW')
+      && liveStairDownReached
+      && liveStairBottom.position[2] >= liveStairStart.stair.z1 + 0.16
+      && liveStairBottom.ground <= 0.22
+      && liveStairBottom.held.includes('KeyS')
+      && Math.abs(liveStairTop.position[0] - liveStairStart.position[0]) <= 0.08
+      && Math.abs(liveStairBottom.position[0] - liveStairStart.position[0]) <= 0.08
+      && liveStairBottom.input.movementPresses >= liveStairStart.input.movementPresses + 2
+      && liveStairReleased === 0,
+    JSON.stringify({ start: liveStairStart, top: liveStairTop, bottom: liveStairBottom, liveStairReleased }));
+
+  const retreatStart = await stageStairPose({ direction: 'up', offset: 0.48 });
+  let retreatEntered = true;
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.ground >= 0.72,
+      null, { timeout: 30000, polling: 50 });
+  } catch {
+    retreatEntered = false;
+  }
+  const retreatHigh = await page.evaluate(() => ({
+    position: window.LUXURY_APARTMENT.player.position.toArray(),
+    ground: window.LUXURY_APARTMENT.player.ground,
+  }));
+  await page.keyboard.up('w');
+  let retreatEscaped = true;
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(({ startZ }) => {
+      const player = window.LUXURY_APARTMENT.player;
+      return player.position.z >= startZ - 0.04 && player.ground <= 0.12;
+    }, { startZ: retreatStart.position[2] }, { timeout: 30000, polling: 50 });
+  } catch {
+    retreatEscaped = false;
+  }
+  const retreatEnd = await page.evaluate(() => ({
+    position: window.LUXURY_APARTMENT.player.position.toArray(),
+    ground: window.LUXURY_APARTMENT.player.ground,
+    held: [...window.LUXURY_APARTMENT.player.keys],
+  }));
+  await page.keyboard.up('s');
+  check('an off-centre player can retreat from the lower flight without wedging beneath the stair',
+    retreatEntered
+      && retreatHigh.ground >= 0.72
+      && retreatEscaped
+      && retreatEnd.position[2] >= retreatStart.position[2] - 0.04
+      && retreatEnd.ground <= 0.12
+      && retreatEnd.held.includes('KeyS'),
+    JSON.stringify({ start: retreatStart, high: retreatHigh, end: retreatEnd }));
+
+  /* Stable timestep isolation runs inside one browser task so rAF cannot add
+   * extra samples between cases. The held state still originates in trusted
+   * keyboard events and each step is the shipping Player.update method. */
+  const stableStairSpecs = [
+    { label: 'walk-up-30', direction: 'up', dt: 1 / 30, offset: -0.46, mode: 'walk' },
+    { label: 'walk-down-120', direction: 'down', dt: 1 / 120, offset: 0.46, mode: 'walk' },
+    { label: 'sprint-up-60', direction: 'up', dt: 1 / 60, offset: 0.46, mode: 'sprint' },
+    { label: 'sprint-down-30', direction: 'down', dt: 1 / 30, offset: -0.46, mode: 'sprint' },
+    { label: 'crouch-up-120', direction: 'up', dt: 1 / 120, offset: -0.34, mode: 'crouch' },
+    { label: 'crouch-down-60', direction: 'down', dt: 1 / 60, offset: 0.34, mode: 'crouch' },
+  ];
+  const stableStairReports = [];
+  for (const spec of stableStairSpecs) {
+    const staged = await stageStairPose(spec);
+    const modifier = spec.mode === 'sprint' ? 'Shift' : spec.mode === 'crouch' ? 'c' : null;
+    if (modifier) await page.keyboard.down(modifier);
+    await page.keyboard.down('w');
+    await page.waitForFunction((mode) => {
+      const keys = window.LUXURY_APARTMENT.player.keys;
+      return keys.has('KeyW')
+        && (mode !== 'sprint' || keys.has('ShiftLeft'))
+        && (mode !== 'crouch' || keys.has('KeyC'));
+    }, spec.mode, { timeout: 5000, polling: 25 });
+    const report = await page.evaluate((condition) => {
+      const runtime = window.LUXURY_APARTMENT;
+      const player = runtime.player;
+      const upward = condition.direction === 'up';
+      const stair = runtime.home.stairs.bounds;
+      const targetZ = upward ? stair.z0 - 0.18 : stair.z1 + 0.22;
+      const startX = player.position.x;
+      let minX = startX;
+      let maxX = startX;
+      let minGround = player.ground;
+      let maxGround = player.ground;
+      let previousGround = player.ground;
+      let maxReverseStep = 0;
+      let reached = false;
+      const limit = Math.ceil(9 / condition.dt);
+      for (let frame = 0; frame < limit; frame++) {
+        player.update(condition.dt);
+        minX = Math.min(minX, player.position.x);
+        maxX = Math.max(maxX, player.position.x);
+        minGround = Math.min(minGround, player.ground);
+        maxGround = Math.max(maxGround, player.ground);
+        maxReverseStep = Math.max(maxReverseStep,
+          upward ? previousGround - player.ground : player.ground - previousGround);
+        previousGround = player.ground;
+        if (upward ? player.position.z <= targetZ : player.position.z >= targetZ) {
+          reached = true;
+          break;
+        }
+      }
+      return {
+        ...condition,
+        reached,
+        position: player.position.toArray(),
+        ground: player.ground,
+        minGround,
+        maxGround,
+        maxReverseStep,
+        lateralDrift: Math.max(Math.abs(minX - startX), Math.abs(maxX - startX)),
+        sprinting: player.sprinting,
+        crouching: player.crouching,
+        held: [...player.keys],
+        input: runtime.input.snapshot(),
+      };
+    }, spec);
+    await page.keyboard.up('w');
+    if (modifier) await page.keyboard.up(modifier);
+    report.releasedKeys = await page.evaluate(() => window.LUXURY_APARTMENT.player.keys.size);
+    report.movementPressDelta = report.input.movementPresses - staged.input.movementPresses;
+    stableStairReports.push(report);
+  }
+  check('real-key stair traversal is stable at 30/60/120 Hz for walk, sprint, and crouch speeds',
+    stableStairReports.length === stableStairSpecs.length
+      && stableStairReports.every((report) => report.reached
+        && report.lateralDrift <= 0.04
+        && report.minGround >= -1e-6
+        && report.maxGround <= liveStairStart.stair.loftY + 1e-6
+        && (report.direction === 'up'
+          ? report.ground >= liveStairStart.stair.loftY - 0.25
+          : report.ground <= 0.12)
+        && report.maxGround - report.minGround >= liveStairStart.stair.loftY - 0.30
+        && report.maxReverseStep <= 0.06
+        && report.sprinting === (report.mode === 'sprint')
+        && report.crouching === (report.mode === 'crouch')
+        && report.held.includes('KeyW')
+        && report.movementPressDelta >= (report.mode === 'walk' ? 1 : 2)
+        && report.releasedKeys === 0),
+    JSON.stringify(stableStairReports));
+
   const arcadeClocks = await page.evaluate(() => ({
     scene: window.LUXURY_APARTMENT.time.clock12,
     pc: window.LUXURY_APARTMENT.pcArcade.clock,
@@ -1487,6 +2121,36 @@ try {
     };
   });
 
+  let bathroomCrossedTurningBay = true;
+  await page.keyboard.down('d');
+  try {
+    await page.waitForFunction(() => {
+      const runtime = window.LUXURY_APARTMENT;
+      const bath = runtime.home.bathroom.bounds;
+      return runtime.player.position.x >= (bath.x0 + bath.x1) / 2 + 0.18;
+    }, null, { timeout: 30000, polling: 50 });
+  } catch {
+    bathroomCrossedTurningBay = false;
+  }
+  const bathroomAcross = await page.evaluate(() => ({
+    position: window.LUXURY_APARTMENT.player.position.toArray(),
+    held: [...window.LUXURY_APARTMENT.player.keys],
+  }));
+  await page.keyboard.up('d');
+  let bathroomReturnedAcrossBay = true;
+  await page.keyboard.down('a');
+  try {
+    await page.waitForFunction((returnX) => window.LUXURY_APARTMENT.player.position.x <= returnX + 0.08,
+      bathroomApproach.doorwayX, { timeout: 30000, polling: 50 });
+  } catch {
+    bathroomReturnedAcrossBay = false;
+  }
+  const bathroomTurned = await page.evaluate(() => ({
+    position: window.LUXURY_APARTMENT.player.position.toArray(),
+    held: [...window.LUXURY_APARTMENT.player.keys],
+  }));
+  await page.keyboard.up('a');
+
   let bathroomReturnedByInput = true;
   await page.keyboard.down('s');
   try {
@@ -1557,6 +2221,10 @@ try {
       && bathroomReachedInside
       && bathroomInside.insideBounds
       && bathroomInside.heldKeys === 0
+      && bathroomCrossedTurningBay
+      && bathroomAcross.held.includes('KeyD')
+      && bathroomReturnedAcrossBay
+      && bathroomTurned.held.includes('KeyA')
       && bathroomAfterReturn.reachedDoor
       && bathroomAfterReturn.heldKeys === 0
       && bathroomClosedViaInput
@@ -1568,10 +2236,294 @@ try {
       approach: bathroomApproach,
       open: bathroomOpened,
       inside: bathroomInside,
+      turningBay: { crossed: bathroomCrossedTurningBay, across: bathroomAcross,
+        returned: bathroomReturnedAcrossBay, turn: bathroomTurned },
       afterReturn: bathroomAfterReturn,
       closedViaInput: bathroomClosedViaInput,
       closed: bathroomExited,
     }));
+
+  const bathroomLightSetup = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const home = runtime.home;
+    const bath = home.bathroom.bounds;
+    const saved = {
+      day: runtime.time.day,
+      minutes: runtime.time.minutes,
+      mainLightsOn: home.state.mainLightsOn,
+      loftLightsOn: home.state.loftLightsOn,
+      mainLightsManual: home.state.mainLightsManual,
+      loftLightsManual: home.state.loftLightsManual,
+    };
+    runtime.setTime(saved.day, 20 * 60 + 30);
+    runtime.setLights('loft', false);
+    runtime.setLights('main', true);
+    const bathroomFixture = home.lights.bathroom;
+    bathroomFixture.light.intensity = 0;
+    bathroomFixture.bulb.material = home.materials.bulbOff;
+    const otherMainIntensity = home.lights.main
+      .filter((fixture) => fixture !== bathroomFixture)
+      .reduce((sum, fixture) => sum + fixture.light.intensity, 0);
+    const player = runtime.player;
+    player._tween = null;
+    player.position.set((bath.x0 + bath.x1) / 2 - 0.24, 1.66, (bath.z0 + bath.z1) / 2 + 0.28);
+    player.ground = 0;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.velocity.set(0, 0, 0);
+    player.mode = 'walk';
+    player.clearKeys();
+    const mirror = home.mirrorMesh;
+    const target = mirror.getWorldPosition(player.position.clone());
+    const delta = target.sub(player.position);
+    player.yaw = Math.atan2(-delta.x, -delta.z);
+    player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    return {
+      saved,
+      position: player.position.toArray(),
+      yaw: player.yaw,
+      pitch: player.pitch,
+      fixture: {
+        name: bathroomFixture.fixture.name,
+        intensity: bathroomFixture.light.intensity,
+        mainCircuit: home.lights.main.includes(bathroomFixture),
+        otherMainIntensity,
+      },
+    };
+  });
+  await settleRenderedFrames(page, 3);
+  const bathroomToneOff = await sampleCanvasTone(page, 0.52);
+  const bathroomLightOn = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const bathroomFixture = runtime.home.lights.bathroom;
+    bathroomFixture.light.intensity = bathroomFixture.intensity;
+    bathroomFixture.bulb.material = runtime.home.materials.bulbOn;
+    return {
+      intensity: bathroomFixture.light.intensity,
+      configured: bathroomFixture.intensity,
+      bulbOn: bathroomFixture.bulb.material === runtime.home.materials.bulbOn,
+      mainLightsOn: runtime.home.state.mainLightsOn,
+      loftLightsOn: runtime.home.state.loftLightsOn,
+      otherMainIntensity: runtime.home.lights.main
+        .filter((fixture) => fixture !== bathroomFixture)
+        .reduce((sum, fixture) => sum + fixture.light.intensity, 0),
+    };
+  });
+  await settleRenderedFrames(page, 3);
+  const bathroomToneOn = await sampleCanvasTone(page, 0.52);
+  const bathroomMirrorToneOn = await sampleCanvasTone(page, 0.22);
+  await capture(page, 'luxury-under-stair-bathroom-lighting');
+  const bathroomLightRestore = await page.evaluate((saved) => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.setTime(saved.day, saved.minutes);
+    runtime.setLights('main', saved.mainLightsOn);
+    runtime.setLights('loft', saved.loftLightsOn);
+    runtime.home.state.mainLightsManual = saved.mainLightsManual;
+    runtime.home.state.loftLightsManual = saved.loftLightsManual;
+    return {
+      day: runtime.time.day,
+      minutes: runtime.time.minutes,
+      mainLightsOn: runtime.home.state.mainLightsOn,
+      loftLightsOn: runtime.home.state.loftLightsOn,
+      mainLightsManual: runtime.home.state.mainLightsManual,
+      loftLightsManual: runtime.home.state.loftLightsManual,
+    };
+  }, bathroomLightSetup.saved);
+  check('the real under-stair practical lifts bathroom visibility without mirror glare clipping the frame',
+    bathroomLightSetup.fixture.name === 'luxury-light-main-bathroom'
+      && bathroomLightSetup.fixture.mainCircuit
+      && bathroomLightSetup.fixture.intensity === 0
+      && bathroomLightOn.intensity === bathroomLightOn.configured
+      && bathroomLightOn.intensity === 4
+      && bathroomLightOn.bulbOn
+      && bathroomLightOn.mainLightsOn
+      && !bathroomLightOn.loftLightsOn
+      && bathroomLightSetup.fixture.otherMainIntensity > 0
+      && bathroomLightOn.otherMainIntensity === bathroomLightSetup.fixture.otherMainIntensity
+      && bathroomToneOff.readError === 0
+      && bathroomToneOn.readError === 0
+      && bathroomMirrorToneOn.readError === 0
+      && bathroomToneOn.mean >= bathroomToneOff.mean + 4
+      && bathroomToneOn.p50 >= bathroomToneOff.p50 + 2
+      && bathroomToneOn.darkFraction < bathroomToneOff.darkFraction
+      && bathroomMirrorToneOn.clippedFraction <= 0.02
+      && bathroomMirrorToneOn.p99 < 254
+      && JSON.stringify(bathroomLightRestore) === JSON.stringify(bathroomLightSetup.saved),
+    JSON.stringify({ setup: bathroomLightSetup, off: bathroomToneOff, on: bathroomToneOn,
+      mirror: bathroomMirrorToneOn, state: bathroomLightOn, restored: bathroomLightRestore }));
+
+  const bedroomStart = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const player = runtime.player;
+    runtime.teleport('loft');
+    player.position.set(3.80, runtime.home.spawns.loft.position.y, -2.72);
+    player.ground = runtime.home.spawns.loft.position.y - 1.66;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.velocity.set(0, 0, 0);
+    player.mode = 'walk';
+    player.yaw = 0;
+    player.pitch = 0;
+    player.clearKeys();
+    runtime.interaction.setPaused(false);
+    runtime.input.refresh('bedroom-circulation-setup');
+    return {
+      position: player.position.toArray(),
+      movementPresses: runtime.input.snapshot().movementPresses,
+    };
+  });
+  let bedroomEntered = true;
+  await page.keyboard.down('w');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z <= -3.82,
+      null, { timeout: 30000, polling: 50 });
+  } catch {
+    bedroomEntered = false;
+  }
+  const bedroomInside = await page.evaluate(() => ({
+    position: window.LUXURY_APARTMENT.player.position.toArray(),
+    held: [...window.LUXURY_APARTMENT.player.keys],
+  }));
+  await page.keyboard.up('w');
+  let wardrobeReached = true;
+  await page.keyboard.down('d');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.x >= 8.00,
+      null, { timeout: 45000, polling: 50 });
+  } catch {
+    wardrobeReached = false;
+  }
+  const wardrobeApproach = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const pose = runtime.home.poses.wardrobe.exit;
+    return {
+      position: runtime.player.position.toArray(),
+      held: [...runtime.player.keys],
+      distanceToAuthoredExit: Math.hypot(
+        runtime.player.position.x - pose.x,
+        runtime.player.position.z - pose.z,
+      ),
+    };
+  });
+  await page.keyboard.up('d');
+  let bedroomCrossedBack = true;
+  await page.keyboard.down('a');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.x <= 3.88,
+      null, { timeout: 45000, polling: 50 });
+  } catch {
+    bedroomCrossedBack = false;
+  }
+  const bedroomReturnLane = await page.evaluate(() => ({
+    position: window.LUXURY_APARTMENT.player.position.toArray(),
+    held: [...window.LUXURY_APARTMENT.player.keys],
+  }));
+  await page.keyboard.up('a');
+  let bedroomExitedByInput = true;
+  await page.keyboard.down('s');
+  try {
+    await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z >= -2.72,
+      null, { timeout: 30000, polling: 50 });
+  } catch {
+    bedroomExitedByInput = false;
+  }
+  const bedroomExit = await page.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    return {
+      position: runtime.player.position.toArray(),
+      held: [...runtime.player.keys],
+      movementPresses: runtime.input.snapshot().movementPresses,
+    };
+  });
+  await page.keyboard.up('s');
+
+  const bedroomWallFaces = [];
+  for (const face of [
+    { id: 'lounge', z: -2.36, normal: 1 },
+    { id: 'bedroom', z: -4.08, normal: -1 },
+  ]) {
+    const report = await page.evaluate((side) => {
+      const runtime = window.LUXURY_APARTMENT;
+      const player = runtime.player;
+      const panel = runtime.home.root.getObjectByName('luxury-bedroom-wall-panel-1');
+      panel.geometry.computeBoundingBox();
+      const panelBounds = panel.geometry.boundingBox.clone().applyMatrix4(panel.matrixWorld);
+      const target = player.position.clone().set(
+        panelBounds.min.x + 0.32,
+        (panelBounds.min.y + panelBounds.max.y) / 2,
+        (panelBounds.min.z + panelBounds.max.z) / 2,
+      );
+      player._tween = null;
+      player.position.set(target.x, runtime.home.spawns.loft.position.y, side.z);
+      player.ground = runtime.home.spawns.loft.position.y - 1.66;
+      player.eyeHeight = 1.66;
+      player.targetEye = 1.66;
+      player.velocity.set(0, 0, 0);
+      player.mode = 'walk';
+      player.clearKeys();
+      const delta = target.clone().sub(player.position);
+      player.yaw = Math.atan2(-delta.x, -delta.z);
+      player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+      player.update(0.001);
+      runtime.camera.updateMatrixWorld(true);
+      const ray = runtime.interaction.raycaster;
+      ray.set(runtime.camera.position, target.clone().sub(runtime.camera.position).normalize());
+      const visibleInHierarchy = (object) => {
+        for (let current = object; current; current = current.parent) {
+          if (!current.visible) return false;
+        }
+        return true;
+      };
+      const hit = ray.intersectObject(runtime.home.root, true).find(({ object }) => {
+        if (!object.isMesh || !visibleInHierarchy(object)) return false;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        return materials.some((material) => material?.visible !== false && (material?.opacity ?? 1) > 0.05);
+      });
+      const panelMaterials = Array.isArray(panel.material) ? panel.material : [panel.material];
+      return {
+        id: side.id,
+        camera: runtime.camera.position.toArray(),
+        target: target.toArray(),
+        hit: hit?.object?.name ?? null,
+        distance: hit?.distance ?? null,
+        normalZ: hit?.face?.normal?.z ?? null,
+        panelVisible: visibleInHierarchy(panel),
+        panelMaterialVisible: panelMaterials.every((material) => (
+          material?.visible !== false && (material?.opacity ?? 1) > 0.05
+        )),
+      };
+    }, face);
+    await settleRenderedFrames(page, 2);
+    report.tone = await sampleCanvasTone(page, 0.22);
+    await capture(page, `luxury-bedroom-wall-${face.id}-face`);
+    bedroomWallFaces.push(report);
+  }
+  check('real movement circulates through the bedroom to the wardrobe and the finished wall reads from both sides',
+    bedroomEntered
+      && bedroomInside.held.includes('KeyW')
+      && wardrobeReached
+      && wardrobeApproach.held.includes('KeyD')
+      && wardrobeApproach.distanceToAuthoredExit <= 0.35
+      && bedroomCrossedBack
+      && bedroomReturnLane.held.includes('KeyA')
+      && bedroomExitedByInput
+      && bedroomExit.held.includes('KeyS')
+      && bedroomExit.movementPresses >= bedroomStart.movementPresses + 4
+      && bedroomWallFaces.length === 2
+      && bedroomWallFaces.every((face) => face.hit === 'luxury-bedroom-wall-panel-1'
+        && face.panelVisible
+        && face.panelMaterialVisible
+        && face.distance > 0.5
+        && face.distance < 1.5
+        && face.tone.readError === 0
+        && face.tone.p50 > 12
+        && face.tone.clippedFraction < 0.20)
+      && bedroomWallFaces[0].normalZ > 0.9
+      && bedroomWallFaces[1].normalZ < -0.9,
+    JSON.stringify({ start: bedroomStart, inside: bedroomInside, wardrobe: wardrobeApproach,
+      returnLane: bedroomReturnLane, exit: bedroomExit, faces: bedroomWallFaces }));
 
   const cigaretteFlow = await page.evaluate(() => {
     const target = window.LUXURY_APARTMENT.home.utilityTargets.cigarettes;
@@ -2265,6 +3217,11 @@ try {
   check('the luxury-apartment browser run has no page, console, or request failures',
     problems.length === 0,
     problems.join(' | '));
+  } else {
+    check('the Beat-27 auxiliary browser run has no page, console, or request failures',
+      problems.length === 0,
+      problems.join(' | '));
+  }
 } finally {
   await browser?.close().catch(() => {});
   if (server) await new Promise((resolve) => server.close(resolve));

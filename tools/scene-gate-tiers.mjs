@@ -142,11 +142,6 @@ export const SCENE_GATES = Object.freeze([
     why: 'One countryside-cabin boot; all hub actions, teleports, rest, and route assertions run inside page evaluations without driven rendered time.',
   },
   {
-    script: 'verify:luxury-apartment-browser',
-    tier: 'smoke',
-    why: 'One luxury-apartment boot; utility, minigame, floor, art, and skyline assertions run inside page evaluations without driven rendered time.',
-  },
-  {
     script: 'verify:mouths',
     tier: 'smoke',
     why: 'One silvercase checkpoint boot; the viseme stepping is in-page and unrendered.',
@@ -191,6 +186,11 @@ export const SCENE_GATES = Object.freeze([
     script: 'verify:preview',
     tier: 'scene',
     why: 'Thirteen boots: the launcher, every apartment variant and every preview link.',
+  },
+  {
+    script: 'verify:luxury-apartment-browser',
+    tier: 'scene',
+    why: 'The hub plus phone/radio reload boots, with real rendered-key stair, bathroom, and bedroom circulation; the 30/60/120 Hz stair matrix remains in-page.',
   },
   {
     script: 'verify:day-one',

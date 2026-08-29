@@ -1467,12 +1467,6 @@
           "checkSupport": 28
         },
         {
-          "sourceId": "root:luxury-apartment-property/name=luxury-lighting#0/name=luxury-light-loft-bath#0",
-          "scope": "inherited",
-          "overlap": 0,
-          "checkSupport": 3
-        },
-        {
           "sourceId": "root:luxury-apartment-property/name=luxury-lighting#0/name=luxury-light-loft-bedroom#0",
           "scope": "inherited",
           "overlap": 0,
@@ -1486,6 +1480,12 @@
         },
         {
           "sourceId": "root:luxury-apartment-property/name=luxury-lighting#0/name=luxury-light-loft-office#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 3
+        },
+        {
+          "sourceId": "root:luxury-apartment-property/name=luxury-lighting#0/name=luxury-light-main-bathroom#0",
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 3
