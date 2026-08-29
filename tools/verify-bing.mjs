@@ -2193,6 +2193,22 @@ if (ended.nextHref === 'squatchfather.html') {
       return result;
     };
   });
+  const nextLink = page.locator('#next-level');
+  await nextLink.scrollIntoViewIfNeeded();
+  const handoffLayout = await nextLink.evaluate((link) => {
+    const rect = link.getBoundingClientRect();
+    const overlay = document.getElementById('overlay');
+    return {
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      overlayScrollable: overlay.scrollHeight > overlay.clientHeight,
+      overflowY: getComputedStyle(overlay).overflowY,
+    };
+  });
+  check('the ending-card handoff can be brought into the live viewport',
+    handoffLayout.top >= 0 && handoffLayout.bottom <= handoffLayout.viewportHeight,
+    JSON.stringify(handoffLayout));
   await page.click('#next-level');
   await page.waitForURL(`http://localhost:${PORT}/squatchfather.html`, { timeout: 90000 });
   await page.waitForFunction(() => window.squatchfather?.campaign, null, { timeout: 90000 });

@@ -16,6 +16,21 @@
 body.bing #overlay h1 span { color: var(--bing); }
 body.bing #overlay .tag { color: #a3919b; }
 
+/* The mission recap grows with the things Tony actually did in the club. In
+ * a short viewport a busy run can be taller than the screen, while the shared
+ * page deliberately keeps html/body from scrolling. Give only the completed card
+ * its own scroll surface so the real campaign handoff can always be reached;
+ * the opening card keeps its centred, fixed composition. */
+body.bing #overlay.ending {
+  display: block;
+  overflow-y: auto;
+  padding: 24px;
+}
+body.bing #overlay.ending .panel {
+  width: min(560px, 100%);
+  margin: 0 auto;
+}
+
 /* ---------------- Objectives ---------------- */
 
 #objectives {
