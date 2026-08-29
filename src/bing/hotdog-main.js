@@ -1554,6 +1554,13 @@ function finishParty() {
   state.phase = 'complete';
   input.suspend();
   interaction.setPaused(true);
+  /* The player has physically crossed the service door before this seam. The
+   * club is no longer a live room, so retire every loop it owns here instead
+   * of letting the rain, crowd, or Billy's record leak under the graveyard.
+   * stopLoop removes the ownership key immediately even while its short fade
+   * finishes, which also makes a double-click or slow navigation harmless. */
+  for (const key of [...audio.loops.keys()]) audio.stopLoop(key, 0.18);
+  audio.stopSpeech?.();
   document.exitPointerLock?.();
   blackout.classList.add('on');
   setTimeout(() => {

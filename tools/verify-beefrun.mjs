@@ -1125,10 +1125,20 @@ const chain = await page.evaluate(() => {
       completeUp: b.flightHud.completeUp,
       moved: Math.abs(b.physics.position.x - before.x)
         + Math.abs(b.physics.position.z - before.z),
+      radio: {
+        on: b.radio.on,
+        paused: b.radio._paused,
+        mediaPaused: b.radio.el?.paused ?? true,
+        beds: [...b.audio.engine.loops.keys()].filter((key) => key.startsWith('radio.')).sort(),
+      },
     };
   });
   check('the simulation freezes under the report card',
     frozen.completeUp === true && frozen.moved < 0.01, JSON.stringify(frozen));
+  check('the Beef Run report card pauses its physical receiver with no stale radio beds',
+    (!frozen.radio.on || frozen.radio.paused)
+      && frozen.radio.mediaPaused && frozen.radio.beds.length === 0,
+    JSON.stringify(frozen.radio));
   const endPauseState = await page.evaluate(() => {
     const wasPaused = window.__scenePause?.isPaused() ?? false;
     window.__scenePause?.resume();

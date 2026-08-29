@@ -514,18 +514,28 @@ try {
    * watching only counts while he is sat down AND the set is on. That lives in
    * `pastimeWatch()` in src/main.js and wants a harness hook to be reachable
    * from a verifier at all; noted in docs/FUTURE-EDITS.md rather than faked. */
-  const watched = await page.evaluate(() => {
+  const watched = await page.evaluate(async () => {
     const game = window.__squatch;
     game.campaign.advanceTime('activity.watch_tv', (state) => {
       state.activities.watchedTv = true;
     });
     game.updateObjectives();
+    const departure = game.tryLeave();
+    /* turnOff releases the program bed immediately and the streamed record at
+     * the end of its 300 ms UI fade, comfortably before the 1.8 s blackout
+     * hands the document to Beef Run. */
+    await new Promise((resolve) => setTimeout(resolve, 360));
     return {
       flag: game.campaign.state.activities.watchedTv,
       onTheClock: game.campaign.state.story.timeEvents.includes('activity.watch_tv'),
       panel: game.apartmentStory.objectives(game.activityContext()).items
         .map((item) => ({ id: item.id, done: item.done })),
-      departure: game.tryLeave(),
+      departure,
+      radioTeardown: {
+        on: game.radio.on,
+        mediaPaused: game.radio.el.paused,
+        loopKeys: [...game.audio.loops.keys()].filter((key) => key.startsWith('radio.')),
+      },
     };
   });
   check('half a minute in front of it ticks the beat off, on the panel and on the clock',
@@ -541,6 +551,11 @@ try {
     watched.departure?.kind === 'go'
       && watched.departure?.destination === 'airstrip_smuggling',
     JSON.stringify(watched.departure));
+  check('the apartment departure tears down its physical receiver with no stale radio beds',
+    watched.radioTeardown.on === false
+      && watched.radioTeardown.mediaPaused === true
+      && watched.radioTeardown.loopKeys.length === 0,
+    JSON.stringify(watched.radioTeardown));
   const departTime = await page.evaluate(() => {
     const story = window.__squatch.campaign.state.story;
     return { day: story.day, timeMinutes: story.timeMinutes, events: story.timeEvents };

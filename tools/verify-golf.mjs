@@ -1865,6 +1865,13 @@ const played = await page.evaluate(async () => {
     },
     failedCues: g.audio.failedCues.map((f) => `${f.name}: ${f.reason}`),
     replayVisible: document.getElementById('endcard-again')?.hidden === false,
+    radioTeardown: {
+      on: g.cartRadio.on,
+      paused: g.cartRadio._paused,
+      preferredOn: g.cartRadio.preferredOn,
+      mediaPaused: g.cartRadio.el?.paused ?? true,
+      beds: [...g.audio.loops.keys()].filter((key) => key.startsWith('radio.')).sort(),
+    },
     dialogueState: {
       active: g.dialogue.active,
       node: g.dialogue.nodeId,
@@ -1976,6 +1983,11 @@ check('28e. tee, pickup, and flag cues all fire during the real round',
     && played.effectCounts['golf.flag'] >= 1,
   JSON.stringify(played.effectCounts));
 check('28f. disposable preview rounds honestly offer replay', played.replayVisible);
+check('the completed round pauses the physical cart receiver with no stale radio beds',
+  (!played.radioTeardown.on || played.radioTeardown.paused)
+    && played.radioTeardown.mediaPaused
+    && played.radioTeardown.beds.length === 0,
+  JSON.stringify(played.radioTeardown));
 
 /* ------------------------------------------------------------------ */
 /* 26 · every score branch                                             */

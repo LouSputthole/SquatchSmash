@@ -2595,6 +2595,19 @@ function recordSecondVisit() {
   return false;
 }
 
+/** Release every audio owner before the router replaces this page. */
+function teardownBingAudio() {
+  /* The end card intentionally keeps the club alive while the player reads
+   * it; the click that leaves is the ownership seam. Iterate the live keys so
+   * a future signature sting cannot be omitted from a hand-maintained list.
+   * The physical car receiver is separate HTML media, so pause it without
+   * changing the player's persisted power preference. */
+  carRadio.pause();
+  for (const key of [...audio.loops.keys()]) audio.stopLoop(key, 0.18);
+  audio.stopSpeech?.(0.08);
+  return audio.loops.size === 0;
+}
+
 function driveAway() {
   if (game.over) return;
   game.over = true;
@@ -2700,6 +2713,7 @@ function showEnding(kind) {
     : 'Ride with the Family driver →';
   next.onclick = (event) => {
     event.preventDefault();
+    teardownBingAudio();
     if (isSecondVisit) campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD);
     navigateCampaign(campaign,
       isSecondVisit ? SCENE_IDS.SQUATCH_GRAVEYARD : SCENE_IDS.SQUATCHFATHER, {

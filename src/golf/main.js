@@ -2033,6 +2033,11 @@ function holeStats(summary) {
 function showEndCard(summary) {
   if (ended) return;
   ended = true;
+  /* The receiver is allowed to remember the player's switch, but the round
+   * no longer owns audible media once its report card is up. `pause()` keeps
+   * the persisted preference/cursor intact while releasing the HTML record,
+   * static bed, and talk bed before the campaign handoff. */
+  cartRadio.pause();
   story.recordHole(round.persist());
   const closed = story.complete({ holes: summary.holes });
 

@@ -2457,6 +2457,12 @@ try {
           version: gl.getParameter(gl.VERSION),
           renderer: gl.getParameter(gl.RENDERER),
         },
+        radioTeardown: {
+          on: game.radio.on,
+          paused: game.radio._paused,
+          mediaPaused: game.radio.el?.paused ?? true,
+          beds: [...game.audio.loops.keys()].filter((key) => key.startsWith('radio.')).sort(),
+        },
       }));
     };
     requestAnimationFrame(observe);
@@ -2557,6 +2563,11 @@ try {
     webglHealth.contextLossEvents === 0 && !webglHealth.contextLost
       && /WebGL/.test(webglHealth.version ?? ''),
     JSON.stringify(webglHealth));
+  check('NO WAKE completion owns no radio media or stale radio beds',
+    !completed.radioTeardown.on
+      && completed.radioTeardown.mediaPaused
+      && completed.radioTeardown.beds.length === 0,
+    JSON.stringify(completed.radioTeardown));
   // ---- Preview checkpoint links (?preview=1&checkpoint=...) --------------
   // Each waypoint gets its own fresh page/preview campaign, the way an owner
   // clicking a preview.html link would load it. `dock`/`underway`/`inlet`/

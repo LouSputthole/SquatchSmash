@@ -2714,6 +2714,10 @@ function finish(outcome) {
   story.complete(saved);
 
   performance_.finish();
+  /* The stage controller retires the feature and its 27-second opening tail.
+   * The non-diegetic room bed is a separate owner, so close it at the same
+   * campaign seam before Go Home can navigate into the apartment. */
+  roomScore.stop(1.2);
   overlay.classList.remove('hidden');
   overlay.classList.add('ending');
   overlay.querySelector('h1').innerHTML = 'FRONT AND<span>CENTER</span>';

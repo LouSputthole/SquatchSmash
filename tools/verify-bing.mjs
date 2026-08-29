@@ -2166,8 +2166,34 @@ check('the Family driver offers the direct Squatchfather handoff',
   ended.nextHref === 'squatchfather.html' && /Family driver/i.test(ended.nextCopy),
   JSON.stringify({ href: ended.nextHref, copy: ended.nextCopy }));
 
+let bingAudioTeardown = null;
+await page.exposeFunction('__captureBingAudioTeardown', (receipt) => {
+  bingAudioTeardown = receipt;
+});
 if (ended.nextHref === 'squatchfather.html') {
-  await page.evaluate(() => document.getElementById('next-level').click());
+  /* Observe the real route click without replacing it. location.assign() does
+   * not destroy the document until this event turn returns, so the wrapper can
+   * read the ownership table after the production onclick has retired it. */
+  await page.evaluate(() => {
+    const next = document.getElementById('next-level');
+    const leave = next.onclick;
+    next.onclick = function observedBingHandoff(event) {
+      const b = window.__bing;
+      const before = [...b.audio.loops.keys()].sort();
+      const result = leave.call(this, event);
+      window.__captureBingAudioTeardown({
+        before,
+        after: [...b.audio.loops.keys()].sort(),
+        carReceiver: {
+          on: b.carRadio.on,
+          paused: b.carRadio._paused,
+          mediaPaused: b.carRadio.el?.paused ?? true,
+        },
+      });
+      return result;
+    };
+  });
+  await page.click('#next-level');
   await page.waitForURL(`http://localhost:${PORT}/squatchfather.html`, { timeout: 90000 });
   await page.waitForFunction(() => window.squatchfather?.campaign, null, { timeout: 90000 });
   const routed = await page.evaluate(() => ({
@@ -2179,6 +2205,12 @@ if (ended.nextHref === 'squatchfather.html') {
       && routed.scene?.id === 'squatchfather'
       && routed.scene?.spawn === 'restaurant_exterior',
     JSON.stringify(routed));
+  check('the Bing scene handoff tears down every radio and music owner without stale loop keys',
+    bingAudioTeardown
+      && bingAudioTeardown.after.length === 0
+      && (!bingAudioTeardown.carReceiver.on
+        || (bingAudioTeardown.carReceiver.paused && bingAudioTeardown.carReceiver.mediaPaused)),
+    JSON.stringify(bingAudioTeardown));
 }
 
 /* ---- one identity, before and after the Beef Run ----

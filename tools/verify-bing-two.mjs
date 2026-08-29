@@ -1194,6 +1194,20 @@ try {
       && /graveyard/i.test(current.exitLabel),
     JSON.stringify(current));
 
+  const partyAudioTeardown = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    return {
+      phase: incident.game.phase,
+      room: incident.state.room,
+      loopKeys: [...incident.audio.loops.keys()],
+    };
+  });
+  check('the HotDog exit tears down the party record and every scene loop before the graveyard handoff',
+    partyAudioTeardown.phase === 'complete'
+      && ['yard', 'alley'].includes(partyAudioTeardown.room)
+      && partyAudioTeardown.loopKeys.length === 0,
+    JSON.stringify(partyAudioTeardown));
+
   await page.click('#start-btn');
   await page.waitForURL(`http://localhost:${PORT}/graveyard.html`, { timeout: 60000 });
   await page.waitForFunction(() => window.GRAVEYARD?.story, null, { timeout: 90000 });

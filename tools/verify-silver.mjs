@@ -3331,6 +3331,8 @@ const ended = await page.evaluate(() => ({
   folded: window.__silver.campaignState.missions.silver_room,
   chapter: window.__silver.campaignState.story.chapter,
   legacyKey: localStorage.getItem('squatch.frontAndCenter'),
+  musicKeys: [...window.__silver.audio.loops.keys()].filter((key) =>
+    ['silver.room.background', 'band.feature.tail', 'band.feature'].includes(key)),
 }));
 check('the evening ends on a card, reached by asking her rather than by a debug button',
   ended.over && ended.card && !!ended.saved?.outcome,
@@ -3343,6 +3345,8 @@ check('and the relationship is folded into the campaign for the next scene',
   JSON.stringify(ended.folded));
 check('and nothing is left behind in the mission’s old private save key',
   ended.legacyKey === null, String(ended.legacyKey));
+check('the Silver ending retires the room bed, opening tail, and featured number with no stale music keys',
+  ended.musicKeys.length === 0, JSON.stringify(ended.musicKeys));
 
 /* ---- and the one line the score cannot buy back ----
  * Last, because it fires into the live ledger, and by here the evening has been

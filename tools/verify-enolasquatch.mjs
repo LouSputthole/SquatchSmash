@@ -1038,6 +1038,9 @@ try {
     h.input.key('KeyW', false);
     const musicKeys = [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.'));
     const anthem = h.audio.engine.loops.get('music.takeoff');
+    const controls = document.getElementById('br-controls');
+    const controlsBounds = controls?.getBoundingClientRect();
+    const controlsStyle = controls ? getComputedStyle(controls) : null;
     return {
       phaseAtStart,
       thrustL: h.physics.thrustL,
@@ -1047,6 +1050,19 @@ try {
       musicKeys,
       anthem: anthem ? { volume: anthem.volume, loop: anthem.element.loop } : null,
       anthemOptions: h.audio.takeoffAnthemOptions,
+      controls: controlsBounds ? {
+        hidden: controls.classList.contains('hidden'),
+        faded: controls.classList.contains('faded'),
+        display: controlsStyle.display,
+        opacity: Number(controlsStyle.opacity),
+        left: controlsBounds.left,
+        top: controlsBounds.top,
+        right: controlsBounds.right,
+        bottom: controlsBounds.bottom,
+        width: controlsBounds.width,
+        height: controlsBounds.height,
+        viewport: [innerWidth, innerHeight],
+      } : null,
     };
   });
   check('go("takeoff") stages the runway, and all four engines produce real thrust under full power',
@@ -1058,6 +1074,16 @@ try {
       && takeoff.anthem?.volume === 0.435 && takeoff.anthem.loop === false
       && takeoff.anthemOptions?.cutAt === 150 && takeoff.anthemOptions?.cutFade === 4,
     JSON.stringify({ keys: takeoff.musicKeys, anthem: takeoff.anthem, options: takeoff.anthemOptions }));
+  check('the live takeoff control card is visible, bright, and wholly inside the left side of the viewport',
+    takeoff.controls
+      && !takeoff.controls.hidden && !takeoff.controls.faded
+      && takeoff.controls.display !== 'none' && takeoff.controls.opacity > 0.95
+      && takeoff.controls.width > 140 && takeoff.controls.height > 100
+      && takeoff.controls.left >= 0 && takeoff.controls.top >= 0
+      && takeoff.controls.right <= takeoff.controls.viewport[0]
+      && takeoff.controls.bottom <= takeoff.controls.viewport[1]
+      && takeoff.controls.right < takeoff.controls.viewport[0] * 0.5,
+    JSON.stringify(takeoff.controls));
 
   /* Shortcut: an unassisted headless takeoff roll/rotation is a flight-model
    * timing question (already covered by `npm run check:flight`'s tuning
@@ -2152,9 +2178,9 @@ try {
 
   /* Shortcut: the rest of the run to the target is straight, undamaging
    * flight already proven above (corridor crossing) — jump to the approach. */
-  const bombApproachEntry = await page.evaluate(() => {
+  await page.evaluate(() => {
     const h = window.__enolaSquatch;
-    const phase = h.go('bombApproach');
+    h.go('bombApproach');
     /* The combat block above is a stress test — it deliberately flies into a
      * barrage and lets three fighters make passes, and it leaves the skin in a
      * state no ordinary run would reach. `restoreCheckpoint('preRelease')`
@@ -2165,9 +2191,40 @@ try {
     h.physics.damage.wing = 0;
     h.physics.damage.gear = 0;
     h.physics.damage.tireBurst = false;
-    return phase;
   });
-  check('go("bombApproach") stages the bombing run', bombApproachEntry === 'bombApproach');
+  await page.waitForFunction(() => {
+    const handle = window.__enolaSquatch.audio.engine.loops.get('music.enola.approach');
+    return handle && !handle.element.paused;
+  }, null, { timeout: 10000 });
+  const bombApproachEntry = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const musicKeys = [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.')).sort();
+    const handle = h.audio.engine.loops.get('music.enola.approach');
+    return {
+      phase: h.mission.phase,
+      musicKeys,
+      media: handle ? {
+        src: handle.element.currentSrc || handle.element.src,
+        paused: handle.element.paused,
+        loop: handle.element.loop,
+        volume: handle.volume,
+        released: handle.released,
+        failed: handle.failed,
+      } : null,
+      receipt: h.audio.lastNarrativeMusic,
+    };
+  });
+  check('go("bombApproach") stages the bombing run', bombApproachEntry.phase === 'bombApproach');
+  check('the Enola approach score owns one real streamed media handle on the bombing run',
+    bombApproachEntry.musicKeys.join('|') === 'music.enola.approach'
+      && bombApproachEntry.media
+      && /enola-pre-bomb-drop-approach\.mp3(?:\?|$)/.test(bombApproachEntry.media.src)
+      && !bombApproachEntry.media.paused && !bombApproachEntry.media.loop
+      && bombApproachEntry.media.volume === 0.22
+      && !bombApproachEntry.media.released && !bombApproachEntry.media.failed
+      && bombApproachEntry.receipt?.kind === 'approach'
+      && bombApproachEntry.receipt?.key === 'music.enola.approach',
+    JSON.stringify(bombApproachEntry));
 
   /* ---- THE DIAMOND ON THE CITY ----
    *
@@ -2463,6 +2520,8 @@ try {
       afterMass: h.physics.mass,
       phase: h.mission.phase,
       payloadReleasedFlag: h.mission.payloadReleased,
+      musicKeys: [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.')).sort(),
+      approachReceipt: h.audio.lastNarrativeMusic,
     };
   });
   check('choosing release line 3 through the real keyboard detaches the Fat Squatch and drops the mass',
@@ -2475,6 +2534,11 @@ try {
   check('the mass drop matches the Fat Squatch\'s payload mass',
     Math.abs((beforeMass - release.afterMass) - 2700) < 5,
     JSON.stringify({ beforeMass, afterMass: release.afterMass }));
+  check('the release frame cuts the Enola approach score and leaves the bomb fall deliberately silent',
+    release.phase === 'explosion' && release.musicKeys.length === 0
+      && release.approachReceipt?.key === 'music.enola.approach'
+      && release.approachReceipt?.stoppedAt !== null,
+    JSON.stringify({ keys: release.musicKeys, receipt: release.approachReceipt }));
 
   /* ---- The break turn: the seconds between the bomb and the flash ----
    * Owner's brief is that the blast is the payoff; the way to make it MEAN
@@ -2557,6 +2621,7 @@ try {
       bubblePeak: 0, washPeak: 0, washOverlayPeak: 0, washFrames: 0,
       turbPeak: 0, viewsSeen: [], dropCamSeen: false,
       nosePathDot: -1, noseY: 1,
+      scoreKeysDuringExplosion: [], escapeMusicAt: null,
     };
     /* The overlay is real DOM: read what the browser actually computed, not
      * the number the mission published. A sweep that is being written to a
@@ -2574,6 +2639,15 @@ try {
      * is not a check. */
     const sample = () => {
       const st = h.state();
+      const musicKeys = [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.')).sort();
+      if (h.mission.phase === 'explosion') {
+        for (const key of musicKeys) {
+          if (!seen.scoreKeysDuringExplosion.includes(key)) seen.scoreKeysDuringExplosion.push(key);
+        }
+      }
+      if (seen.escapeMusicAt === null && musicKeys.includes('music.enola.escape')) {
+        seen.escapeMusicAt = +h.mission._escapeT.toFixed(3);
+      }
       seen.washPeak = Math.max(seen.washPeak, st.blast.wash);
       seen.turbPeak = Math.max(seen.turbPeak, st.blast.turbulence);
       if (st.blast.wash > 0.05) seen.washFrames += 1;
@@ -2650,6 +2724,7 @@ try {
         vfx.front, vfx.dustRing, vfx.surge, vfx.skirt].filter((o) => o.visible).length,
       lightsOut: vfx.light.intensity === 0 && vfx.afterglow.intensity === 0,
     } : null;
+    const escapeHandle = h.audio.engine.loops.get('music.enola.escape');
 
     return {
       impacted: h.payload.impacted,
@@ -2663,6 +2738,16 @@ try {
       cameraEnd: h.state().camera,
       seen,
       linger,
+      musicKeys: [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.')).sort(),
+      narrativeReceipt: h.audio.lastNarrativeMusic,
+      escapeMedia: escapeHandle ? {
+        src: escapeHandle.element.currentSrc || escapeHandle.element.src,
+        paused: escapeHandle.element.paused,
+        loop: escapeHandle.element.loop,
+        volume: escapeHandle.volume,
+        released: escapeHandle.released,
+        failed: escapeHandle.failed,
+      } : null,
     };
   });
 
@@ -2687,6 +2772,22 @@ try {
       && ['escape', 'emergency', 'return'].includes(explosionReal.phase) && !explosionReal.failed
       && explosionReal.whistleStopped,
     JSON.stringify({ ...explosionReal, seen: undefined }));
+  check('the whole explosion phase remains score-silent before the authored escape delay',
+    explosionReal.seen.scoreKeysDuringExplosion.length === 0,
+    JSON.stringify(explosionReal.seen.scoreKeysDuringExplosion));
+  check('the Enola escape score starts once after the silent aftermath on a real streamed media handle',
+    explosionReal.seen.escapeMusicAt >= 1.8 && explosionReal.seen.escapeMusicAt <= 2.1
+      && explosionReal.musicKeys.join('|') === 'music.enola.escape'
+      && /enola-escape-after-drop\.mp3(?:\?|$)/.test(explosionReal.escapeMedia?.src || '')
+      && explosionReal.escapeMedia?.paused === false
+      && explosionReal.escapeMedia?.loop === false
+      && explosionReal.escapeMedia?.volume === 0.24
+      && explosionReal.escapeMedia?.released === false
+      && explosionReal.escapeMedia?.failed === false
+      && explosionReal.narrativeReceipt?.kind === 'escape'
+      && explosionReal.narrativeReceipt?.key === 'music.enola.escape',
+    JSON.stringify({ at: explosionReal.seen.escapeMusicAt, keys: explosionReal.musicKeys,
+      media: explosionReal.escapeMedia, receipt: explosionReal.narrativeReceipt }));
 
   check('the Fat Squatch settles nose-first into its falling path instead of tumbling sideways',
     explosionReal.seen.nosePathDot > 0.94 && explosionReal.seen.noseY < -0.2,
@@ -2924,6 +3025,9 @@ try {
     };
     h.tick(0.5);
     const t = h.state().target;
+    const controls = document.getElementById('br-controls');
+    const controlsBounds = controls?.getBoundingClientRect();
+    const controlsStyle = controls ? getComputedStyle(controls) : null;
     return {
       took,
       ...t,
@@ -2958,7 +3062,37 @@ try {
       // And the same reading half a second later, which is a different
       // question — by then the bombardier has had time to use one of them.
       beatsAfterHalfASecond: { cityInSight: h.dialogue.seen('bomb.cityInSight') },
+      musicKeys: [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.')).sort(),
+      narrativeReceipt: h.audio.lastNarrativeMusic,
+      controls: controlsBounds ? {
+        hidden: controls.classList.contains('hidden'),
+        faded: controls.classList.contains('faded'),
+        display: controlsStyle.display,
+        opacity: Number(controlsStyle.opacity),
+        left: controlsBounds.left,
+        top: controlsBounds.top,
+        right: controlsBounds.right,
+        bottom: controlsBounds.bottom,
+        width: controlsBounds.width,
+        height: controlsBounds.height,
+        viewport: [innerWidth, innerHeight],
+      } : null,
     };
+  });
+  await page.waitForFunction(() => {
+    const handle = window.__enolaSquatch.audio.engine.loops.get('music.enola.approach');
+    return handle && !handle.element.paused;
+  }, null, { timeout: 10000 });
+  const restartedApproachMedia = await page.evaluate(() => {
+    const handle = window.__enolaSquatch.audio.engine.loops.get('music.enola.approach');
+    return handle ? {
+      src: handle.element.currentSrc || handle.element.src,
+      paused: handle.element.paused,
+      loop: handle.element.loop,
+      volume: handle.volume,
+      released: handle.released,
+      failed: handle.failed,
+    } : null;
   });
   check('restarting from the checkpoint puts Squatchbourg back — every lot standing, the lights on, the streets and the river drawn',
     restarted.took && restarted.destroyed === false
@@ -3011,6 +3145,29 @@ try {
       phase: restarted.phase, payload: restarted.payloadFlags,
       onMount: restarted.payloadOnMount, released: restarted.payloadReleased,
     }));
+  check('checkpoint restart replaces the escape score with exactly one fresh approach owner',
+    restarted.musicKeys.join('|') === 'music.enola.approach'
+      && /enola-pre-bomb-drop-approach\.mp3(?:\?|$)/.test(restartedApproachMedia?.src || '')
+      && restartedApproachMedia?.paused === false
+      && restartedApproachMedia?.loop === false
+      && restartedApproachMedia?.volume === 0.22
+      && restartedApproachMedia?.released === false
+      && restartedApproachMedia?.failed === false
+      && restarted.narrativeReceipt?.kind === 'approach'
+      && restarted.narrativeReceipt?.key === 'music.enola.approach'
+      && restarted.narrativeReceipt?.startedAt > explosionReal.narrativeReceipt?.startedAt,
+    JSON.stringify({ keys: restarted.musicKeys, media: restartedApproachMedia,
+      receipt: restarted.narrativeReceipt }));
+  check('checkpoint restart restores the live control card bright and inside the left viewport',
+    restarted.controls
+      && !restarted.controls.hidden && !restarted.controls.faded
+      && restarted.controls.display !== 'none' && restarted.controls.opacity > 0.95
+      && restarted.controls.width > 140 && restarted.controls.height > 100
+      && restarted.controls.left >= 0 && restarted.controls.top >= 0
+      && restarted.controls.right <= restarted.controls.viewport[0]
+      && restarted.controls.bottom <= restarted.controls.viewport[1]
+      && restarted.controls.right < restarted.controls.viewport[0] * 0.5,
+    JSON.stringify(restarted.controls));
 
   /* ---- The battle damage goes with the engines. `engines.reset(false)` inside
    * the restore rebuilds all four; `Defense.damage` is a second, parallel
@@ -3453,6 +3610,22 @@ try {
       rank: epilogue.report?.rank,
       tier: epilogue.report?.tier,
     }));
+
+  const enolaAudioTeardown = await page.evaluate(async () => {
+    const h = window.__enolaSquatch;
+    h.audio.dispose();
+    await new Promise((resolve) => setTimeout(resolve, 320));
+    return {
+      musicKeys: [...h.audio.engine.loops.keys()].filter((key) => key.startsWith('music.')).sort(),
+      pendingNarrative: h.audio._pendingNarrativeMusic,
+      receipt: h.audio.lastNarrativeMusic,
+    };
+  });
+  check('disposing Enola audio releases every narrative media key with no pending restart',
+    enolaAudioTeardown.musicKeys.length === 0
+      && enolaAudioTeardown.pendingNarrative === null
+      && enolaAudioTeardown.receipt?.stoppedAt !== null,
+    JSON.stringify(enolaAudioTeardown));
 
   check('no runtime console/page errors occurred across the whole run', problems.length === 0, problems.join(' | '));
 

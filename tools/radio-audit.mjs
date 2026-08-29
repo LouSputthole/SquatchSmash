@@ -22,6 +22,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+  applyRadioActivePlayCoverage,
+  summarizeRadioActivePlayCoverage,
+} from './radio-active-play-coverage.mjs';
+
 const TOOL_FILE = fileURLToPath(import.meta.url);
 const DEFAULT_ROOT = path.resolve(path.dirname(TOOL_FILE), '..');
 const MUSIC_EXTENSIONS = ['.mp3', '.ogg', '.m4a', '.wav'];
@@ -894,7 +899,9 @@ async function buildCueInventory({ repoRoot, musicTracks, sfxManifest, voiceCueN
     .map((record) => [`music:${record.manifest.file}`, record.duration])), records };
 }
 
-function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRows }) {
+function buildProblems({
+  source, voiceCueCount, cueRows, musicTracks, timelineRows, lifecycleCoverage,
+}) {
   const orphanCount = cueRows.filter((row) => String(row['Orphan status']).startsWith('YES')).length;
   const missingCount = cueRows.filter((row) => String(row['Orphan status']).startsWith('BROKEN')).length;
   const licenseGap = musicTracks.filter((track) => !track.license && !track.source && !track._license).length;
@@ -905,6 +912,14 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
     && String(row['Loudness issue']).startsWith('Measured:')).length;
   const verifiedSpoken = cueRows.filter((row) => String(row['Filename-content mismatch']).startsWith('VERIFIED —')).length;
   const unverifiedSpoken = cueRows.filter((row) => /^(UNVERIFIED|STALE|REVIEW) —/.test(String(row['Filename-content mismatch']))).length;
+  const legacyIdentityCues = new Set([
+    'radio.ident.ksqch', 'radio.ident.uncle', 'radio.sting.ksqch', 'radio.sting.uncle',
+  ]);
+  const orphanCueIds = cueRows
+    .filter((row) => String(row['Orphan status']).startsWith('YES'))
+    .map((row) => row['Cue ID']);
+  const onlyOwnerLegacyOrphans = orphanCueIds.length > 0
+    && orphanCueIds.every((cueId) => legacyIdentityCues.has(cueId));
   const rows = [
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'Station architecture',
@@ -932,11 +947,16 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
     },
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'Radio + venue/mission scores',
-      Problem: 'There is no generated all-scene proof for simultaneous playback, stop/restore behavior, or scene teardown across radio and dedicated music systems.',
-      Evidence: 'Source inventory spans src/core/radio.js, src/silver/music.js, src/heist/music.js, src/enolasquatch/audio.js, src/motel/audio.js, and scene-local loops; no overlap audit generator existed before this report.',
-      'Player impact': 'A stale loop or two valid systems playing together can mask dialogue or survive a transition.',
-      'Proposed fix': 'Mechanical: add narrow browser receipts for start, stop, restore, teardown, console errors, and concurrent music keys.',
-      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No for lifecycle checks; OWNER only for desired overlaps.', Status: 'OPEN',
+      Problem: `The generated Scene Timeline binds all ${lifecycleCoverage.covered}/${lifecycleCoverage.total} unique radio, venue-music, mission-score, and authored-silence owners to exact named active-play receipts.`,
+      Evidence: 'tools/radio-active-play-coverage.mjs plus tests/radio-active-play-coverage.test.mjs; the contract rejects missing owners, stale mappings, and renamed verifier receipts.',
+      'Player impact': 'Mechanical ownership drift can no longer hide as a complete inventory row; each live owner has a reviewable start/stop/restore/teardown or deliberate-silence receipt.',
+      'Proposed fix': lifecycleCoverage.complete
+        ? 'Keep the source-driven contract green and rerun the named browser verifiers after lifecycle edits.'
+        : `Mechanical: map missing owners and remove stale mappings (${lifecycleCoverage.missing.length} missing; ${lifecycleCoverage.stale.length} stale).`,
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No for lifecycle coverage; OWNER only for a desired creative overlap.',
+      Status: lifecycleCoverage.complete
+        ? 'SOURCE CONTRACT COMPLETE — NAMED BROWSER RERUN DUE'
+        : 'OPEN — LIFECYCLE COVERAGE DRIFT',
     },
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'All long-form music',
@@ -951,9 +971,11 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
       Problem: `${measuredMasters}/${musicTracks.length} long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review.`,
       Evidence: 'docs/audits/radio/loudness-measurements.json plus the generated Cue Inventory; the meter makes no production gain changes.',
       'Player impact': 'Tracks at the same configured gain can have very different perceived loudness and mask dialogue.',
-      'Proposed fix': 'Mechanical measurement is complete. Add active-play dialogue/overlap receipts; OWNER approves any gain or asset normalization changes.',
+      'Proposed fix': 'Mechanical measurement and named active-play ownership coverage are complete. OWNER listens in context and approves any gain or asset normalization changes.',
       'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER for audible mix changes after measurements.',
-      Status: measuredMasters === musicTracks.length ? 'MEASURED — ACTIVE MIX REVIEW OPEN' : 'OPEN — MEASUREMENT DRIFT',
+      Status: measuredMasters === musicTracks.length
+        ? 'MEASURED — OWNER AUDIBLE MIX REVIEW'
+        : 'OPEN — MEASUREMENT DRIFT',
     },
     {
       Severity: 'P2', Scene: 'Multiple receivers', 'Station or cue': 'Venue filtering',
@@ -985,7 +1007,12 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
       Evidence: 'Generated Cue Inventory combines manifests, generated voice cue names, source references, receiver eligibility, and byte hashes.',
       'Player impact': 'Dead rows increase recording and QA noise; missing assets can produce silent fallback paths.',
       'Proposed fix': 'Mechanical: review each generated row. Remove manifest and file together only after confirming no dynamic use; preserve legacy station assets pending OWNER decision.',
-      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER only for legacy station identity cues.', Status: missingCount ? 'OPEN — MISSING FILES' : 'OPEN',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'OWNER only for legacy station identity cues.',
+      Status: missingCount
+        ? 'OPEN — MISSING FILES'
+        : onlyOwnerLegacyOrphans
+          ? 'OWNER — LEGACY IDENTITY CUES'
+          : 'OPEN — NON-OWNER ORPHANS',
     },
     {
       Severity: 'P2', Scene: 'Global', 'Station or cue': 'Filename/content and source-only audit limit',
@@ -1024,17 +1051,19 @@ function buildProblems({ source, voiceCueCount, cueRows, musicTracks, timelineRo
   return rows;
 }
 
-function buildRevampPlan({ measuredMasters, musicMasters, verifiedSpokenCues, spokenCueTotal }) {
+function buildRevampPlan({
+  measuredMasters, musicMasters, verifiedSpokenCues, spokenCueTotal, lifecycleCoverage,
+}) {
   return [
     { Order: 1, 'Work item': 'Generate the source-driven radio/music audit and five review sheets', Files: 'tools/radio-audit.mjs; docs/audits/radio/*.csv; docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx; docs/audits/SQUATCHSMASH-RADIO-REVAMP.md', Dependency: 'Current manifests, station data, scene contracts, campaign spine', Risk: 'Low', 'Acceptance check': 'Generator --check passes; all five sheets render; every campaign beat is represented', Status: 'DONE', Commit: 'd6f2ae0e; b2e63abb' },
     { Order: 2, 'Work item': 'Reconcile station documentation and manifest semantics while preserving unresolved legacy identities', Files: 'src/core/stations.js; assets/music/manifest.json; src/core/radio.js; tests/radio-*.test.mjs', Dependency: 'OWNER rules on legacy uncle/ksqch identities for any runtime change', Risk: 'Medium', 'Acceptance check': 'Docs, manifest, runtime selection, and tests describe the same current station model without guessing the legacy identities future', Status: 'DOCUMENTATION DONE — IDENTITY DECISION OWNER', Commit: 'b2e63abb' },
     { Order: 3, 'Work item': 'Make receiver persistence consistent', Files: 'src/luxury-apartment/main.js; src/mansion/main.js; src/core/campaign.js', Dependency: 'Existing createCampaignRadioAdapter', Risk: 'Low', 'Acceptance check': 'Power, volume, cursor, and selection survive reload without cross-receiver collisions', Status: 'DONE', Commit: '4d7d01ef' },
-    { Order: 4, 'Work item': 'Add stop, restore, overlap, and teardown browser receipts', Files: 'Existing Playwright scene verifiers; src/core/scene-lifecycle.js; audio residency tests', Dependency: 'Stable receiver IDs and current music ownership', Risk: 'Medium', 'Acceptance check': 'Each changed scene proves active keys, stops, reload state, console errors, and no unintended concurrent masters', Status: 'HOME RECEIVER RECEIPTS DONE — CAMPAIGN MIX PASS OPEN', Commit: '4d7d01ef' },
+    { Order: 4, 'Work item': 'Add stop, restore, overlap, and teardown browser receipts', Files: 'tools/radio-active-play-coverage.mjs; existing Playwright scene verifiers; audio residency tests', Dependency: 'Stable receiver IDs and current music ownership', Risk: 'Medium', 'Acceptance check': 'Every unique non-silent timeline owner maps to an exact named active-play receipt; contract rejects missing/stale mappings and renamed checks', Status: lifecycleCoverage.complete ? `SOURCE COMPLETE — ${lifecycleCoverage.covered}/${lifecycleCoverage.total} OWNERS MAPPED; BROWSER RERUN DUE` : `OPEN — ${lifecycleCoverage.covered}/${lifecycleCoverage.total} OWNERS MAPPED`, Commit: '' },
     { Order: 5, 'Work item': 'Add repeatable duration, integrated-loudness, true-peak, and identity evidence', Files: 'tools/audio-loudness-audit.mjs; tools/verify-radio-content.ps1; docs/audits/radio/loudness-measurements.json; docs/audits/radio/content-transcriptions.json; tools/radio-audit.mjs; generated Cue Inventory', Dependency: 'Existing Playwright Chromium decoder and ElevenLabs Scribe v2 for spoken identity', Risk: 'Medium', 'Acceptance check': 'Every retained master has measured duration/LUFS/peak; every spoken cue has a current transcript; music identity remains an explicit owner review', Status: measuredMasters === musicMasters && verifiedSpokenCues === spokenCueTotal ? 'LOUDNESS + SPOKEN IDENTITY DONE — MUSIC OWNER REVIEW' : 'PARTIAL — EVIDENCE DRIFT', Commit: '14cc6c94; b2e63abb' },
     { Order: 6, 'Work item': 'Resolve OWNER programming decisions', Files: 'Problems and Decisions sheet', Dependency: 'Owner chooses legacy stations, venue allocation, news coverage, provenance, and any host rewrite', Risk: 'High if guessed', 'Acceptance check': 'Every OWNER row has an explicit answer; no track is silently replaced or deleted', Status: 'WAITING ON OWNER', Commit: '' },
-    { Order: 7, 'Work item': 'Implement approved mechanical trigger, stop, restore, and selection fixes', Files: 'src/core/radio.js; scene-owned score modules; manifests; relevant tests', Dependency: 'Orders 2–6', Risk: 'Medium', 'Acceptance check': 'Source contracts and real-browser receipts pass; owner-selected material remains intact', Status: 'HOME RECEIVER FIX DONE — PROGRAMMING CHANGES WAIT ON OWNER', Commit: '4d7d01ef' },
-    { Order: 8, 'Work item': 'Run campaign-wide active-play music/dialogue mix QA', Files: 'All Scene Timeline rows; Playwright traces and scene evidence', Dependency: 'Mechanical fixes and loudness measurements', Risk: 'Medium', 'Acceptance check': 'Dialogue remains intelligible; intentional silence lands; no stale loop crosses a scene handoff', Status: 'PLANNED', Commit: '' },
-    { Order: 9, 'Work item': 'Regenerate ledgers and certify the final radio revamp', Files: 'Generated dialogue/audio/take ledgers; check:radio-vo; scene tests; campaign marathon if handoffs change', Dependency: 'Any authored line or route changes', Risk: 'Low', 'Acceptance check': 'All applicable cue, take, audio, radio, scene, and campaign gates actually run and pass', Status: 'PLANNED', Commit: '' },
+    { Order: 7, 'Work item': 'Implement approved mechanical trigger, stop, restore, and selection fixes', Files: 'src/core/radio.js; scene-owned score modules; manifests; relevant tests', Dependency: 'Orders 2–6', Risk: 'Medium', 'Acceptance check': 'Source contracts and real-browser receipts pass; owner-selected material remains intact', Status: lifecycleCoverage.complete ? 'MECHANICAL LIFECYCLE SOURCE DONE — PROGRAMMING CHANGES WAIT ON OWNER' : 'OPEN — LIFECYCLE COVERAGE DRIFT', Commit: '' },
+    { Order: 8, 'Work item': 'Run campaign-wide active-play music/dialogue mix QA', Files: 'All Scene Timeline rows; Playwright traces and scene evidence', Dependency: 'Mechanical fixes and loudness measurements', Risk: 'Medium', 'Acceptance check': 'Dialogue remains intelligible; intentional silence lands; no stale loop crosses a scene handoff', Status: lifecycleCoverage.complete ? 'MECHANICAL COVERAGE DONE — OWNER LISTENING OPEN' : 'OPEN — MECHANICAL COVERAGE', Commit: '' },
+    { Order: 9, 'Work item': 'Regenerate ledgers and certify the final radio revamp', Files: 'Generated dialogue/audio/take ledgers; check:radio-vo; scene tests; campaign marathon if handoffs change', Dependency: 'Any authored line or route changes', Risk: 'Low', 'Acceptance check': 'All applicable cue, take, audio, radio, scene, and campaign gates actually run and pass', Status: lifecycleCoverage.complete ? 'READY — NAMED BROWSER RECEIPTS + FULL GATES PENDING' : 'BLOCKED — LIFECYCLE COVERAGE DRIFT', Commit: '' },
   ];
 }
 
@@ -1067,6 +1096,7 @@ This is the implementation plan paired with [SQUATCHSMASH-RADIO-AUDIT.xlsx](./SQ
 - Referenced audit assets missing on disk: **${data.summary.missingAssets}**.
 - Long-form masters with current hash-bound loudness evidence: **${data.summary.measuredMasters} / ${data.summary.musicMasters}**.
 - Spoken station/news cues with current hash-bound Scribe receipts: **${data.summary.verifiedSpokenCues} / ${data.summary.spokenCueTotal}**.
+- Unique live radio/music owners mapped to named active-play receipts: **${data.summary.lifecycleCovered} / ${data.summary.lifecycleOwners}**.
 - Live 97.8 programming pool: **${station?.['Track count'] ?? 0}** non-cue tracks before venue filtering.
 
 ## What is actually built
@@ -1103,7 +1133,7 @@ ${markdownTable(SHEETS['Revamp Plan'], data.rows['Revamp Plan'])}
 
 ## Verification boundary
 
-This audit proves source/manifests/route coverage, measures MP3 duration, carries hash-bound integrated loudness/sample-peak/4× intersample-peak evidence for every long-form master, and verifies every spoken station/news take against its current authored text with Scribe v2. It does **not** claim a song's identity from its filename, claim every campaign-wide overlap has been mixed by ear, or claim that measured loudness has been normalized. Those remaining boundaries stay explicit in the workbook.
+This audit proves source/manifests/route coverage, binds each unique live owner to an exact named active-play verifier receipt, measures MP3 duration, carries hash-bound integrated loudness/sample-peak/4× intersample-peak evidence for every long-form master, and verifies every spoken station/news take against its current authored text with Scribe v2. The named browser verifiers still have to be rerun after source changes. It does **not** claim a song's identity from its filename, claim every campaign-wide overlap has been mixed by ear, or claim that measured loudness has been normalized. Those remaining boundaries stay explicit in the workbook.
 
 Regenerate deterministic text artifacts with:
 
@@ -1163,6 +1193,15 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     spine: CAMPAIGN_SPINE, contracts: SCENE_CONTRACTS, musicTracks: musicManifest.tracks,
     beatClock,
   });
+  const lifecycleCoverage = summarizeRadioActivePlayCoverage(timeline);
+  if (!lifecycleCoverage.complete) {
+    throw new Error([
+      `Radio active-play coverage drift: ${lifecycleCoverage.covered}/${lifecycleCoverage.total} owners mapped.`,
+      ...lifecycleCoverage.missing.map((key) => `Missing: ${key}`),
+      ...lifecycleCoverage.stale.map((key) => `Stale: ${key}`),
+    ].join('\n'));
+  }
+  applyRadioActivePlayCoverage(timeline);
   const cueInventory = await buildCueInventory({ repoRoot, musicTracks: musicManifest.tracks,
     sfxManifest, voiceCueNames, contracts: SCENE_CONTRACTS, sourceFiles, sourceTexts,
     loudnessEvidence, contentEvidence });
@@ -1170,13 +1209,14 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
   const stationCatalog = buildStationCatalog({ stations: stationsModule.STATIONS,
     musicTracks: musicManifest.tracks, durations: cueInventory.durations, sfxByName });
   const problems = buildProblems({ source, voiceCueCount: voiceCues.length,
-    cueRows: cueInventory.rows, musicTracks: musicManifest.tracks, timelineRows: timeline });
+    cueRows: cueInventory.rows, musicTracks: musicManifest.tracks, timelineRows: timeline,
+    lifecycleCoverage });
   const measuredMasters = cueInventory.rows.filter((row) => /^(music|track):/.test(row['Cue ID'])
     && String(row['Loudness issue']).startsWith('Measured:')).length;
   const verifiedSpokenCues = cueInventory.rows.filter((row) => String(row['Filename-content mismatch']).startsWith('VERIFIED —')).length;
   const spokenCueTotal = cueInventory.rows.filter((row) => /^(VERIFIED|UNVERIFIED|STALE|REVIEW) —/.test(String(row['Filename-content mismatch']))).length;
   const revamp = buildRevampPlan({ measuredMasters, musicMasters: musicManifest.tracks.length,
-    verifiedSpokenCues, spokenCueTotal });
+    verifiedSpokenCues, spokenCueTotal, lifecycleCoverage });
   const rows = {
     'Scene Timeline': timeline,
     'Station Catalog': stationCatalog,
@@ -1205,6 +1245,8 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     voiceCues: voiceCues.length,
     measuredMasters, musicMasters: musicManifest.tracks.length,
     verifiedSpokenCues, spokenCueTotal,
+    lifecycleOwners: lifecycleCoverage.total,
+    lifecycleCovered: lifecycleCoverage.covered,
     orphans: cueInventory.rows.filter((row) => String(row['Orphan status']).startsWith('YES')).length,
     missingAssets: cueInventory.rows.filter((row) => String(row['Orphan status']).startsWith('BROKEN')).length,
   };
