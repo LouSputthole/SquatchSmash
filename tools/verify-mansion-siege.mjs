@@ -2927,6 +2927,42 @@ try {
    * crosshair before the verifier has a chance to isolate and restore it. */
   const fallbackId = combatIds[1];
   const automaticId = combatIds[3];
+  /* The LITTLE_FRIEND line deliberately protects its own hero moment by
+   * holding every weapon report until the delivered take ends. The combat
+   * probe below is meant to prove the public trigger after that authored
+   * protection, so advance the shipping dialogue clock and pin the release
+   * instead of racing a variable-length recording. */
+  const heroLineReleased = await evaluate(() => {
+    const s = window.mansionSiege;
+    const startedProtected = s.dialogue.line?.protected === true;
+    const attackerUpdate = s.attackers.update;
+    const ensembleUpdate = s.ensemble.update;
+    const missionUpdate = s.mission.update;
+    try {
+      s.attackers.update = () => {};
+      s.ensemble.update = () => {};
+      s.mission.update = () => {};
+      for (let elapsed = 0; elapsed < 30 && s.dialogue.line?.protected === true; elapsed += 0.1) {
+        s.tick(0.1);
+      }
+    } finally {
+      s.attackers.update = attackerUpdate;
+      s.ensemble.update = ensembleUpdate;
+      s.mission.update = missionUpdate;
+    }
+    return {
+      startedProtected,
+      protected: s.dialogue.line?.protected === true,
+      fireEnabled: s.mission.playerFireEnabled,
+      sequence: s.speakingSequence,
+      beat: s.beat,
+    };
+  });
+  check('the little-friend protection is released before the real trigger proof',
+    heroLineReleased.protected === false
+      && heroLineReleased.fireEnabled === true
+      && heroLineReleased.beat === 'WAVE_ONE',
+    JSON.stringify(heroLineReleased));
   await evaluate(() => {
     window.mansionSiege.blood.reset();
     window.mansionSiege.player.pitch = 1.2;
@@ -3160,6 +3196,16 @@ try {
     const { CombatProjectilePattern } = await import('/src/core/combat/projectile-pattern.js');
     const s = window.mansionSiege;
     const target = s.attackers.entry(targetId);
+    /* The scene's requestAnimationFrame remains live until the admitted
+     * canvas click. Without isolating the two AI clocks, an armed Family
+     * member can shoot this intentionally ten-health target between setup and
+     * the click, leaving the real player blast with no death transition to
+     * prove. WeaponSystem, the public click, projectiles, hit resolution,
+     * blood and the pump clock remain live; only unrelated combatants wait. */
+    const originalAttackersUpdate = s.attackers.update;
+    const originalEnsembleUpdate = s.ensemble.update;
+    s.attackers.update = () => {};
+    s.ensemble.update = () => {};
     s.equip('shotgun');
     /* One weakest-zone pellet (18 * 0.58 = 10.44) must be enough to make the
      * transition deterministic; spread is still free to prove seven paths. */
@@ -3189,6 +3235,7 @@ try {
     const originalEmit = WeaponSystem.prototype._emit;
     window.__siegeShotgunProbe = {
       log, originalRegisterHit, originalPlay, originalEmit,
+      originalAttackersUpdate, originalEnsembleUpdate,
       WeaponSystem, CombatProjectilePattern,
     };
     WeaponSystem.prototype._emit = function emitShotgunProbe(event) {
@@ -3339,6 +3386,8 @@ try {
       if (!probe) return;
       s.attackers.registerHit = probe.originalRegisterHit;
       s.audio.play = probe.originalPlay;
+      s.attackers.update = probe.originalAttackersUpdate;
+      s.ensemble.update = probe.originalEnsembleUpdate;
       probe.WeaponSystem.prototype._emit = probe.originalEmit;
       delete window.__siegeShotgunProbe;
     });
