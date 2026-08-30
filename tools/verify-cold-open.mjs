@@ -446,14 +446,21 @@ try {
    *
    * Take the state IN the predicate too. The old second `state()` round trip
    * could straddle the next frame and read a phase that had already moved on. */
+  /* …and even the millisecond poll has a floor: when one frame carries more
+   * than the whole 0.55 s card, shutdown is entered and left inside a single
+   * update() and there is no gap in which it exists to be sampled. So the
+   * product keeps a receipt -- `coldOpenState.phaseLog`, every phase entered
+   * with the pull-back value at entry -- and the proof reads the ledger
+   * instead of racing the transient. */
   const shutting = await page.waitForFunction(() => {
     const snapshot = window.__squatch.coldOpenState;
-    return snapshot.phase === 'shutdown' ? snapshot : null;
+    const entry = snapshot.phaseLog.find((logged) => logged.phase === 'shutdown');
+    return entry ? { entry, phase: snapshot.phase } : null;
   }, null, { timeout: budget(SHUTDOWN_WALL_BUDGET_MS), polling: 10 })
     .then((handle) => handle.jsonValue());
   check('saying yes looks like the game closing, not like a cutscene starting',
-    shutting.phase === 'shutdown' && shutting.pullbackK === 0,
-    JSON.stringify({ phase: shutting.phase, k: shutting.pullbackK }));
+    shutting.entry.phase === 'shutdown' && shutting.entry.k === 0,
+    JSON.stringify(shutting));
 
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'pullback',
     null, { timeout: budget(EXIT_WALL_BUDGET_MS) });

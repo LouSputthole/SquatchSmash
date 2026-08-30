@@ -119,6 +119,14 @@ export class ColdOpen {
     this.landed = false;
     /** Fires once, when the phone should ring. */
     this.called = false;
+    /* Every phase this run has entered, with the pull-back value at entry.
+     * The receipt exists because the phases themselves can be UNOBSERVABLE
+     * from outside: on a renderer slow enough that one frame carries more
+     * than `shutdownFor`, shutdown is entered and left inside a single
+     * update() and no poller at any rate can sample it. The opening's whole
+     * contract is that its claims are checkable from outside; a transient
+     * the outside cannot see needs a ledger. */
+    this.phaseLog = [{ phase: 'playing', k: 0 }];
     return this;
   }
 
@@ -127,6 +135,7 @@ export class ColdOpen {
     if (this.phase !== 'playing') return false;
     this.phase = 'shutdown';
     this.t = 0;
+    this.phaseLog.push({ phase: 'shutdown', k: 0 });
     return true;
   }
 
@@ -161,18 +170,21 @@ export class ColdOpen {
        * into minutes on the deployed software renderer. */
       this.t -= this.shutdownFor;
       this.phase = 'pullback';
+      this.phaseLog.push({ phase: 'pullback', k: this.pullbackK });
       this.revealed = true;
       events.push('reveal');
     }
     if (this.phase === 'pullback' && this.t >= this.pullbackFor) {
       this.t -= this.pullbackFor;
       this.phase = 'beat';
+      this.phaseLog.push({ phase: 'beat', k: 1 });
       this.landed = true;
       events.push('land');
     }
     if (this.phase === 'beat' && this.t >= this.beatFor) {
       this.phase = 'done';
       this.t = 0;
+      this.phaseLog.push({ phase: 'done', k: 1 });
       this.called = true;
       events.push('call');
     }

@@ -1110,6 +1110,11 @@ async function boot() {
         osMode: arcade.mode,
         overlayHidden: overlay.classList.contains('hidden'),
         radioOn: radio.on === true,
+        /* The phase ledger, because the phases themselves can be atomic: on a
+         * slow enough renderer shutdown is entered and left inside a single
+         * update() and no outside poller can ever sample it. See
+         * ColdOpen.reset()'s comment. */
+        phaseLog: coldOpen.phaseLog.map((entry) => ({ ...entry })),
         /* The element's text, not the element: `hud.posture` is a DOM node
          * and a node does not survive the trip out of page.evaluate. */
         /* Whether the prompt is SHOWN, not what text it is carrying:
