@@ -144,7 +144,7 @@ const WARM_DAY_FILL = new THREE.Color(0xffe0b4);
  * deck, and the horizon colour the fog then matches so the far treeline
  * dissolves into it. `radius` stays inside the 220 m camera far plane and the
  * dome rides the camera, so the ridge at 190 m still draws over it. */
-const sky = new SkyDome(scene, { camera, radius: 180, cloudCover: 0.52 });
+const sky = new SkyDome(scene, { camera, radius: 180, cloudCover: 0.42 });
 
 const campaign = createCampaign();
 const story = createCountrysideCabinStory({ campaign });
@@ -1905,9 +1905,20 @@ startButton.addEventListener('click', async () => {
   overlay.classList.add('hidden');
   input.refresh('scene-start');
   requestGamePointerLock();
+  /* THE OPENING LINE NAMES THE HOUR THE HUD IS SHOWING, three feet away.
+   *
+   * "Late morning, county road north" was printed on the arrival, and the
+   * arrival is 05:20: the Squatchfather ends at 03:00 and `DEPART_CABIN_LAY_LOW`
+   * is two hours and twenty minutes of county road. Measured out of the built
+   * scene, that frame is `dayness` 0.105 and a mean luminance of 13.4 of 255,
+   * which is the SAME dark as the Day 3 nightfall the dungeon chapter is
+   * authored around (13.0). The lay-low's own daylight starts at 09:20, on
+   * the far side of the bed, and the line for it is unchanged. */
   hud.say(story.chapterComplete()
     ? '<em>Morning at the hideout.</em> Ape is waiting by the car.'
-    : '<em>Late morning, county road north.</em> Lou said lay low, walk the property, and keep the phone close.', 5200);
+    : story.phase() === 'arrival_rest'
+      ? '<em>Half five, county road north.</em> Lou said lay low. Sleep first — the property keeps until morning.'
+      : '<em>Late morning, county road north.</em> Lou said lay low, walk the property, and keep the phone close.', 5200);
   /* The panel's one paint happened at module load, behind the title card:
    * `#hud` is opacity-0 until `body.playing`, the 12-second display window
    * burned down against a screen nobody could see, and the identical-
@@ -2059,6 +2070,29 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
     time.setTime(day, timeMinutes);
     applyTimeOfDay();
     return { day: time.day, minutes: time.minutes };
+  },
+  perf: {
+    /**
+     * Draw calls for one frame from where the camera is standing, shadow
+     * pass INCLUDED — the mansion's seam, verbatim, because the forest is
+     * the thing in this scene most able to spend a budget quietly.
+     *
+     * `renderer.info.autoReset` has to come off: this three build calls
+     * `info.reset()` after `shadowMap.render()`, so with the default on the
+     * shadow pass reads as zero no matter how much it drew.
+     */
+    drawCalls() {
+      const auto = renderer.info.autoReset;
+      renderer.info.autoReset = false;
+      renderer.info.reset();
+      renderer.render(scene, camera);
+      const out = {
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+      renderer.info.autoReset = auto;
+      return out;
+    },
   },
   lag: cabin.lag,
   lagHints,

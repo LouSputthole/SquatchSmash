@@ -190,6 +190,82 @@ test('the forest plants more than one kind of tree', () => {
 });
 
 /**
+ * "We need a bit more detail in the forest" — and it cost no draw calls.
+ *
+ * The floor went from 1,617 identical plants to 3,271 in three forms, plus
+ * 181 saplings, 256 small stones and 38 cut stumps. Every one of them rides
+ * an instanced mesh that was already being drawn: the saplings are cones in
+ * `cabin-tree-crowns-near`, the stones are in `cabin-field-rocks`, the
+ * stumps are the deadfall's own cylinder standing up. So the thing worth
+ * holding is not the counts — `countryside-cabin-world.test.mjs` holds
+ * those — but the SHAPE: six instanced meshes on the property and not one
+ * more, and variety carried on `instanceColor` rather than on new material.
+ *
+ * Put a fourth mesh in a chunk for the saplings and this fails.
+ */
+test('the forest floor is dressed out of the meshes already being drawn', () => {
+  const meshNames = new Set();
+  const perChunk = new Map();
+  let trunkInstances = 0;
+  let nearCrownInstances = 0;
+  cabin.root.traverse((object) => {
+    if (!object.isInstancedMesh) return;
+    meshNames.add(object.name);
+    if (/^cabin-tree-trunks$/.test(object.name)) trunkInstances += object.count;
+    if (/^cabin-tree-crowns-near$/.test(object.name)) nearCrownInstances += object.count;
+    for (let node = object; node; node = node.parent) {
+      if (!/^cabin-forest-chunk-/.test(node.name || '')) continue;
+      perChunk.set(node.name, (perChunk.get(node.name) ?? 0) + 1);
+      break;
+    }
+  });
+  assert.deepEqual([...meshNames].sort(), [
+    'cabin-deadfall',
+    'cabin-fern-undergrowth',
+    'cabin-field-rocks',
+    'cabin-tree-crowns-far',
+    'cabin-tree-crowns-near',
+    'cabin-tree-trunks',
+  ], 'the forest grew a new instanced draw call');
+  assert.ok(
+    Math.max(...perChunk.values()) <= 4,
+    `a forest chunk carries ${Math.max(...perChunk.values())} instanced meshes, not 4`,
+  );
+
+  // Saplings live in the near crowns' own allocation: three authored tiers a
+  // tree, and whatever is left over is young growth.
+  const saplings = nearCrownInstances - trunkInstances * 3;
+  assert.ok(saplings >= 120, `only ${saplings} saplings share the crowns' draw call`);
+
+  // Three forms — fern, salal, grass — separated by instance data alone.
+  const plantColours = new Set();
+  const plantShapes = new Set();
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const rotation = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  const colour = new THREE.Color();
+  cabin.root.traverse((object) => {
+    if (!object.isInstancedMesh || object.name !== 'cabin-fern-undergrowth') return;
+    assert.ok(object.instanceColor, 'the undergrowth lost its per-instance tint');
+    for (let i = 0; i < object.count; i++) {
+      object.getColorAt(i, colour);
+      plantColours.add(colour.getHex());
+      object.getMatrixAt(i, matrix);
+      matrix.decompose(position, rotation, scale);
+      // Height over width: 0.73 for a fern, 1.68 for a tuft of grass.
+      plantShapes.add(Math.round((scale.y / scale.x) * 20) / 20);
+    }
+  });
+  assert.ok(plantColours.size >= 40, `only ${plantColours.size} distinct plant colours`);
+  assert.ok(plantShapes.size >= 3, `only ${plantShapes.size} distinct plant proportions`);
+  assert.ok(
+    Math.max(...plantShapes) / Math.min(...plantShapes) > 2,
+    'every plant is the same shape',
+  );
+});
+
+/**
  * THE FOOTBRIDGE.
  *
  * `cabin-bridge-deck` was a blocking world volume laid over the same
@@ -319,13 +395,40 @@ test('the sky has a sun, and it still goes dark at nightfall', () => {
   );
   assert.ok(sky.fogDensity < 0.005, `daytime fog ${sky.fogDensity} is still a grey wall`);
 
+  /* AND IT IS WRITTEN IN THE VALUES THE FRAMEBUFFER SHOWS.
+   *
+   * Owner: *"I want it day time and sunny out."* The dome is a
+   * `ShaderMaterial` with its own fragment shader, so it gets no
+   * `colorspace_fragment` chunk and writes working-space values raw — proved
+   * in the browser by painting it 0.5 and reading 128 back. Every colour it
+   * derives comes from a `DayNight` hex that `Color.setHex` decoded, so the
+   * midday zenith reached the screen as 0x4d7ad7: a dark navy where the
+   * source says sky. Lifted, it is 0x96b8ed. */
+  assert.equal(sky.displayLift, 1, 'the daylight sky is not written in display values');
+  assert.ok(
+    dayZenith > 0.62,
+    `the midday zenith is ${sky.uniforms.uZenith.value.getHexString()}, still a gamma dark`,
+  );
+
   // Day 3, 20:45: the dungeon chapter's nightfall, and 21:30 past it.
   time.setTime(3, 20 * 60 + 45);
   sky.update(time, 0);
   const duskZenith = luminance(sky.uniforms.uZenith.value);
+  const duskLift = sky.displayLift;
   time.setTime(3, 21 * 60 + 30);
   sky.update(time, 0);
   const nightZenith = luminance(sky.uniforms.uZenith.value);
+
+  /* THE NIGHT IS UNTOUCHED, TO THE BIT, and this is the assertion that says
+   * so. `dayness` is 0.146 at nightfall and 0.000 at 21:30, both below the
+   * threshold the display lift starts at, so the dungeon chapter's dark is
+   * exactly the dark it was authored as: a 0x0c0c19 zenith at 20:45 and
+   * 0x04060e at 21:30. Encoding the dome outright — the obvious fix, and the
+   * wrong one — takes that second colour to 0x2a3355. */
+  assert.equal(duskLift, 0, 'the display lift leaked into the nightfall');
+  assert.equal(sky.displayLift, 0, 'the display lift leaked into the night');
+  assert.ok(duskZenith < 0.06, `nightfall zenith rose to ${duskZenith.toFixed(3)}`);
+  assert.ok(nightZenith < 0.03, `night zenith rose to ${nightZenith.toFixed(3)}`);
 
   assert.ok(duskZenith < dayZenith * 0.35, `nightfall only reached ${duskZenith.toFixed(3)}`);
   assert.ok(nightZenith < dayZenith * 0.12, `night only reached ${nightZenith.toFixed(3)}`);
