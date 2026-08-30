@@ -212,6 +212,18 @@ The reuse ratchet counts files-that-import rather than cards-that-exist
 
 ---
 
+## FOLLOW-UPS SURFACED BY THE DECIDED WORK
+
+- **The luxury flat needs a wire.** The war week's canonical evenings happen
+  there and it has no news or answering-machine surface at all (item 4's
+  remaining half).
+- **The luxury lift after the credits.** `LuxuryApartmentStory.phase()` reads
+  the Palace as beat 27's seam and knows nothing behind it, so a finished
+  campaign still reports `special_meeting` and the lift keeps offering the
+  car to the ceremony — the luxury-side sibling of the starter flat's
+  fixed door loop. The `freeplay` preview checkpoint and its test assert
+  today's answer, so the fix changes one row.
+
 ## FIXED IN THIS PASS (the bugs, for the record)
 
 - Cold open (and everything after it, all session) was mute: the reveal now
