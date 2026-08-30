@@ -110,6 +110,35 @@ const HUB_PREVIEW_CASES = Object.freeze([
     href: 'luxury-apartment.html?preview=1&beat=special_meeting_call',
   }),
 ]);
+/* THE LUXURY FLAT'S OWN STAGES, in the order its story passes through them.
+ *
+ * These are `luxury=` links rather than `beat=` slides and they hang inside
+ * the five luxury spine cards instead of adding cards of their own -- the
+ * launcher publishes thirty-one beats and only thirty-one, which the exact
+ * match above enforces. See LUXURY_APARTMENT_PREVIEW_VARIANTS in
+ * core/preview-mode.js for why the list is one per authored phase.
+ *
+ * `boot` marks the five this verifier actually opens in the browser. The other
+ * five build the identical state as the hub beat directly beside them (they
+ * call the same seeder rung), and that hub beat is booted in the loop below,
+ * so opening both would buy a second copy of the same proof for another five
+ * scene loads on a software rasteriser. tests/luxury-apartment-preview.test.mjs
+ * holds all ten headlessly. */
+const LUXURY_STAGE_CASES = Object.freeze([
+  Object.freeze({ variant: 'arrival', phase: 'get_ready', spawn: 'arrival' }),
+  Object.freeze({ variant: 'date-ready', phase: 'date', spawn: 'main', boot: true }),
+  Object.freeze({ variant: 'margo-home', phase: 'come_home', spawn: 'main' }),
+  Object.freeze({ variant: 'stayover-night', phase: 'stayover', spawn: 'main', boot: true }),
+  Object.freeze({ variant: 'margo-morning', phase: 'morning', spawn: 'main' }),
+  Object.freeze({ variant: 'no-wake-call', phase: 'no_wake', spawn: 'main', boot: true }),
+  Object.freeze({ variant: 'after-no-wake', phase: 'return', spawn: 'main' }),
+  Object.freeze({ variant: 'case-handoff', phase: 'complete', spawn: 'main', boot: true }),
+  Object.freeze({ variant: 'special-meeting-night', phase: 'special_meeting', spawn: 'main' }),
+  /* Reports `special_meeting` on purpose: the flat has no post-campaign phase
+   * and this checkpoint is the first thing able to show that. */
+  Object.freeze({ variant: 'freeplay', phase: 'special_meeting', spawn: 'main', boot: true }),
+]);
+
 /* Scenes with a page of their own that deliberately have no launcher card.
  *
  * Hub pages are represented by the bounded beat links above. Everything else
@@ -247,6 +276,8 @@ try {
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
     apartments: [...document.querySelectorAll('[data-preview-apartment]')]
       .map((link) => [link.dataset.previewApartment, link.getAttribute('href')]),
+    luxuryStages: [...document.querySelectorAll('[data-preview-luxury]')]
+      .map((link) => [link.dataset.previewLuxury, link.getAttribute('href')]),
     retiredApartmentHrefs: [...document.querySelectorAll('a[href]')]
       .map((link) => link.getAttribute('href'))
       .filter((href) => /[?&]apartment=/.test(href.replaceAll('&amp;', '&'))),
@@ -274,6 +305,17 @@ try {
       obsoleteApartmentLinks: launcher.apartments,
       retiredApartmentHrefs: launcher.retiredApartmentHrefs,
     }));
+  const expectedLuxuryLinks = LUXURY_STAGE_CASES.map(({ variant }) => [
+    variant,
+    `luxury-apartment.html?preview=1&luxury=${variant}`,
+  ]);
+  check('the launcher offers every luxury-apartment stage inside its spine cards',
+    linksMatchExpected(
+      launcher.luxuryStages.map(([variant, href]) => [variant, href.replaceAll('&amp;', '&')]),
+      expectedLuxuryLinks,
+      { ordered: true },
+    ),
+    JSON.stringify(launcher.luxuryStages));
 
   /* AND THE LIST ABOVE IS NOT ALLOWED TO BE THE ONLY SOURCE OF TRUTH.
    *
@@ -371,6 +413,43 @@ try {
         && newProblems.length === 0,
       JSON.stringify({ ...hub, browserProblems: newProblems }));
     check(`hub preview ${expected.beat} leaves the canonical save untouched`,
+      unchanged(await storageSnapshot()));
+  }
+
+  for (const expected of LUXURY_STAGE_CASES.filter(({ boot }) => boot)) {
+    const problemStart = browserProblems.length;
+    await page.goto(
+      `http://localhost:${PORT}/luxury-apartment.html?preview=1&luxury=${expected.variant}`,
+      { waitUntil: 'load' },
+    );
+    await page.waitForFunction(() => {
+      const runtime = globalThis.__squatchLifePreviewRuntime;
+      return Boolean(runtime?.seeded)
+        && Boolean(runtime?.storage?.getItem?.('squatchlife.campaign'))
+        && Boolean(window.LUXURY_APARTMENT?.player)
+        && Boolean(document.querySelector('#squatch-preview-notice'));
+    }, null, { timeout: 180000 });
+    const stage = await page.evaluate(async () => {
+      const runtime = globalThis.__squatchLifePreviewRuntime;
+      const state = JSON.parse(runtime.storage.getItem('squatchlife.campaign'));
+      const { createLuxuryApartmentStory } = await import('/src/core/luxury-apartment-story.js');
+      return {
+        runtimeVariant: runtime.luxuryVariant ?? null,
+        seededScene: state.scene,
+        phase: createLuxuryApartmentStory({ campaign: { state } }).phase(),
+        day: state.story.day,
+        finale: state.finale.status,
+      };
+    });
+    const newProblems = browserProblems.slice(problemStart);
+    check(`luxury stage ${expected.variant} boots the flat at its own phase`,
+      stage.runtimeVariant === expected.variant
+        && stage.seededScene.id === 'luxury_apartment'
+        && stage.seededScene.spawn === expected.spawn
+        && stage.phase === expected.phase
+        && newProblems.length === 0,
+      JSON.stringify({ ...stage, browserProblems: newProblems }));
+    check(`luxury stage ${expected.variant} leaves the canonical save untouched`,
       unchanged(await storageSnapshot()));
   }
 

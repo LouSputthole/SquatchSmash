@@ -87,6 +87,36 @@ export const CAMPAIGN_HUB_PREVIEW_BEATS = Object.freeze({
   special_meeting_call: 'luxury_apartment',
 });
 
+/**
+ * THE LUXURY APARTMENT'S OWN STAGES, on `luxury-apartment.html?preview=1`.
+ *
+ * The flat is five visits spread across Chapters 3 and 6, and
+ * `core/luxury-apartment-story.js` reads them off the clock ledger as the nine
+ * phases in `LUXURY_APARTMENT_PHASES`. This list is ONE VARIANT PER PHASE, in
+ * that same order, plus `freeplay` for a save that has finished the campaign.
+ * That rule is the whole reason it is bounded: a phase the story can be in and
+ * a reviewer cannot open is a state nobody looks at until a player finds it.
+ *
+ * Deliberately NOT the same mechanism as `CAMPAIGN_HUB_PREVIEW_BEATS`. Those
+ * five `beat=` slides are the public campaign spine and stop at the beats the
+ * bible numbers; these are the room's own intermediate states -- dressed and
+ * waiting for the car, she is in and it is bedtime, she has gone and the phone
+ * has not rung yet -- which the spine has no card for because they are not
+ * beats. A `beat=` on this page still wins; see `seedPreviewCampaign`.
+ */
+export const LUXURY_APARTMENT_PREVIEW_VARIANTS = Object.freeze([
+  'arrival',
+  'date-ready',
+  'margo-home',
+  'stayover-night',
+  'margo-morning',
+  'no-wake-call',
+  'after-no-wake',
+  'case-handoff',
+  'special-meeting-night',
+  'freeplay',
+]);
+
 export class PreviewMemoryStorage {
   constructor() {
     this.values = new Map();
@@ -181,6 +211,23 @@ export function previewApartmentVariantForLocation(locationLike = globalThis.loc
   if (!(pathname.endsWith('/index.html') || pathname.endsWith('index.html'))) return null;
   const variant = searchParams(locationLike).get('apartment');
   return APARTMENT_PREVIEW_VARIANTS.includes(variant) ? variant : null;
+}
+
+/**
+ * Resolve a luxury-apartment stage, and only on the luxury apartment's page.
+ *
+ * Same shape and same reason as `previewApartmentVariantForLocation` above: a
+ * copied query string must not let one home seed the other's checkpoints, and
+ * an unknown stage name resolves to null rather than to the first entry.
+ */
+export function previewLuxuryVariantForLocation(locationLike = globalThis.location) {
+  const pathname = String(locationLike?.pathname || '').toLowerCase();
+  if (!(pathname.endsWith('/luxury-apartment.html')
+    || pathname.endsWith('luxury-apartment.html'))) {
+    return null;
+  }
+  const variant = searchParams(locationLike).get('luxury');
+  return LUXURY_APARTMENT_PREVIEW_VARIANTS.includes(variant) ? variant : null;
 }
 
 /**
@@ -290,6 +337,7 @@ export function getPreviewRuntime(locationLike = globalThis.location) {
     signature,
     sceneId: previewSceneForLocation(locationLike),
     apartmentVariant: previewApartmentVariantForLocation(locationLike),
+    luxuryVariant: previewLuxuryVariantForLocation(locationLike),
     beatId: previewBeatForLocation(locationLike),
     storage: new PreviewMemoryStorage(),
     seeded: false,
