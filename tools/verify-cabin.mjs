@@ -708,7 +708,20 @@ try {
   await capture(page, '01-day-arrival');
 
   await page.locator('#start-btn').click();
-  await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.state.phase === 'active');
+  /* THE START HANDLER IS 146 SECONDS COLD, and the default 180 000 ms wait was
+   * never enough to cover it. Measured on an idle sandbox at 1280x720 under
+   * SwiftShader: click to `state.phase === 'active'` took 146 s, spent almost
+   * entirely in the handler's own awaits -- audio.init(), the radio manifest,
+   * and a decode of roughly two hundred cues (163 authored Cabin VO lines plus
+   * the weapon, radio and Lag prefixes). That leaves 34 s of headroom, and the
+   * fifteen boot checks and the '01-day-arrival' capture above spend it, which
+   * is why this one step failed every run while the other fourteen passed.
+   *
+   * Ten minutes is not a guess at a bigger number: it is the same budget the
+   * Special Meeting verifier already carries for the same reason. A scene that
+   * genuinely never starts still fails, four times slower. */
+  await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.state.phase === 'active',
+    null, { timeout: 600000 });
 
   /* AHEAD OF THE POINTER-LOCK SEAM ON PURPOSE. This drives the armory and the
    * inventory through evaluate() and needs no captured input, and the capture
