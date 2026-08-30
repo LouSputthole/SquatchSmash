@@ -35,7 +35,6 @@ import { AudioEngine } from '../core/audio.js';
 import {
   MISSION_IDS, SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
-import { previewNavigationHref } from '../core/preview-mode.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
@@ -107,24 +106,14 @@ const blackout = document.getElementById('blackout');
 const choicesEl = document.getElementById('choices');
 
 const campaign = createCampaign();
-/* Direct-entry doctrine (tools/verify-direct-entry.mjs): a direct URL is not
- * an invitation to rewrite campaign progress. The old boot here claimed the
- * save and burned DEPART_SPECIAL_MEETING's thirty-five minutes for anyone who
- * so much as opened this page mid-campaign. Every sanctioned arrival
- * transitions the save first -- the Palace's exit, the flat's Act One door, a
- * preview's own seed -- so ownership is simply "the save already stands
- * here". Without it the night still plays, but as a visit: no clock, no
- * scene pointer, no hand-off transition committed. */
-const ownsSave = campaign.state.scene.id === SCENE_IDS.SPECIAL_MEETING;
-if (ownsSave) {
-  campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
+if (campaign.state.scene.id !== SCENE_IDS.SPECIAL_MEETING) {
+  campaign.enter(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' });
 }
 /* The campaign save is the authority. A persisted spur may never be silently
- * replaced by this page's historical hard-coded kerb start. (The clock burn
- * itself is gated on ownership above -- a visit reads the spawn, commits
- * nothing.) */
+ * replaced by this page's historical hard-coded kerb start. */
 const requestedSpawn = campaign.state.scene.spawn;
 let effectiveSpawn = requestedSpawn === 'spur' ? null : 'kerb';
+campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 attachPixelRatio(renderer);
@@ -910,32 +899,20 @@ function handOff() {
   interaction.setPaused(true);
   showChoices(null);
   setObjective('');
-  /* The clock and mission writes belong to the save that stands here; a
-   * direct-entry visit gets the same blackout and the same page, minus the
-   * commits. */
-  if (ownsSave) {
-    campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
-    /* Initiation starts here, at the treeline -- not when the Palace ends and
-     * not while Tony is still in his Apartment. This mirrors the recovery skip
-     * seam and keeps the mission state aligned with the scene the player is
-     * actually entering. */
-    campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
-      if (state.missions[MISSION_IDS.INITIATION].status === 'available') {
-        state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
-      }
-    }, { required: true });
-  }
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  /* Initiation starts here, at the treeline -- not when the Palace ends and
+   * not while Tony is still in his Apartment. This mirrors the recovery skip
+   * seam and keeps the mission state aligned with the scene the player is
+   * actually entering. */
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
+    if (state.missions[MISSION_IDS.INITIATION].status === 'available') {
+      state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+    }
+  }, { required: true });
   blackout?.classList.remove('cut');
   if (blackout) blackout.style.transitionDuration = '1.4s';
   blackout?.classList.add('on');
   setTimeout(() => {
-    if (!ownsSave) {
-      /* A visit flows on visually but commits nothing: the page changes, the
-       * save does not. */
-      location.assign(previewNavigationHref(SCENES[SCENE_IDS.INITIATION].href));
-      handoffReceipt.completed += 1;
-      return;
-    }
     try {
       navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
       handoffReceipt.completed += 1;
