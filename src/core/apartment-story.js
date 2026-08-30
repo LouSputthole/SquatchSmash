@@ -293,7 +293,11 @@ export const SMASH_PLAY_SECONDS = 45;
  * missions that happens to have a bed in it.
  *
  * So each chapter that sends him home asks for one thing, and it is never a
- * chore and never anybody else's errand. Two rules built the whole table:
+ * chore and never anybody else's errand. Two exceptions, on purpose: the
+ * evening home from Silver Pines (`heist_day`) and the evening home from
+ * South Harbor (`date`) have no pastime -- owner's call, 2026-08-30, until a
+ * right one presents itself; the thesis above describes the table, not a
+ * promise every chapter keeps. Two rules built the whole table:
  *
  *   IT IS ALREADY IN THE FLAT. Not one of these is a new toy. The couch has
  *     been there since the first build under a comment reading "nothing
@@ -435,7 +439,10 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.NO_WAKE]: 'South Harbor',
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
   [SCENE_IDS.SILVER_PINES]: 'Silver Pines',
-  [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
+  /* A place, not the mission title. Every sibling on this list names where
+   * he is going; "Leave for THE TAKE" was the door doing marketing. The
+   * heist's own vocabulary is the bank and Mercer Street. Owner, 2026-08-30. */
+  [SCENE_IDS.BANK_HEIST]: 'the bank on Mercer',
   [SCENE_IDS.LUXURY_APARTMENT]: 'the new place',
   [SCENE_IDS.COUNTRYSIDE_CABIN]: 'the countryside cabin',
   [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
@@ -739,13 +746,17 @@ export const DAY_FOUR_LOU_HEIST_CALL = Object.freeze({
   vo: 'call.lou.heist',
   lines: Object.freeze([
     'Kid. Listen once. There is a car coming for you.',
-    'Gray suit. Armor underneath. Gloves, mask, both guns, every magazine on the table.',
-    'You are meeting Snow at a closed laundry. Once he starts talking, he is in charge.',
+    /* The door requires seven pieces and this call now names all seven: the
+     * old read stopped at six and never mentioned the duffel the money rides
+     * in. And it is the safehouse -- the heist's own word -- not "a closed
+     * laundry", a location that exists nowhere in that scene. */
+    'Gray suit. Armor underneath. Gloves, mask, both guns, every magazine on the table. And the duffel — it goes in empty.',
+    'You are meeting Snow at the safehouse. Once he starts talking, he is in charge.',
     'Bring your nerve and leave your name at home.',
   ]),
   replies: Object.freeze([
     'I am listening.',
-    'Suit, armor, gloves, mask, guns, magazines.',
+    'Suit, armor, gloves, mask, guns, magazines, duffel.',
     'Snow is in charge.',
     'When does the car arrive?',
   ]),
@@ -1102,10 +1113,14 @@ export function isSpecialMeetingNight(state) {
  */
 /** Which one-shot time event records that a chapter's messages were played. */
 const MESSAGE_EVENTS = Object.freeze({
+  /* One id per chapter, one tape per id. The old sharing (no_wake/date on
+   * one id, heist_day/big_night on another) meant hearing either morning's
+   * machine marked both chapters' distinct lists as heard -- and the Willy
+   * message could arrive after Willy. */
   day_two: TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO,
-  no_wake: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
+  no_wake: TIME_EVENT_IDS.HEAR_MESSAGES_NO_WAKE,
   date: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
-  heist_day: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
+  heist_day: TIME_EVENT_IDS.HEAR_MESSAGES_HEIST_DAY,
   big_night: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
 });
 
@@ -1138,20 +1153,22 @@ export const CHAPTER_MESSAGES = Object.freeze({
       ]),
     }),
   ]),
-  /* Day 3. He is being told something and not being told anything, which is
-   * the whole of it. Nothing here names a place, a job or a person, because
-   * Lou has stopped naming things. */
+  /* The evening of the date, and the morning at South Harbor is behind him.
+   * This used to be a byte-for-byte copy of no_wake's tape, Willy line and
+   * all -- so a player who skipped the machine before the harbor heard "if
+   * Willy calls you" with Willy already in the ground. Willy stays on the
+   * no_wake tape where he is still a phone that might ring. This one is Lou
+   * saying nothing at all, which after a morning like that is the message. */
   date: Object.freeze([
     Object.freeze({
       from: 'Big Uncle Lou',
       characterId: CHARACTER_IDS.LOU,
-      vo: 'machine.lou.date',
-      at: 'Today, 5:14 AM',
+      vo: 'machine.lou.after_harbor',
+      at: 'Today, 5:44 PM',
       lines: Object.freeze([
-        'It is me. Do not ring back, I am not near this phone.',
-        'Wear something plain today. Nothing anybody would describe.',
-        'There is a thing that may need doing and it may not. I will know later.',
-        'And if Willy calls you, you have not spoken to me. Say it back to yourself until it is true.',
+        'It is me. Do not ring back.',
+        'This morning is already yesterday. You were home, you slept badly, and that is the whole of it.',
+        'Tonight is yours. Go somewhere bright, and be seen enjoying yourself.',
       ]),
     }),
   ]),
@@ -1285,18 +1302,25 @@ export const CHAPTER_NEWS = Object.freeze({
         + 'Investigators say the crew changed cars before leaving the industrial district.',
     }),
   }),
+  /* The night of the Special Meeting. On the old Day-4 route "quiet week"
+   * was the truth; a save that reaches this chapter now has the siege, the
+   * airfield, and the Palace behind it, and a wire that noticed none of it
+   * was the flat calling its player a liar. The wire noticed. Nobody is
+   * talking, which the wire also noticed. */
   big_night: Object.freeze({
     radio: Object.freeze({
       vo: 'news.radio.big_night',
       voice: 'announcer',
-      line: 'Quiet week on the wire, which around here means somebody has had a word. '
-        + 'Clear and warm tonight. Lovely evening for whatever you have got on.',
+      line: 'Some week on the wire: gunfire at a private estate nobody will name, and that '
+        + 'business abroad everybody saw and nobody is explaining. No statements, no names. '
+        + 'Clear and warm tonight, and half the county pretending to be asleep.',
     }),
     tv: Object.freeze({
       vo: 'news.tv.big_night',
       voice: 'ksqch',
-      line: '…and no further comment from anybody about anything. Back to the weather, '
-        + 'which is the only thing left that will talk to us.',
+      line: '…still no comment on the estate, the airfield, or anything else this station has '
+        + 'asked about all week. Back to the weather, which is the only thing left that will '
+        + 'talk to us.',
     }),
   }),
 });

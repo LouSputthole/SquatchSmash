@@ -1005,11 +1005,11 @@ async function boot() {
       : returningFromHeist
       ? 'Back from THE TAKE. Clean up, change, and put every piece of it away.'
       : returningFromGolf
-        ? 'Back from Silver Pines. One job left before seven. Lou will call.'
+        ? 'Back from Silver Pines. The round came with keys.'
       : returningFromBing
         ? 'Back from the Bing. Lou’s package is still under your jacket.'
       : returningFromSilver
-        ? 'Back from the Silver Room. Tomorrow is the big night. Sleep on it.'
+        ? 'Back from the Silver Room. Sleep. The phone knows what is next.'
         : returningFromNoWake
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
@@ -1445,10 +1445,17 @@ startBtn.addEventListener('click', async () => {
         hud.say('Home. The week is over. <em>The apartment is yours.</em>', 5200);
       } else if (returningFromHeist) {
         hud.toast('All six made it home', 'good');
-        hud.say('Home. Wash it off, change, and hide the gear. <em>Then the Bing.</em>', 5200);
+        /* The bible's ruling on beat 11.5: the job is what earns the upgrade,
+         * so the call reads as the reward. The old line said "Then the Bing"
+         * -- the pre-final-arc route, retired two spines ago. */
+        hud.say('Home. Wash it off, change, and hide the gear. <em>Lou said he would call.</em>', 5200);
       } else if (returningFromGolf) {
         hud.toast('Three holes at Silver Pines', 'good');
-        hud.say('Home from the course. <em>One job left before seven.</em> Lou will call.', 5200);
+        /* Legacy leg: the round hands him the keys and beat 14 moves him up,
+         * so on the canonical route he never opens this door again. A
+         * grandfathered save that does gets the truth, not "one job left
+         * before seven" -- an hour from a route where golf preceded the bank. */
+        hud.say('Home from the course. <em>The new place is real, and the keys are yours.</em>', 5200);
       } else if (returningFromBing) {
         hud.toast('Lou’s package · inside your jacket', 'good');
         hud.say('Home again. The package came back with you.', 4800);

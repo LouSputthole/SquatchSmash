@@ -1,5 +1,9 @@
 # CONTINUITY DECISIONS — 2026-08-30
 
+> **DECIDED 2026-08-30, in session.** The owner ruled on every open item;
+> outcomes are stamped inline below. Remaining open work is only what the
+> stamps say is follow-up.
+
 Written against the full-campaign continuity audit, then re-checked after
 the 206-commit drop from the weekend's other kitchen landed on main (the
 Act One cabin, the luxury apartment, the Day 12–13 arc). Claims below were
@@ -39,6 +43,8 @@ the timer now caps it either way.
 
 ## 3 · STALE COPY FROM THE OLD ROUTE — the flat still narrates last month's campaign
 
+**DECIDED: rewrite in the house voice.** Done this pass: the heist return points at Lou’s call (the new-space reward), the golf/date returns tell legacy saves the current truth, and Lou’s heist call names all seven pieces and the safehouse. Changed recorded lines are queued for the booth by the ledger pipeline.
+
 Three clusters, all survivors of the pre-final-arc route:
 
 - Post-heist: *"Wash it off, change, and hide the gear. **Then the Bing.**"*
@@ -59,6 +65,8 @@ Three clusters, all survivors of the pre-final-arc route:
 
 ## 4 · THE NEWS AND THE PHONE NEVER HEAR ABOUT THE FINAL ARC
 
+**DECIDED: full pass.** Done this pass where a surface exists: the shared message ids are split one-per-chapter (no more cross-marking; Willy stays on the harbor-morning tape where he is alive), the date evening got its own tape, and the big-night wire finally acknowledges the war for the legacy leg. FOLLOW-UP: the luxury apartment has NO news surface at all — the war week’s canonical evenings happen there, so “a wire for the new place” is the remaining build.
+
 `CHAPTER_NEWS`/`CHAPTER_MESSAGES` stop at `post_heist`. The Special Meeting
 night's bulletin is *"Quiet week on the wire… clear and warm tonight"* — the
 night after a firefight at Lou's mansion and six thousand pounds of Fat
@@ -77,6 +85,8 @@ the others' as heard.
 
 ## 5 · REBOUND KEYS ARE DEAD IN NINE SCENES
 
+**DECIDED: do it now, in session.** Running as an agent pass; the queued task card is superseded (dismiss it if it is still showing).
+
 A player who rebinds Use gets a dead key everywhere except the apartment and
 the Special Meeting — nine scenes compare the raw physical key instead of
 running it through `translateKey` (movement keys are likely in the same
@@ -88,6 +98,8 @@ deserved its own validated pass rather than riding this one.
 
 ## 6 · TWO HOMECOMINGS HAVE NO PASTIME
 
+**DECIDED: fix the doc.** Done — the pastime comment now names the two bare evenings as deliberate.
+
 The pastime system's own thesis (`CHAPTER_PASTIMES`): *"one thing of his
 own, in every chapter that sends him home."* `heist_day` (home from Silver
 Pines) and `date` (home from NO WAKE) send him home and have none.
@@ -98,6 +110,8 @@ Pines) and `date` (home from NO WAKE) send him home and have none.
   (my pick, unless you have the two pastimes in your head already)**
 
 ## 7 · LATE-CAMPAIGN HOMES HAVE NO PREVIEW CHECKPOINT
+
+**DECIDED: build the luxury checkpoints.** Running as an agent pass in a worktree.
 
 Preview exits now carry the right apartment variant (fixed this pass) for
 the five scenes that still send the player to the starter flat. The new
@@ -114,6 +128,8 @@ is what is missing.
 
 ## 8 · THE INITIATION CEREMONY SHOWS NO OBJECTIVES — by design, currently
 
+**DECIDED: the blank card stands.** Empty objective bar = watch this, per the scene’s own convention; timeouts guarantee no stall. Settled rule — do not add lines.
+
 Every cabin cutscene phase (`ceremony`, `card`, `made`, `room`…) authors an
 empty objective on purpose, with a watchdog timeout per the house rule. It
 reads as "objectives broken" in a playtest, which is exactly what you
@@ -125,6 +141,8 @@ reported from the cabin.
   cures the symptom you hit)**
 
 ## 9 · SMALL VOICE-AND-STYLE CALLS — batched
+
+**DECIDED: all three, smallest versions.** Done this pass: the door says “the bank on Mercer”, the mansion’s transient top-center objective banner is retired (the standing panel owns the sentence), and the mansion card carries a standing line between mission beats.
 
 - *"Leave for THE TAKE"* names a mission title where every sibling names a
   place. Rename to the bank's name, or leave the title-drop?
@@ -140,6 +158,8 @@ reported from the cabin.
 
 ## 10 · A THEORETICAL DEAD END WORTH ONE LINE OF ARMOR
 
+**DECIDED: just do it.** Done — the recovery adapter repairs `final_arc_locked` by unlocking the case, mirroring the seam-repair precedent.
+
 `post_heist` with the Silver Case still locked produces a door refusal
 (`final_arc_locked`) that the recovery system can't resolve — not reachable
 on the normal route today, but if any future change ever produces it, the
@@ -147,6 +167,8 @@ save is stuck for good. One line in the recovery adapter (treat it as a
 settle-and-continue) closes it forever. **My pick: just do it.**
 
 ## 11 · WHAT IS FREEPLAY, ACTUALLY?
+
+**DECIDED: the flat is the epilogue.** The shipped refusal stands; no freeplay door. Settled.
 
 This pass stopped the finished campaign's door from re-offering the
 Initiation forever; it now refuses honestly (*"The week is over…"*) and the
@@ -160,6 +182,8 @@ radio, no way out.
   the credits.**
 
 ## 12 · THREE VERIFIER FINDINGS FROM THE OTHER KITCHEN — pre-existing, measured against their own main
+
+**DECIDED: repair the two verifiers now** (agent pass in flight: the cabin probe learns to expect the departure; the cold-open budgets scale to measured frame rate with the strict values as the real-time floor). The Special Meeting’s save-claiming stays as shipped — their design; revisit only if a playtest hits it.
 
 All three reproduce byte-for-byte on `origin/main` before this branch's
 merge; none is caused by it, and none blocks the ship. Flagged so they are

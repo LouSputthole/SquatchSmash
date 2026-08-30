@@ -968,16 +968,25 @@ test('golf morning has no redundant voicemail or borrowed exact-once id', () => 
     list: [],
   });
   assert.equal(story.hearMessages(), false);
+  for (const id of [TIME_EVENT_IDS.HEAR_MESSAGES_HEIST_DAY, TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]) {
+    assert.equal(
+      campaign.state.story.timeEvents.includes(id),
+      false,
+      'checking the empty golf machine must not consume a later message id',
+    );
+  }
+
+  /* One id per chapter now: heist_day owns its own tape rather than
+   * borrowing big_night's, so hearing one can never mark the other. */
+  campaign.update((state) => { state.story.chapter = 'heist_day'; });
+  assert.equal(story.messages().eventId, TIME_EVENT_IDS.HEAR_MESSAGES_HEIST_DAY);
+  assert.equal(story.messages().list.length, 1);
+  assert.equal(story.hearMessages(), true, 'the later authored message remains playable');
   assert.equal(
     campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT),
     false,
-    'checking the empty golf machine must not consume the later message id',
+    'hearing the heist-day tape must not mark the big night’s as heard',
   );
-
-  campaign.update((state) => { state.story.chapter = 'heist_day'; });
-  assert.equal(story.messages().eventId, TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT);
-  assert.equal(story.messages().list.length, 1);
-  assert.equal(story.hearMessages(), true, 'the later authored message remains playable');
 });
 
 test('an absent cameHome verdict survives normalize, and the fourth morning survives with it', () => {

@@ -303,7 +303,15 @@ export const TIME_EVENT_IDS = Object.freeze({
    * every existing save normalise differently, which the loader would report
    * to the player as a recovered save. */
   HEAR_MESSAGES_DAY_TWO: 'activity.messages.day_two',
+  /* One id per chapter's tape. `no_wake`/`date` and `heist_day`/`big_night`
+   * used to share ids, so hearing one morning's machine silently marked the
+   * other's as heard -- and Lou's "if Willy calls you" message could play
+   * with Willy already in the ground. A mid-flight save that heard a shared
+   * id replays the sibling chapter's own tape once; an answering machine can
+   * bear that, and the clock ledger needs no migration for a new id. */
+  HEAR_MESSAGES_NO_WAKE: 'activity.messages.no_wake',
   HEAR_MESSAGES_DATE: 'activity.messages.date',
+  HEAR_MESSAGES_HEIST_DAY: 'activity.messages.heist_day',
   HEAR_MESSAGES_BIG_NIGHT: 'activity.messages.big_night',
   /* Phone read markers have no clock cost. They deliberately live in the
    * existing time-event ledger so a phone rebuilt in another scene retains
@@ -550,7 +558,9 @@ const TIME_EVENTS = Object.freeze({
    * wherever he happens to be standing when they land, which is the joke. */
   [TIME_EVENT_IDS.EAT_SHROOMS]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_NO_WAKE]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_HEIST_DAY]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.PHONE_READ_FAMILY]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_LOU]: Object.freeze({ minutes: 0 }),

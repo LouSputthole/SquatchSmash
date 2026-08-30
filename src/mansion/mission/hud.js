@@ -121,8 +121,14 @@ export function createMissionHud({ parent = document.body } = {}) {
   return {
     root,
     setObjective(text) {
+      /* RETIRED AS A DISPLAY, kept as a model. The standing upper-left panel
+       * mirrors this exact text (`mansionObjectivePlan` reads
+       * `mission.objective`), so the transient top-center copy was the same
+       * sentence twice on screen -- the literal "too many objectives".
+       * Owner, 2026-08-30: keep the panel, retire the banner. The element
+       * and its text remain for probes and the region selector; it simply
+       * never shows. */
       objective.textContent = text || '';
-      objective.classList.toggle('show', Boolean(text));
     },
     setInstruction(text, { urgent = false } = {}) {
       instruction.textContent = text || '';

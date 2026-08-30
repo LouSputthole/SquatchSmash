@@ -192,6 +192,22 @@ export function createApartmentRecoverySkipAdapter({
         continue;
       }
 
+      /* THE ARMOR LINE. `final_arc_locked` is post_heist with the Silver Case
+       * still locked -- a state nothing on the normal route produces, and one
+       * this adapter previously could not resolve: not a sleep gate and not a
+       * repairable seam, so the loop broke and the save stayed stuck for
+       * good. If any future change ever manufactures it, unlock the case the
+       * way the heist's completion would have and let the normal gates run.
+       * Owner, 2026-08-30: just do it. */
+      if (decision?.kind === 'stay'
+        && decision.id === 'final_arc_locked'
+        && campaign.state.missions[MISSION_IDS.BANK_HEIST]?.status === 'complete') {
+        campaign.update((state) => {
+          state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+        });
+        continue;
+      }
+
       break;
     }
 
