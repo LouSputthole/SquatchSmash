@@ -277,22 +277,21 @@ test('Blond is visibly cuffed ankle-to-ankle while seated in the chair', () => {
   assert.ok(Math.min(direct, crossed) < 0.18, 'the chain stops short of the ankle cuffs');
 });
 
-test('Gratin shouts through the door before it is ever opened', () => {
-  /* Owner's note: *"I also didn't hear gratin yell when I went near the
-   * door."* The line has existed since the quest landed and nothing played
-   * it. */
+test('Gratin shouts through the door the moment the hallway has him', () => {
+  /* Owner's note, round one: *"I also didn't hear gratin yell when I went
+   * near the door."* The first fix answered it with a 2.4 m circle at the
+   * store-room door -- sized to miss the walk to Lou's own door, which is
+   * the only required reason to be back here, so it missed everybody.
+   * Owner's note, round two: the line should play IN THE HALLWAY so the
+   * player knows the quest exists. The hallway is the trigger now; the
+   * dance floor still is not -- the wall is what keeps his voice out of a
+   * face-to-face with the man on his stool. */
   const h = harness();
   h.standAt(0, 0);                        // the dance floor
   h.quest.update(0.05);
-  assert.equal(h.started.length, 0);
-  /* And NOT on the way to Lou's briefing. His door is across the corridor at
-   * (7.9, −7.05); Gratin shouting over the top of the mission's own hallway
-   * beat would be the side quest talking across the scene. */
-  h.standAt(7.4, -7.0);
-  h.quest.update(0.05);
-  assert.equal(h.started.length, 0, 'Gratin shouted at Lou’s door');
+  assert.equal(h.started.length, 0, 'Gratin shouted across the dance floor');
 
-  h.standAt(DOOR.x, DOOR.z + 1.4);
+  h.standAt(6.7, 2);                      // one step into the corridor
   h.quest.update(0.05);
   assert.deepEqual(h.started, ['knocking']);
   // Once. Walking up and down the hallway does not make him repeat himself.

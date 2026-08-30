@@ -125,8 +125,10 @@ function ensureStyle(doc) {
    * scorecard", the Palace's "under the mission card", and every other
    * placement a scene wrote for this panel, and the card landed on top of
    * the furniture it was told to sit beside. These rules are defaults; the
-   * page gets the last word. */
-  doc.head.prepend(style);
+   * page gets the last word. (The append fallback is for the headless test
+   * doc, whose head knows nothing of prepend; order is moot with no CSSOM.) */
+  if (typeof doc.head.prepend === 'function') doc.head.prepend(style);
+  else doc.head.append(style);
 }
 
 /**
