@@ -57,6 +57,11 @@ const missingRecordings = authoredCues.filter(({ name }) => {
 
 const results = [];
 const problems = [];
+/* The Cabin's failure ledger closes when the Cabin hands the browser on. The
+ * chapter's last act is a real campaign navigation to `bing.html?visit=2`, and
+ * neither the Bing's own boot nor the media requests this page has aborted on
+ * its way out are Cabin faults. */
+let watchingCabinPage = true;
 let browser = null;
 let server = null;
 
@@ -610,11 +615,16 @@ try {
       onViolation(receipt) { this.violations.push(receipt); },
     };
   });
-  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+  page.on('pageerror', (error) => {
+    if (watchingCabinPage) problems.push(`pageerror: ${error.message}`);
+  });
   page.on('console', (message) => {
-    if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
+    if (watchingCabinPage && message.type() === 'error') {
+      problems.push(`console: ${message.text().slice(0, 400)}`);
+    }
   });
   page.on('requestfailed', (request) => {
+    if (!watchingCabinPage) return;
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
 
@@ -1977,27 +1987,71 @@ try {
       radioLoopKeys: loopKeys.filter((key) => key.startsWith('radio.')),
     };
   });
-  await page.keyboard.press('e');
-  const exitAfter = await page.evaluate((prior) => {
+  /* THE DOOR REALLY OPENS, AND THE PROBE HAS TO EXPECT THAT.
+   *
+   * `tryLeave` above already answers `go -> bada_bing_two`, so pressing E at
+   * the car does for this verifier exactly what it does for the player: 900 ms
+   * of BILLY IS OUT, and then `location.assign('bing.html?visit=2')`. The old
+   * probe read the teardown back with a `page.evaluate` AFTER the press and
+   * kept losing that race -- "Execution context was destroyed, most likely
+   * because of a navigation" is the campaign working, not the campaign broken,
+   * and it cost this file its last check.
+   *
+   * So take the receipt inside the page, on the first frame the exit is live,
+   * and park it in `sessionStorage`, which survives a same-origin navigation.
+   * `leaveCabin` is synchronous from `state.phase = 'leaving'` all the way
+   * through `radio.pause()` and the four `audio.stopLoop` calls -- `stopLoop`
+   * deletes its key before it schedules the fade -- so a frame that can see
+   * the phase can already see the whole teardown. */
+  await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
-    const loopKeys = [...runtime.audio.loops.keys()];
-    const input = runtime.input.snapshot();
-    return {
-      inputDelta: input.interactionPresses - prior,
-      phase: runtime.state.phase,
-      inputSuspended: input.suspended,
-      interactionPaused: runtime.interaction.paused,
-      interactionCleared: runtime.interaction.current === null,
-      receiverOn: runtime.radio.on,
-      receiverPreferredOn: runtime.radio.preferredOn,
-      receiverPaused: runtime.radio._paused,
-      receiverVoiceCleared: runtime.radio._voice === null,
-      receiverMediaPaused: !runtime.radio.el || runtime.radio.el.paused,
-      loopKeys,
-      radioLoopKeys: loopKeys.filter((key) => key.startsWith('radio.')),
-      cabinLoopKeys: loopKeys.filter((key) => key.startsWith('cabin.')),
+    window.sessionStorage.removeItem('__cabinExitReceipt');
+    const watch = () => {
+      if (runtime.state.phase !== 'leaving') {
+        requestAnimationFrame(watch);
+        return;
+      }
+      const loopKeys = [...runtime.audio.loops.keys()];
+      const input = runtime.input.snapshot();
+      window.sessionStorage.setItem('__cabinExitReceipt', JSON.stringify({
+        presses: input.interactionPresses,
+        phase: runtime.state.phase,
+        inputSuspended: input.suspended,
+        interactionPaused: runtime.interaction.paused,
+        interactionCleared: runtime.interaction.current === null,
+        receiverOn: runtime.radio.on,
+        receiverPreferredOn: runtime.radio.preferredOn,
+        receiverPaused: runtime.radio._paused,
+        receiverVoiceCleared: runtime.radio._voice === null,
+        receiverMediaPaused: !runtime.radio.el || runtime.radio.el.paused,
+        loopKeys,
+        radioLoopKeys: loopKeys.filter((key) => key.startsWith('radio.')),
+        cabinLoopKeys: loopKeys.filter((key) => key.startsWith('cabin.')),
+      }));
     };
-  }, exitBefore.presses);
+    requestAnimationFrame(watch);
+  });
+  await page.keyboard.press('e');
+  /* `commit` and not `load`: the proof owed here is that the campaign left
+   * this page for that href. Sitting through a whole second WebGL scene's boot
+   * would only add the Bing's problems to the Cabin's ledger. */
+  await page.waitForURL(/bing\.html/, { waitUntil: 'commit' });
+  /* The browser belongs to Bada Bing II from here. Stop charging the Cabin for
+   * what happens in it -- including the aborted media requests this very
+   * navigation leaves behind on the page it just unloaded. */
+  watchingCabinPage = false;
+  const departure = await page.evaluate(() => {
+    const receipt = window.sessionStorage.getItem('__cabinExitReceipt');
+    return { url: window.location.href, receipt: receipt ? JSON.parse(receipt) : null };
+  });
+  const destination = new URL(departure.url);
+  check('Real E at the car hands the browser to Bada Bing II at bing.html?visit=2',
+    destination.pathname.endsWith('/bing.html')
+      && destination.searchParams.get('visit') === '2',
+    departure.url);
+  const exitAfter = departure.receipt
+    ? { ...departure.receipt, inputDelta: departure.receipt.presses - exitBefore.presses }
+    : { inputDelta: null };
   check('the Cabin chapter exit tears down the physical receiver with no stale radio beds',
     exitSetupTeleport
       && exitBefore.targetResolved

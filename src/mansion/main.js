@@ -1235,6 +1235,15 @@ function mansionObjectivePlan() {
       items: [{ label: silentSquatch.mission.objective, done: false }],
     };
   }
+  /* Between beats the runtime publishes no objective, and the card used to
+   * go blank mid-mission -- a working HUD reading as a broken one. A
+   * standing line covers the gaps; the next published beat replaces it. */
+  if (mission?.status === 'in_progress' || silentSquatch) {
+    return {
+      title: 'Objective',
+      items: [{ label: 'PROJECT SILENT SQUATCH — follow the work', done: false }],
+    };
+  }
   if (mission?.status !== 'complete' || mission.sleptAtMansion === true) return null;
   if (!houseExplored()) {
     return {

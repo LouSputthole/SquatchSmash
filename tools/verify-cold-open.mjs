@@ -107,9 +107,56 @@ const RETURNING_ONLY = process.argv.includes('--returning-only');
 const EXIT_CONTROL_ONLY = process.argv.includes('--exit-control-only');
 const HELD_TAB_ONLY = process.argv.includes('--held-tab-only');
 const EXIT_WALL_BUDGET_MS = 12000;
+const SHUTDOWN_WALL_BUDGET_MS = 30000;
 function check(name, ok, detail = '') {
   results.push({ name, ok });
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+}
+
+/* THE BUDGETS ARE WRITTEN IN REAL-TIME SECONDS, AND NOT EVERY MACHINE HAS ANY.
+ *
+ * The strict wall-clock limits below are a deliberate regression boundary --
+ * an authored 5.2-second reveal has to arrive in something like 5.2 seconds,
+ * and the 120-second waits they replaced certified a route that took over
+ * three minutes. But they assume the page paints in real time, and under
+ * `--use-gl=swiftshader` -- which is how this repo launches locally and in CI
+ * -- it does not. The reveal still advances on wall time, so what actually
+ * runs out is the RENDER: at ten frames a second the same authored move is
+ * drawn in a fiftieth of the frames, and every step around it -- the pause
+ * menu, the shutdown card, the landing -- costs whole frames the budget was
+ * never sized for.
+ *
+ * So measure what the page really draws and scale by how far short of 60 fps
+ * it falls, never below the authored value. On a real-time machine the ratio
+ * is 1 and the strict budgets stand exactly as written. */
+let wallScale = 1;
+
+/** A wall-clock budget in the frames this machine actually paints. */
+function budget(ms) {
+  return Math.max(ms, Math.round(ms * wallScale));
+}
+
+/** Count real animation frames. Nothing else can tell us how slow this is. */
+async function measureFrameRate(target, sampleMs = 2000) {
+  return target.evaluate((ms) => new Promise((resolve) => {
+    const started = performance.now();
+    let ticks = 0;
+    const tick = () => {
+      ticks += 1;
+      const elapsed = performance.now() - started;
+      if (elapsed >= ms) resolve(ticks / (elapsed / 1000));
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), sampleMs);
+}
+
+async function calibrateWallBudgets(target, label) {
+  const fps = await measureFrameRate(target);
+  wallScale = Math.max(1, 60 / Math.max(fps, 0.05));
+  console.log(`  info  ${label} paints ${fps.toFixed(1)} fps; wall budgets ×${wallScale.toFixed(1)} `
+    + `(exit ${budget(EXIT_WALL_BUDGET_MS)}ms, shutdown ${budget(SHUTDOWN_WALL_BUDGET_MS)}ms)`);
+  return fps;
 }
 
 /** Let the page render for a while: the reveal is a five-second camera move. */
@@ -139,6 +186,7 @@ async function verifyParentExitRoute(kind) {
     await routePage.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
     await routePage.waitForFunction(() => window.__squatch?.coldOpenState?.active === true,
       null, { timeout: 90000 });
+    await calibrateWallBudgets(routePage, `the ${kind} route`);
     const exitControl = routePage.locator('button').filter({
       hasText: /EXIT TO DESKTOP|QUIT SQUATCH SMASH/,
     }).first();
@@ -192,6 +240,7 @@ async function verifyParentExitRoute(kind) {
         tabKeys.includes('down') && tabKeys.includes('up'), JSON.stringify(tabKeys));
     }
 
+    const exitBudgetMs = budget(EXIT_WALL_BUDGET_MS);
     let returnedToWorld = true;
     try {
       await routePage.waitForFunction(() => {
@@ -205,7 +254,7 @@ async function verifyParentExitRoute(kind) {
           && runtime.arcade.mode === 'desktop'
           && runtime.arcade.app === null
           && runtime.interaction.paused === false;
-      }, null, { timeout: EXIT_WALL_BUDGET_MS });
+      }, null, { timeout: exitBudgetMs });
     } catch {
       returnedToWorld = false;
     }
@@ -231,14 +280,14 @@ async function verifyParentExitRoute(kind) {
       };
     });
     check(`the ${kind} route completes the reveal and stands him within the wall-clock budget`,
-      returnedToWorld && wallMs < EXIT_WALL_BUDGET_MS
+      returnedToWorld && wallMs < exitBudgetMs
         && !landed.coldOpenActive && landed.phase === 'beat' && !landed.seated
         && landed.playerMode === 'walk' && landed.inputOwner === 'world'
         && landed.arcadeInputMode === 'relative'
         && landed.arcadeMode === 'desktop' && landed.arcadeApp === null
         && !landed.interactionPaused && !landed.frameVisible
         && landed.frameSrc === 'about:blank',
-      JSON.stringify({ wallMs, ...landed }));
+      JSON.stringify({ wallMs, budgetMs: exitBudgetMs, ...landed }));
 
     if (returnedToWorld) {
       await routePage.keyboard.down('KeyS');
@@ -278,6 +327,7 @@ try {
   /* The cold open is armed after boot resolves, which is a tick later than
    * the debug surface appearing. */
   await page.waitForFunction(() => window.__squatch.coldOpenState.active, null, { timeout: 60000 });
+  await calibrateWallBudgets(page, 'the cold open');
 
   /* ---------------------------------------------------------------- */
   /* 1. IT OPENS IN SQUATCH SMASH                                      */
@@ -380,15 +430,33 @@ try {
   const quitConfirmedAt = await smashFrame.evaluate(() => window.__coldOpenQuitConfirmedAt);
   check('saying YES shows Squatch Smash shutting down',
     await smashFrame.locator('#shutdown').evaluate((element) => !element.classList.contains('hidden')));
-  await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'shutdown',
-    null, { timeout: 30000 });
-  const shutting = await state();
+  /* SAMPLE THE SHUTDOWN CARD BETWEEN FRAMES, AND TAKE IT IN ONE READ.
+   *
+   * `SHUTDOWN_S` is 0.55 seconds, and the phase machine is fed raw wall time
+   * (`rawDt`) on purpose, so the card is spent by whichever `update()` first
+   * carries 0.55 s of it. Playwright's default `polling: 'raf'` samples in an
+   * animation frame -- which is exactly where that `update()` runs -- so the
+   * card is only ever witnessed while a frame is shorter than it. Measured on
+   * this box while the box was busy: 1.4 fps, a 1066 ms mean frame, and
+   * `playing -> pullback` with no `shutdown` sample in 64 frames. Nothing was
+   * wrong with the game; the probe simply had its eyes shut at the only moment
+   * the state existed, and no timeout can buy back a sample that is never
+   * taken. A millisecond poll looks in the gaps between frames instead, which
+   * is where the child's 520 ms quit timer lands.
+   *
+   * Take the state IN the predicate too. The old second `state()` round trip
+   * could straddle the next frame and read a phase that had already moved on. */
+  const shutting = await page.waitForFunction(() => {
+    const snapshot = window.__squatch.coldOpenState;
+    return snapshot.phase === 'shutdown' ? snapshot : null;
+  }, null, { timeout: budget(SHUTDOWN_WALL_BUDGET_MS), polling: 10 })
+    .then((handle) => handle.jsonValue());
   check('saying yes looks like the game closing, not like a cutscene starting',
     shutting.phase === 'shutdown' && shutting.pullbackK === 0,
     JSON.stringify({ phase: shutting.phase, k: shutting.pullbackK }));
 
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'pullback',
-    null, { timeout: EXIT_WALL_BUDGET_MS });
+    null, { timeout: budget(EXIT_WALL_BUDGET_MS) });
 
   /* WAIT ON THE DOLLY, NOT ON THE CLOCK. The first draft slept 1.2 seconds
    * and asserted the room was visible; under swiftshader this page renders at
@@ -397,7 +465,7 @@ try {
    * filled the screen. The check was measuring too early and calling the
    * sequence broken. Wait for the move to be half done and then look. */
   await page.waitForFunction(() => window.__squatch.coldOpenState.pullbackK > 0.5,
-    null, { timeout: EXIT_WALL_BUDGET_MS });
+    null, { timeout: budget(EXIT_WALL_BUDGET_MS) });
   const midway = await state();
   check('the room appears around the monitor as the camera comes off it',
     midway.cameraToMonitor > startedAt && !midway.covers,
@@ -409,7 +477,7 @@ try {
    * arriving before the move is over. */
   const radioCameOn = await page
     .waitForFunction(() => window.__squatch.coldOpenState.radioOn, null,
-      { timeout: EXIT_WALL_BUDGET_MS })
+      { timeout: budget(EXIT_WALL_BUDGET_MS) })
     .then(() => true).catch(() => false);
   check('the radio comes on during the pull-back, voice bank decoded', radioCameOn);
 
@@ -417,7 +485,7 @@ try {
    * wall-time limit is the regression boundary: the old 120-second waits
    * certified a route that took more than three minutes on the live size. */
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'beat',
-    null, { timeout: EXIT_WALL_BUDGET_MS });
+    null, { timeout: budget(EXIT_WALL_BUDGET_MS) });
   await page.waitForFunction(() => {
     const runtime = window.__squatch;
     return runtime
@@ -430,12 +498,12 @@ try {
       && runtime.arcade.mode === 'desktop'
       && runtime.arcade.app === null
       && runtime.interaction.paused === false;
-  }, null, { timeout: EXIT_WALL_BUDGET_MS });
+  }, null, { timeout: budget(EXIT_WALL_BUDGET_MS) });
 
   const automaticExitWallMs = Date.now() - quitConfirmedAt;
   check('pause-menu Quit returns control within the wall-clock budget',
-    automaticExitWallMs < EXIT_WALL_BUDGET_MS,
-    `${automaticExitWallMs}ms (budget ${EXIT_WALL_BUDGET_MS}ms)`);
+    automaticExitWallMs < budget(EXIT_WALL_BUDGET_MS),
+    `${automaticExitWallMs}ms (budget ${budget(EXIT_WALL_BUDGET_MS)}ms)`);
 
   const landed = await page.evaluate(() => {
     const runtime = window.__squatch;
@@ -694,6 +762,10 @@ try {
     await returnPage.locator('#start-btn').click();
     await returnPage.waitForFunction(() => window.__squatch?.game?.started === true,
       null, { timeout: 60000 });
+    /* Calibrate on the started flat, not on the Start card: an overlay over a
+     * scene nobody is drawing yet reports a frame rate this route never gets.
+     * `--returning-only` reaches this block with no earlier calibration too. */
+    await calibrateWallBudgets(returnPage, 'the returning player');
 
     /* Stage only the walk up to the desk. From Enter through Quit/YES and the
      * attempted exit, every input below is the real player-facing path. */
@@ -749,7 +821,7 @@ try {
           && runtime.arcade.mode === 'desktop'
           && runtime.arcade.app === null
           && runtime.interaction.paused === false;
-      }, null, { timeout: 20000 });
+      }, null, { timeout: budget(EXIT_WALL_BUDGET_MS) });
     } catch {
       returnedToWorld = false;
     }
@@ -790,8 +862,8 @@ try {
         && !returnExit.frameVisible && returnExit.frameSrc === 'about:blank',
       JSON.stringify(returnExit));
     check('returning-player Quit also restores control within the wall-clock budget',
-      returnExit.returnedToWorld && returnExitWallMs < EXIT_WALL_BUDGET_MS,
-      `${returnExitWallMs}ms (budget ${EXIT_WALL_BUDGET_MS}ms)`);
+      returnExit.returnedToWorld && returnExitWallMs < budget(EXIT_WALL_BUDGET_MS),
+      `${returnExitWallMs}ms (budget ${budget(EXIT_WALL_BUDGET_MS)}ms)`);
 
     if (returnedToWorld) {
       await returnPage.keyboard.down('KeyS');
