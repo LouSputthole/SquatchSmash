@@ -709,6 +709,63 @@ try {
 
   await page.locator('#start-btn').click();
   await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.state.phase === 'active');
+
+  /* AHEAD OF THE POINTER-LOCK SEAM ON PURPOSE. This drives the armory and the
+   * inventory through evaluate() and needs no captured input, and the capture
+   * wait below is the one thing in this file that does not reliably clear on a
+   * cold SwiftShader page. A check that needs nothing from that seam must not
+   * sit behind it -- everything after a failing step simply never runs. */
+  /* ---------------------------------------------------------------- */
+  /* A GUN HE TAKES IS A GUN HE STILL HAS                              */
+  /* ---------------------------------------------------------------- */
+  /* Owner: *"the gun at the cabin also isnt in my inventory. i have it and
+   * then I put it away and it dissapears instead of going into my
+   * inventory."*
+   *
+   * It was never destroyed -- `retainTaken` reserves the wall copy, so walking
+   * back to the rack re-equipped it -- but the take selected an EMPTY pocket
+   * and put nothing in it, so [Q] stowed the rifle out of his hands into
+   * nowhere visible. A gun you can only recover by remembering which wall you
+   * took it off is a gun you have lost.
+   *
+   * Take it the way the rack does, stow it the way he did, and require both
+   * that the pocket still holds it and that its number key brings it back. */
+  const gun = await page.evaluate(async () => {
+    const c = window.COUNTRYSIDE_CABIN;
+    /* The racks hang off the built world (`c.cabin`), not off the runtime
+     * handle; the armories are the runtime's. Try each armory against the
+     * wall rack's own first weapon id rather than assuming which mount owns
+     * it -- the cabin has three (dungeon, wall, shotgun). */
+    const armories = Object.keys(c).filter((k) => /armor/i.test(k))
+      .map((k) => c[k]).filter((v) => v && typeof v.take === 'function');
+    const id = c.cabin?.wallRack?.racks?.[0]?.id ?? null;
+    if (!armories.length || !id) {
+      return { ok: false, id, armories: armories.length,
+        rackIds: (c.cabin?.wallRack?.racks ?? []).map((r) => r.id) };
+    }
+    const took = armories.some((a) => a.take(id));
+    if (!took) return { ok: false, id, why: 'no armory would take it' };
+    const inHand = { held: c.inventory.held, equipped: c.weapons?.equipped ?? null };
+    c.weapons.stow();
+    const afterStow = {
+      items: c.inventory.items.slice(),
+      equipped: c.weapons?.equipped ?? null,
+    };
+    const slot = afterStow.items.indexOf(id);
+    if (slot >= 0) {
+      c.inventory.select(slot);
+      if (c.weapons.equipped !== id) c.weapons.equip(id);
+    }
+    return {
+      ok: true, id, inHand, afterStow, slot,
+      redrawn: c.weapons?.equipped ?? null,
+    };
+  });
+  check('a rifle taken off the wall lands in a pocket, survives [Q], and its number key draws it again',
+    gun.ok && gun.inHand.equipped === gun.id
+      && gun.afterStow.items.includes(gun.id) && gun.afterStow.equipped === null
+      && gun.slot >= 0 && gun.redrawn === gun.id,
+    JSON.stringify(gun));
   /* Cross the browser-to-Player seam with a real canvas gesture. Headless
    * Chromium does not consistently honor pointer lock requested from the
    * overlay button, even though a direct gameplay click is accepted. */
@@ -729,6 +786,7 @@ try {
   const afterMove = await page.evaluate(() => window.COUNTRYSIDE_CABIN.player.position.toArray());
   check('Real production keyboard input moves the first-person player',
     Math.hypot(afterMove[0] - beforeMove[0], afterMove[2] - beforeMove[2]) > 0.025);
+
 
   await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
