@@ -211,10 +211,29 @@ async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null }
     const samples = [];
     let frames = 0;
     let distance = Math.hypot(player.position.x - point[0], player.position.z - point[1]);
+    /* STEER EVERY FRAME, AND REMEMBER THE CLOSEST APPROACH.
+     *
+     * This aimed once, held W, and demanded the player be inside a 0.08 m
+     * band on the exact frame it was sampled. Measured on the corridor
+     * carry: he starts 0.348 m from [0.86, 6.77], accelerates out of a
+     * standing start, and by frame 60 is 2.42 m past it and still going --
+     * a single frame step crossed the whole 0.16 m band, and nothing ever
+     * turned him back. The route then reported a traversal failure against
+     * a scene that walks perfectly well.
+     *
+     * A player steers. Re-aiming each frame keeps every real property this
+     * check exists for -- production `player.update`, real collision, real
+     * ground -- and lets an overshoot correct itself. `closest` accepts the
+     * honest case where he passes through the band between two samples. */
+    let closest = distance;
     while (distance > radius && frames < limit) {
+      const dx = point[0] - player.position.x;
+      const dz = point[1] - player.position.z;
+      player.yaw = Math.atan2(-dx, -dz);
       player.update(1 / 60);
       frames += 1;
       distance = Math.hypot(player.position.x - point[0], player.position.z - point[1]);
+      closest = Math.min(closest, distance);
       if (frames === 1 || frames % 60 === 0 || distance <= radius) {
         samples.push({
           frame: frames,
@@ -246,7 +265,8 @@ async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null }
       feet,
       frames,
       frameBudget: limit,
-      reached: distance <= radius,
+      closest,
+      reached: distance <= radius || closest <= radius,
       samples,
       penetrations,
     };
@@ -748,9 +768,15 @@ try {
     /* The racks hang off the built world (`c.cabin`), not off the runtime
      * handle; the armories are the runtime's. Try each armory against the
      * wall rack's own first weapon id rather than assuming which mount owns
-     * it -- the cabin has three (dungeon, wall, shotgun). */
-    const armories = Object.keys(c).filter((k) => /armor/i.test(k))
-      .map((k) => c[k]).filter((v) => v && typeof v.take === 'function');
+     * it -- the cabin has three (dungeon, wall, shotgun).
+     *
+     * DUCK-TYPE, DO NOT MATCH THE NAME. A `/armor/i` filter here found
+     * `armory` and `rifleRackArmory` and silently skipped `wallRack` -- the
+     * one mount that actually holds the carbine -- and the check failed with
+     * "no armory would take it" against a scene that was working fine.
+     * `Armory.take` returns false for an id it owns no stand for, so asking
+     * every object that has a `take` is both correct and naming-proof. */
+    const armories = Object.values(c).filter((v) => v && typeof v.take === 'function');
     const id = c.cabin?.wallRack?.racks?.[0]?.id ?? null;
     if (!armories.length || !id) {
       return { ok: false, id, armories: armories.length,
