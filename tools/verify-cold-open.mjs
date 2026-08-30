@@ -182,6 +182,24 @@ try {
     landed.ringsIn > 30,
     `rings in ${landed.ringsIn?.toFixed(1)}s`);
 
+  /* THE MUTE-OPENING GATE. The cold open is a third way into the flat, and
+   * the first shipped build of it never decoded a single recording: all the
+   * sample loading lived in the Start button's click handler, which this path
+   * bypasses, so Lou's first call played as silence under its subtitles. The
+   * reveal now owes the same decode the Start button performs, and this holds
+   * it to that: the bank for the pending call must actually be decoded
+   * buffers -- `hasSample` semantics -- not merely requested, by the time the
+   * beat is counting down toward the ring. */
+  const pendingVo = await page.evaluate(() => window.__squatch.apartmentStory.pendingCall()?.vo ?? null);
+  check('the beat knows which call it is counting down to',
+    typeof pendingVo === 'string' && pendingVo.length > 0, `vo=${JSON.stringify(pendingVo)}`);
+  const voiceBankDecoded = await page.waitForFunction((vo) => window.__squatch.audio.ready
+    && window.__squatch.audio.hasSample(`vo.${vo}.1`)
+    && window.__squatch.audio.hasSample(`vo.${vo}.tony.1`), pendingVo, { timeout: 90000 })
+    .then(() => true).catch(() => false);
+  check('the reveal decodes the voice bank for that call — the opening is not mute',
+    voiceBankDecoded, `vo.${pendingVo}.1 / vo.${pendingVo}.tony.1`);
+
   await settle(4);
   const thinking = await state();
   check('nothing happens while he works out what just happened',

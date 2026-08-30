@@ -1148,9 +1148,28 @@ function enterColdOpen() {
  * rather than as a menu. Everything else stays quiet.
  */
 function runColdOpenReveal() {
-  audio.init().then(() => {
+  audio.init().then(async () => {
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
+    /* The cold open is a third way into the flat, and it has to do the Start
+     * button's audio work itself: `enterColdOpen` set `game.started`, so the
+     * click handler's decode block will never run in this session. Without
+     * this, `audio.buffers` stays empty for the whole run and every recorded
+     * line -- Lou's first call included -- falls through to a synth that has
+     * no recipe for a voice. */
+    const startup = await audio.loadStartup({ names: apartmentStartupCueNames() });
+    console.info(`[sfx] ${startup.loaded}/${startup.total} startup samples loaded.`);
+    audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
+    audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
+    /* The radio waits the extra beat for its own voice bank, so the station
+     * gets to introduce itself out loud instead of mouthing its ident into an
+     * empty buffer table. The room tone above already made the first frame of
+     * movement sound like a place. */
     if (!radio.on) radio.turnOn({ remember: false });
+    void audio.loadManifest()
+      .then((sfx) => console.info(
+        `[sfx] ${sfx.loaded}/${sfx.total} Apartment samples resident; the rest are synthesised.`,
+      ))
+      .catch((error) => console.warn('[sfx] Apartment background load failed', error));
   }).catch(() => { /* no audio yet; the reveal is not held up for it */ });
 }
 
