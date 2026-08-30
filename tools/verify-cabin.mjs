@@ -784,15 +784,17 @@ try {
     }
     const took = armories.some((a) => a.take(id));
     if (!took) return { ok: false, id, why: 'no armory would take it' };
-    const inHand = { held: c.inventory.held, equipped: c.weapons?.equipped ?? null };
+    /* The pockets belong to the built world (`c.cabin`), like the racks
+     * two lines up -- the runtime handle has no bare `inventory`. */
+    const inHand = { held: c.cabin.inventory.held, equipped: c.weapons?.equipped ?? null };
     c.weapons.stow();
     const afterStow = {
-      items: c.inventory.items.slice(),
+      items: c.cabin.inventory.items.slice(),
       equipped: c.weapons?.equipped ?? null,
     };
     const slot = afterStow.items.indexOf(id);
     if (slot >= 0) {
-      c.inventory.select(slot);
+      c.cabin.inventory.select(slot);
       if (c.weapons.equipped !== id) c.weapons.equip(id);
     }
     return {
