@@ -264,9 +264,16 @@ test('the HUD projection exposes one parent objective and only its current soft 
   story.completeArrivalRest();
   expectPlan('Lay low at the cabin', 'Answer Lou’s call');
   story.completeOpeningCall();
-  expectPlan('Explore the property', '0/4 places visited');
+  /* The step names the outstanding places and the rack. "0/4 places
+   * visited" over a property with one dead landmark left the owner no way
+   * to say WHICH of four was stuck. */
+  expectPlan('Explore the property',
+    '0/4 visited · creek crossing, ridge overlook, forestry shed, shooting range'
+    + ' · the rifles hang inside the cabin');
   story.visit('creek');
-  expectPlan('Explore the property', '1/4 places visited');
+  expectPlan('Explore the property',
+    '1/4 visited · ridge overlook, forestry shed, shooting range'
+    + ' · the rifles hang inside the cabin');
   story.consumeMargoReady();
   story.visit('overlook');
   story.visit('shed');

@@ -1261,10 +1261,20 @@ export class CountrysideCabinStory {
       return plan('cabin.lay_low', 'Lay low at the cabin', 'Answer Lou’s call');
     }
     if (phase === 'explore') {
+      /* Name the four, not just the count: "0/4 places visited" over a
+       * property with a dead landmark gives the player no way to say WHICH
+       * of four is stuck, which is exactly the report that reached the
+       * owner. The rifle note earns its place the same way -- the rack is
+       * inside the cabin and nothing else on this route says so. */
+      const remaining = COUNTRYSIDE_CABIN_LANDMARKS
+        .filter((entry) => !this.landmarkComplete(entry))
+        .map(({ shortLabel }) => shortLabel.toLowerCase());
       return plan(
         'cabin.explore',
         'Explore the property',
-        `${Math.min(this.explorationCount(), COUNTRYSIDE_CABIN_LANDMARKS.length)}/${COUNTRYSIDE_CABIN_LANDMARKS.length} places visited`,
+        `${Math.min(this.explorationCount(), COUNTRYSIDE_CABIN_LANDMARKS.length)}/${COUNTRYSIDE_CABIN_LANDMARKS.length} visited`
+        + (remaining.length ? ` · ${remaining.join(', ')}` : '')
+        + ' · the rifles hang inside the cabin',
       );
     }
     if (phase === 'margo_call') {

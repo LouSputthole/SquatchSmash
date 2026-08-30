@@ -1,7 +1,14 @@
 import {
   CABIN_HOSTAGE_IDS,
+  COUNTRYSIDE_CABIN_LANDMARKS,
 } from '../core/countryside-cabin-story.js';
 import { CABIN_PHONE_CALLS, MARGO_CALL_READY } from './script.js';
+
+/* The owner's two clocks, in seconds of simulated time. "Maybe have Lou
+ * automatically call after a few minutes regardless" -- so he does, and the
+ * property tour concedes on the same principle a while later. */
+const ARRIVAL_REST_FALLBACK_S = 150;
+const EXPLORE_WALK_FALLBACK_S = 300;
 
 export const DUNGEON_TO_STORY_HOSTAGE = Object.freeze({
   counterStrike: CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER,
@@ -90,6 +97,13 @@ export class CabinChapterRuntime {
     this.toolsIntroduced = false;
     this.searchSeconds = 0;
     this.searchHintPlayed = false;
+    /* The owner's clock, both halves. Neither gate may hold the chapter
+     * forever: the nap becomes optional after a couple of quiet minutes, and
+     * the four walks concede after five. Same pause-safe dt shape as
+     * `searchSeconds` -- no wall clock. */
+    this.laylowSeconds = 0;
+    this.exploreSeconds = 0;
+    this.exploreConceded = false;
     this.executionClock = null;
     this.firstWrapLinePlayed = false;
     this.firstFireLinePlayed = false;
@@ -334,10 +348,31 @@ export class CabinChapterRuntime {
     if (this.phone.call) return;
     this.callRetry = Math.max(0, this.callRetry - dt);
     if (this.callRetry > 0) return;
-    if (!this.story.arrivalRestComplete() && !this.story.openingCallComplete()) return;
+    if (!this.story.arrivalRestComplete() && !this.story.openingCallComplete()) {
+      /* THE OWNER'S TIMER. The bed is still the front door to the chapter,
+       * but a man who putters instead of napping is not to be locked out of
+       * his own story: after a couple of quiet minutes the rest is deemed
+       * had and Lou rings anyway. */
+      this.laylowSeconds += dt;
+      if (this.laylowSeconds < ARRIVAL_REST_FALLBACK_S) return;
+      this.story.completeArrivalRest();
+    }
     if (!this.story.openingCallComplete()) {
       if (!this._ring(CABIN_PHONE_CALLS.LOU_ARRIVAL)) this.callRetry = 2;
       return;
+    }
+    /* The walks concede on the same principle. Margo's number is the way
+     * forward and it hides behind all four landmarks; five minutes of the
+     * player not finding one of them is the property telling us the tour is
+     * over, not the player telling us they want to keep touring. */
+    if (!this.story.propertyWalked() && !this.story.margoCallComplete() && !this.exploreConceded) {
+      this.exploreSeconds += dt;
+      if (this.exploreSeconds >= EXPLORE_WALK_FALLBACK_S) {
+        this.exploreConceded = true;
+        for (const landmark of COUNTRYSIDE_CABIN_LANDMARKS) this.story.visit(landmark.id);
+        this.hud?.say?.('That is enough of the grounds. <em>Margo’s number has been burning a hole in the jacket all day.</em>', 4600);
+        this.callbacks.onSync?.();
+      }
     }
     if (this.story.booskiSasoleCallReady()) {
       if (!this._ring(CABIN_PHONE_CALLS.BOOSKI_SASOLE)) this.callRetry = 2;

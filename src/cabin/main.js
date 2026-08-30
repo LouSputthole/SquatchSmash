@@ -464,6 +464,23 @@ function standUp() {
 function restAtCabin() {
   if (state.resting) return false;
   discoverCabin('bedroom');
+  const phase = story.phase();
+  /* THE TWO SLEEPS THE CHAPTER IS BUILT ON, finally wired to the bed.
+   * `completeArrivalRest` and `completeSecondRest` had no runtime caller at
+   * all: the only bed handler was this function, and every branch of it
+   * refused -- so Lou's opening call never rang, every landmark returned
+   * blocked, and a fresh save was hard-locked on its first frame with a
+   * panel saying "Get some sleep" over a bed that answered "Not yet." */
+  if (phase === 'arrival_rest' || phase === 'second_rest') {
+    if (phase === 'arrival_rest') story.completeArrivalRest();
+    else story.completeSecondRest();
+    blackoutToMorning(() => {
+      hud.toast('Rested', 'good');
+    }, phase === 'arrival_rest'
+      ? { sleepLabel: 'LAY LOW MEANS SLEEP FIRST', wakeLabel: 'MORNING · THE PROPERTY IS QUIET' }
+      : { sleepLabel: 'A PLANE-SHAPED DAY FOLDS SHUT', wakeLabel: 'MORNING · SOMEBODY WILL RING' });
+    return true;
+  }
   if (story.chapterComplete()) {
     hud.say('Already slept it off. <em>Ape is waiting by the car.</em>', 3200);
   } else if (story.blackedOut()) {
@@ -478,7 +495,17 @@ function restAtCabin() {
 function visitLandmark(id) {
   discoverCabin(id);
   const result = story.visit(id);
-  if (!result.ok) return result;
+  if (!result.ok) {
+    /* A refusal that says nothing is the silent-failure class this project
+     * has paid for repeatedly: the prompt showed, E fired, and the overlook
+     * simply did nothing while the story returned `blocked` into the void. */
+    const line = {
+      arrival_rest_incomplete: 'The walk will keep. <em>Sleep first.</em>',
+      opening_call_incomplete: 'Lou is going to ring about the arrangement. <em>Answer him before wandering.</em>',
+    }[result.reason];
+    if (line) hud.say(line, 3400);
+    return result;
+  }
   if (result.firstVisit) {
     audio.play(id === 'creek' ? 'water.splash' : 'footstep.dirt', {
       volume: id === 'creek' ? 0.18 : 0.28,
@@ -1071,7 +1098,10 @@ function handleWeaponEvent(event) {
   renderRangeHud();
 }
 
-function blackoutToMorning(done) {
+function blackoutToMorning(done, {
+  sleepLabel = 'THE FIRE FOLDS INTO BLACK',
+  wakeLabel = 'MORNING · SOMEHOW FINE',
+} = {}) {
   if (state.resting) return false;
   state.resting = true;
   stopCreekListening('rest', { silent: true });
@@ -1079,7 +1109,7 @@ function blackoutToMorning(done) {
   interaction.setPaused(true);
   weapons?.setTrigger?.(false);
   weapons?.setAimed?.(false);
-  restCurtain.querySelector('span').textContent = 'THE FIRE FOLDS INTO BLACK';
+  restCurtain.querySelector('span').textContent = sleepLabel;
   restCurtain.classList.add('active');
   audio.stopLoop('cabin.forest', 0.9);
   audio.stopLoop('cabin.creek', 0.9);
@@ -1088,7 +1118,7 @@ function blackoutToMorning(done) {
     const wake = cabin.spawns?.wake ?? cabin.bedPose;
     placePlayerAtCabinPose(wake, { level: 'cabin', reason: 'cabin-blackout-wake' });
     setIntoxication(0);
-    restCurtain.querySelector('span').textContent = 'MORNING · SOMEHOW FINE';
+    restCurtain.querySelector('span').textContent = wakeLabel;
     window.setTimeout(() => {
       restCurtain.classList.remove('active');
       state.resting = false;
@@ -1878,6 +1908,15 @@ startButton.addEventListener('click', async () => {
   hud.say(story.chapterComplete()
     ? '<em>Morning at the hideout.</em> Ape is waiting by the car.'
     : '<em>Late morning, county road north.</em> Lou said lay low, walk the property, and keep the phone close.', 5200);
+  /* The panel's one paint happened at module load, behind the title card:
+   * `#hud` is opacity-0 until `body.playing`, the 12-second display window
+   * burned down against a screen nobody could see, and the identical-
+   * signature re-set inside chapter.start() bailed before the reveal. Clear
+   * first, so the repaint is a genuinely new plan and the player enters the
+   * scene with the objective actually on screen -- the golf/graveyard boot
+   * pattern. */
+  objectivePanel.clear();
+  syncCampaignPresentation();
   chapter.start();
   chapter.update(0, { playerPosition: player.position, cabinPosition: { x: 0, z: 0 } });
 });

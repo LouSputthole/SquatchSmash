@@ -1,62 +1,41 @@
 # CONTINUITY DECISIONS — 2026-08-30
 
-Written against the full-campaign continuity audit run after the weekend
-merge. Every item here is something that can go more than one way, where the
-ways lead somewhere different. **Nothing below is a bug.** The bugs found by
-the same audit were fixed in this pass (the list of those is at the bottom,
-for the record); these get decided.
+Written against the full-campaign continuity audit, then re-checked after
+the 206-commit drop from the weekend's other kitchen landed on main (the
+Act One cabin, the luxury apartment, the Day 12–13 arc). Claims below were
+re-verified against the merged tree. Every item is something that can go
+more than one way, where the ways lead somewhere different. **Nothing below
+is a bug.** The bugs the audits found were fixed in this pass (list at the
+bottom, for the record); these get decided.
 
 Format follows the house rule: options lettered, my pick marked.
 
 ---
 
-## 1 · THE PALACE JUMPS THE FLAT — the biggest one
+## 1 · ~~THE PALACE JUMPS THE FLAT~~ — RESOLVED by the other kitchen
 
-The Special Meeting's whole Act One is written to play **in the apartment**:
-Booskibro's call, getting dressed, the door refusing him, headlights crossing
-the ceiling (`SPECIAL_MEETING_ACT_ONE` in `src/core/apartment-story.js`,
-beats SM-010–SM-090 in `docs/SPECIAL-MEETING-SCRIPT.md`). Roughly 500 lines
-of authored, recorded dialogue.
+The audit's biggest find — the Cartel Palace jumping the apartment and
+orphaning the Special Meeting's Act One — was solved in the new spine: the
+Booski call, the getting ready, and the pickup now play in the **luxury
+apartment** (`src/luxury-apartment/main.js` carries
+`SPECIAL_MEETING_BOOSKI_CALL` and the private lift owns the exit;
+`MIGRATIONS[21]` carries legacy saves across). Nothing to decide; noted so
+the audit trail closes.
 
-On the canonical route none of it can play: the Cartel Palace navigates
-straight to the Special Meeting at the kerb (`src/cartel-palace/main.js`,
-and `DESTINATIONS` in `campaign-scene-skip.js` agrees). `campaign.js` even
-documents the debt: *"it still names SPECIAL_MEETING and jumps the flat
-entirely."* Only grandfathered saves ever see Act One.
+## 2 · ~~THE "FIRST CABIN SCENE"~~ — FOUND, and the hard lock is fixed
 
-- **(a) Restore the flat leg: Palace → apartment (night) → Act One → kerb.**
-  The authored content plays, the campaign's last homecoming before the
-  ceremony exists again, and the missing `after-palace` preview variant
-  (item 7) falls out of it almost for free. Costs a routing change and a
-  timeline check. **(my pick)**
-- (b) Keep the jump and port the load-bearing beats (the call, the dressing)
-  into the Special Meeting page's opening as flashback/radio. Cheaper,
-  loses the room.
-- (c) Leave it. The content stays recorded and unreachable.
-
-## 2 · THE "FIRST CABIN SCENE" — I need the URL from you
-
-You reported: hard lock at the first cabin scene — couldn't hit E at the
-overlook, no guns in the cabin for the shooting range, and you'd add a Lou
-auto-call after a few minutes regardless of the two activities.
-
-I searched every file, every branch, and the full git history: **no overlook
-interactable, no shooting range, and no "two activities then Lou calls" gate
-exists anywhere in this repository.** The nearest real things:
-
-- The **Mansion quiet evening** — the game's only "any TWO activities"
-  gate (theatre / pool / bar / dog / LAN), but it gates the **guest bed**,
-  Lou is physically present, and there is no range.
-- The **Initiation** is at a cabin (you were just playing it), but its
-  stations have no overlook or range.
-- **No Wake**'s below-deck room is called "the cabin," but the scene hands
-  you a revolver automatically and has no activities.
-
-So either this was a scene one of the weekend's other cooks built and never
-pushed (in which case it lives only on that machine), or it's a scene you
-want built. **Tell me which page/URL you were on** — or, if it's a design
-ask, say so and it goes on the build list with the Lou-call timer done right
-(the Initiation's phase-timeout pattern is the house precedent).
+The cabin arrived with the 206 commits (`src/cabin/`, the countryside
+hideout). The hard lock you hit was real and total: the chapter's opening
+nap had **no way to happen** — the bed refused in every branch, so Lou never
+rang and every landmark silently refused E. Fixed in this pass: the bed now
+sleeps in the two rest phases; landmark refusals say why; the ridge
+overlook's interact box sat 174° behind the authored stance and now sits in
+the view where you actually look; your auto-call timer is in (Lou rings
+after ~2½ quiet minutes even if you never nap, and the four-walk tour
+concedes after five); the objective card survives the title screen and now
+names the outstanding places and the rifle rack. The "two activities" you
+remembered was the old gate's wording — the shipped gate is four walks, and
+the timer now caps it either way.
 
 ## 3 · STALE COPY FROM THE OLD ROUTE — the flat still narrates last month's campaign
 
@@ -118,16 +97,19 @@ Pines) and `date` (home from NO WAKE) send him home and have none.
 - **(b) Leave it, but fix the doc/comment so the thesis matches the table.
   (my pick, unless you have the two pastimes in your head already)**
 
-## 7 · TWO APARTMENT MORNINGS HAVE NO PREVIEW CHECKPOINT
+## 7 · LATE-CAMPAIGN HOMES HAVE NO PREVIEW CHECKPOINT
 
-Preview exits now carry the right apartment variant (fixed this pass), but
-two homecomings have no variant to carry: **home from the Palace** (the
-Special-Meeting-night flat — the same content as item 1) and **home from
-the Initiation** (the campaign-complete freeplay flat). Preview of those two
-still falls back to the day-one page.
+Preview exits now carry the right apartment variant (fixed this pass) for
+the five scenes that still send the player to the starter flat. The new
+spine's late homes are a different gap: the **luxury apartment**'s stages
+(the stayover, the Special-Meeting night, the post-Initiation freeplay) have
+no `apartment=`-style variant system of their own, so previewing those
+mornings still means playing to them. The other kitchen's
+`CAMPAIGN_HUB_PREVIEW_BEATS` launcher covers entry points; arrival-by-exit
+is what is missing.
 
-- **(a) Build both checkpoints; if item 1 goes with (a), `after-palace`
-  is required anyway. (my pick)**
+- **(a) Extend the variant system to the luxury flat's checkpoints. (my
+  pick, low urgency)**
 - (b) Leave the fallback.
 
 ## 8 · THE INITIATION CEREMONY SHOWS NO OBJECTIVES — by design, currently
@@ -212,3 +194,8 @@ The reuse ratchet counts files-that-import rather than cards-that-exist
   preview, the siege end-card no longer leaks preview into the real save,
   and the Day One ending card's Bing link is preview-safe.
 - The apartment scene graph listed the Special Meeting twice.
+- After the 206-commit merge: the cabin chapter's frame-one hard lock (the
+  arrival nap had no caller — bed wired, watchdog timers added per the
+  owner's ask, overlook interact box moved into the sightline, landmark
+  refusals given voices, objective card revealed past the title screen and
+  taught to name the outstanding places and the rifle rack).

@@ -1964,7 +1964,21 @@ function buildOverlook(root, M, colliders, footings) {
   );
   noteFooting(footings, 'overlook-bench', p.x, p.z, y, 'overlook-seat');
   noteFooting(footings, 'overlook-cairn', p.x + 2.45, p.z + 0.85, y, 'overlook-focal');
-  const target = makeLandmarkProxy(root, 'overlook', p, 3.2, 2.0);
+  /* THE PROXY SITS IN THE VIEW, NOT ON THE FURNITURE. The authored stance is
+   * the last node of the overlook trail and faces the valley -- 174 degrees
+   * away from the furniture cluster at `p` -- so a proxy centred on `p` sat
+   * 0.55 m BEHIND the player's shoulder at the exact spot the trail delivers
+   * them to, and the centre-screen interaction ray never touched it: prompt
+   * logic aside, E at the overlook did nothing. The target now sits on the
+   * stance's own sightline, just past the split rail, dead centre of the
+   * frame at the one place the scene tells the player to stand and look. */
+  const stance = LANDMARK_VIEWPOINTS.overlook;
+  const gaze = Math.hypot(stance.lookX - stance.x, stance.lookZ - stance.z);
+  const view = {
+    x: stance.x + ((stance.lookX - stance.x) / gaze) * 2.4,
+    z: stance.z + ((stance.lookZ - stance.z) / gaze) * 2.4,
+  };
+  const target = makeLandmarkProxy(root, 'overlook', view, 3.2);
   return { group: g, target, seatCount: 1, vistaFeatures: 2 };
 }
 
