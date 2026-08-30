@@ -2934,14 +2934,19 @@ test('walls block target acquisition until the target is genuinely visible', () 
   const wall = new THREE.Box3(
     new THREE.Vector3(-3, 1.1, 46), new THREE.Vector3(3, 4, 46.5),
   );
+  /* This is a sight-line test, not a survival lottery. Once the wall comes
+   * down the live rifleman is allowed to shoot; without the zero damage scale
+   * a lucky two-second burst can kill the only candidate, correctly making
+   * targetVisible false again before the final assertion. */
+  const context = { player, colliders, alive: [], playerDamageScale: 0 };
   colliders.push(wall);
-  for (let i = 0; i < 120; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  for (let i = 0; i < 120; i++) pool.update(1 / 60, context);
   assert.equal(entry.targetVisible, false);
   assert.equal(entry.target, null, 'the target was acquired through the wall');
   assert.equal(entry.roundsFired, 0);
 
   colliders.length = 0;
-  for (let i = 0; i < 120; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  for (let i = 0; i < 120; i++) pool.update(1 / 60, context);
   assert.equal(entry.targetVisible, true);
   assert.equal(entry.target?.actor, player.actor);
 });
