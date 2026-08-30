@@ -99,18 +99,22 @@ const TOOL_SWING_SECONDS = 0.58;
 const TOOL_LANDS_AT = 0.56;
 
 /**
- * The store-room door leaf, and how near it Gratin can be heard through it.
+ * The store-room door leaf, where the knock lands and Gratin waits.
  *
- * 2.4 m, and only from inside the hallway, which is doing two jobs. Lou's own
- * door is 2.7 m away across the corridor, so a player on his way to the
- * briefing walks past without Gratin shouting over the top of the mission; and
- * the hallway is the one place in the building where the dance floor is behind
- * a wall, so Gratin's voice cannot arrive through a door while the player is
- * looking straight at him on his stool. He is only teleported into the store
- * room when the door actually opens.
+ * The shout itself carries the length of the corridor: the first cut kept a
+ * 2.4 m circle at the door, sized to miss a player walking to Lou's own door
+ * 2.7 m away -- and it missed everybody. The one required reason to be back
+ * here is the briefing, so the only players who ever heard the line were the
+ * ones already looking for it. The owner's call: the line IS the signpost, so
+ * it fires for anyone who sets foot in the hallway. The hallway is still the
+ * gate that matters -- it is the one place in the building where the dance
+ * floor is behind a wall, so the voice cannot arrive through a door while the
+ * player is looking straight at Gratin on his stool. And if the player is
+ * quick enough to reach Lou mid-line, `dialogue.start` interrupts cleanly;
+ * the briefing always wins. He is only teleported into the store room when
+ * the door actually opens.
  */
 const DOOR_AT = Object.freeze({ x: 6.75, z: -9.5 });
-const DOOR_SHOUT_RANGE = 2.4;
 /** The back hallway, from `ROOMS.hallway` in club.js. */
 const HALLWAY = Object.freeze({ x0: 5.6, x1: 7.8, z0: -9.5, z1: 4.5 });
 
@@ -2032,8 +2036,7 @@ export function createLicenseToGrill({
         const { x, z } = player.position;
         const inHallway = x >= HALLWAY.x0 && x <= HALLWAY.x1
           && z >= HALLWAY.z0 && z <= HALLWAY.z1;
-        const d = Math.hypot(x - DOOR_AT.x, z - DOOR_AT.z);
-        if (inHallway && d < DOOR_SHOUT_RANGE && !dialogue?.active) {
+        if (inHallway && !dialogue?.active) {
           runtime.shouted = true;
           dialogue?.start(script.licenseToGrillDoor, 'knocking', null);
           audio?.play('door.knob', {

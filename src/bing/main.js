@@ -927,17 +927,38 @@ function addMoney(delta) {
  * visit's words back. */
 const OBJECTIVE_TITLE = isSecondVisit ? 'BACK TO THE BING' : 'A QUICK STOP AT THE BING';
 
+/* The spine of the evening, in the order the beats add them. Margo, the shot
+ * and Gratin all matter, but the panel's "now" marker follows the one errand
+ * Lou is counting on -- four required lines at equal weight from minute one
+ * is how the goal stopped being clear in the first place. */
+const MISSION_SPINE = new Set(['lou', 'office', 'speak', 'take', 'listen', 'leave']);
+
+/** One line of direction under the list, keyed to where the evening is. */
+function missionHint() {
+  switch (mission.state) {
+    case 'lot': case 'outside': return 'Head in through the front.';
+    case 'club': return 'The hallway to the back is on the right.';
+    case 'hallway': return 'Lou’s door is on the left, near the end of the hall.';
+    case 'office': return 'Lou is behind the desk.';
+    case 'package': return 'Take it, and let him finish.';
+    case 'briefed': case 'leaving': return 'Back through the club, out the front.';
+    default: return '';
+  }
+}
+
 function paintObjectives(list) {
+  const now = list.find((o) => !o.done && !o.optional && MISSION_SPINE.has(o.id));
   const item = (o) => ({
     label: o.text,
     done: Boolean(o.done),
     required: !o.optional,
+    ...(o === now ? { current: true } : {}),
     ...(o.total ? { tally: { count: o.count ?? 0, total: o.total } } : {}),
   });
   const items = list.filter((o) => !o.optional).map(item);
   const optional = list.filter((o) => o.optional);
   if (optional.length) items.push({ rule: 'WHILE YOU ARE HERE' }, ...optional.map(item));
-  objectivePanel.set({ title: OBJECTIVE_TITLE, items });
+  objectivePanel.set({ title: OBJECTIVE_TITLE, items, hint: missionHint() });
 }
 
 /* ------------------------------------------------------------------ *
@@ -1009,7 +1030,11 @@ function objectivesTick() {
   const sig = `${mission.objectives.map((o) => (o.done ? 1 : 0)).join('')}`
     + `|${mission.objectives.length}|${spokeTo.size}|${mission.spins || 0}|${mission.hands || 0}`
     + `|${mission.drinks || 0}|${game.tips || 0}|${game.songRequested ? 1 : 0}`
-    + `|${performerBathroom.state}|${licenseToGrill?.phase ?? 'unmounted'}`;
+    + `|${performerBathroom.state}|${licenseToGrill?.phase ?? 'unmounted'}`
+    /* The hint follows `mission.state`, which can move without any objective
+     * flipping -- entering the hallway, say -- so it has to be part of what
+     * counts as "something moved". */
+    + `|${mission.state}`;
   if (sig === objectiveSig) return;
   objectiveSig = sig;
   repaintObjectives();

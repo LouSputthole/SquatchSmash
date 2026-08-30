@@ -1875,6 +1875,29 @@ await page.evaluate(() => window.__bing.blackjack.standUp());
 /* ---- the back of house ---- */
 await walkTo(6.7, 2, Math.PI);
 check('the hallway moves the objective on', (await state()).mission === 'hallway');
+
+/* THE SHOUT IS THE SIGNPOST. The first cut gated Gratin's door line on a
+ * 2.4 m circle at the store-room door -- a spot the required path to Lou's
+ * office never enters -- and this walkthrough proved the briefing while
+ * never proving the one line that tells the player the side quest exists.
+ * Owner's call: setting foot in the hallway is enough. So the canonical
+ * playthrough now holds it to that, on the natural walk, with no teleport
+ * doing the aiming. It must not lock movement: it is a voice through a
+ * door, not a conversation. */
+const gratinShout = await page.evaluate(() => ({
+  active: window.__bing.dialogue.active,
+  node: window.__bing.dialogue.nodeId,
+  line: window.__bing.dialogue.node?.line ?? '',
+  locked: window.__bing.dialogue.lockMovement === true,
+}));
+check('setting foot in the hallway makes Gratin shout through the store-room door',
+  gratinShout.active && gratinShout.node === 'knocking'
+    && /second set of hands/i.test(gratinShout.line) && !gratinShout.locked,
+  JSON.stringify(gratinShout));
+/* Let the 3.8 s hold lapse so the office beat below starts from a clean
+ * dialogue, the way a player pausing at Lou's door would experience it. */
+await tick(4.5, 0.2);
+
 await walkTo(10.5, -6, Math.PI);
 await tick(1);
 s = await state();
@@ -3007,7 +3030,16 @@ const punchHud = await page.evaluate(async () => {
   const bills = document.querySelectorAll('#money-burst .bill').length;
 
   const objectives = [...document.querySelectorAll('#objectives li')]
-    .map((li) => ({ text: li.textContent, optional: li.classList.contains('optional'), rule: li.classList.contains('rule') }));
+    .map((li) => ({
+      text: li.textContent,
+      optional: li.classList.contains('optional'),
+      rule: li.classList.contains('rule'),
+      now: li.classList.contains('now'),
+    }));
+  const objectiveHint = {
+    text: document.querySelector('#objectives .ohint')?.textContent ?? '',
+    shown: !document.querySelector('#objectives .ohint')?.classList.contains('hidden'),
+  };
   const story = b.campaign.state.story;
   return {
     before,
@@ -3028,6 +3060,7 @@ const punchHud = await page.evaluate(async () => {
     radioAfter,
     bills,
     objectives,
+    objectiveHint,
     clockDay: story.day,
     clockMinutes: story.timeMinutes,
     hudClock: document.querySelector('#clock .time')?.textContent ?? '',
@@ -3096,6 +3129,18 @@ check('tipping the runway puts money in the air',
       && !optional.some((t) => /Gratin|service room/.test(t))
       && punchHud.objectives.some((o) => o.rule),
     JSON.stringify(texts));
+  /* FOUR REQUIRED LINES AT EQUAL WEIGHT IS HOW THE GOAL GOT LOST. The card
+   * now says which one he is doing -- exactly one `.now` row, on the mission
+   * spine -- and carries one line of direction underneath, so "the goal
+   * wasn't clear" has a rendered answer rather than a toast that fired once
+   * five minutes ago. */
+  const nowRows = punchHud.objectives.filter((o) => o.now);
+  check('the card marks exactly one objective as the one he is doing now',
+    nowRows.length === 1 && !nowRows[0].optional && !nowRows[0].rule,
+    JSON.stringify(nowRows.map((o) => o.text)));
+  check('and carries one line of direction under the list',
+    punchHud.objectiveHint.shown && punchHud.objectiveHint.text.length > 0,
+    JSON.stringify(punchHud.objectiveHint));
 }
 {
   /* The HUD must read back exactly what the campaign holds, and the campaign
