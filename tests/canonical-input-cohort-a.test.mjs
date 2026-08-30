@@ -34,7 +34,12 @@ test('Cartel Palace keeps combat controls phase-gated and clears every held comb
   assertCanonicalInput(PALACE, '../core/first-person-input.js');
   assert.match(PALACE, /canEnable: \(\) => state\.phase === 'active' && !state\.paused,/);
   assert.match(PALACE, /canHandleInput: \(\) => state\.phase === 'active' && !state\.paused,/);
-  assert.match(PALACE, /if \(event\.code === 'KeyR' && !event\.repeat\) \{\s*weapons\.reload\(\);/);
+  /* Reload is a bindable action, so it is measured against the translated
+   * `code` the Adapter supplies — not the physical `event.code`, which left a
+   * rebound reload dead in the Palace. */
+  assert.match(PALACE, /keyDown\(event, \{ code \}\) \{/);
+  assert.match(PALACE, /if \(code === 'KeyR' && !event\.repeat\) \{\s*weapons\.reload\(\);/);
+  assert.match(PALACE, /if \(code === 'KeyQ' && !event\.repeat\) \{\s*loadout\.stow\(weapons\);/);
   assert.match(PALACE, /if \(!controls\.locked\) return false;/);
   assert.match(PALACE, /if \(event\.button === 0\) \{\s*if \(!finale\.canPlayerFire\(\)\) \{\s*weapons\.setTrigger\(false\);/);
   assert.match(PALACE, /hud\.toast\('Hold fire · listen', 'warn', 1400\);\s*return true;\s*\}\s*weapons\.setTrigger\(true\);/);

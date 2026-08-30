@@ -36,10 +36,16 @@ export function createMansionControlPolicy({
       playerEnabled: state().running,
       movementEnabled: state().running,
       lookEnabled: state().running,
-      // Physical E has keypad/pool/weapon-aware policy below.
+      // The configured interaction key has keypad/pool/weapon-aware policy below.
       interactionEnabled: false,
     }),
     routes: Object.freeze({
+      /* `context.code` is the CONFIGURED code: the Adapter ran translateKey
+       * before this route, and every branch below reads it. The house used to
+       * compare `event.code`, which meant a rebound Use answered nothing in
+       * the whole mansion while movement still followed the keymap. The
+       * keypad is text entry (`event.key`) and Escape is not a bindable
+       * action, so those two stay physical. */
       keyDown(event, context) {
         if (silentKeydown(event)) {
           event.preventDefault?.();
@@ -47,48 +53,51 @@ export function createMansionControlPolicy({
         }
 
         if (dressHelpActive() && !event.repeat) {
-          if (event.code === 'KeyE') {
+          if (context.code === 'KeyE') {
             pressDressHelp();
             event.preventDefault?.();
             return true;
           }
-          if (event.code === 'KeyQ' || event.code === 'Escape') {
+          if (context.code === 'KeyQ' || event.code === 'Escape') {
             abandonDressHelp();
             event.preventDefault?.();
             return true;
           }
         }
 
-        if (event.code === 'Space') event.preventDefault?.();
+        if (context.code === 'Space') event.preventDefault?.();
 
         if (state().atPool) {
-          poolKeys.add(event.code);
-          if (event.code === 'KeyE' && !event.repeat) {
+          poolKeys.add(context.code);
+          if (context.code === 'KeyE' && !event.repeat) {
             poolPressE();
             event.preventDefault?.();
             return true;
           }
-          if (event.code === 'KeyQ' && !event.repeat) {
+          if (context.code === 'KeyQ' && !event.repeat) {
             poolPutCueBack();
             event.preventDefault?.();
             return true;
           }
         }
 
-        // Preserve the existing dual-ownership rule when an action key is
-        // rebound to movement: the command and movement both still happen.
+        // A command key rebound to movement is a SWAP, not a collision:
+        // bindKey hands the displaced command the key movement gave up, so
+        // one translated code can only ever mean one of the two.
         if (MOVEMENT_CODES.has(context.code)) {
           player.setKey(context.code, true);
           event.preventDefault?.();
         }
 
-        if (command(event.code, event)) return true;
+        if (command(context.code, event)) return true;
         return undefined;
       },
-      keyUp(event) {
-        poolKeys.delete(event.code);
-        if (state().atPool && event.code === 'KeyE') return true;
-        if (event.code === 'KeyE') {
+      // Same translation as keyDown, or the pool's fine-aim keys and the held
+      // interaction never come back up.
+      keyUp(_event, context) {
+        poolKeys.delete(context.code);
+        if (state().atPool && context.code === 'KeyE') return true;
+        if (context.code === 'KeyE') {
           interaction.release();
           peeStop();
         }

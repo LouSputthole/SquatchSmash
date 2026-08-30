@@ -93,13 +93,35 @@ test('Mansion pool owns E/Q while A/D retain fine-aim key truth', () => {
   assert.deepEqual(f.calls, ['pool:press', 'pool:leave', 'command:KeyA']);
 });
 
-test('Mansion preserves a translated movement binding on a scene command key', () => {
+test('Mansion reads the configured code, so a rebound command follows the binding', () => {
+  /* Physical R rebound to "forward" is a SWAP: bindKey hands reload the KeyW
+   * that forward gave up, so R arrives translated as KeyW and means movement
+   * only. The house used to run `command(event.code)` and fired reload as
+   * well, which is the same raw compare that left a rebound Use answering
+   * nothing at all. */
   const f = fixture();
   const rebound = event('KeyR');
-  assert.equal(f.policy.routes.keyDown(rebound, { code: 'KeyW' }), true);
+  assert.equal(f.policy.routes.keyDown(rebound, { code: 'KeyW' }), undefined);
   assert.equal(f.player.keys.has('KeyW'), true);
   assert.equal(rebound.prevented, true);
+  assert.deepEqual(f.calls, ['command:KeyW']);
+
+  /* And the displaced reload answers on the key it moved to. */
+  f.calls.length = 0;
+  const displaced = event('KeyW');
+  assert.equal(f.policy.routes.keyDown(displaced, { code: 'KeyR' }), true);
   assert.deepEqual(f.calls, ['command:KeyR']);
+  assert.equal(f.player.keys.has('KeyR'), false,
+    'a command key must not also be pushed into the Player as movement');
+});
+
+test('Mansion releases the interaction on the configured code, not the physical one', () => {
+  /* Press and release must translate identically or a rebound Use is held
+   * down for the rest of the tour. */
+  const f = fixture();
+  f.policy.routes.keyDown(event('KeyX'), { code: 'KeyE' });
+  f.policy.routes.keyUp(event('KeyX'), { code: 'KeyE' });
+  assert.deepEqual(f.calls, ['command:KeyE', 'interact:release', 'pee:stop']);
 });
 
 test('Mansion mouse policy keeps weapon, interaction, mission-fire, and cleanup distinct', () => {

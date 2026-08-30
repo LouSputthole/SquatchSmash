@@ -448,8 +448,12 @@ createPauseMenu({
 
 window.addEventListener('keydown', (event) => {
   if (!running || paused) return;
-  player.setKey(translateKey(event.code), true);
-  if (event.code === 'KeyE') interaction.press();
+  /* Translate once, then compare. Movement already went through the keymap
+   * here; [E] did not, so a rebound Use key walked the room and opened
+   * nothing. Escape is not a bindable action and stays physical. */
+  const code = translateKey(event.code);
+  player.setKey(code, true);
+  if (code === 'KeyE') interaction.press();
   if (event.code === 'Escape') cardEl.classList.add('hidden');
 });
 window.addEventListener('keyup', (event) => player.setKey(translateKey(event.code), false));

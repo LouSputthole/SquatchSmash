@@ -1540,12 +1540,15 @@ const input = createFirstPersonInput({
    * power-box/door actions historically did not. */
   interactionRequiresCapture: false,
   routes: {
-    keyDown(event) {
-      if (event.code === 'KeyR' && !event.repeat) {
+    /* `code` is the configured key the Adapter already translated; reload and
+     * stow are bindable actions and read it. The slot digits and the bloom
+     * toggle are not in the keymap and stay on the physical code. */
+    keyDown(event, { code }) {
+      if (code === 'KeyR' && !event.repeat) {
         weapons.reload();
         return true;
       }
-      if (event.code === 'KeyQ' && !event.repeat) {
+      if (code === 'KeyQ' && !event.repeat) {
         loadout.stow(weapons);
         syncLoadout();
         return true;

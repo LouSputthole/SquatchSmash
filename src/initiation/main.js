@@ -1292,8 +1292,10 @@ input = createFirstPersonInput({
       }
       return false;
     },
-    keyUp(event) {
-      if (event.code === 'Space') actionRelease();
+    // Released on the translated code keyDown pressed on, or a rebound hold
+    // stays down through the whole ceremony.
+    keyUp(_event, controls) {
+      if (controls.code === 'Space') actionRelease();
       return false;
     },
     mouseDown(event, controls) {

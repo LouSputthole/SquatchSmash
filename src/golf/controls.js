@@ -46,7 +46,7 @@ export function createGolfControlPolicy({
         playerEnabled: current.camMode === modes.WALK,
         movementEnabled: current.camMode === modes.WALK,
         lookEnabled: current.camMode === modes.WALK,
-        // Physical E has address/cart policy and is routed below.
+        // The configured interaction key has address/cart policy below.
         interactionEnabled: false,
       };
     },
@@ -74,29 +74,34 @@ export function createGolfControlPolicy({
         }
         return undefined;
       },
+      /* `context.code` is what the keymap says the player pressed. Address
+       * aim, the swing and the round's commands are all bindable actions and
+       * read it; the club digits are not in the keymap and stay physical.
+       * Arrow keys and Enter are unbound by default and pass through
+       * translateKey unchanged, so they keep working either way. */
       keyDown(event, context) {
         const current = state();
         if (current.pendingHoleTransition
-          && ['KeyR', 'Space', 'Enter'].includes(event.code)) {
+          && ['KeyR', 'Space', 'Enter'].includes(context.code)) {
           advanceHoleTransition();
           event.preventDefault?.();
           return true;
         }
         if (current.camMode === modes.ADDRESS
-          && ['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(event.code)) {
-          adjustPlannedDistance(event.code === 'ArrowUp' || event.code === 'KeyW' ? 1 : -1);
+          && ['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(context.code)) {
+          adjustPlannedDistance(context.code === 'ArrowUp' || context.code === 'KeyW' ? 1 : -1);
           event.preventDefault?.();
           return true;
         }
         if (current.camMode === modes.ADDRESS
-          && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(event.code)) {
-          const left = event.code === 'ArrowLeft' || event.code === 'KeyA';
+          && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(context.code)) {
+          const left = context.code === 'ArrowLeft' || context.code === 'KeyA';
           adjustAim((left ? 1 : -1) * (event.shiftKey ? 0.07 : 0.022));
           event.preventDefault?.();
           return true;
         }
         if (current.camMode === modes.ADDRESS
-          && (event.code === 'Space' || event.code === 'Enter')) {
+          && (context.code === 'Space' || context.code === 'Enter')) {
           if (!event.repeat) swingClick();
           event.preventDefault?.();
           return true;
@@ -108,25 +113,28 @@ export function createGolfControlPolicy({
           return true;
         }
 
-        // Preserve the scene's documented rebind rule: a physical command
-        // key may simultaneously own a translated movement action.
+        // One translated code means one thing: bindKey SWAPS a command key
+        // rebound to movement, so the displaced command follows the key that
+        // movement gave up rather than firing alongside it.
         if (MOVEMENT_CODES.has(context.code)) {
           player.setKey(context.code, true);
           event.preventDefault?.();
         }
-        if (event.code === 'KeyF' && context.code === 'KeyF') {
+        if (context.code === 'KeyF') {
           player.setKey('KeyF', true);
         }
 
-        if (command(event.code)) return true;
+        if (command(context.code)) return true;
 
         // Cart controls remain live without pointer lock, as before.
         if (current.camMode === modes.CART && MOVEMENT_CODES.has(context.code)) return true;
         return undefined;
       },
-      keyUp(event) {
-        if (event.code === 'KeyE') interaction.release();
-        if (event.code === 'KeyF') cancelItemUse();
+      // Released on the same translated code the press used, or a rebound
+      // hold never lets go of the beer.
+      keyUp(_event, context) {
+        if (context.code === 'KeyE') interaction.release();
+        if (context.code === 'KeyF') cancelItemUse();
         return undefined;
       },
     }),

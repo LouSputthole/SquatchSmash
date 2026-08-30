@@ -1322,29 +1322,32 @@ function routeLuxuryKeyDown(event, { code }) {
     return true;
   }
 
+  /* The postures below all speak the gameplay vocabulary — E/Q/R, and WASD
+   * on the seat — so they read `code`, not the physical key. Only the framed
+   * arcade apps and the inventory digits stay physical. */
   if (toilet?.active) {
-    if (!event.repeat) toilet.handleKey(event.code);
+    if (!event.repeat) toilet.handleKey(code);
     event.preventDefault();
     return true;
   }
 
   if (crookedArt?.bar.active) {
-    if (!event.repeat) crookedArt.handleKey(event.code);
+    if (!event.repeat) crookedArt.handleKey(code);
     event.preventDefault();
     return true;
   }
 
   if (state.posture === 'darts') {
-    if (event.code === 'KeyQ') leavePosture();
-    else if (event.code === 'KeyE' && !event.repeat) darts.beginCharge();
-    else if (event.code === 'KeyR') darts.reset();
+    if (code === 'KeyQ') leavePosture();
+    else if (code === 'KeyE' && !event.repeat) darts.beginCharge();
+    else if (code === 'KeyR') darts.reset();
     event.preventDefault();
     return true;
   }
 
   if (state.posture === 'console') {
-    if (event.code === 'KeyQ') leavePosture();
-    else if (event.code === 'KeyR' || event.code === 'KeyE') {
+    if (code === 'KeyQ') leavePosture();
+    else if (code === 'KeyR' || code === 'KeyE') {
       if (!tv.on) tv.toggle();
       else tv.next();
       home.state.tvOn = tv.on;
@@ -1359,7 +1362,7 @@ function routeLuxuryKeyDown(event, { code }) {
     return true;
   }
 
-  if (event.code === 'KeyQ' && state.posture) {
+  if (code === 'KeyQ' && state.posture) {
     leavePosture();
     event.preventDefault();
     return true;
@@ -1384,8 +1387,10 @@ function routeLuxuryKeyDown(event, { code }) {
   return undefined;
 }
 
-function routeLuxuryKeyUp(event) {
-  if (state.posture === 'darts' && event.code === 'KeyE') {
+// Released on the same translated code the charge started on, or a rebound
+// throw key holds the dart back for good.
+function routeLuxuryKeyUp(event, { code }) {
+  if (state.posture === 'darts' && code === 'KeyE') {
     darts.release();
     event.preventDefault();
     return true;

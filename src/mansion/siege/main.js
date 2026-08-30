@@ -2787,13 +2787,17 @@ input = createFirstPersonInput({
     interactionEnabled: waking <= 0,
   }),
   routes: {
-    keyDown(e) {
-      if (e.code === 'KeyR' && !e.repeat) {
+    /* `code` is the configured key; `e.code` is the physical one. Reload,
+     * stow and the line are bindable actions and read the first. The slot
+     * digits, Enter and the postfx toggle are not in the keymap and read the
+     * second. */
+    keyDown(e, { code }) {
+      if (code === 'KeyR' && !e.repeat) {
         weaponSystem.reload();
         ammoDirty = true;
         return true;
       }
-      if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
+      if (code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
         weaponSystem.setAimed(false);
         finalArcLoadout.stow(weaponSystem);
         loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
@@ -2809,7 +2813,7 @@ input = createFirstPersonInput({
         return true;
       }
       /* The line. Once, ever, with any catalog gun up on the landing. */
-      if (e.code === 'KeyF' && !e.repeat) { tryTheLine(); return true; }
+      if (code === 'KeyF' && !e.repeat) { tryTheLine(); return true; }
       /* Enter deliberately skips the active line. Space remains jump. */
       if (e.code === 'Enter' && !e.repeat && dialogue.active) {
         dialogue.finish();

@@ -1904,7 +1904,11 @@ $('es-again')?.addEventListener('click', () => {
 /* Input                                                              */
 /* ------------------------------------------------------------------ */
 
-function handleEnolaBeforeKeyDown(e) {
+/* `code` is the configured key the Adapter already translated. Only the
+ * on-foot stow is a bindable action and reads it; Escape, the numbered
+ * choices and the retired bracket trim are not in the keymap and stay on the
+ * physical code. */
+function handleEnolaBeforeKeyDown(e, code) {
   if (e.code === 'Escape') return true;
   /* THE CHOICE GETS THE KEY BEFORE THE AEROPLANE DOES.
    *
@@ -1934,7 +1938,7 @@ function handleEnolaBeforeKeyDown(e) {
     e.preventDefault();
     return true;
   }
-  if (!mission.inCockpit && e.code === 'KeyQ') {
+  if (!mission.inCockpit && code === 'KeyQ') {
     finalArcLoadout.stow();
     paintDurableCarry();
     hud.toast('WEAPON STOWED');
@@ -1944,7 +1948,12 @@ function handleEnolaBeforeKeyDown(e) {
   return false;
 }
 
-function handleEnolaAfterKeyDown(e) {
+/* The cockpit letters below stay PHYSICAL on purpose. `FlightInput` keeps its
+ * own vocabulary on `event.code` and translates only the six REBINDABLE
+ * movement codes (src/beefrun/input.js), so reading the configured `code` for
+ * C/P/T would desync each toast from the action it is reporting. `code` is
+ * used for the skip, which rides the jump binding. */
+function handleEnolaAfterKeyDown(e, { code }) {
   // The flashing camera hint goes away the first time the player uses the key
   // it is pointing at. `KeyC` itself is `FlightInput`'s own 'camera' action,
   // handled through `input.onAction` — this only dismisses the tip.
@@ -1981,8 +1990,9 @@ function handleEnolaAfterKeyDown(e) {
     // off by hand would have.
     if (autoWas && !mission.autopilot.engaged) hud.toast('AUTOPILOT OFF');
   }
-  // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
-  if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
+  /* The nightfall cut is skippable — see `MissionController.skipCutscene()`.
+   * Space is the jump binding, so the skip follows wherever it was moved. */
+  if (mission.phase === 'nightfall' && (code === 'Space' || code === 'Enter')) {
     mission.skipCutscene();
   }
   return false;

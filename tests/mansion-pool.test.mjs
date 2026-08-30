@@ -546,9 +546,14 @@ test('pool: the mansion registers the felt, keeps E for the game and Q for the d
   /* Browser lifecycle moved to the canonical Adapter; the pool policy stays
    * explicit in its own thin seam rather than disappearing into main.js. */
   assert.match(source, /createMansionControlPolicy\(\{/);
-  assert.match(controls, /if \(state\(\)\.atPool\) \{\n\s+poolKeys\.add\(event\.code\);/);
+  /* The felt speaks the bindable vocabulary — E to shoot, Q to rack the cue,
+   * A/D for fine aim — so it is addressed by the translated `context.code`.
+   * Reading `event.code` here meant a rebound Use could not take a shot. */
+  assert.match(controls, /if \(state\(\)\.atPool\) \{\n\s+poolKeys\.add\(context\.code\);/);
   assert.match(controls,
-    /event\.code === 'KeyQ' && !event\.repeat[\s\S]*poolPutCueBack\(\);/);
+    /context\.code === 'KeyQ' && !event\.repeat[\s\S]*poolPutCueBack\(\);/);
+  assert.match(controls, /poolKeys\.delete\(context\.code\);/,
+    'the fine-aim keys must come up on the same code they went down on');
   /* The camera goes to the shot through the shared seated pose, not through a
    * second camera rig this scene invented. */
   assert.match(source, /player\.sitAt\(\{\n\s+position: new THREE\.Vector3\(pose\.x, pose\.y, pose\.z\)/);

@@ -92,11 +92,14 @@ export function createHeistControlPolicy({
         }
         if (event.code === 'BracketLeft') { cycleSlot(-1); return true; }
         if (event.code === 'BracketRight') { cycleSlot(1); return true; }
+        /* These four are the same bindable vocabulary REPEAT_GUARDED_CODES
+         * already measures against `context.code`; reading `event.code` here
+         * left a rebound order, reload or drop dead in the bank. */
         if (context.code === 'KeyE') { interaction.press(); return true; }
-        if (event.code === 'KeyF') { hostageVerb('reassure'); return true; }
-        if (event.code === 'KeyG') { hostageVerb('demand'); return true; }
-        if (event.code === 'KeyR') { reload(); return true; }
-        if (event.code === 'KeyQ') { dropBag(); return true; }
+        if (context.code === 'KeyF') { hostageVerb('reassure'); return true; }
+        if (context.code === 'KeyG') { hostageVerb('demand'); return true; }
+        if (context.code === 'KeyR') { reload(); return true; }
+        if (context.code === 'KeyQ') { dropBag(); return true; }
         if (event.code === 'F9' && isPreview()) { failPreview(); return true; }
 
         // An ordinary movement binding continues through the canonical path.
