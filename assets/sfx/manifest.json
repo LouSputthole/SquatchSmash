@@ -23973,121 +23973,6 @@
       "say": "Go on."
     },
     {
-      "name": "vo.door.refusal.heist_cleanup.1",
-      "voice": "player",
-      "say": "Not walking into the Bing wearing the bank. Clean up first."
-    },
-    {
-      "name": "vo.door.refusal.final_arc_locked.1",
-      "voice": "player",
-      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down."
-    },
-    {
-      "name": "vo.door.refusal.initiation_locked.1",
-      "voice": "player",
-      "say": "Lou said seven. The invitation still has to land."
-    },
-    {
-      "name": "vo.door.refusal.golf_call.1",
-      "voice": "player",
-      "say": "Lou said he would call about this morning. I am not guessing where."
-    },
-    {
-      "name": "vo.door.refusal.golf_return.1",
-      "voice": "player",
-      "say": "Three holes done. Whatever comes next, Lou will call for it."
-    },
-    {
-      "name": "vo.door.refusal.heist_call.1",
-      "voice": "player",
-      "say": "Lou said he would call. Today is not a day to guess."
-    },
-    {
-      "name": "vo.door.refusal.heist_kit.1",
-      "voice": "player",
-      "say": "Everything Lou named goes with me. Nothing else does."
-    },
-    {
-      "name": "vo.door.refusal.big_night_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
-    },
-    {
-      "name": "vo.door.refusal.no_wake_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he knew. I am not chasing him today."
-    },
-    {
-      "name": "vo.door.refusal.date_call.1",
-      "voice": "player",
-      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_date.1",
-      "voice": "player",
-      "say": "That was a good night. Tomorrow is the other kind. Bed."
-    },
-    {
-      "name": "vo.door.refusal.day_two_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call with the next job."
-    },
-    {
-      "name": "vo.door.refusal.second_bing_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he wanted you back at the Bing."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_motel.1",
-      "voice": "player",
-      "say": "It is not even light out. Whatever is next can wait until I have slept."
-    },
-    {
-      "name": "vo.door.refusal.first_call.1",
-      "voice": "player",
-      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
-    },
-    {
-      "name": "vo.door.refusal.sleep_after_squatchfather.1",
-      "voice": "player",
-      "say": "That is enough going out for one night."
-    },
-    {
-      "name": "vo.door.refusal.lou_package.1",
-      "voice": "player",
-      "say": "I am not going anywhere until I find Lou’s package."
-    },
-    {
-      "name": "vo.door.refusal.whiskey.1",
-      "voice": "player",
-      "say": "Take one pull of whiskey. You earned the nerves."
-    },
-    {
-      "name": "vo.door.refusal.watch_tv.1",
-      "voice": "player",
-      "say": "I put a man in the ground last night. I would like to know whether it made the news before I go anywhere."
-    },
-    {
-      "name": "vo.door.refusal.counter_squatch.1",
-      "voice": "player",
-      "say": "I told the boys one game. One game, and then I am out the door."
-    },
-    {
-      "name": "vo.door.refusal.squatch_shoot.1",
-      "voice": "player",
-      "say": "Lou is going to put a club in my hand in front of people. Something needs warming up and it is not going to be the swing."
-    },
-    {
-      "name": "vo.door.refusal.squatch_smash.1",
-      "voice": "player",
-      "say": "Whatever tonight is, it is the last night of something. I would like to wreck a campground first."
-    },
-    {
-      "name": "vo.door.refusal.shrooms_before.1",
-      "voice": "player",
-      "say": "They take ninety minutes. Take them now and they land about the time somebody starts making speeches."
-    },
-    {
       "name": "heist.snow_casualty_alt",
       "voice": "snow",
       "say": "He was queuing. He had a paying-in book in his hand."
@@ -24322,6 +24207,126 @@
       "duration": 1.3,
       "promptInfluence": 0.6,
       "prompt": "a billiard ball dropping into a pocket, a ball leaving the cloth and falling into a net and wooden channel, one soft leathery thud then a short low wooden roll away underneath the table, close interior, no voice, no music"
+    },
+    {
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
+    },
+    {
+      "name": "vo.door.refusal.final_arc_locked.1",
+      "voice": "player",
+      "say": "Bank’s done. Nobody’s called. And when nobody calls, you sit down."
+    },
+    {
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
+    },
+    {
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
+    },
+    {
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
+    },
+    {
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
+    },
+    {
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.campaign_complete.1",
+      "voice": "player",
+      "say": "The week is over. Nobody is calling tonight, and that suits me fine."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
+    },
+    {
+      "name": "vo.door.refusal.watch_tv.1",
+      "voice": "player",
+      "say": "I put a man in the ground last night. I would like to know whether it made the news before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.counter_squatch.1",
+      "voice": "player",
+      "say": "I told the boys one game. One game, and then I am out the door."
+    },
+    {
+      "name": "vo.door.refusal.squatch_shoot.1",
+      "voice": "player",
+      "say": "Lou is going to put a club in my hand in front of people. Something needs warming up and it is not going to be the swing."
+    },
+    {
+      "name": "vo.door.refusal.squatch_smash.1",
+      "voice": "player",
+      "say": "Whatever tonight is, it is the last night of something. I would like to wreck a campground first."
+    },
+    {
+      "name": "vo.door.refusal.shrooms_before.1",
+      "voice": "player",
+      "say": "They take ninety minutes. Take them now and they land about the time somebody starts making speeches."
     }
   ]
 }
