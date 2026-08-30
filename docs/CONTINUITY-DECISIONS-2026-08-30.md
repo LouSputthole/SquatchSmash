@@ -159,7 +159,29 @@ radio, no way out.
 - **No pick from me — this is a design call about what the game is after
   the credits.**
 
-## 12 · STILL OPEN FROM LAST WEEKEND'S MEMO
+## 12 · THREE VERIFIER FINDINGS FROM THE OTHER KITCHEN — pre-existing, measured against their own main
+
+All three reproduce byte-for-byte on `origin/main` before this branch's
+merge; none is caused by it, and none blocks the ship. Flagged so they are
+owned rather than rediscovered:
+
+- **`verify:cold-open` times out at the quit handshake** under software
+  rendering: the new strict wall-time budgets (12 s) assume real-time frames,
+  and swiftshader runs this page at ~10 fps. You reported the cold open
+  working in live play, which points at the verifier's budget, not the
+  product — but if a playtest ever shows QUIT reloading Squatch Smash
+  instead of pulling the camera back, this is the first place to look.
+- **`verify:cabin-browser` ends 50/51**: its final probe presses E at the
+  car of a completed chapter and the page genuinely navigates out from
+  under it. The 50 substantive checks pass. The probe needs to expect the
+  departure.
+- **The Special Meeting page claims any save that opens it** (scene pointer
+  + a 35-minute clock burn) — their shipped design, and their recovery seam
+  and verifier depend on the claim, so this pass's direct-entry guard was
+  reverted. Decide the policy: keep the claim (a bookmark mid-campaign
+  rewrites the save), or teach the recovery seam to host a no-commit visit.
+
+## 13 · STILL OPEN FROM LAST WEEKEND'S MEMO
 
 The reuse ratchet counts files-that-import rather than cards-that-exist
 (old item 6). Per-page ratchet rows remain on offer; no pick was given.
