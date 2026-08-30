@@ -5,6 +5,7 @@ import {
   MISSION_IDS,
   TIME_EVENT_IDS,
 } from './campaign.js';
+import { recordCampaignMissionBoundary } from './campaign-stats.js';
 
 const PREVIOUS_CHECKPOINT = Object.freeze({
   safehouse_ready: null,
@@ -13,6 +14,7 @@ const PREVIOUS_CHECKPOINT = Object.freeze({
   street_withdrawal: 'vault_open',
   mercer_garage: 'street_withdrawal',
   vehicle_swap: 'mercer_garage',
+  safehouse_debrief: 'vehicle_swap',
 });
 
 function integer(value, fallback = 0) {
@@ -72,18 +74,21 @@ class BankHeistStory {
     const state = this.campaign.state;
     const mission = state.missions[MISSION_IDS.BANK_HEIST];
     if (mission.status === 'complete') return { ok: false, reason: 'already_complete' };
-    /* THE TAKE is the afternoon half of Day Four. Version 9 grandfathers
-     * saves that had already reached the heist before Silver Pines existed,
-     * so every current route -- including a resumed checkpoint -- can state
-     * this prerequisite honestly. */
-    if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
-      return { ok: false, reason: 'golf_incomplete' };
+    /* THE TAKE IS THE AFTERNOON OF DAY 5, AND IT NO LONGER WAITS ON ANYTHING
+     * IN CHAPTER 3.
+     *
+     * Both of the checks that stood here -- Silver Pines complete, then the
+     * Silver Room complete -- were the old order stated as a precondition:
+     * golf in the morning, the bank after lunch, on the day after the date.
+     * The owner's ruling reversed all three. THE TAKE is beat 11.5, it is the
+     * job that earns the upgrade, and everything it used to require now
+     * happens after it. What is left is the one thing that was always true:
+     * he is home from the Jerky Motel, and Lou rang. */
+    if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
+      return { ok: false, reason: 'motel_incomplete' };
     }
     if (mission.status === 'in_progress') {
       return { ok: true, resumed: true, checkpoint: mission.checkpoint };
-    }
-    if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
-      return { ok: false, reason: 'silver_incomplete' };
     }
     if (state.events[EVENT_IDS.LOU_HEIST_CALL].status !== 'answered') {
       return { ok: false, reason: 'lou_call_incomplete' };
@@ -134,6 +139,50 @@ class BankHeistStory {
         active.playerDroveEscape = facts.playerDroveEscape !== false;
         active.vehicleDamage = number(facts.vehicleDamage, active.vehicleDamage);
       }
+      if (name === 'safehouse_debrief') {
+        active.bagsStaged = integer(facts.bagsStaged, active.bagsStaged);
+        active.bagsRecovered = integer(facts.bagsRecovered, active.bagsRecovered);
+        active.grossTake = integer(facts.grossTake, active.grossTake);
+        active.compromisedCash = integer(facts.compromisedCash, active.compromisedCash);
+        /* These runtime counters feed the campaign-wide record only after the
+         * call. Bank them before the phone rings so a reload cannot turn a
+         * played firefight into a zero-shot, zero-kill mission. */
+        active.shotsFired = integer(facts.shotsFired, active.shotsFired);
+        active.peopleKilled = integer(facts.peopleKilled, active.peopleKilled);
+        active.civiliansHarmed = integer(facts.civiliansHarmed, active.civiliansHarmed);
+        if (typeof facts.optionalVaultBagTaken === 'boolean') {
+          active.optionalVaultBagTaken = facts.optionalVaultBagTaken;
+        }
+        if (typeof facts.followedSnow === 'boolean') active.followedSnow = facts.followedSnow;
+        if (typeof facts.disciplinedFire === 'boolean') {
+          active.disciplinedFire = facts.disciplinedFire;
+        }
+        if (BANK_HEIST_OUTCOMES.includes(facts.outcome)) active.outcome = facts.outcome;
+      }
+    });
+    return true;
+  }
+
+  /**
+   * The final call is a durable campaign beat, not a scene-local button.
+   *
+   * `ringing` means the debrief checkpoint was saved but Tony has not
+   * answered. `answered` is the exact-once receipt that survives a reload
+   * while the three authored closing lines drain before the mission card.
+   */
+  debriefCallStatus() {
+    const mission = this.campaign.state.missions[MISSION_IDS.BANK_HEIST];
+    if (mission.cleanup?.finalCalls === true) return 'answered';
+    if (mission.status === 'in_progress' && mission.checkpoint === 'safehouse_debrief') {
+      return 'ringing';
+    }
+    return 'unavailable';
+  }
+
+  answerDebriefCall() {
+    if (this.debriefCallStatus() !== 'ringing') return false;
+    this.campaign.updateRequired((state) => {
+      state.missions[MISSION_IDS.BANK_HEIST].cleanup.finalCalls = true;
     });
     return true;
   }
@@ -141,17 +190,27 @@ class BankHeistStory {
   complete(report = {}) {
     const current = this.campaign.state.missions[MISSION_IDS.BANK_HEIST];
     if (current.status !== 'in_progress'
-      || current.checkpoint !== 'vehicle_swap'
+      || current.checkpoint !== 'safehouse_debrief'
+      || current.cleanup?.finalCalls !== true
       || !current.vaultOpened
       || current.crewSurvived === false) return false;
 
     this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BANK_HEIST, (state) => {
       const done = state.missions[MISSION_IDS.BANK_HEIST];
       done.status = 'complete';
+      /* Preserve the established completed-save receipt. `safehouse_debrief`
+       * is an in-progress resume point; completed campaign checks and older
+       * saves canonically identify the successful route by `vehicle_swap`. */
+      done.checkpoint = 'vehicle_swap';
       done.bagsStaged = integer(report.bagsStaged, Math.max(done.bagsStaged, report.bagsRecovered ?? 0));
       done.bagsRecovered = integer(report.bagsRecovered, done.bagsRecovered);
       done.grossTake = integer(report.grossTake, done.grossTake);
       done.compromisedCash = integer(report.compromisedCash, done.compromisedCash);
+      done.shotsFired = Math.max(done.shotsFired, integer(report.shotsFired, done.shotsFired));
+      done.peopleKilled = Math.max(
+        done.peopleKilled,
+        integer(report.peopleKilled, done.peopleKilled),
+      );
       done.playerInjury = typeof report.playerInjury === 'string'
         ? report.playerInjury : done.playerInjury;
       if (report.crewInjuries && typeof report.crewInjuries === 'object') {
@@ -168,12 +227,15 @@ class BankHeistStory {
         crewInjuries: done.crewInjuries,
         primaryVanLost: done.primaryVanLost,
       }));
-      done.cleanup.finalCalls = true;
       done.outcome = BANK_HEIST_OUTCOMES.includes(report.outcome)
         ? report.outcome : inferredOutcome(done);
       state.story.chapter = 'post_heist';
       state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
       state.missions[MISSION_IDS.INITIATION].status = 'locked';
+      recordCampaignMissionBoundary(state, MISSION_IDS.BANK_HEIST, {
+        shotsFired: done.shotsFired,
+        peopleKilled: done.peopleKilled,
+      });
     }, { required: true });
     return true;
   }

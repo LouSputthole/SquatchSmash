@@ -815,6 +815,41 @@ export class Brushrunner {
     for (const [n, fz] of [[0, 3.1], [1, 1.9], [2, 0.7], [3, -0.5], [4, -1.7], [5, -2.7]]) {
       const frame = group(`fuselage-frame-${n}`);
       for (const [part, y] of [['bottom', -0.925], ['top', 0.925]]) {
+        /* STATION 1 IS THE FLIGHT DECK, AND ITS TOP RUN IS OPEN.
+         *
+         * Owner playtest, verbatim: *"Bar in the Cockpit of The plane going
+         * through Capt Sasoles Head."*
+         *
+         * Measured rather than eyeballed. Sasole's seated head sits at
+         * x -0.54..-0.30, y 0.76..1.04, z 1.54..1.78; the pilot's eye is at
+         * (0.42, 1.07, 2.22). Ray the eye at a 5x5x5 grid over that head and
+         * 45 of the 125 lines cross `fuselage-frame-1-top` -- more than a
+         * third of him, at 0.454 m. Nothing is INTERSECTING: the frame is at
+         * z 1.877..1.923 and his head ends at 1.78. It is a sightline, and it
+         * is one because the two men are on opposite sides of a ring station.
+         * The pilot's eye is 0.5 m aft of his own seat cushion (z 1.72) while
+         * Sasole is on his, so the bulkhead at 1.90 falls between them.
+         *
+         * The frame stations either side of it already do exactly this where
+         * they have to: 3 and 4 break their starboard run round the cargo
+         * cutout rather than "drawing a bar straight through the doorway".
+         * The flight deck is the same case. A cabin ring stops at the
+         * flight-deck opening; it does not run across the pilots' faces. The
+         * sightline crosses this station between x -0.19 and +0.02, but the
+         * rays to the OUTBOARD edge of his head (x -0.54) reach further, so an
+         * opening at +/-0.30 still caught four of them on the starboard end
+         * cap. +/-0.45 clears all 125. The runs are capped where they stop. */
+        if (n === 1 && part === 'top') {
+          for (const [side, sx] of [['starboard', -1], ['port', 1]]) {
+            const run = mesh(boxGeo(0.465, 0.05, 0.045), rivet, sx * 0.6825, y, fz);
+            run.name = `${frame.name}-${part}-${side}`;
+            frame.add(run);
+            const cap = mesh(boxGeo(0.05, 0.07, 0.055), rivet, sx * 0.45, y, fz);
+            cap.name = `${frame.name}-${part}-${side}-cap`;
+            frame.add(cap);
+          }
+          continue;
+        }
         const rail = mesh(boxGeo(1.83, 0.05, 0.045), rivet, 0, y, fz);
         rail.name = `${frame.name}-${part}`;
         frame.add(rail);
@@ -1533,16 +1568,31 @@ export class Brushrunner {
     /* A complete radio stack rather than three anonymous green bars: three
      * separate boxes, lit frequency windows, tuning knobs, and a guarded power
      * switch. It is still decorative, but it now reads as equipment from either
-     * seat and the exterior aerial makes the installation make sense. */
+     * seat and the exterior aerial makes the installation make sense.
+     *
+     * LAID FLAT, 2026-08-25. Owner: *"the radios that are vertically stacked
+     * lets lay those horizontally across the top of the dash. They are half in
+     * the dash right now."* Both halves of that were true. The column was
+     * 0.31 m tall about y 0.84 and the glare shield runs 0.65..0.75, so its
+     * bottom unit was buried in the coaming; and a tall stack on a panel this
+     * close to the eye ate the middle of the forward view.
+     *
+     * So: three units side by side ON the shield rather than three stacked
+     * through it. The housing sits with its underside exactly on the coaming
+     * top (0.75 + half of the 0.12 m scaled height), which is the difference
+     * between equipment mounted on a dash and equipment sunk into one, and
+     * all three frequency windows end up at one height inside the 66-degree
+     * viewport instead of spanning it. The run is 0.92 wide rather than the
+     * full width of the shield: at 1.34 the outer frequency window projected to
+     * 0.98 of the padded 66-degree viewport and fell off the edge of the scan,
+     * which is the same failure the vertical stack had, turned on its side. The
+     * display planes are 0.23 wide, so three of them plus their knobs is what
+     * sets the floor on this number, not taste. */
     const radio = group('cockpit-radio-stack');
     ownGeometry(radio, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);
-    /* The raised, shell-clear pilot eye changes the scan angle to this very
-     * close panel. Seat the compact stack in the coaming so all three frequency
-     * windows remain inside the real 66-degree pilot viewport; the former
-     * 0.57/0.72 placement left even the top display below the screen. */
-    radio.position.set(0, 0.84, 2.87);
+    radio.position.set(0, 0.81, 2.87);
     radio.scale.setScalar(0.5);
-    const radioShell = mesh(boxGeo(0.42, 0.62, 0.22), trimMat);
+    const radioShell = mesh(boxGeo(0.92, 0.24, 0.22), trimMat);
     radioShell.name = 'radio-stack-housing';
     radio.add(radioShell);
     const radioRows = [
@@ -1551,8 +1601,8 @@ export class Brushrunner {
       ['XPDR', '1200'],
     ];
     for (let i = 0; i < radioRows.length; i++) {
-      const y = 0.2 - i * 0.2;
-      const unit = mesh(boxGeo(0.38, 0.17, 0.08), panelDark, 0, y, -0.13);
+      const x = -0.29 + i * 0.29;
+      const unit = mesh(boxGeo(0.27, 0.17, 0.08), panelDark, x, 0, -0.13);
       unit.name = `radio-unit-${i + 1}`;
       radio.add(unit);
       const display = flatMesh(
@@ -1563,19 +1613,22 @@ export class Brushrunner {
           }),
           toneMapped: false,
         }),
-        -0.025, y, -0.172,
+        x, 0, -0.172,
       );
       display.name = `radio-display-${i + 1}`;
       display.rotation.y = Math.PI;
       radio.add(display);
-      for (const x of [-0.16, 0.16]) {
-        const knob = mesh(cylGeo(0.035, 0.035, 0.035, 10), metal, x, y, -0.18);
+      /* Flanking each unit rather than the stack: at this spacing the two
+       * knobs sit on their own set's edges, the way they did vertically. */
+      for (const dx of [-0.105, 0.105]) {
+        const knob = mesh(cylGeo(0.035, 0.035, 0.035, 10), metal, x + dx, 0, -0.18);
         knob.rotation.x = Math.PI / 2;
-        knob.name = `radio-knob-${i + 1}-${x < 0 ? 'left' : 'right'}`;
+        knob.name = `radio-knob-${i + 1}-${dx < 0 ? 'left' : 'right'}`;
         radio.add(knob);
       }
     }
-    const radioGuard = mesh(boxGeo(0.09, 0.035, 0.035), solid(0xc44636, { roughness: 0.65 }), 0.13, -0.29, -0.18);
+    /* The guarded master, on the outboard end of the run where a hand falls. */
+    const radioGuard = mesh(boxGeo(0.09, 0.035, 0.035), solid(0xc44636, { roughness: 0.65 }), 0.42, 0, -0.18);
     radioGuard.name = 'radio-master-guard';
     radio.add(radioGuard);
     g.add(radio);
@@ -1738,16 +1791,25 @@ export class Brushrunner {
     this.parts.bobble = bobHead;
 
     /* Tammy is the exact old sticker from the apartment fridge: the pin-up
-     * holding the AK, not a procedural text mug. She sits on the outboard end
-     * of the flying pilot's own upper rail — the side away from Sasole, and
-     * inside the ordinary forward scan from the left seat. */
+     * holding the AK, not a procedural text mug.
+     *
+     * MOVED 2026-08-25. Owner: *"The Tammy sticker in the airplane needs to be
+     * in a better place."* She was at y 0.77 — two centimetres above the glare
+     * shield, dead in the middle of the forward view, floating on the one
+     * surface a pilot looks straight over. Nobody sticks a pin-up where it
+     * blocks the horizon.
+     *
+     * She goes where one actually goes: down on the panel face, outboard on
+     * the flying pilot's own side, below the instruments and clear of both
+     * yokes (x ±0.42) — somewhere he sees when he glances down-left, and never
+     * when he is looking where he is going. */
     const tammy = flatMesh(
-      new THREE.PlaneGeometry(0.24, 0.24),
+      new THREE.PlaneGeometry(0.20, 0.20),
       new THREE.MeshBasicMaterial({
         map: tammyStickerTexture(), transparent: true, alphaTest: 0.06,
         side: THREE.DoubleSide, toneMapped: false,
       }),
-      LEFT * 0.63, 0.77, 2.82,
+      LEFT * 0.80, 0.46, 2.845,
     );
     tammy.name = 'tammy-golden-ak-sticker';
     ownGeometry(tammy, AIRCRAFT_ASSEMBLY.COCKPIT_PANEL);

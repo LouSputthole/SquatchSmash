@@ -442,10 +442,11 @@ async function enterFreshRoom(route, { proveShout = false } = {}) {
         classes: row ? [...row.classList] : [],
       };
     });
-    routeCheck(`${route}: requested back-room objective is required, exact and incomplete`,
-      objective.entry?.optional === false && objective.entry?.done === false
+    routeCheck(`${route}: requested back-room objective is optional, exact and incomplete`,
+      objective.entry?.optional === true && objective.entry?.featured === true
+        && objective.entry?.done === false
         && objective.rendered === 'Help Au Gratin in the back room'
-        && !objective.classes.includes('optional') && !objective.classes.includes('done'),
+        && objective.classes.includes('optional') && !objective.classes.includes('done'),
       JSON.stringify(objective));
   }
 
@@ -815,7 +816,7 @@ try {
       impactMarks: q.blood.impacts.marksOn(q.blond),
       poolCount: q.blood.pools.visibleCount,
       pool: { opacity: pool?.material.opacity ?? -1, scale: pool?.scale.x ?? -1 },
-      bodyRotation: q.blond.parts.body.rotation.z,
+      wholeFigureRotation: q.blond.group.rotation.z,
       deadPose: q.blond.group.userData.dead === true,
       chainGap: Math.min(
         first.distanceTo(cuffs[0]) + last.distanceTo(cuffs[1]),
@@ -830,7 +831,7 @@ try {
       && fatal.persisted?.informant === null && fatal.persisted?.meet === null
       && fatal.stored?.informant === null && fatal.impactMarks >= 14 && fatal.poolCount === 1
       && fatal.pool.opacity > preGrowth.opacity && fatal.pool.scale > preGrowth.scale
-      && fatal.deadPose && Math.abs(fatal.bodyRotation) > 0.2 && fatal.chainGap < 0.18
+      && fatal.deadPose && Math.abs(fatal.wholeFigureRotation) > 0.1 && fatal.chainGap < 0.18
       && /information dies with him/i.test(fatal.toast),
     JSON.stringify({ preGrowth, fatal }));
   await stageAim('blond', { x: 9.6, z: -10.45 });

@@ -242,6 +242,37 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR' && state === 'playing') tryRage();
   if (e.code === 'KeyM') toggleMute();
   if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+  /* [Q] BACKS YOU OUT OF THE COMPUTER, from in here.
+   *
+   * On the apartment desk this page owns the keyboard, so the apartment's own
+   * "[Q] is the stand-up key everywhere" handler never sees it and Q did
+   * nothing at all -- there is no Q in this game. Owner, 2026-08-27: *"at the
+   * beginning you still can't get up. It needs to pan out. Q doesn't work to
+   * get you up."*
+   *
+   * During the cold open Q takes the SAME door the YES button takes, rather
+   * than calling the host directly. Calling `quitSquatchSmash()` on its own
+   * does move the sequence to `shutdown` -- measured, it returns true and the
+   * phase flips -- and then nothing else happens, because this page is still
+   * sitting over the monitor. `confirmQuit` is the whole gesture: it drops the
+   * confirm box, shows the shutdown card, stops the music and calls the host
+   * half a second later, which is the path the reveal has always been driven
+   * down. One quit door, not two that drift apart.
+   *
+   * Not while the quit box is up -- that box owns the screen, and Q behind it
+   * would answer a question it has not been given a chance to ask. Standalone
+   * (no apartment above us) there is nothing to stand up from, and at any
+   * later sitting there is no reveal to play, so the host does the plain
+   * stand instead. */
+  if (e.code === 'KeyQ' && !quitConfirmOpen()) {
+    const host = apartmentHost();
+    if (host?.coldOpenActive?.()) {
+      confirmQuit();
+      e.preventDefault();
+    } else if (host?.standUp?.()) {
+      e.preventDefault();
+    }
+  }
   if (e.code === 'Enter' && state === 'menu') startGame();
 });
 window.addEventListener('keyup', (e) => {
@@ -280,15 +311,39 @@ function apartmentHost() {
   }
 }
 
+/** True while "QUIT SQUATCH SMASH?" is on screen and owns the input. */
+function quitConfirmOpen() {
+  return !$('quitConfirm').classList.contains('hidden');
+}
+
+/**
+ * THE QUIT BOX, AND THE PAUSE MENU IT HAS TO GET OUT FROM UNDER.
+ *
+ * This used to hide `#pause` -- the page's own PAUSED overlay, the one with
+ * RESUME / GIVE UP / QUIT on it. That overlay has not opened since the shared
+ * pause menu was adopted: `togglePause()` delegates to `sharedPauseMenu` the
+ * moment one exists, and one always does. So `#quitBtn` became unreachable
+ * UI, and with it the ONLY way out of this game -- which on the apartment
+ * desk is also the only way into the reveal. Owner, twice: *"still can't get
+ * out of the Squatch Smash game."* He was not missing it. It was not there.
+ *
+ * The menu's root is hidden directly rather than resumed, because the game
+ * must stay PAUSED behind the confirm box exactly as it did behind `#pause`:
+ * resuming would put the campground back in motion under a box asking whether
+ * to close it, and would restart the music over the top.
+ */
 function askToQuit() {
   if (state === 'playing') togglePause();
+  sharedPauseMenu?.root?.classList.add('hidden');
   $('pause').classList.add('hidden');
   $('quitConfirm').classList.remove('hidden');
 }
 
 function cancelQuit() {
   $('quitConfirm').classList.add('hidden');
-  $('pause').classList.remove('hidden');
+  /* Back to whichever menu he came from, still paused. */
+  if (sharedPauseMenu?.isPaused?.()) sharedPauseMenu.root.classList.remove('hidden');
+  else $('pause').classList.remove('hidden');
 }
 
 function confirmQuit() {
@@ -325,6 +380,9 @@ function toggleMute() {
 }
 
 function togglePause() {
+  /* The confirm box owns the screen while it is up: P or Escape underneath it
+   * would resume the campground behind a box asking whether to close it. */
+  if (quitConfirmOpen()) return;
   if (sharedPauseMenu) {
     sharedPauseMenu.toggle();
     return;
@@ -348,19 +406,36 @@ function togglePause() {
 
 sharedPauseMenu = createPauseMenu({
   title: 'Squatch Smash',
-  canPause: () => state === 'playing' || state === 'paused',
+  canPause: () => !quitConfirmOpen() && (state === 'playing' || state === 'paused'),
   // The apartment owns Tab while this page is running on the desk monitor.
   // P and Escape still pause the hidden run when SquatchOS closes the app.
-  canHandleTab: () => window.top === window && (state === 'playing' || state === 'paused'),
+  canHandleTab: () => window.top === window && !quitConfirmOpen()
+    && (state === 'playing' || state === 'paused'),
+  /* No SAVE DATA block while the fake-out is live: during the cold open this
+   * page is pretending to be a game he downloaded, and Squatch Life's save
+   * controls sitting in its pause menu give the reveal away before the camera
+   * moves. Asked fresh on every pause -- the answer changes the moment the
+   * camera comes off the monitor, and this menu is built once at boot. */
+  showSaveData: () => !apartmentHost()?.coldOpenActive?.(),
   getObjective: () => `Smash the campground before time runs out. ${Math.ceil(timeLeft)} seconds remain; ${goals.completed} of ${goals.total} goals complete.`,
-  instructions: [
-    'W A S D or arrows — move. Shift — charge.',
-    'Space or left click — smash.',
-    'F or right click — ground stomp.',
-    'R — rage mode when the bar is full. M — mute.',
-    'Standalone: Tab, P or Escape — pause.',
-    'At the apartment desk: Tab — exit to SquatchOS; Q — leave the desk.',
-  ],
+  instructions: () => {
+    const rows = [
+      'W A S D or arrows — move. Shift — charge.',
+      'Space or left click — smash.',
+      'F or right click — ground stomp.',
+      'R — rage mode when the bar is full. M — mute.',
+    ];
+    /* The opening works only while Squatch Smash plausibly is the downloaded
+     * game. The old help copy named the apartment and SquatchOS before the
+     * player could press Quit, spoiling the reveal on its required route. */
+    if (apartmentHost()?.coldOpenActive?.()) {
+      rows.push('Escape — pause. Hold Tab — quit Squatch Smash.');
+    } else {
+      rows.push('Standalone: Tab, P or Escape — pause.');
+      rows.push('At the apartment desk: Tab — exit to SquatchOS; Q — leave the desk.');
+    }
+    return rows;
+  },
   onPause: () => {
     state = 'paused';
     keys.clear();
@@ -371,7 +446,16 @@ sharedPauseMenu = createPauseMenu({
     sfx.startMusic();
     clock.getDelta();
   },
-  actions: [{ label: 'Give up', onSelect: () => endGame(false) }],
+  /* GIVE UP ends the RUN. QUIT closes the GAME -- and on the apartment desk
+   * that is the whole opening of Squatch Life. They are not the same door and
+   * the menu has to offer both; offering only the first is what left the
+   * player with no way out at all. `close: false` keeps the menu open so
+   * `askToQuit` can hand the screen straight to the confirm box without the
+   * campground starting up again in between. */
+  actions: [
+    { label: 'Give up', onSelect: () => endGame(false) },
+    { label: 'Quit Squatch Smash', close: false, onSelect: () => askToQuit() },
+  ],
 });
 
 // ---------- Touch controls ----------

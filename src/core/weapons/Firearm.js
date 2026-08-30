@@ -42,6 +42,20 @@ export const READY = 'ready';
 export const RELOAD_OUT = 'reload-out';
 export const RELOAD_IN = 'reload-in';
 
+/**
+ * A deliberate 9mm opening shot is effectively the centre ray.
+ *
+ * The 0.02 multiplier leaves a microscopic physical cone (0.38 mrad with the
+ * current pistol) instead of special-casing ballistics to an exact vector.
+ * At fifty metres that is a 19 mm radius—inside a head hitbox—while rapid
+ * follow-ups still use the catalog cone and recoil. The settle time is longer
+ * than the pistol's 5.5 rps cadence, so simply clicking at its fire-rate cap
+ * cannot receive the precision rule on every round.
+ */
+export const PISTOL_DELIBERATE_SPREAD_MULTIPLIER = 0.02;
+export const PISTOL_DELIBERATE_SETTLE_SECONDS = 0.32;
+export const PISTOL_DELIBERATE_RECOIL_MAX = 0.025;
+
 export class Firearm {
   /**
    * @param {string|object} definition catalog id, or a definition object.
@@ -65,6 +79,8 @@ export class Firearm {
     this.shots = 0;
     this.cooldown = 0;
     this.recoil = 0;
+    /** Seconds since the last successful shot, bounded for durable snapshots. */
+    this.settledFor = PISTOL_DELIBERATE_SETTLE_SECONDS;
     /* A pump cycle is a timed presentation event, independent of the reload
      * state. It is transient for the same reason recoil is transient. */
     this._cycleTimer = 0;
@@ -121,6 +137,11 @@ export class Firearm {
       this._clicked = true;
       return { fired: false, reason: 'empty' };
     }
+    /* Decide BEFORE adding this round's recoil. The old ordering widened the
+     * opening shot by recoil the player had not produced yet. Only the narrow
+     * pistol policy below bypasses that legacy behaviour; every ordinary gun
+     * and follow-up keeps the existing post-kick cone. */
+    const deliberate = this._isDeliberatePistolShot(spreadOptions);
     const tracer = this.nextIsTracer;
     this.rounds--;
     this.spent++;
@@ -128,6 +149,7 @@ export class Firearm {
     this._triggerConsumed = true;
     this.cooldown = 1 / Math.max(0.05, this.def.rps);
     this.recoil = Math.min(1, this.recoil + this.def.recoil * 6);
+    this.settledFor = 0;
     const cycleSeconds = Math.max(0, Number(this.def.cycleSeconds) || 0);
     if (cycleSeconds > 0) {
       this._cycleTimer = cycleSeconds;
@@ -138,8 +160,23 @@ export class Firearm {
       tracer,
       rounds: this.rounds,
       projectiles: Math.max(1, Math.trunc(Number(this.def.projectiles) || 1)),
-      spread: this.spreadNow(spreadOptions),
+      spread: deliberate
+        ? this.def.spread * PISTOL_DELIBERATE_SPREAD_MULTIPLIER
+        : this.spreadNow({ ...spreadOptions, settledFirstShot: false }),
+      deliberate,
     };
+  }
+
+  /** True only for a settled, steady opening shot from the 9mm. */
+  _isDeliberatePistolShot(options = {}) {
+    const stability = Number.isFinite(Number(options?.aimStability))
+      ? Number(options.aimStability)
+      : 1;
+    return this.id === 'pistol9'
+      && options?.settledFirstShot === true
+      && stability >= 0.92
+      && this.recoil <= PISTOL_DELIBERATE_RECOIL_MAX
+      && this.settledFor >= PISTOL_DELIBERATE_SETTLE_SECONDS;
   }
 
   /**
@@ -154,6 +191,9 @@ export class Firearm {
     ));
     const adsMultiplier = aimed === true ? 0.48 : 1;
     const suppressionMultiplier = 1 + (1 - stability) * 1.8;
+    if (this._isDeliberatePistolShot({ ...options, aimStability: stability })) {
+      return this.def.spread * PISTOL_DELIBERATE_SPREAD_MULTIPLIER;
+    }
     return this.def.spread
       * (1 + this.recoil * 1.4)
       * adsMultiplier
@@ -212,6 +252,7 @@ export class Firearm {
   update(dt) {
     const step = Math.max(0, Math.min(0.25, Number(dt) || 0));
     const events = [];
+    this.settledFor = Math.min(10, this.settledFor + step);
     this.cooldown = Math.max(0, this.cooldown - step);
     this.recoil = Math.max(0, this.recoil - step * 2.6);
     if (this._cyclePending) {
@@ -291,6 +332,7 @@ export class Firearm {
     this.spent = 0;
     this.cooldown = 0;
     this.recoil = 0;
+    this.settledFor = PISTOL_DELIBERATE_SETTLE_SECONDS;
     this._cycleTimer = 0;
     this._cyclePending = false;
     this.triggerHeld = false;

@@ -1,0 +1,215 @@
+# Reachability pass, 2026-08-27
+
+Written for the next developer. The owner is playtesting from
+`https://lousputthole.github.io/SquatchSmash/`; the launcher with a card per
+scene is `preview.html`.
+
+## What this pass was for
+
+The owner: *"specifically make sure each scene is reachable.. We have had
+problems with not being able to complete objectives."*
+
+Nothing was found that strands a player mid-route. What was found is that
+**four of the tools that would have told us otherwise had stopped working**,
+three of them because they still seed the pre-reorder campaign, and none of
+them are in `verify.yml` — which is why CI stayed green over all of them.
+
+## The state of the route
+
+`verify:campaign-marathon` walks all 28 handoffs on a real browser with real
+saves and reload proofs. It passes, and the calendar now matches the bible
+including the Day 12 jump:
+
+```
+04/28 squatchfather   -> countryside_cabin   day 2 05:20
+07/28 countryside_cabin -> bada_bing_two      day 4 23:00
+11/28 apartment       -> bank_heist          day 5 12:45
+14/28 silver_pines    -> luxury_apartment    day 6 11:45
+19/28 luxury_apartment -> silver_case         day 7 17:25
+24/28 mansion_return  -> cartel_palace        day 12 19:15   <- the jump is wired
+26/28 luxury_apartment -> special_meeting      day 13 17:55   <- rings at home now
+```
+
+Also green: `verify:boot-failure-surfaces` 40/40 (every staged page boots),
+`verify:direct-entry` 27/27 (a bare URL cannot claim a mission), and
+`verify:scene-recovery`.
+
+## The four tools that were lying, and what they were lying about
+
+All four had the same shape: a save built by hand, handed to a real browser,
+asking whether the mission can still be finished from there. All four were
+written before the beats 12–19 reorder and none followed it.
+
+| Tool | Was seeding | Actually needed | Now |
+|---|---|---|---|
+| `certify:persisted-liveness` | `chapter: 'no_wake'`, Day 3, Silver Room untouched | Day 7, Silver Room complete — `canBegin()` grew a `silver_incomplete` refusal | 9/9 |
+| `verify:direct-entry` | Day 4, Silver Room complete, heist untouched | Day 6, heist complete — the Silver Room comes *after* the round now | 27/27 |
+| `verify:squatchfather` | waited for `index.html` after AGAIN | the Cabin — beat 3 hands off there | 50/50 |
+| `verify:day-one` | asserted the panel was visible right after a no-op update | the panel auto-collapses after 12s | 45/45 |
+| `verify:cabin-browser` | the cabin as a post-heist lay-low, Day 7 11:15, nightfall Day 7, blackout Day 8 | Act One: Day 2 05:20, nightfall Day 3, blackout Day 4 | 45/45 |
+| `verify:no-wake` | completion hands off to the `date` chapter | `luxury_apartment` — the date is beat 15, this is beat 18 | 85/85 |
+| `verify:specialmeeting` | 240 s for a beat wait its own helper budgets 600 s for | 600 s, after measuring the ride was at an authored pause | 35/35 |
+
+`no_wake`, `date` and `golf_morning` are **stranded chapters** — the schema-21
+migration moves saves out of them. Any tool that seeds one is describing a
+world that no longer exists. Grep for them before writing a new seed.
+
+## The player-facing bugs this turned up
+
+**Q did nothing at the cold open.** Squatch Smash is a real iframe and owns
+the keyboard while it is up, so the apartment's own Q handler never saw the
+key, and the game had no Q of its own. Fixed by routing Q through the game's
+existing `confirmQuit()` — the same door the YES button uses. Note for anyone
+tempted to shortcut it: calling `quitSquatchSmash()` straight from the key
+*does* flip the sequence to `shutdown` and return true, and then nothing else
+happens, because the game page is still over the monitor.
+
+**Day One was drawing one objective and hiding the rest.**
+`conciseObjectiveItems` defaults `optionalLimit` to 0; the Bing passes 1, the
+graveyard 2, and the shared `Hud.setObjectives` passed nothing. The starter
+apartment is its only caller, so the inbox, the computer, Squatch Smash and
+`killtime` all went dark — and `killtime` is the row that tells a man waiting
+on a Bing that opens at 23:45 that he can sleep it off. Now 1.
+
+## Open, and deliberately not guessed at
+
+**`Hud.revealObjectives()` has no callers.** The objective panel collapses
+twelve seconds after each change and only comes back when the list changes.
+The pause menu shows the current objective, so it is not a dead end, but it is
+undiscoverable — and it is a plausible cause of "we couldn't tell what to do
+next." Fixing it is a design call: a key binding (O is free — W/A/S/D, Shift,
+Space, E, F, Q, R and Tab are all taken), a longer hold, or no auto-collapse.
+Ask the owner.
+
+**`certify:scene-liveness --strict` cannot pass by construction.** 2 PASS, 24
+UNKNOWN, 0 FAIL — it only certifies terminal states, and refuses everything
+else with `ACTION_REACHABLE_REFUSED: … but src/bing/hotdog-main.js owns the
+interaction target and spatial reachability`. It is honest scaffolding rather
+than a broken gate, and it found no defects. Completing it means teaching it
+to observe the scene, which is real work. `certify:persisted-liveness` already
+covers the same Hot Dog checkpoints through the production handlers and passes.
+
+**A correction.** An earlier pass in this session reported
+`verify:luxury-apartment-browser` as having two real failures — mouse-look
+producing no yaw, and a bathroom round trip — and claimed they predated the
+merge because a "baseline" run on the codex branch failed the same two. Both
+runs were under load. **On a clean one-browser-at-a-time run it passes.**
+There is nothing wrong with that scene. The wrong claim is recorded here
+rather than quietly deleted, because it is the sharpest evidence for the rule
+in the next section: contention does not merely add noise, it manufactures
+failures that read exactly like gameplay bugs, and it fooled a whole
+investigation including its own control.
+
+## How to run a scene sweep without being lied to
+
+**Run one browser at a time.** Half a day was lost to this. Running a second
+verifier alongside a sweep starves the first of `requestAnimationFrame`, and
+under SwiftShader a starved page produces failures that look exactly like
+gameplay bugs: beats that do not advance, decals that never spawn, a camera
+that does not move. `verify:squatchfather` failed six timing checks under load
+and passed 50/50 alone, ten minutes later, with no code change in between.
+
+If you write an ad-hoc Playwright probe, pump frames the way the real
+verifiers do — `await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())))`
+in a loop — rather than `waitForTimeout`. A cold open that looks frozen is
+usually a page nobody is rendering. Chasing the Q bug, three separate "the
+camera never moves" results were pure frame starvation; the fix only looked
+like it was failing.
+
+And be suspicious of tight waits. `verify:cabin-browser` budgeted five seconds
+for a pointer-lock capture its own comment admits headless Chromium grants
+unreliably. It was not flaky so much as under-funded — at thirty seconds it
+passes, and raising it revealed **twenty-nine further checks that had not run
+in a long time**, three of which were themselves asserting the pre-reorder
+calendar. A gate that dies early is a gate whose tail nobody is reading.
+
+## The clean sweep — complete
+
+Strictly sequential, one browser at a time. Every scene in the game. These
+results are trustworthy; the earlier contaminated run's are not.
+
+| Scene | Result |
+|---|---|
+| `bing` | OK |
+| `luxury-apartment-browser` | OK |
+| `cold-open` · `computer` · `squatch-smash` | OK |
+| `day-one` | OK (45/45 after the fix above) |
+| `squatchfather` | OK (50/50 after the fix above) |
+| `cabin-browser` | OK (45/45 after the fixes above) |
+| `mansion` · `mansion-siege` · `enolasquatch` · `mansion-return` · `cartel-palace` | OK — the whole Chapter 4-5 block |
+| `graveyard` | OK — see the note below |
+| `preview` | OK |
+| `initiation` | OK (45+ checks; the earlier failure was a 25-minute cap in the sweep harness, not the scene) |
+| `no-wake` | OK (85/85 after the fix above) |
+| `specialmeeting` | OK (35/35 after the fix above) |
+| `bing-two` | **2 failures — look at these** |
+| `heist` | 2 failures, one the known steering threshold |
+| `silvercase` | 1 failure |
+| `motel` | 1 failure |
+| `beefrun` | 1 failure, cosmetic |
+| `golf` | timed out at 60s with no checks recorded |
+
+**`graveyard` passes.** `f2b8095d` records it as retaining "an unrelated
+SwiftShader pre-game failure". It does not, on a clean run. That is the second
+inherited known-failure this pass has retired; treat such notes as claims
+about a machine under load rather than about the scene.
+
+**`silvercase`, 1/44 failed.** A real left click on Deke plays Chester's line
+(`vo.silvercase.couch.chester.whatthehell`, "What the hell, man?!") while the
+subtitle on screen is Ape's ("Now we have more seating."). You hear one man
+and read another — a subtitle-ownership collision where Ape's line wins the
+slot.
+
+**`bing-two`, 2/35 failed.** `the party spawn enters walk mode and accepts
+movement input` — mode is `walk`, `spawnMoveDelta` is 0, the player does not
+move. And `the player keeps mouse look inside an authored shot, clamped to the
+staging` — the swing angle is 2.1e-8, i.e. fully pinned rather than clamped.
+These are the two worth a look first: a player who cannot move at a spawn is
+exactly what "could not complete the objective" feels like. It may also be the
+authored-shot camera lock behaving as designed and the check being stale — it
+has not been judged.
+
+**`motel`, 1/97 failed.** `the three transaction objects wait for the spoken
+package briefing` — `placeOwnCase` is enabled while `sample`, `jerkyCase` and
+`placeMoney` correctly wait. One step can be taken out of order.
+
+**`beefrun`, 1/79 failed.** The Tammy sticker on the pilot's dash rail
+projects off-screen and reports `visible: false`. Cosmetic.
+
+**`golf`** died on a 60-second `waitForFunction` before recording any checks.
+Undiagnosed.
+
+### The Special Meeting, and why the timeout was raised last
+
+`verify:specialmeeting` aborted at 23 of 35 checks on a 240-second wait for
+beat SM-440. Its own `chooseAtBeat` helper budgets 600 s for the same seam and
+explains why, so raising it would have gone green immediately — which is
+exactly why that was not the first move. A timeout raised until a run passes
+cannot distinguish a ride that is slow from one that is STUCK, and a stall
+three scenes from the credits would have been buried under the bigger number.
+
+Instrumenting the wait first cost two runs and produced the answer:
+
+```
+beat SM-430, phase "spur", optionCount null, trunkOpen 0,
+objective "Wait by the car."
+```
+
+One beat short of the target, trunk condition already met, sitting in a beat
+whose authored objective is a wait. Slow, not stuck. The budget followed the
+measurement, and the run went 23 → **35/35**: the under-funded wait had been
+hiding twelve further checks, the same way the cabin's five-second one hid
+twenty-nine.
+
+The state dump is permanent. Three runs went into recovering a beat id the
+check could have printed on the first.
+
+## Branches
+
+Everything mergeable is merged. `codex/engineering-completion-20260827` and
+`codex/full-polish-music-20260826` are both fully contained in `main`. The
+eleven branches still showing commits ahead are the August 1–24 set: 350–500
+behind, their work long since landed by other routes, plus
+`codex/scene-certification-foundations`, which holds main's own twenty Silver
+Sasquatches images as ~55 MB of PNGs where main already has them as webp. They
+can be deleted.

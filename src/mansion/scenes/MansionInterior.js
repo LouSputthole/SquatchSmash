@@ -676,6 +676,102 @@ export function buildMansionInterior(shell = null) {
     });
   }
 
+
+  /**
+   * A chandelier that is one object rather than a pile of parts.
+   *
+   * ALL THREE OF THIS HOUSE'S CHANDELIERS WERE HANGING IN PIECES. Each was
+   * authored as a short stem, some rings of arms and a finial, every group
+   * placed at its own height and none of them touching: the stem stopped above
+   * the top tier, the lower tiers hung in clear air beneath it, and the finial
+   * floated below that. The suite's did not even reach its own ceiling -- it
+   * ended 0.4 m short and the whole fixture hovered.
+   *
+   * Nothing caught it because all three are fixed fixtures, and a fixed fixture
+   * is excused from the support check -- which is precisely the check that says
+   * "this part is resting on nothing". The excuse is right for a sconce bolted
+   * to a wall; it is not a licence for a fixture to be internally disconnected.
+   *
+   * So the drop is continuous here. A canopy flush to the ceiling, ONE rod from
+   * that canopy down through every tier to the finial, and arms that start
+   * inside the rod instead of near it.
+   *
+   * The arms also take `rotY: -a` where all three sites had `+a`. A box long in
+   * X turns its length onto (cos t, 0, -sin t), so landing it on the radial
+   * (cos a, 0, sin a) needs the sign flipped. At `+a` every arm except the two
+   * on the X axis pointed at a MIRRORED bearing and missed the shade it was
+   * supposed to be carrying -- twelve arms in the foyer, fourteen in the
+   * office, thirteen in the suite, each one aimed somewhere its bulb was not.
+   *
+   * @param {object} o
+   *   mount     - (mesh) => void; the caller decides parenting and gate policy
+   *   x, z      - centre in the caller's frame
+   *   ceilingY  - underside of the ceiling the canopy presses against
+   *   finialY   - centre of the ball that caps the bottom of the rod
+   *   tiers     - [{ y, r, n, bulb }] rings of arms, y in the caller's frame
+   *   shade     - optional { rTop, rBottom, h, mat } cream shade over each bulb
+   */
+  function chandelierDrop({
+    mount, x = 0, z = 0, ceilingY, finialY, tiers,
+    rodR = 0.05, finialR = 0.16, armT = 0.03, dropH = 0.3, dropT = 0.02,
+    shade = null, name = null, rodName = null, canopy = false,
+  }) {
+    /* NAMES ARE IDENTITY HERE, so this only hands out the ones the caller asks
+     * for. The geometry allowlists address an unnamed mesh by its ordinal
+     * among the unnamed -- `type=Mesh#1809` -- so naming a fixture's fifty-odd
+     * parts renumbers every anonymous mesh built after it, and thousands of
+     * checked-in entries quietly start pointing at different objects. Measured:
+     * naming the office's parts moved the tail of the mansion's list by 58 and
+     * broke 115 entries outright. Both of the anonymous fixtures therefore stay
+     * anonymous and keep their part COUNT and ORDER exactly. */
+    const tag = (mesh, suffix) => (name ? named(mesh, `${name}-${suffix}`) : mesh);
+    if (canopy) {
+      mount(tag(cylinder({
+        r: rodR * 2.6, h: 0.06, pos: [x, ceilingY - 0.03, z], mat: M_BRONZE, cast: false,
+      }), 'canopy'));
+    }
+    /* One rod, ceiling to finial. Its length is the whole reason this reads as
+     * a hanging fixture instead of three rings of debris. */
+    const rodTop = ceilingY;
+    mount(tag(cylinder({
+      r: rodR, h: rodTop - finialY, pos: [x, (rodTop + finialY) / 2, z], mat: M_BRONZE,
+    }), rodName ?? 'rod'));
+    const inner = rodR * 0.8;             // arms start inside the rod, not beside it
+    for (const tier of tiers) {
+      const bulbR = tier.bulb ?? 0.06;
+      for (let i = 0; i < tier.n; i++) {
+        const a = (i / tier.n) * Math.PI * 2;
+        const ux = Math.cos(a);
+        const uz = Math.sin(a);
+        const len = tier.r - inner;
+        const mid = inner + len / 2;
+        mount(tag(box({
+          size: [len, armT, armT], pos: [x + ux * mid, tier.y, z + uz * mid],
+          mat: M_GOLD, rotY: -a,
+        }), 'arm'));
+        if (shade) {
+          mount(tag(cylinder({
+            rTop: shade.rTop, rBottom: shade.rBottom, h: shade.h,
+            pos: [x + ux * tier.r, tier.y + shade.h * 0.45, z + uz * tier.r],
+            mat: M_SHADE_CREAM,
+          }), 'shade'));
+        }
+        mount(tag(sphere({
+          r: bulbR, pos: [x + ux * tier.r, tier.y + (shade ? bulbR * 0.5 : -bulbR), z + uz * tier.r],
+          mat: M_BULB_WARM, cast: false,
+        }), 'bulb'));
+        /* The crystal hangs FROM the arm it is under, so its top has to touch
+         * the arm rather than start somewhere below it. */
+        mount(tag(box({
+          size: [dropT, dropH, dropT],
+          pos: [x + ux * tier.r * 0.86, tier.y - dropH / 2, z + uz * tier.r * 0.86],
+          mat: M_CRYSTAL, cast: false,
+        }), 'drop'));
+      }
+    }
+    mount(tag(sphere({ r: finialR, pos: [x, finialY, z], mat: M_GOLD }), 'finial'));
+  }
+
   /** Opt-in support surface for Siege actor grounding. A material/normal
    * heuristic also admits bodies, props and transparent VFX, so the builder
    * marks only architecture intended to carry a person. */
@@ -691,6 +787,54 @@ export function buildMansionInterior(shell = null) {
       [Math.max(x0, x1), y1, Math.max(z0, z1)],
     );
     colliders.push(c);
+    return c;
+  }
+
+  /* ================================================================== */
+  /* THE SECOND ARRAY: WHAT STOPS A ROUND, AS OPPOSED TO A BODY          */
+  /*                                                                      */
+  /* `colliders` above is the MOVEMENT list and nothing else. It cannot    */
+  /* carry a floor -- see the note directly below this one, which is the   */
+  /* scar from the invisible wall across the upper gallery -- and it       */
+  /* cannot carry these walls at their real height either, for the same    */
+  /* reason and by the same 0.3 m.                                         */
+  /*                                                                        */
+  /* But the siege hands `colliders` to the shared combat Modules as its     */
+  /* line-of-sight and Ballistic-path model, so everything the movement      */
+  /* list is forced to leave out is a hole a bullet goes through. The owner  */
+  /* found the big one: killed in the cellar by a man on the ground floor    */
+  /* who never came downstairs. `combatBlockers` is where those surfaces go, */
+  /* tagged with their real Combat material, exactly as docs/CONTEXT.md      */
+  /* defines it -- "ballistic resistance INDEPENDENTLY from whether the same */
+  /* surface blocks vision," and, here, independently from whether it blocks */
+  /* movement.                                                               */
+  /*                                                                          */
+  /* MansionGrounds.js returns an array of the same name holding the poured    */
+  /* structure -- podium, upper slab, roof, basement raft, cellar soffits.     */
+  /* This one holds what the fit-out owns: one slab per enterable room at its  */
+  /* own floor datum, the authored ceiling soffits, and the 0.3 m of wall      */
+  /* `wallColliderTop` has to give up under every floor above. Both are        */
+  /* ADDITIVE to their own `colliders`, never a replacement for it.            */
+  /* ================================================================== */
+  const combatBlockers = [];
+
+  /**
+   * Register one surface with the combat model and with nothing else.
+   *
+   * No mesh: every one of these already exists as geometry (a slab in
+   * MansionGrounds, a `topping()` a few lines away, a wall whose full height
+   * is drawn and only whose collider is trimmed). This is the box beside it.
+   */
+  function structural(x0, x1, y0, y1, z0, z1, name, combatMaterial = 'concrete') {
+    if (x1 - x0 < 1e-4 || y1 - y0 < 1e-4 || z1 - z0 < 1e-4) return null;
+    const c = collider(
+      [Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1)],
+      [Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1)],
+    );
+    c.name = name;
+    c.combatMaterial = combatMaterial;
+    c.userData = { ...(c.userData ?? {}), combatMaterial };
+    combatBlockers.push(c);
     return c;
   }
 
@@ -757,7 +901,36 @@ export function buildMansionInterior(shell = null) {
     /* Mesh full height, collider clear of the floor above. See the note above
      * `wallColliderTop` -- this one line is the whole fix for the invisible
      * wall across the upper floor. */
-    const contact = solid(x0, x1, y0, wallColliderTop(y1), z0, z1);
+    const colliderTop = wallColliderTop(y1);
+    const contact = solid(x0, x1, y0, colliderTop, z0, z1);
+    /* AND THE 0.3 M THAT FIX GIVES AWAY.
+     *
+     * `wallColliderTop` cures a MOVEMENT bug by making thirteen wall
+     * colliders stop 0.3 m under the floor above them. That is right for
+     * feet and wrong for everything else: the mesh still reaches the slab,
+     * so the player sees an unbroken wall, while the combat model -- which
+     * reads the same collider array -- sees a 300 mm letterbox running the
+     * full length of every one of those walls at ceiling level. Two men on
+     * the same storey, one either side of the conference partition, can
+     * trade rounds through a slot neither of them can see.
+     *
+     * So the slot is registered here as the wall's own material, and the
+     * combat model gets the wall at its true height: trimmed collider plus
+     * this piece, meeting edge to edge at `colliderTop`, is exactly y0..y1.
+     *
+     * IT IS THE SLOT AND NOT A FULL-HEIGHT DUPLICATE, DELIBERATELY. A second
+     * box spanning the whole wall would OVERLAP the one already in
+     * `colliders`, and a consumer that concatenates the two arrays (which is
+     * the documented way to use this one) would then find two drywall
+     * contacts for one wall on every shot. `WALL_T` here is 0.3 m and
+     * core/combat/ballistics.js penetrates up to 0.35 m of drywall, so
+     * charging a round for the same partition twice does not make the model
+     * stricter -- it stops every round in the first wall it meets and makes
+     * a plasterboard house bulletproof, which is a different bug wearing
+     * this one's clothes. Edge to edge, each surface paid for once. */
+    if (colliderTop < y1 - 1e-6) {
+      structural(x0, x1, colliderTop, y1, z0, z1, `${tag}-ceiling-slot-${segmentIndex}`, combatMaterial);
+    }
     contact.combatMaterial = combatMaterial;
     contact.name = `${tag}-collider-${segmentIndex}`;
     contact.userData = {
@@ -888,7 +1061,16 @@ export function buildMansionInterior(shell = null) {
     }
   }
 
-  /** Thin decorative floor topping over an already-solid slab. No collider. */
+  /** Thin decorative floor topping over an already-solid slab. No collider.
+   *
+   * `walkable: false` is this file's word for "this one is a CEILING" -- the
+   * bay's flat plaster, the conference room's coffered soffit, the office's
+   * tray and the suite's cove tray are the four, and each of them is built
+   * with exactly this call. A ceiling belongs in the combat model even
+   * though nothing stands on it, so the flag now does that job too rather
+   * than making a future ceiling remember a second call it might not make.
+   * A walkable topping gets nothing here: its storey's slab is registered
+   * whole from `rooms` further down, once, instead of once per rug border. */
   function topping(x0, x1, y, z0, z1, material, tag = 'floor', walkable = true) {
     const surface = box({
       size: [x1 - x0, 0.02, z1 - z0],
@@ -898,6 +1080,12 @@ export function buildMansionInterior(shell = null) {
       cast: false,
     });
     root.add(walkable ? siegeWalkable(surface) : surface);
+    if (!walkable) {
+      structural(
+        x0, x1, y - 0.01, y + 0.01, z0, z1, `${tag}-combat`,
+        combatMaterialFor(material) ?? 'concrete',
+      );
+    }
     return surface;
   }
 
@@ -2185,27 +2373,19 @@ export function buildMansionInterior(shell = null) {
       fixedSupportAnchor: true,
     });
     chandelier.name = 'mansion-foyer-chandelier';
-    chandelier.add(cylinder({ r: 0.05, h: 1.4, pos: [0, 0.7, 0], mat: M_BRONZE }));
-    const tiers = [
-      { y: 0, r: 1.45, bulbs: 12, arm: 0.2 },
-      { y: -0.42, r: 1.0, bulbs: 8, arm: 0.16 },
-      { y: -0.76, r: 0.5, bulbs: 5, arm: 0.12 },
-    ];
-    for (const tier of tiers) {
-      for (let i = 0; i < tier.bulbs; i++) {
-        const a = (i / tier.bulbs) * Math.PI * 2;
-        const bx = Math.cos(a) * tier.r;
-        const bz = Math.sin(a) * tier.r;
-        chandelier.add(box({
-          size: [tier.r * 0.9, 0.03, 0.03], pos: [bx / 2, tier.y, bz / 2], mat: M_GOLD, rotY: a,
-        }));
-        chandelier.add(sphere({ r: tier.arm * 0.5, pos: [bx, tier.y - 0.06, bz], mat: M_BULB_WARM }));
-        chandelier.add(box({
-          size: [0.02, 0.3, 0.02], pos: [bx * 0.85, tier.y - 0.24, bz * 0.85], mat: M_CRYSTAL,
-        }));
-      }
-    }
-    chandelier.add(sphere({ r: 0.16, pos: [0, -1.0, 0], mat: M_GOLD }));
+    /* Local frame: the group is placed at CHANDELIER_POS afterwards, so the
+     * ceiling it hangs from is +1.4 from here -- the height the old stem
+     * reached up to before stopping dead above the first tier. */
+    chandelierDrop({
+      mount: (part) => chandelier.add(part),
+      ceilingY: 1.4,
+      finialY: -1.0,
+      tiers: [
+        { y: 0, r: 1.45, n: 12, bulb: 0.1 },
+        { y: -0.42, r: 1.0, n: 8, bulb: 0.08 },
+        { y: -0.76, r: 0.5, n: 5, bulb: 0.06 },
+      ],
+    });
     /* The fixture has 77 rendered parts, intentionally above the inherited
      * suppression ceiling. Publish the same authored ceiling attachment on
      * each concrete part so the fail-closed scene-scale bound stays useful. */
@@ -6658,25 +6838,23 @@ export function buildMansionInterior(shell = null) {
       const cy = UCY - 1.0;
       const fixtureId = 'mansion-office-chandelier';
       const mount = (object) => root.add(fixedFixture(object, fixtureId));
-      mount(cylinder({ r: 0.04, h: 0.8, pos: [0, cy + 0.4, 70.2], mat: M_BRONZE }));
-      for (const [ty, tr, tn] of [[0, 1.0, 8], [-0.32, 0.62, 6]]) {
-        for (let i = 0; i < tn; i++) {
-          const a = (i / tn) * Math.PI * 2;
-          const bx = Math.cos(a) * tr;
-          const bz = Math.sin(a) * tr;
-          mount(box({
-            size: [tr * 0.9, 0.03, 0.03], pos: [bx / 2, cy + ty, 70.2 + bz / 2], mat: M_GOLD, rotY: a,
-          }));
-          mount(cylinder({
-            rTop: 0.085, rBottom: 0.11, h: 0.13, pos: [bx, cy + ty + 0.06, 70.2 + bz], mat: M_SHADE_CREAM,
-          }));
-          mount(sphere({ r: 0.06, pos: [bx, cy + ty + 0.04, 70.2 + bz], mat: M_BULB_WARM, cast: false }));
-          mount(box({
-            size: [0.02, 0.24, 0.02], pos: [bx * 0.86, cy + ty - 0.2, 70.2 + bz * 0.86], mat: M_CRYSTAL,
-          }));
-        }
-      }
-      mount(sphere({ r: 0.13, pos: [0, cy - 0.56, 70.2], mat: M_GOLD }));
+      chandelierDrop({
+        mount,
+        z: 70.2,
+        /* The coffered tray is a 0.02 slab centred on UCY - 0.18; press the
+         * canopy against its underside rather than leave the stem 0.2 m clear
+         * of it with nothing between. */
+        ceilingY: UCY - 0.19,
+        finialY: cy - 0.56,
+        tiers: [
+          { y: cy, r: 1.0, n: 8 },
+          { y: cy - 0.32, r: 0.62, n: 6 },
+        ],
+        rodR: 0.04,
+        finialR: 0.13,
+        dropH: 0.24,
+        shade: { rTop: 0.085, rBottom: 0.11, h: 0.13 },
+      });
     }
     const ceil = new THREE.PointLight(0xffdca0, 6, 18, 2);
     ceil.position.set(0, UCY - 1.3, 70.2);
@@ -8070,16 +8248,27 @@ export function buildMansionInterior(shell = null) {
      * leaf standing ajar on what read as a floor hinge, 2.2 m from where
      * the stair delivers you. Owner playtest 2026-08-18, verbatim: "there
      * is still the weird door hinge thing coming out at the top of the
-     * stairs." Turned to -1.2 so the glass faces the room: the corner is
-     * hemmed by the dressing run's carcass (x <= 5.95) on one side and the
-     * floor crest (circle r 0.86 about 7.7, 64.28) on the other, and this
-     * pitch is the one that keeps every foot out of both -- measured
-     * extremes x 5.98..6.72, z 63.20..64.20. */
+     * there is still the weird door hinge thing coming out at the top of the
+     * stairs." The corner is hemmed by the dressing run's carcass (x <= 5.95)
+     * on one side and the floor crest (circle r 0.86 about 7.7, 64.28) on the
+     * other, and at the old centre 6.35, 63.70 the ONLY pitch that kept every
+     * foot out of both was -1.2 -- which points the glass almost due west, at
+     * a wall, when the walk it wants to catch comes off the stair head away to
+     * the north-east on bearing +51 degrees.
+     *
+     * OWNER PLAYTEST 2026-08-24: "mirror in Lous room needs slight turning
+     * towards stairs." Turning it alone is not possible -- every yaw between
+     * -1.0 and -0.5 drives a foot through the dressing carcass at that centre.
+     * So the piece moves with it, 0.16 east and 0.05 south into the corner it
+     * was already in, which is what buys the swing: at (6.51, 63.65) and -0.45
+     * the tightest clearance of the three is 0.037 m, the best any yaw in the
+     * whole feasible band gets, and the glass now looks up the room on bearing
+     * -26 rather than -69. Measured extremes x 6.00..7.02, z 63.25..64.05. */
     {
       const cg = new THREE.Group();
       cg.name = 'suite-cheval';
-      cg.position.set(6.35, SY, r.z0 + 0.55);
-      cg.rotation.y = -1.2;
+      cg.position.set(6.51, SY, r.z0 + 0.50);
+      cg.rotation.y = -0.45;
       for (const px of [-0.42, 0.42]) {
         cg.add(named(cylinder({
           r: 0.035, h: 1.9, pos: [px, 0.95, 0], mat: M_WOOD_DK,
@@ -8105,7 +8294,7 @@ export function buildMansionInterior(shell = null) {
       }));
       root.add(cg);
     }
-    solid(5.95, 6.75, SY, SY + 2.05, r.z0 + 0.1, r.z0 + 1.05);
+    solid(6.0, 7.02, SY, SY + 2.05, r.z0 + 0.1, r.z0 + 0.9);
     root.add(box({
       size: [1.5, 0.16, 0.5], pos: [(drX0 + drX1) / 2, SY + 0.44, r.z0 + 1.3], mat: M_SUITE_VELVET, name: 'suite-dressing-bench',
     }));
@@ -8339,27 +8528,28 @@ export function buildMansionInterior(shell = null) {
       const cz = 70.4;
       const fixtureId = 'mansion-suite-chandelier';
       const mount = (object) => root.add(fixedFixture(object, fixtureId));
-      mount(named(cylinder({ r: 0.035, h: 0.7, pos: [-1.2, cy + 0.5, cz], mat: M_BRONZE }), 'suite-chandelier-stem'));
-      for (const [ty, tr, tn] of [[0, 0.86, 8], [-0.28, 0.5, 5]]) {
-        for (let i = 0; i < tn; i++) {
-          const a = (i / tn) * Math.PI * 2;
-          const bx = Math.cos(a) * tr;
-          const bz = Math.sin(a) * tr;
-          mount(box({
-            size: [tr, 0.025, 0.025], pos: [-1.2 + bx / 2, cy + ty, cz + bz / 2], mat: M_GOLD, rotY: -a, name: 'suite-chandelier-arm',
-          }));
-          mount(named(cylinder({
-            rTop: 0.07, rBottom: 0.09, h: 0.11, pos: [-1.2 + bx, cy + ty + 0.05, cz + bz], mat: M_SHADE_CREAM,
-          }), 'suite-chandelier-shade'));
-          mount(named(sphere({
-            r: 0.05, pos: [-1.2 + bx, cy + ty + 0.03, cz + bz], mat: M_BULB_WARM, cast: false,
-          }), 'suite-chandelier-bulb'));
-          mount(box({
-            size: [0.018, 0.2, 0.018], pos: [-1.2 + bx * 0.86, cy + ty - 0.17, cz + bz * 0.86], mat: M_CRYSTAL, cast: false, name: 'suite-chandelier-drop',
-          }));
-        }
-      }
-      mount(named(sphere({ r: 0.1, pos: [-1.2, cy - 0.48, cz], mat: M_GOLD }), 'suite-chandelier-finial'));
+      chandelierDrop({
+        mount,
+        x: -1.2,
+        z: cz,
+        /* This one hung entirely free: its stem topped out at SCY - 0.4, four
+         * tenths of a metre below a ceiling it never reached. The tray is the
+         * 0.02 slab centred on SCY - 0.18. */
+        ceilingY: SCY - 0.19,
+        finialY: cy - 0.48,
+        tiers: [
+          { y: cy, r: 0.86, n: 8, bulb: 0.05 },
+          { y: cy - 0.28, r: 0.5, n: 5, bulb: 0.05 },
+        ],
+        rodR: 0.035,
+        finialR: 0.1,
+        armT: 0.025,
+        dropH: 0.2,
+        dropT: 0.018,
+        shade: { rTop: 0.07, rBottom: 0.09, h: 0.11 },
+        name: 'suite-chandelier',
+        rodName: 'stem',
+      });
     }
 
     /* ================================================================ */
@@ -12325,20 +12515,11 @@ const M_GOLD_BAR = mat({
       geometryIntent(sign, { checkSupport: false, fixedSupportAnchor: true });
       root.add(sign);
     }
-    // Framed photographs of the house being built, between the doors.
-    const shots = [
-      [-10.4, 'cellar-dig', 'THE DIG, 1986'],
-      [-0.6, 'cellar-pour', 'THE POUR'],
-      [11.0, 'cellar-topping', 'TOPPING OUT'],
-    ];
-    /* rotY PI, for the same reason as the signs above: `makeFrame` builds its
-     * picture on the group's own +z face, so a frame hung on the corridor's
-     * NORTH wall at rotY 0 shows the corridor its dark backing board and shows
-     * the photograph to the masonry. */
-    for (const [sx, id, label] of shots) {
-      wallArt(id, sx, BY + 1.75, r.z1 - 0.1, Math.PI, 0.8, 0.6,
-        makePortraitTexture(id, label, '#1b1712'));
-    }
+    /* Leave the three narrow bays between the cellar doors as brick and
+     * signage. The old generated construction prints (THE DIG / THE POUR /
+     * TOPPING OUT) were placeholder labels masquerading as finished art; the
+     * lower level already has two resolved, authored pieces on the opposite
+     * wall, and negative space here keeps all four room signs readable. */
     /* The house crest goes on the SOUTH wall, beside the armory door.
      *
      * Not on the corridor's west end wall, which is where it would naturally
@@ -12644,21 +12825,25 @@ const M_GOLD_BAR = mat({
       }),
     });
     guestArt.name = 'mansion.guest.art';
-    const guestCrest = flatArt('mansion.guest.crest', {
-      x: bedX,
-      y: BY + 2.05,
-      z: r.z1 - 0.13,
-      rotY: Math.PI,
-      w: 0.95,
-      h: 0.95,
-      material: mat({
-        map: squatchArt('mansion-guest-crest', {
-          title: ['SILVER', 'SASQUATCHES'], footer: 'FAMILY HOUSE', ink: '#d8b85b', bg: '#1b1520',
-        }),
-        roughness: 0.9,
-        unique: true,
+    /* This is the Prospect's Silver Sasquatches piece, not a vinyl wall
+     * decal. Give it the same physical frame hierarchy as the commissioned
+     * house art. The north-wall lining's room face is `r.z1 - 0.04`; offset
+     * the group by makeFrame's measured rear depth so its backing touches the
+     * finish. At 820 mm it clears both the headboard and low cellar ceiling. */
+    const guestCrestFrame = wallArt(
+      'mansion.guest.crest',
+      bedX,
+      BY + 2.0,
+      r.z1 - 0.04 - FRAME_REAR,
+      Math.PI,
+      0.82,
+      0.82,
+      squatchArt('mansion-guest-crest', {
+        title: ['SILVER', 'SASQUATCHES'], footer: 'FAMILY HOUSE', ink: '#d8b85b', bg: '#1b1520',
       }),
-    });
+    );
+    guestCrestFrame.group.name = 'mansion.guest.crest.frame';
+    const guestCrest = guestCrestFrame.art;
     guestCrest.name = 'mansion.guest.crest';
     const guestDog = wallArt(
       'mansion.guest.dog',
@@ -13584,6 +13769,81 @@ const M_GOLD_BAR = mat({
     masterSuite: { rect: MASTER_SUITE, floor: SUITE_Y, anchor: anchors.masterSuiteCenter },
   };
 
+  /* ================================================================== */
+  /* ONE FLOOR SLAB PER ROOM, FOR THE COMBAT MODEL                       */
+  /*                                                                      */
+  /* Synthesised from the table directly above rather than hand-listed,   */
+  /* because a hand-list of floors is a second description of the house   */
+  /* and the whole reason `floorAt` reads the poured slabs instead of a   */
+  /* room list is that the two drift. Every room already declares its own */
+  /* rect and its own floor datum here; a storey is those rects at that   */
+  /* datum, so that is what this is.                                      */
+  /*                                                                       */
+  /* MansionGrounds pours the structure and registers it, so most of these */
+  /* sit directly on a slab already in that array. They are not redundant  */
+  /* padding: the grounds' slabs are the FOOTPRINT (podium, upper slab,    */
+  /* roof, raft), which is the right model for the main block and says     */
+  /* nothing about a room the fit-out adds outside it. Registering the     */
+  /* rooms themselves means a new room downstairs gets a floor the day it  */
+  /* gets a rect, rather than the day somebody remembers to pour one. They */
+  /* are also free at trace time: concrete is not in `PENETRABLE`, so the  */
+  /* first of any stack of them terminates the shot and the rest are never */
+  /* examined.                                                             */
+  /*                                                                        */
+  /* THE THREE HOLES ARE SUBTRACTED, AND THEY MATTER MORE THAN THE SLABS.   */
+  /* This house has exactly three places where a storey is deliberately     */
+  /* open to the one above it, and each of them is a sight line the siege   */
+  /* is fought on:                                                          */
+  /*   - BASEMENT_STAIR, the shaft cut through the podium inside the        */
+  /*     foyer's own rect, which is how you see and shoot down the cellar   */
+  /*     stairs (`FOYER`'s topping is already split round it, above);       */
+  /*   - FOYER_VOID, the double-height foyer, which is the whole point of   */
+  /*     the gallery rail -- "hold the rail" is the mission;                */
+  /*   - SUITE_STAIR_WELL, the concealed stair out of Lou's office.         */
+  /* Sealing any of them would be the same class of lie as leaving the      */
+  /* storeys open, pointed the other way: a man shot through a floor that   */
+  /* is not there is exactly as wrong as a man shot through one that is.    */
+  /* The grounds' own slabs are already notched round all three; these are  */
+  /* cut to match, so the two arrays agree about where the holes are.       */
+  /* ================================================================== */
+  const FLOOR_VOIDS = [
+    { y: GY, rect: BASEMENT_STAIR },
+    { y: UY, rect: FOYER_VOID },
+    { y: shell?.SUITE_Y ?? SUITE_Y, rect: shell?.suiteStairWell ?? SUITE_STAIR_WELL },
+  ];
+  /** A slab is 0.3 m of concrete hanging under the surface you walk on. */
+  const ROOM_SLAB_T = 0.3;
+
+  /** `rect` minus `hole`, as up to four rects. Returns [rect] if they miss. */
+  function rectMinus(rect, hole) {
+    if (hole.x1 <= rect.x0 || hole.x0 >= rect.x1
+      || hole.z1 <= rect.z0 || hole.z0 >= rect.z1) return [rect];
+    const pieces = [];
+    const zLo = Math.max(rect.z0, hole.z0);
+    const zHi = Math.min(rect.z1, hole.z1);
+    if (hole.z0 > rect.z0) pieces.push({ x0: rect.x0, x1: rect.x1, z0: rect.z0, z1: hole.z0 });
+    if (hole.z1 < rect.z1) pieces.push({ x0: rect.x0, x1: rect.x1, z0: hole.z1, z1: rect.z1 });
+    if (hole.x0 > rect.x0) pieces.push({ x0: rect.x0, x1: hole.x0, z0: zLo, z1: zHi });
+    if (hole.x1 < rect.x1) pieces.push({ x0: hole.x1, x1: rect.x1, z0: zLo, z1: zHi });
+    return pieces;
+  }
+
+  for (const [name, room] of Object.entries(rooms)) {
+    let pieces = [{
+      x0: room.rect.x0, x1: room.rect.x1, z0: room.rect.z0, z1: room.rect.z1,
+    }];
+    for (const void_ of FLOOR_VOIDS) {
+      if (Math.abs(void_.y - room.floor) > 0.05) continue;
+      pieces = pieces.flatMap((piece) => rectMinus(piece, void_.rect));
+    }
+    for (const [index, piece] of pieces.entries()) {
+      structural(
+        piece.x0, piece.x1, room.floor - ROOM_SLAB_T, room.floor, piece.z0, piece.z1,
+        `${name}-floor-slab-${index}-combat`,
+      );
+    }
+  }
+
   const props = {
     masterSuite: { ...suiteProps, secretStair },
     foyer: foyerProps,
@@ -13866,7 +14126,7 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.theatre.banner', mesh: theatreProps.banner, w: 1.0 },
     { slot: 'mansion.lan.banner', mesh: lanProps.banner, w: 1.6 },
     { slot: 'mansion.guest.art', mesh: guestProps.art, w: 1.1 },
-    { slot: 'mansion.guest.crest', mesh: guestProps.crest, w: 0.95 },
+    { slot: 'mansion.guest.crest', mesh: guestProps.crest, w: 0.82 },
     /* Keep the resolved square photograph at the deliberately narrowed
      * 700 mm authored width. The old 800 mm async override left only 40 mm
      * from the real white jamb even though the pre-dress geometry measured
@@ -14293,6 +14553,13 @@ const M_GOLD_BAR = mat({
   return {
     root,
     colliders,
+    /** What stops a round and a line of sight but is not in the movement
+     * list: one slab per room at its own floor datum (holed at the three
+     * authored voids), the authored ceiling soffits, and the ceiling slot
+     * `wallColliderTop` takes out of thirteen walls. See the long note
+     * beside `structural()`. Additive to `colliders`; never handed to
+     * `core/player.js`. */
+    combatBlockers,
     doors,
     props,
     anchors,

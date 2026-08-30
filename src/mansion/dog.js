@@ -177,7 +177,6 @@ const M = {
   black: mat({ color: 0x14100e, roughness: 0.86 }),       // nose, pads, eye rims
   eye: mat({ color: 0x3e2a12, roughness: 0.28, metalness: 0.1 }),
   gleam: mat({ color: 0xf2ead8, roughness: 0.2 }),
-  tongue: mat({ color: 0x9c4a52, roughness: 0.6 }),
   gold: mat({ color: 0xcda434, roughness: 0.3, metalness: 0.8 }),
   claw: mat({ color: 0x22201d, roughness: 0.7 }),
 };
@@ -187,7 +186,18 @@ const M = {
 /* ================================================================== */
 const SHOULDER_Y = 0.520;   // front leg pivot
 const HIP_Y = 0.500;        // rear leg pivot
-const HALF_TRACK = 0.086;   // half the distance between the two front feet
+/**
+ * Half the distance between the two FRONT feet. The rear pair stand wider by
+ * `REAR_TRACK_SCALE`, which is what a dog does.
+ *
+ * This was 0.086 -- a 17 cm track under a 1.7 m dog, which put all four legs
+ * in one narrow line down the middle of the belly and is a good part of why
+ * he read wrong from the front. Purely an x offset on the hip group: the sit
+ * solve and the pad-landing FK are entirely sagittal, so widening it moves
+ * nothing they depend on.
+ */
+const HALF_TRACK = 0.104;
+const REAR_TRACK_SCALE = 1.18;
 const FRONT_Z = -0.235;
 const REAR_Z = 0.245;
 /** Shoulder pivot to the bottom of the front pad. Used by the sit pose. */
@@ -234,26 +244,30 @@ function buildLeg(side, rear, tag) {
   const sx = side < 0 ? 'left' : 'right';
   const hip = new THREE.Group();
   hip.name = `dog.${tag}.hip`;
-  hip.position.set(side * HALF_TRACK, rear ? HIP_Y : SHOULDER_Y, rear ? REAR_Z : FRONT_Z);
+  hip.position.set(
+    side * HALF_TRACK * (rear ? REAR_TRACK_SCALE : 1),
+    rear ? HIP_Y : SHOULDER_Y,
+    rear ? REAR_Z : FRONT_Z,
+  );
 
   if (rear) {
     // Thigh: broad, and the widest part of the back of the dog.
     hip.add(softBox({
-      size: [0.104, 0.256, 0.170], pos: [0, -0.101, 0.012], mat: M.tan,
-      name: `dog.${tag}.thigh.${sx}`,
+      size: [0.134, 0.256, 0.198], pos: [0, -0.101, 0.012], mat: M.tan,
+      name: `dog.${tag}.thigh.${sx}`, r: 0.048,
     }));
     hip.add(softBox({
-      size: [0.108, 0.150, 0.130], pos: [0, -0.028, 0.030], mat: M.saddle,
-      name: `dog.${tag}.haunch.${sx}`,
+      size: [0.142, 0.194, 0.182], pos: [0, -0.024, 0.030], mat: M.saddle,
+      name: `dog.${tag}.haunch.${sx}`, r: 0.052,
     }));
   } else {
     hip.add(softBox({
-      size: [0.082, 0.272, 0.108], pos: [0, -0.122, 0.004], mat: M.tan,
-      name: `dog.${tag}.upper.${sx}`,
+      size: [0.106, 0.272, 0.134], pos: [0, -0.122, 0.004], mat: M.tan,
+      name: `dog.${tag}.upper.${sx}`, r: 0.040,
     }));
     hip.add(softBox({
-      size: [0.086, 0.120, 0.118], pos: [0, -0.030, -0.004], mat: M.saddle,
-      name: `dog.${tag}.shoulder.${sx}`,
+      size: [0.116, 0.158, 0.156], pos: [0, -0.026, -0.004], mat: M.saddle,
+      name: `dog.${tag}.shoulder.${sx}`, r: 0.046,
     }));
   }
 
@@ -262,13 +276,16 @@ function buildLeg(side, rear, tag) {
   knee.position.set(0, rear ? -0.228 : -0.250, rear ? 0.030 : 0);
   hip.add(knee);
   knee.add(softBox({
-    size: [0.062, rear ? 0.230 : 0.216, 0.078], pos: [0, rear ? -0.107 : -0.102, rear ? -0.014 : 0],
-    mat: M.tan, name: `dog.${tag}.lower.${sx}`,
+    size: [0.080, rear ? 0.230 : 0.216, 0.098], pos: [0, rear ? -0.107 : -0.102, rear ? -0.014 : 0],
+    mat: M.tan, name: `dog.${tag}.lower.${sx}`, r: 0.032,
   }));
-  // The feathering down the back of the leg, in the saddle's black.
+  /* The feathering down the back of the leg. It used to be a saddle-dark tab
+   * standing proud of a pencil-thin shin, which from any distance read as a
+   * label stuck on the leg; a golden's is a pale fringe, so it is cream now,
+   * narrower than the shin it hangs off, and set INSIDE its silhouette. */
   knee.add(softBox({
-    size: [0.048, 0.120, 0.036], pos: [0, -0.040, rear ? 0.030 : 0.040], mat: M.saddle,
-    name: `dog.${tag}.feather.${sx}`,
+    size: [0.056, 0.140, 0.032], pos: [0, -0.052, rear ? 0.042 : 0.050], mat: M.cream,
+    name: `dog.${tag}.feather.${sx}`, r: 0.014,
   }));
 
   const paw = new THREE.Group();
@@ -282,8 +299,8 @@ function buildLeg(side, rear, tag) {
   paw.position.set(0, rear ? -0.208 : -0.206, rear ? -0.024 : 0);
   knee.add(paw);
   paw.add(softBox({
-    size: [0.078, 0.056, 0.116], pos: [0, -0.028, -0.020], mat: M.tan,
-    name: `dog.${tag}.foot.${sx}`,
+    size: [0.092, 0.058, 0.130], pos: [0, -0.028, -0.020], mat: M.tan,
+    name: `dog.${tag}.foot.${sx}`, r: 0.024,
   }));
   for (const tx of [-0.022, 0.022]) {
     paw.add(named(sphere({
@@ -343,20 +360,29 @@ export function buildLilTomCruze() {
   // so the coat reads as layered fur catching the light rather than as paint.
   for (const side of [-1, 1]) {
     const sx = side < 0 ? 'left' : 'right';
+    /* Both of these used to stand PROUD of the barrel they are meant to be
+     * shading -- the flank by 12 mm, the shade by 6 -- so instead of reading
+     * as coat they read as two rectangular panels stuck on his side, with a
+     * hard edge all the way round. Pulled in flush and rounded off. */
     body.add(softBox({
-      size: [0.030, 0.190, 0.560], pos: [side * 0.116, 0.400, 0.010], mat: M.tan,
-      name: `dog.flank.${sx}`,
+      size: [0.028, 0.196, 0.560], pos: [side * 0.106, 0.398, 0.010], mat: M.tan,
+      name: `dog.flank.${sx}`, r: 0.030,
     }));
     body.add(softBox({
-      size: [0.026, 0.130, 0.230], pos: [side * 0.112, 0.510, -0.230], mat: M.sable,
-      name: `dog.shade.${sx}`,
+      size: [0.024, 0.136, 0.230], pos: [side * 0.104, 0.508, -0.230], mat: M.sable,
+      name: `dog.shade.${sx}`, r: 0.028,
     }));
   }
   body.add(softBox({
     size: [0.196, 0.062, 0.520], pos: [0, 0.346, 0.020], mat: M.cream, name: 'dog.belly',
   }));
+  /* The forechest. This was a 0.19 x 0.15 CREAM slab pinned flat to the front
+   * of the chest, which from head on was a pale rectangle the width of the dog
+   * -- the single loudest shape in the front view and nothing a dog has. It is
+   * a rounded swell of the chest itself now, in the light gold, narrower than
+   * the chest so the coat carries round it. */
   body.add(softBox({
-    size: [0.190, 0.150, 0.070], pos: [0, 0.446, -0.352], mat: M.cream, name: 'dog.brisket',
+    size: [0.156, 0.212, 0.104], pos: [0, 0.436, -0.336], mat: M.tan, name: 'dog.brisket', r: 0.050,
   }));
   /* Withers: the bump over the shoulders, and the highest point on the dog.
    * 0.596 + 0.040 = 0.636, which is DOG_SHOULDER_HEIGHT — a big male golden.
@@ -369,168 +395,236 @@ export function buildLilTomCruze() {
   /* ---- Neck. One slab along its own axis, so the head hangs off the end of
    * it and a nod is one number.
    *
+   * IT WAS TOO SHORT AND TOO FLAT, and that was the last of what made him
+   * read wrong. 0.218 m of neck raked 48 degrees off vertical put the base of
+   * the skull at y 0.645 against withers of 0.636 -- the head carried DEAD
+   * LEVEL with the shoulders, hanging straight off the front of the chest with
+   * no neck showing between them. A dog built like that is a battering ram.
+   *
    * The rake is measured, not guessed. The pivot is buried in the chest at
-   * (0, 0.500, -0.250) and the neck runs 0.218 m along its own +Y to the base
-   * of the skull. `rotation.x = -0.844` maps that +Y onto (0, 0.6656,
-   * -0.7463), so the head base lands at
-   *   y = 0.500 + 0.6656 * 0.218 = 0.645
-   *   z = -0.250 - 0.7463 * 0.218 = -0.413
-   * which puts the top of his skull at 0.731 and his nose at 0.603 — an
-   * alert dog on 0.636 m of leg. (The drop ears hang DOWN from the skull to
-   * 0.557 now, so the skull, not an ear tip, is the head's highest point.) */
+   * (0, 0.500, -0.250) and the neck runs 0.300 m along its own +Y to the base
+   * of the skull. `rotation.x = -0.64` maps that +Y onto (0, 0.8021,
+   * -0.5972), so the head base lands at
+   *   y = 0.500 + 0.8021 * 0.300 = 0.741
+   *   z = -0.250 - 0.5972 * 0.300 = -0.429
+   * which puts the top of his skull at 0.841 and his nose at 0.745 -- a head
+   * carried a clear 0.2 m over the withers, which is where an alert dog holds
+   * it. The ruff's bottom corner still sits inside the chest slab at every
+   * angle the sit reaches, so no gap opens at the shoulder on the way down. */
   const neck = new THREE.Group();
   neck.name = 'dog.neck';
   neck.position.set(0, 0.500, -0.250);
-  neck.rotation.x = -0.844;
-  neck.userData.rest = -0.844;
+  neck.rotation.x = -0.64;
+  neck.userData.rest = -0.64;
   body.add(neck);
   neck.add(softBox({
-    size: [0.176, 0.280, 0.212], pos: [0, 0.115, 0], mat: M.saddle, name: 'dog.neck.ruff',
+    size: [0.176, 0.300, 0.212], pos: [0, 0.132, 0], mat: M.saddle, name: 'dog.neck.ruff', r: 0.044,
   }));
+  /* The throat. It was 0.054 deep at z -0.098 against a ruff whose front face
+   * is -0.106, so nearly half of it stood outside the neck -- a bright cream
+   * wedge hanging under the jaw with a visible seam all round it. Flush now,
+   * and narrower than the ruff on both sides. */
   neck.add(softBox({
-    size: [0.132, 0.240, 0.054], pos: [0, 0.105, -0.098], mat: M.cream, name: 'dog.neck.throat',
+    size: [0.112, 0.262, 0.048], pos: [0, 0.126, -0.082], mat: M.cream, name: 'dog.neck.throat', r: 0.030,
   }));
   for (const side of [-1, 1]) {
     neck.add(softBox({
-      size: [0.034, 0.220, 0.156], pos: [side * 0.082, 0.108, 0.012], mat: M.sable,
-      name: `dog.neck.mane.${side < 0 ? 'left' : 'right'}`,
+      size: [0.034, 0.250, 0.156], pos: [side * 0.082, 0.130, 0.012], mat: M.sable,
+      name: `dog.neck.mane.${side < 0 ? 'left' : 'right'}`, r: 0.028,
     }));
   }
 
   /* The collar. It is Lou's dog, so it is gold, and it has a tag on it. */
   neck.add(named(cylinder({
-    r: 0.099, h: 0.046, pos: [0, 0.168, 0], mat: M.gold, seg: 14,
+    r: 0.099, h: 0.046, pos: [0, 0.206, 0], mat: M.gold, seg: 14,
   }), 'dog.collar'));
   neck.add(named(cylinder({
-    r: 0.089, h: 0.050, pos: [0, 0.168, 0], mat: M.saddle, seg: 14,
+    r: 0.089, h: 0.050, pos: [0, 0.206, 0], mat: M.saddle, seg: 14,
   }), 'dog.collar.lining'));
   neck.add(box({
-    size: [0.010, 0.038, 0.010], pos: [0, 0.126, -0.096], mat: M.gold, name: 'dog.collar.tag-ring',
+    size: [0.010, 0.038, 0.010], pos: [0, 0.164, -0.096], mat: M.gold, name: 'dog.collar.tag-ring',
   }));
   neck.add(named(cylinder({
-    r: 0.030, h: 0.008, pos: [0, 0.092, -0.100], mat: M.gold, rotX: Math.PI / 2, seg: 12,
+    r: 0.030, h: 0.008, pos: [0, 0.130, -0.100], mat: M.gold, rotX: Math.PI / 2, seg: 12,
   }), 'dog.collar.tag'));
 
   /* ---- Head. Parented at the top of the neck and counter-rotated level, so
    * `head.rotation.x` is a nod and `head.rotation.y` is a look. */
   const head = new THREE.Group();
   head.name = 'dog.head';
-  head.position.set(0, 0.218, 0);
-  head.rotation.x = 0.844;
-  head.userData.rest = 0.844;
+  head.position.set(0, 0.300, 0);
+  head.rotation.x = 0.64;
+  head.userData.rest = 0.64;
   neck.add(head);
 
-  /* A golden's head: coat-gold skull, light-gold stop and a LONGER
-   * coat-coloured muzzle (0.196 against the shepherd's 0.166, its centre
-   * carried 16 mm further forward) under a black nose. The black MASK is
-   * gone — on this dog only the nose and the eye rims stay black — and the
-   * underjaw runs cream like the throat it meets. */
+  /* A golden's head, re-cut after the owner looked at the last one and said
+   * "the dog is still cursed, need a new dog".
+   *
+   * WHAT WAS WRONG, from the render rather than from taste. The muzzle was
+   * 0.196 long against a 0.204 skull and only 0.088 wide -- as long as the
+   * head it grew out of and half its width, which is a PLANK, not a foreface.
+   * It hung 40 mm below the skull's centreline with nothing bridging the two,
+   * so the face read as a board nailed to a box. Under it ran a CREAM underjaw
+   * 0.094 wide -- wider than the muzzle itself, in the brightest colour on the
+   * dog -- and under THAT a red tongue, permanently out. Off the front the
+   * eyes were 0.020 spheres standing proud of a 0.146 skull with a solid black
+   * bar over each. Every one of those is a horror cue, and together they were
+   * the whole complaint.
+   *
+   * SO: the muzzle is shorter (0.132) and DEEPER, it sits on the skull's own
+   * line rather than below it, and a cheek and a bridge carry the taper from
+   * one to the other. The underjaw is narrower than the muzzle and tan, not
+   * cream. The tongue is gone. The eyes are smaller, set into the skull inside
+   * its silhouette, and rimmed with a dark lid behind rather than barred in
+   * front. */
   head.add(softBox({
-    size: [0.146, 0.135, 0.204], pos: [0, 0.018, -0.062], mat: M.saddle, name: 'dog.head.skull', r: 0.032,
+    size: [0.152, 0.148, 0.186], pos: [0, 0.026, -0.052], mat: M.saddle, name: 'dog.head.skull', r: 0.046,
+  }));
+  // Cheeks: the muzzle has to grow out of a face, not out of a corner.
+  for (const side of [-1, 1]) {
+    head.add(softBox({
+      size: [0.040, 0.096, 0.116], pos: [side * 0.056, -0.008, -0.086], mat: M.tan,
+      name: `dog.head.cheek.${side < 0 ? 'left' : 'right'}`, r: 0.030,
+    }));
+  }
+  head.add(softBox({
+    size: [0.112, 0.100, 0.078], pos: [0, 0.020, -0.150], mat: M.tan, name: 'dog.head.stop', r: 0.036,
   }));
   head.add(softBox({
-    size: [0.126, 0.096, 0.104], pos: [0, -0.014, -0.166], mat: M.tan, name: 'dog.head.stop', r: 0.030,
+    size: [0.098, 0.084, 0.132], pos: [0, 0.006, -0.216], mat: M.tan, name: 'dog.head.muzzle', r: 0.036,
   }));
+  /* The underjaw is INSIDE the muzzle's width (0.072 against 0.090) and in the
+   * light gold rather than the cream, so it shades the mouth instead of
+   * announcing it. */
   head.add(softBox({
-    size: [0.088, 0.078, 0.196], pos: [0, -0.040, -0.262], mat: M.tan, name: 'dog.head.muzzle', r: 0.028,
+    size: [0.078, 0.034, 0.112], pos: [0, -0.036, -0.212], mat: M.tan, name: 'dog.head.jaw', r: 0.016,
   }));
-  head.add(softBox({
-    size: [0.094, 0.020, 0.178], pos: [0, -0.072, -0.262], mat: M.cream, name: 'dog.head.jaw',
-  }));
+  // The dark flew along each lip, which is the only black on a golden's face
+  // besides the nose.
+  for (const side of [-1, 1]) {
+    head.add(softBox({
+      size: [0.014, 0.038, 0.104], pos: [side * 0.043, -0.020, -0.222], mat: M.sable,
+      name: `dog.head.flew.${side < 0 ? 'left' : 'right'}`, r: 0.010,
+    }));
+  }
+  /* The nose. It was a 0.029 sphere -- 58 mm across the face of a 90 mm
+   * muzzle, standing 17 mm proud of the end of it, which close up is a black
+   * BALL stuck on the front of the dog. Seated into the muzzle end now, and
+   * two thirds the size. */
   head.add(named(sphere({
-    r: 0.030, ry: 0.024, rz: 0.024, pos: [0, -0.018, -0.360], mat: M.black,
+    r: 0.021, ry: 0.017, rz: 0.015, pos: [0, 0.014, -0.272], mat: M.black,
   }), 'dog.head.nose'));
   head.add(softBox({
-    size: [0.062, 0.014, 0.056], pos: [0, -0.062, -0.288], mat: M.tongue, name: 'dog.head.tongue',
-  }));
-  head.add(softBox({
-    size: [0.128, 0.044, 0.070], pos: [0, 0.052, -0.178], mat: M.tan, name: 'dog.head.brow', r: 0.020,
+    size: [0.106, 0.026, 0.056], pos: [0, 0.058, -0.128], mat: M.tan, name: 'dog.head.brow', r: 0.016,
   }));
 
   const eyes = [];
   for (const side of [-1, 1]) {
     const sx = side < 0 ? 'left' : 'right';
+    /* Inside the skull's own silhouette: half-width 0.076, and 0.044 + 0.016
+     * is 0.060. The old pair stood 0.070 out of a 0.073 half-width and caught
+     * the light like two beads glued on. */
+    head.add(named(sphere({
+      r: 0.018, ry: 0.017, rz: 0.012, pos: [side * 0.045, 0.044, -0.120], mat: M.black,
+    }), `dog.head.eye-line.${sx}`));
     const e = named(sphere({
-      r: 0.020, ry: 0.017, rz: 0.017, pos: [side * 0.050, 0.038, -0.150], mat: M.eye,
+      r: 0.016, ry: 0.014, rz: 0.014, pos: [side * 0.045, 0.042, -0.126], mat: M.eye,
     }), `dog.head.eye.${sx}`);
     head.add(e);
     eyes.push(e);
     head.add(named(sphere({
-      r: 0.007, pos: [side * 0.056, 0.048, -0.162], mat: M.gleam,
+      r: 0.005, pos: [side * 0.049, 0.048, -0.134], mat: M.gleam,
     }), `dog.head.eye-gleam.${sx}`));
-    head.add(softBox({
-      size: [0.040, 0.014, 0.030], pos: [side * 0.050, 0.056, -0.152], mat: M.black,
-      name: `dog.head.eye-line.${sx}`,
-    }));
   }
 
-  /* Ears. DROP ears now — the single biggest breed cue there is. The
-   * shepherd's erect pair stood 0.10 m over the skull; a golden's ear is a
-   * folded leaf that hangs from a root high on the skull down past the
-   * cheek, so each ear keeps its pivot GROUP (the update still swivels it,
-   * pet still tips it forward) but its three slabs run DOWN from the pivot:
-   * a small root fold on top, the hanging shell against the side of the
-   * head, and a rounded tip reaching the jaw line. The old black `ear-inner`
-   * is gone (a hanging ear shows no inner) — the fold took its slot, in the
-   * shading amber so the leaf still reads against the gold skull. */
+  /* Ears. Drop ears, and this time actually DROPPED.
+   *
+   * The pivot was at y 0.078 with the root fold 0.012 above it, which put the
+   * top of the fold 0.030 m OVER the crown of the skull -- so from the front
+   * the pair read as two blocks balanced on his head, which is the second
+   * thing the owner was looking at when he called the dog cursed. The pivot
+   * comes down onto the side of the skull, the fold hangs level with the
+   * crown rather than above it, and the leaf lies closer in (rest z -0.30
+   * against -0.16) so it follows the cheek down to the jaw line instead of
+   * standing off in the air. The GROUP is untouched -- same pivot, same
+   * userData rests, so `update()` still swivels and tips them. */
   const ears = [];
   for (const side of [-1, 1]) {
     const sx = side < 0 ? 'left' : 'right';
     const ear = new THREE.Group();
     ear.name = `dog.head.ear.${sx}`;
-    ear.position.set(side * 0.060, 0.078, -0.006);
-    ear.rotation.z = -side * 0.16;
-    ear.rotation.x = 0.08;
-    ear.userData.restZ = -side * 0.16;
-    ear.userData.restX = 0.08;
+    /* MEASURED, because the first pass at this overshot. At a rest tilt of
+     * 0.30 rad the leaf swung so far inboard that the tip landed at head-local
+     * x 0.029 -- half way across a skull whose half-width is 0.076, i.e. the
+     * ear finished up INSIDE the dog's cheek and only a sliver of it ever
+     * showed. At 0.10 off a pivot moved 8 mm further out, the shell straddles
+     * the cheek surface (x 0.057..0.087 against a 0.076 face) and the tip
+     * hangs at x 0.068, y -0.094 -- down the side of the head to just below
+     * the jaw line, which is where a golden's ear ends. */
+    ear.position.set(side * 0.072, 0.062, -0.028);
+    ear.rotation.z = -side * 0.10;
+    ear.rotation.x = 0.10;
+    ear.userData.restZ = -side * 0.10;
+    ear.userData.restX = 0.10;
     head.add(ear);
     ear.add(softBox({
-      size: [0.042, 0.048, 0.094], pos: [0, 0.012, 0.004], mat: M.sable,
-      name: `dog.head.ear-fold.${sx}`, r: 0.014,
+      size: [0.036, 0.046, 0.086], pos: [0, -0.006, 0.004], mat: M.sable,
+      name: `dog.head.ear-fold.${sx}`, r: 0.016,
     }));
     ear.add(softBox({
-      size: [0.026, 0.128, 0.092], pos: [side * 0.012, -0.052, 0.008], mat: M.sable,
-      name: `dog.head.ear-shell.${sx}`, r: 0.012,
+      size: [0.030, 0.124, 0.096], pos: [side * 0.008, -0.076, -0.006], mat: M.sable,
+      name: `dog.head.ear-shell.${sx}`, r: 0.014,
     }));
     ear.add(softBox({
-      size: [0.024, 0.054, 0.076], pos: [side * 0.016, -0.134, 0.014], mat: M.sable,
-      name: `dog.head.ear-tip.${sx}`, r: 0.012,
+      size: [0.026, 0.062, 0.078], pos: [side * 0.012, -0.156, -0.020], mat: M.sable,
+      name: `dog.head.ear-tip.${sx}`, r: 0.014,
     }));
     ears.push(ear);
   }
 
-  /* ---- Tail. Was a shepherd sabre curled 72 degrees up over the croup
-   * (rests -0.62 / -0.34 / -0.30); a golden carries a FLUFFY PLUME nearer
-   * level, so the three rests relax to a 25-degree lift, every segment gets
-   * a fuller cross-section, and the tip flies the breed's pale feathering
-   * (cream) instead of the sabre's black point. Same three-link chain, same
-   * wag arithmetic — a wag still multiplies one number down it. */
+  /* ---- Tail. A golden's is a PLUME: thick at the root, tapering, carried
+   * about level with the topline with cream feathering hanging off the
+   * underside of it.
+   *
+   * What was here lifted 33 degrees (rests -0.30 / -0.16 / -0.12) and flew a
+   * solid CREAM tip -- a pale stub on the end of a gold stick, which is what
+   * made it read as an aerial rather than a tail. The lift relaxes to 19
+   * degrees, every segment tapers into the next, and the cream moves to a
+   * fringe UNDER the tail where a golden's feathering actually is. Same three
+   * links, same pivots, same wag arithmetic: a wag is still one number
+   * multiplied down the chain. */
   const tail = new THREE.Group();
   tail.name = 'dog.tail';
   tail.position.set(0, 0.458, 0.390);
-  tail.rotation.x = -0.30;
-  tail.userData.rest = -0.30;
+  tail.rotation.x = -0.18;
+  tail.userData.rest = -0.18;
   body.add(tail);
   tail.add(softBox({
-    size: [0.092, 0.098, 0.200], pos: [0, -0.012, 0.096], mat: M.saddle, name: 'dog.tail.root',
+    size: [0.100, 0.106, 0.200], pos: [0, -0.012, 0.096], mat: M.saddle, name: 'dog.tail.root', r: 0.040,
   }));
   const tailMid = new THREE.Group();
   tailMid.name = 'dog.tail.mid-pivot';
   tailMid.position.set(0, -0.016, 0.192);
-  tailMid.rotation.x = -0.16;
-  tailMid.userData.rest = -0.16;
+  tailMid.rotation.x = -0.10;
+  tailMid.userData.rest = -0.10;
   tail.add(tailMid);
   tailMid.add(softBox({
-    size: [0.082, 0.090, 0.190], pos: [0, -0.010, 0.092], mat: M.saddle, name: 'dog.tail.mid',
+    size: [0.084, 0.090, 0.190], pos: [0, -0.010, 0.092], mat: M.saddle, name: 'dog.tail.mid', r: 0.036,
+  }));
+  tailMid.add(softBox({
+    size: [0.062, 0.062, 0.176], pos: [0, -0.050, 0.090], mat: M.cream, name: 'dog.tail.feather-mid', r: 0.028,
   }));
   const tailTip = new THREE.Group();
   tailTip.name = 'dog.tail.tip-pivot';
   tailTip.position.set(0, -0.014, 0.184);
-  tailTip.rotation.x = -0.12;
-  tailTip.userData.rest = -0.12;
+  tailTip.rotation.x = -0.06;
+  tailTip.userData.rest = -0.06;
   tailMid.add(tailTip);
   tailTip.add(softBox({
-    size: [0.068, 0.074, 0.164], pos: [0, -0.008, 0.078], mat: M.cream, name: 'dog.tail.tip',
+    size: [0.068, 0.074, 0.164], pos: [0, -0.008, 0.078], mat: M.saddle, name: 'dog.tail.tip', r: 0.032,
+  }));
+  tailTip.add(softBox({
+    size: [0.052, 0.056, 0.150], pos: [0, -0.042, 0.074], mat: M.cream, name: 'dog.tail.feather-tip', r: 0.024,
   }));
 
   /* ---- Legs. */
@@ -834,7 +928,14 @@ export function mountLilTomCruze({
     parts.tail.rotation.y = swing;
     parts.tailMid.rotation.y = swing * 1.35;
     parts.tailTip.rotation.y = swing * 1.7;
-    parts.tail.rotation.x = parts.tail.userData.rest + wag * 0.42 + sit * 0.16;
+    /* MEASURED CEILING ON THE TAIL'S DROP. At +0.42 for a full wag and +0.16
+     * more for the sit -- on top of a trunk that tilts 0.34 nose-up when he
+     * sits, which swings the root down again -- the plume's cream feathering
+     * finished 41 mm THROUGH the floorboards while he was being petted. A
+     * sitting dog lays his tail ON the floor, not into it. At 0.30 and 0.06 the
+     * lowest point of the whole animal in that pose is a pad, where it belongs,
+     * and the wag still reads as a wag. */
+    parts.tail.rotation.x = parts.tail.userData.rest + wag * 0.30 + sit * 0.06;
   }
 
   /**

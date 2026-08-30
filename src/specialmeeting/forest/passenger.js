@@ -66,6 +66,30 @@ export const LOOK_CONE = Object.freeze({
 const EXIT_LOOK_BACK = 0.25;
 
 /**
+ * The block sedan and the forest Adapter intentionally use different public
+ * seat names. Keep that translation at the passenger seam so the SAME rig can
+ * bind before the road cut instead of leaving main.js to copy a position once.
+ */
+const BLOCK_SEAT = Object.freeze({
+  driver: 'driver',
+  frontPassenger: 'front_passenger',
+  rearLeft: 'rear_left',
+  rearRight: 'rear_right',
+});
+
+function eyeWorld(car, seat, out) {
+  const blockSeat = BLOCK_SEAT[seat] ?? seat;
+  if (typeof car.eyeWorld === 'function') return car.eyeWorld(blockSeat, out);
+  return car.seatWorld(seat, 'eye', out);
+}
+
+function doorWorld(car, seat, out) {
+  const blockSeat = BLOCK_SEAT[seat] ?? seat;
+  if (typeof car.exitWorld === 'function') return car.exitWorld(seat, out);
+  return car.doorWorld(blockSeat, out);
+}
+
+/**
  * Which way he is turned when he gets out at the spur.
  *
  * AT THE CAR, NOT ALONG IT, and this is the second time this scene has had to
@@ -139,7 +163,9 @@ export class PassengerRig {
      * is `heading + PI`, which in terms of the mesh is `rotation.y + 3PI/2`.
      * Taken from the mesh rather than from the drive so that anything else
      * that moves the car — a nudge, a cutscene, a test — is followed too. */
-    return this.car.group.rotation.y + Math.PI * 1.5;
+    return typeof this.car.facingYaw === 'function'
+      ? this.car.facingYaw()
+      : this.car.group.rotation.y + Math.PI * 1.5;
   }
 
   /**
@@ -196,8 +222,24 @@ export class PassengerRig {
      * every pothole the suspension found. Nothing else is needed to make the
      * drive felt: the camera is bolted to the body, which is what a head in a
      * car is. */
-    this.car.seatWorld(this.seat, 'eye', this._eye);
+    eyeWorld(this.car, this.seat, this._eye);
     player.position.copy(this._eye);
+    /* `main.js` steps the shared Player before it steps the car. Re-applying
+     * the camera with zero elapsed time after the seat has moved prevents the
+     * exact one-frame chase this class's contract rules out, without advancing
+     * movement, input or any second interpolation. */
+    player.update?.(0);
+    return this;
+  }
+
+  /**
+   * Stop owning the player without moving him. The forest PassengerRig boards
+   * the same physical seat on the next line, behind a black frame; `leave()`
+   * would incorrectly put him on the pavement between those two owners.
+   */
+  release() {
+    this.seated = false;
+    this._lastCarYaw = null;
     return this;
   }
 
@@ -208,7 +250,7 @@ export class PassengerRig {
    */
   leave({ yaw = null } = {}) {
     const player = this.player;
-    this.car.exitWorld(this.seat, this._eye);
+    doorWorld(this.car, this.seat, this._eye);
     player.mode = 'walk';
     player.position.set(this._eye.x, this._eye.y + 1.66, this._eye.z);
     player.yawCenter = null;

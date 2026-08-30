@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 import * as THREE from '../vendor/three.module.min.js';
 
+import { APARTMENT_PREVIEW_VARIANTS } from '../src/core/preview-mode.js';
+
 import {
   assertSceneAuditCaptureStable,
   buildSceneAuditSourceSnapshot,
@@ -88,11 +90,30 @@ test('default scene audit inventory matches every non-frozen preview launcher ru
     .map(({ launcherKey, url }) => ({ launcherKey, url }))
     .sort((a, b) => String(a.launcherKey).localeCompare(String(b.launcherKey)));
 
+  /* The campaign launcher now exposes bounded hub beats rather than the
+   * retired apartment chronology. Keep the old apartment variants plus one
+   * generic Cabin/Luxury mount as private geometry fixtures: they still
+   * protect deterministic mesh states, but they are no longer player-facing
+   * claims about where the campaign goes. `verify-preview` owns browser proof
+   * for every new hub beat and phase. */
+  const privateGeometryFixtures = [
+    ...APARTMENT_PREVIEW_VARIANTS.map((variant) => ({
+      launcherKey: `apartment:${variant}`,
+      url: `index.html?preview=1&apartment=${variant}`,
+    })),
+    { launcherKey: 'scene:cabin', url: 'cabin.html?preview=1' },
+    { launcherKey: 'scene:luxury-apartment', url: 'luxury-apartment.html?preview=1' },
+  ].sort((a, b) => a.launcherKey.localeCompare(b.launcherKey));
+  const privateKeys = new Set(privateGeometryFixtures.map(({ launcherKey }) => launcherKey));
+  const configuredPublic = configured.filter(({ launcherKey }) => !privateKeys.has(launcherKey));
+  const configuredPrivate = configured.filter(({ launcherKey }) => privateKeys.has(launcherKey));
+
   assert.ok(
     launcherEntries.some(({ launcherKey }) => launcherKey === 'scene:initiation'),
     'the parity check must keep recognizing the intentionally frozen launcher entry',
   );
-  assert.deepEqual(configured, expected);
+  assert.deepEqual(configuredPublic, expected);
+  assert.deepEqual(configuredPrivate, privateGeometryFixtures);
 });
 
 test('the default advisory inventory excludes frozen Initiation by construction', () => {

@@ -4,6 +4,20 @@ import test from 'node:test';
 
 const read = (relative) => fs.readFileSync(new URL(relative, import.meta.url), 'utf8');
 
+test('the final-arc browser gate budgets for the measured Palace cold boot', () => {
+  const verifier = read('../tools/verify-final-arc-reloads.mjs');
+
+  assert.match(verifier,
+    /const READY_TIMEOUT_MS = Number\(process\.env\.FINAL_ARC_READY_TIMEOUT_MS\) \|\| 300_000;/,
+    'the shared readiness budget is still shorter than the Palace cold boot');
+  assert.match(verifier,
+    /page\.waitForFunction\(ready, null, \{ timeout: READY_TIMEOUT_MS \}\)/,
+    'openSeeded does not use the measured readiness budget');
+  assert.match(verifier,
+    /'\.mjs': 'text\/javascript; charset=utf-8'/,
+    'the verifier server cannot load the Palace Recast module graph');
+});
+
 test('Silver Case restores durable progress or its completion card only after Start', () => {
   const source = read('../src/silvercase/main.js');
   const previewSource = read('../src/silvercase/preview.js');

@@ -572,14 +572,17 @@ export const HOTDOG_STAGED_LINES = Object.freeze({
     'vo.bing2.lou.enjoy',
   ),
   /* REWRITTEN for the order the club actually works in (owner, 2026-08-19):
-   * the men's room, the kit and the jewellery, and then Billy travels. The
+   * the men's room, Stove's kit and the jewellery, and then Billy travels. The
    * sweep is not in this list any more because the sweep is the LAST thing
    * that happens in this building and Lou hands it out himself, afterwards,
    * once there is no longer a body in the room to sweep around. The old
    * wording also said "both bathrooms" at a club with one working one. */
   louCleanupBriefing: line(
     'Big Uncle Lou',
-    'Prospect. The men\'s room, Aubbie\'s kit, and every piece of him that came off this floor. Then Billy travels.',
+    /* The two owner notes name two different jobs. Snow's kit is for moving
+     * Billy; the physical case the Prospect retrieves and uses on the room is
+     * Stove's Cleaning Kit. Say both facts so neither object changes owners. */
+    'Prospect. Snow\'s kit is for Billy. You take Stove\'s Cleaning Kit, clear the men\'s room, and collect every piece of him off this floor. Then he travels.',
     'vo.bing2.lou.briefing',
     { direction: 'Turning panic into departments. Flat, fast, and completely unbothered.' },
   ),
@@ -613,10 +616,10 @@ export const HOTDOG_STAGED_LINES = Object.freeze({
     'It looks closed. That is not the same as clean, and closed is what I asked for.',
     'vo.bing2.lou.closed_not_clean',
   ),
-  aubbieKitCalled: line(
-    'Aubbie',
-    'Everything in that case is labelled. Use what is labelled.',
-    'vo.bing2.aubbie.kit',
+  stoveKitCalled: line(
+    'Old Stove',
+    'That case is mine. Everything in it is labelled. Use what is labelled.',
+    'vo.bing2.old-stove.kit',
   ),
   booskiEvidenceFirst: line(
     'Booskibro',

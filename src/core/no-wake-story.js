@@ -39,6 +39,14 @@ class NoWakeStory {
     if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
       return { ok: false, reason: 'motel_incomplete' };
     }
+    /* BEAT 18 IS THE MORNING AFTER THE STAYOVER. The bible's entry trigger is
+     * "family call after Margo leaves", which means the date has to have
+     * happened -- and under the reorder it has, three beats earlier. A save
+     * that reaches this dock without the Silver Room behind it is a save that
+     * skipped the whole of Moving Up. */
+    if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
+      return { ok: false, reason: 'silver_incomplete' };
+    }
     if (state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status !== 'answered') {
       return { ok: false, reason: 'lou_call_incomplete' };
     }
@@ -85,8 +93,14 @@ class NoWakeStory {
       mission.betrayalConfirmed = true;
       mission.playerFired = true;
       mission.bodyDisposed = true;
-      // Same calendar day. Returning from the docks opens Margo's date beat.
-      state.story.chapter = 'date';
+      /* Same calendar day. Returning from the dock opens beat 19 -- a quiet
+       * evening in the luxury apartment and then a call about a case.
+       *
+       * It used to set `date`, because the harbour job came BEFORE Front &
+       * Center in the built order and the drive home was what put Margo's
+       * afternoon call on the phone. The bible has that the other way round,
+       * so the chapter this hands control to is the flat he now lives in. */
+      state.story.chapter = 'luxury_apartment';
       state.scene = { id: SCENE_IDS.NO_WAKE, spawn: 'gate_c' };
     });
     return true;

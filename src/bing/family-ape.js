@@ -58,3 +58,35 @@ export const APE_FAMILY_MEMBER = Object.freeze({
 });
 
 export const APE_FACE_URL = `assets/faces/${APE_FAMILY_MEMBER.photo}`;
+
+/**
+ * The Silver Room: same Ape, dressed for the room rather than for the floor.
+ * A charcoal-olive dinner jacket over a black open-collar shirt, black
+ * trousers, deliberately no tie and no canvas work vest. His silver chain and
+ * watch remain the restrained non-founder metal established by his base look.
+ */
+export const APE_SILVER_ROOM = Object.freeze({
+  ...APE_FAMILY_MEMBER.model,
+  dress: 'suit',
+  shirt: 0x111317,
+  shirtAccent: 0x111317,
+  jacketColour: 0x30352d,
+  trouserColour: 0x111214,
+  tie: false,
+  neckline: false,
+  luxury: false,
+  pocketSquare: false,
+  trim: true,
+  trouserFit: 'creased',
+  workVest: false,
+  pattern: false,
+  patches: false,
+  tuxedo: false,
+  threePiece: false,
+  pinstripe: false,
+  hat: false,
+  argyle: null,
+  knickers: false,
+  barefoot: false,
+  face: APE_FACE_URL,
+});

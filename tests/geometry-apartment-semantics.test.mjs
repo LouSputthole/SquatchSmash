@@ -13,6 +13,8 @@ const [
   { geometryRecordsFromSnapshot, scanGeometry },
   { applyScenePolicy, normalizeSceneColliders },
   {
+    APARTMENT_MARGO_ENTRY_DOOR_YAW,
+    APARTMENT_MARGO_ENTRY_HEADING,
     APARTMENT_MARGO_ENTRY_POSITION,
     APARTMENT_MARGO_GEOMETRY_STAGES,
     apartmentPreviewGeometryStage,
@@ -82,6 +84,16 @@ test('Apartment Adapter keeps construction, compound props, and fitted dressing 
 
   const normalizedColliders = normalizeSceneColliders(built);
   assert.equal(
+    normalizedColliders.filter(({ spatial }) => spatial.typed).length,
+    29,
+    'every Apartment collision producer must retain semantic type information',
+  );
+  assert.equal(
+    new Set(normalizedColliders.map(({ spatialId }) => spatialId)).size,
+    29,
+    'Apartment spatial IDs must be stable and unique within the scene',
+  );
+  assert.equal(
     normalizedColliders.filter(({ assemblyId }) => assemblyId === 'apartment-shell-collision').length,
     14,
     'fixed shell collision union changed',
@@ -90,6 +102,29 @@ test('Apartment Adapter keeps construction, compound props, and fitted dressing 
     normalizedColliders.find(({ id }) => id === 'apartment-bathroom-door-leaf')?.assemblyId,
     'apartment-shell-collision',
     'dynamic bathroom door was absorbed into the fixed shell union',
+  );
+  assert.equal(
+    normalizedColliders.find(({ spatialId }) => (
+      spatialId === 'apartment-bathroom-door-leaf'
+    ))?.spatialKind,
+    'door',
+  );
+  assert.deepEqual(
+    normalizedColliders
+      .filter(({ spatialKind }) => spatialKind === 'seat')
+      .map(({ spatialId }) => spatialId)
+      .toSorted(),
+    ['apartment-couch', 'apartment-toilet'],
+  );
+
+  const frontDoor = directNamed(root, 'door').find(({ position }) => position.z > 4);
+  const frontDoorPivot = frontDoor?.children.find(({ isGroup }) => isGroup);
+  assert.ok(frontDoorPivot, 'Apartment front door lost its articulated pivot');
+  root.updateMatrixWorld(true);
+  const hinge = frontDoorPivot.getWorldPosition(new built.THREE.Vector3());
+  assert.ok(
+    Math.abs(hinge.x - 2.30) < 1e-9 && Math.abs(hinge.z - 4.48) < 1e-9,
+    `front door must rotate on the west jamb; got (${hinge.x}, ${hinge.z})`,
   );
 
   const tub = allNamed(root, 'tub');
@@ -269,7 +304,8 @@ test('Apartment geometry remains complete and clean across every public campaign
     if (expected.margo === APARTMENT_MARGO_GEOMETRY_STAGES.COME_HOME_ENTRY) {
       assert.equal(built.metadata.previewGeometry.pose, 'standing');
       assert.deepEqual(built.metadata.previewGeometry.position, APARTMENT_MARGO_ENTRY_POSITION);
-      assert.equal(built.metadata.previewGeometry.yaw, 0);
+      assert.equal(built.metadata.previewGeometry.yaw, APARTMENT_MARGO_ENTRY_HEADING);
+      assert.equal(built.metadata.previewGeometry.frontDoorYaw, APARTMENT_MARGO_ENTRY_DOOR_YAW);
       assert.equal(margo[0].userData.geometryGate?.assemblyId, 'apartment-margo');
     } else if (expected.margo === APARTMENT_MARGO_GEOMETRY_STAGES.WAKE_LYING) {
       assert.equal(built.metadata.previewGeometry.pose, 'lying');
@@ -302,6 +338,12 @@ test('Apartment runtime delegates both visible Margo beats to the pure geometry 
   const main = fs.readFileSync('src/main.js', 'utf8');
   assert.match(main, /APARTMENT_MARGO_GEOMETRY_STAGES\.COME_HOME_ENTRY/);
   assert.match(main, /APARTMENT_MARGO_GEOMETRY_STAGES\.WAKE_LYING/);
+  assert.equal(
+    [...main.matchAll(/APARTMENT_MARGO_ENTRY_DOOR_YAW \* Math\.min/g)].length,
+    2,
+    'both directions of Margo\'s walk must use the canonical staged door angle',
+  );
+  assert.doesNotMatch(main, /-1\.0 \* Math\.min/);
   for (const sourceFile of [
     'src/world/apartment.js',
     'src/world/props.js',

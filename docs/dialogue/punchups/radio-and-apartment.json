@@ -212,16 +212,19 @@
       "status": "open"
     },
     {
-      "cue": "radio.vo.announcer.157erj5",
+      "cue": "radio.vo.announcer.170fb70",
       "character": "announcer",
-      "current": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.",
-      "why": "A UI objective marker read on air. Story reminders through the radio are a great idea — this one just has no radio in it.",
-      "house": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening. We are not told what it is. We are told to say it.",
-      "tarantino": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening. That's all the information on the card. I've asked. I've asked three times. There's no more card.",
-      "mcdonagh": "The Squatch Meetin' is Wednesday. Tomorrow. Seven in the evenin'. That's all that's on the page and I'll not be takin' questions.",
-      "houser": "The Squatch Meeting is Wednesday. Tomorrow. Seven p.m. This announcement has been paid for in cash by a man who would not give his name and would not sit down.",
-      "coen": "The Squatch Meeting is Wednesday. That's tomorrow. Seven in the evening. That's what it says here.",
-      "status": "open"
+      "current": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "why": "Resolved against the campaign spine: this sounds like a normal members notice and preserves Day One without spoiling the later Initiation.",
+      "house": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "tarantino": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "mcdonagh": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "houser": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "coen": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "status": "ACCEPTED 2026-08-28",
+      "picked": "The Silver Sasquatches weekly meeting is Wednesday. Tomorrow. Seven in the evening. Members only. Routine business.",
+      "retiredText": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.",
+      "retiredCue": "radio.vo.announcer.157erj5"
     }
   ],
   "newMaterial": {

@@ -26,9 +26,10 @@ export {
   allWeaponCueNames, weaponCue, weaponCueSlots, weaponDef, weaponList,
 } from './catalog.js';
 export {
-  WEAPON_SFX, WEAPON_SFX_STANDINS,
+  WEAPON_AUDIO_PROFILE_IDS, WEAPON_AUDIO_PROFILES, WEAPON_SFX, WEAPON_SFX_STANDINS,
   playWeaponCue, playWeaponPickup, playWeaponStow,
-  weaponCueNames, weaponStandInCueNames, weaponWantedCueNames,
+  weaponAudioProfile, weaponCueNames, weaponProfileCue,
+  weaponStandInCueNames, weaponWantedCueNames,
 } from './audio.js';
 export { Firearm, READY, RELOAD_IN, RELOAD_OUT } from './Firearm.js';
 export { EjectaPool } from './Ejecta.js';

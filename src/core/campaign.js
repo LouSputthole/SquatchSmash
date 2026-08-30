@@ -10,6 +10,12 @@ import {
   normalizeFinalArcLoadoutSnapshot,
 } from './final-arc-loadout.js';
 import { SCENE_RECOVERY_STORAGE_KEY } from './scene-recovery-storage.js';
+import {
+  initialCampaignStatistics,
+  migrateCampaignStatistics,
+  normalizeCampaignStatistics,
+  synchronizeCampaignStatistics,
+} from './campaign-stats.js';
 
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
@@ -76,6 +82,21 @@ export const SCENE_IDS = Object.freeze({
   SILVER_ROOM: 'silver_room',
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
+  /* Act One's single Cabin Hideaway scene. Cabin I's lay-low and four walks
+   * lead into Beef Run; Cabin II returns to this same property for the cellar,
+   * dungeon, interrogation, executions, pyre and blackout before Booski sends
+   * Tony back to the Bing. It is not a post-heist lay-low, and Silver Case is
+   * reached later from the Luxury Apartment. */
+  COUNTRYSIDE_CABIN: 'countryside_cabin',
+  /* The second home. Lou gives it to the Prospect after Silver Pines as a
+   * reward for taking care of that thing for him, and from that moment the
+   * starter flat goes dark: the trophies, the art and the Squatchanium
+   * miniature move here and the campaign never spawns him in the old one
+   * again. Five story states live in this one scene -- getting ready for the
+   * date, the stayover, the morning after, coming home from the dock, and the
+   * night the special meeting rings. Residence is campaign state and is never
+   * inferred from the last scene visited. */
+  LUXURY_APARTMENT: 'luxury_apartment',
   SILVER_CASE: 'silver_case',
   MANSION_SIEGE: 'mansion_siege',
   ENOLA_SQUATCH: 'enola_squatch',
@@ -173,12 +194,62 @@ export const EVENT_IDS = Object.freeze({
    * it, sleeping does not wait for it, and missing it costs nothing but the
    * only kind words anybody in this family says out loud. */
   LOU_ATTABOY_CALL: 'lou_attaboy_call',
+  /**
+   * THE ACT-ONE CABIN's two telephones, and why neither reuses an existing id.
+   *
+   * `BOOSKI_DAY_TWO_CALL` below rings in the flat on the second morning and
+   * is the only thing that authorises the Beef Run -- AirstripStory.begin()
+   * refuses without it. The bible moves that authorisation to the cabin, but
+   * the two are not the same call: one wakes a man in his own bed, the other
+   * reaches a man who is hiding. They also cannot share an id, because the
+   * apartment's ring scheduler owns that one and would try to ring it in an
+   * empty flat he is not standing in.
+   *
+   * MARGO is the campaign's only OUTGOING call. Every other live entry in this
+   * table is somebody reaching him; this is him deciding to reach somebody,
+   * and it is now where they schedule Front & Center. `MARGO_DATE_CALL` stays
+   * below only as the legacy save key for "date scheduled".
+   */
+  CABIN_MARGO_CALL: 'cabin_margo_call',
+  CABIN_BOOSKI_SASOLE_CALL: 'cabin_booski_sasole_call',
+  /* Cabin II. The heat is down and Ol' Billy is getting out. */
+  CABIN_BILLY_CALL: 'cabin_billy_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
   LOU_NO_WAKE_CALL: 'lou_no_wake_call',
+  /* Legacy exact-once key. The later incoming call was retired; new saves set
+   * this when Tony and Margo make the appointment during the cabin call. */
   MARGO_DATE_CALL: 'margo_date_call',
+  /**
+   * BEAT 12, under the id the golf call already had, and deliberately so.
+   *
+   * The bible's twelfth beat is *"We got a new space. Come meet us on the
+   * course."* -- one call, in the starter flat, that sends him to Silver
+   * Pines. That is the same slot in the machine this id has always occupied,
+   * so the SAVE KEY does not move and no player's events map changes shape.
+   *
+   * What was retired is the RECORDING. `vo.call.lou.golf.*` was four takes of
+   * "three holes, home by half ten, after that your day starts" -- a call
+   * whose whole job was to fit a round of golf in before a bank job later the
+   * same day. THE TAKE is on Day 5 now and the round is on Day 6, so those
+   * lines set up a heist that has already happened. `NEW_SPACE_LOU_CALL` in
+   * apartment-story.js carries beat 12's words under `call.lou.new_space`.
+   */
   LOU_GOLF_CALL: 'lou_golf_call',
   LOU_HEIST_CALL: 'lou_heist_call',
+  /**
+   * BEAT 19. The call that ends the luxury apartment's quiet evening.
+   *
+   * A new key in the save's `events` map, which is why MIGRATIONS[20] exists:
+   * `normalize()` rebuilds that block from `initialState`, so a save that
+   * reaches v21 without this key present is `structurallyBroken` and every
+   * player is told their save was recovered.
+   *
+   * It is Booskibro rather than Lou because the case is going TO Lou -- the
+   * bible's beat 20 is "hand it to Lou himself" -- and a man does not ring
+   * ahead to tell you he is expecting a delivery from you.
+   */
+  BOOSKI_SILVER_CASE_CALL: 'booski_silver_case_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
   /**
    * THE SPECIAL MEETING — Booskibro's second call, and why it is a second one.
@@ -240,18 +311,38 @@ export const TIME_EVENT_IDS = Object.freeze({
   PHONE_READ_FAMILY: 'phone.read.family',
   PHONE_READ_LOU: 'phone.read.lou',
   PHONE_READ_MUM: 'phone.read.mum',
-  /** Margo waking up beside him on the fourth morning, and leaving. */
+  PHONE_READ_CABIN: 'phone.read.cabin_lay_low',
+  /**
+   * THE STARTER FLAT'S TWO MARGO MARKERS, WHICH THE ROUTE NO LONGER REACHES.
+   *
+   * These are the come-home and the morning after as they were staged in the
+   * starter apartment, back when the date was a Day 3 beat played from that
+   * flat. The bible puts Front & Center after the handover -- she comes home
+   * to the LUXURY apartment, and the starter flat is dark by then -- so the
+   * live route now spends `LUXURY_MARGO_COME_HOME` and `LUXURY_MARGO_WAKE`
+   * below instead.
+   *
+   * They stay registered forever, and not only for tidiness: the ledger is
+   * exact-once BY ID, so a save that already spent one of these in the old
+   * order must still read back as having spent it. Deleting the id would make
+   * `advanceTime` throw on a save that legitimately contains it.
+   */
   MARGO_WAKE: 'scene.margo_wake',
-  /** Margo coming home with him the night of the Silver Room, and staying. */
   MARGO_COME_HOME: 'scene.margo_come_home',
   LOU_FIRST_CALL: 'call.lou_first',
   LOU_ATTABOY_CALL: 'call.lou_attaboy',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
   LOU_NO_WAKE_CALL: 'call.lou_no_wake',
+  /* Registered forever for saves that spent the retired apartment call. New
+   * play never spends it; the cabin conversation owns the appointment. */
   MARGO_DATE_CALL: 'call.margo_date',
+  /* Beat 12's call. Same ledger id as the retired golf call -- see the note
+   * on EVENT_IDS.LOU_GOLF_CALL for why the key stays and the take does not. */
   LOU_GOLF_CALL: 'call.lou_golf',
   LOU_HEIST_CALL: 'call.lou_heist',
+  /* Beat 19's call, at the luxury apartment. */
+  BOOSKI_SILVER_CASE_CALL: 'call.booski_silver_case',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   /* The Special Meeting call. A marker rather than an errand -- see its zero
    * in TIME_EVENTS below. It exists because `ApartmentStory.callAnswered()`
@@ -280,10 +371,130 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_SILVER_PINES: 'mission.silver_pines',
   DEPART_BANK_HEIST: 'travel.bank_heist',
   COMPLETE_BANK_HEIST: 'mission.bank_heist',
+  /* The post-heist drive north. The exploration markers deliberately reuse
+   * the exact-once clock ledger instead of adding a parallel cabin save. */
+  DEPART_COUNTRYSIDE_CABIN: 'travel.countryside_cabin',
+  CABIN_REST: 'sleep.countryside_cabin',
+  CABIN_EXPLORE_CREEK: 'explore.countryside_cabin.creek',
+  CABIN_EXPLORE_OVERLOOK: 'explore.countryside_cabin.overlook',
+  CABIN_EXPLORE_SHED: 'explore.countryside_cabin.shed',
+  CABIN_EXPLORE_RANGE: 'explore.countryside_cabin.range',
+  /* Legacy saves can still carry this marker. The new Cabin chapter replaces
+   * the fire-ring walk with the old shooting range, but the story adapter
+   * deliberately treats this id as prior credit instead of erasing a walk a
+   * player already took. Keep the event registered forever. */
+  CABIN_EXPLORE_FIREPIT: 'explore.countryside_cabin.firepit',
+  /* THE ACT-ONE CABIN. Beats 4 to 7 of the story bible.
+   *
+   * These are deliberately NOT the six ids above. That block is anchored to
+   * the post-heist calendar -- CABIN_REST alone says `atLeast day 5, 14:30`,
+   * and `advanceTime` takes Math.max(now, atLeast) -- so borrowing one for a
+   * Day 2 lay-low would throw the campaign clock three days forward in a
+   * single bed interaction, and then spend the id forever, leaving the later
+   * visit with a rest it can never take and four walks already ticked.
+   *
+   * The ledger is exact-once by id, so two visits need two sets. */
+  DEPART_CABIN_LAY_LOW: 'travel.cabin_lay_low',
+  CABIN_LAY_LOW_REST: 'sleep.cabin_lay_low',
+  CABIN_LAY_LOW_MARGO_CALL: 'call.cabin_lay_low.margo',
+  CABIN_LAY_LOW_BOOSKI_CALL: 'call.cabin_lay_low.booski',
+  CABIN_LAY_LOW_EXPLORE_CREEK: 'explore.cabin_lay_low.creek',
+  CABIN_LAY_LOW_EXPLORE_OVERLOOK: 'explore.cabin_lay_low.overlook',
+  CABIN_LAY_LOW_EXPLORE_SHED: 'explore.cabin_lay_low.shed',
+  CABIN_LAY_LOW_EXPLORE_FIREPIT: 'explore.cabin_lay_low.firepit',
+  /* Cabin II: home from the Beef Run, and the call that sends him back. */
+  RETURN_CABIN_FROM_AIRSTRIP: 'travel.cabin_return',
+  CABIN_SECOND_REST: 'sleep.cabin_second',
+  CABIN_SECOND_BILLY_CALL: 'call.cabin_second.billy',
+  DEPART_CABIN_FOR_TOWN: 'travel.cabin_to_town',
+  /* The Cabin dungeon chapter is stored entirely in the exact-once event
+   * ledger. That keeps the current schema at v19 while still making every
+   * player action reload-safe; see core/countryside-cabin-story.js for the
+   * ordered public API over these markers. */
+  CABIN_LOU_OPENING_CALL: 'call.countryside_cabin.lou_opening',
+  CABIN_MARGO_READY: 'hook.countryside_cabin.margo_ready',
+  CABIN_GRATIN_CALL: 'call.countryside_cabin.gratin',
+  CABIN_RETURN_TO_CABIN_LINE: 'scene.countryside_cabin.return_to_cabin_line',
+  CABIN_CELLAR_OPEN: 'scene.countryside_cabin.cellar_open',
+  CABIN_DUNGEON_ENTERED: 'scene.countryside_cabin.dungeon_entered',
+  CABIN_COUNTER_STRIKE_HIT_1: 'interrogation.countryside_cabin.counter_strike.1',
+  CABIN_COUNTER_STRIKE_HIT_2: 'interrogation.countryside_cabin.counter_strike.2',
+  CABIN_COUNTER_STRIKE_HIT_3: 'interrogation.countryside_cabin.counter_strike.3',
+  CABIN_COUNTER_STRIKE_HIT_4: 'interrogation.countryside_cabin.counter_strike.4',
+  CABIN_COUNTER_STRIKE_HIT_5: 'interrogation.countryside_cabin.counter_strike.5',
+  CABIN_COUNTER_STRIKE_HIT_6: 'interrogation.countryside_cabin.counter_strike.6',
+  CABIN_COUNTER_STRIKE_HIT_7: 'interrogation.countryside_cabin.counter_strike.7',
+  CABIN_COUNTER_STRIKE_HIT_8: 'interrogation.countryside_cabin.counter_strike.8',
+  CABIN_ATEAM_HIT_1: 'interrogation.countryside_cabin.ateam.1',
+  CABIN_ATEAM_HIT_2: 'interrogation.countryside_cabin.ateam.2',
+  CABIN_ATEAM_HIT_3: 'interrogation.countryside_cabin.ateam.3',
+  CABIN_ATEAM_HIT_4: 'interrogation.countryside_cabin.ateam.4',
+  CABIN_ATEAM_HIT_5: 'interrogation.countryside_cabin.ateam.5',
+  CABIN_ATEAM_HIT_6: 'interrogation.countryside_cabin.ateam.6',
+  CABIN_ATEAM_HIT_7: 'interrogation.countryside_cabin.ateam.7',
+  CABIN_ATEAM_HIT_8: 'interrogation.countryside_cabin.ateam.8',
+  /* The original draft called this a mole reveal. Authored canon only lets
+   * Tony learn what the A-Team member knows, so the semantic name aliases the
+   * old marker and keeps any early save readable without claiming an identity. */
+  CABIN_ATEAM_INTEL_LEARNED: 'scene.countryside_cabin.mole_revealed',
+  CABIN_MOLE_REVEALED: 'scene.countryside_cabin.mole_revealed',
+  CABIN_EXECUTION_PLAYER: 'choice.countryside_cabin.execution.player',
+  CABIN_EXECUTION_GRATIN: 'choice.countryside_cabin.execution.gratin',
+  CABIN_EXECUTION_TIMEOUT_SELECTED: 'choice.countryside_cabin.execution.timeout_selected',
+  CABIN_EXECUTION_BRANCH_VO_COMPLETE: 'scene.countryside_cabin.execution_branch_vo_complete',
+  CABIN_COUNTER_STRIKE_DEAD: 'death.countryside_cabin.counter_strike',
+  CABIN_ATEAM_DEAD: 'death.countryside_cabin.ateam',
+  CABIN_NIGHTFALL: 'scene.countryside_cabin.nightfall',
+  CABIN_NIGHTFALL_BRIEFING_COMPLETE: 'scene.countryside_cabin.nightfall_briefing_complete',
+  CABIN_COUNTER_STRIKE_WRAPPED: 'cleanup.countryside_cabin.counter_strike_wrapped',
+  CABIN_ATEAM_WRAPPED: 'cleanup.countryside_cabin.ateam_wrapped',
+  CABIN_COUNTER_STRIKE_AT_FIRE: 'cleanup.countryside_cabin.counter_strike_at_fire',
+  CABIN_ATEAM_AT_FIRE: 'cleanup.countryside_cabin.ateam_at_fire',
+  CABIN_GAS_POURED: 'cleanup.countryside_cabin.gas_poured',
+  CABIN_BONFIRE_IGNITED: 'cleanup.countryside_cabin.bonfire_ignited',
+  /* Legacy/aggregate staging credit remains readable; new play records each
+   * body's trip to the fire separately before this optional roll-up marker. */
+  CABIN_BODIES_STAGED: 'cleanup.countryside_cabin.bodies_staged',
+  CABIN_FIRE_CLEANUP: 'cleanup.countryside_cabin.fire',
+  CABIN_DRINK: 'scene.countryside_cabin.drink',
+  CABIN_BLACKOUT: 'scene.countryside_cabin.blackout',
+  CABIN_MORNING_CALL: 'call.countryside_cabin.morning',
+  CABIN_MORNING_WAKE_COMPLETE: 'scene.countryside_cabin.morning_wake_complete',
+  /**
+   * THE LUXURY APARTMENT. Beats 14, 16, 17 and 19 of the story bible.
+   *
+   * FOUR STATES MEANS FOUR SETS OF IDS, and that is the whole reason this
+   * block exists rather than the flat reusing the starter apartment's. He
+   * lives here for the second half of Chapter 3 and the campaign passes
+   * through the same front door four separate times:
+   *
+   *   14  Lou hands over the keys after the round; GET READY FOR YOUR DATE
+   *   16  she comes home with him from Front & Center, and stays
+   *   17  the morning: she leaves, and then the phone rings about a boat
+   *   19  home from the dock, and a call about something sensitive
+   *
+   * The ledger is exact-once by id. One `sleep.luxury` shared between the
+   * stayover and any later night would be spent on the first of them and
+   * silently unavailable on the second; one `travel.luxury` shared between
+   * the arrival and the drive back from South Harbor would price a
+   * cross-town move once and the return leg at nothing. Same trap the
+   * Act-One cabin hit, same answer.
+   *
+   * Also NOT the starter flat's `MARGO_WAKE`/`MARGO_COME_HOME`. Those are the
+   * same two beats in a different room, and a save that played them there in
+   * the old order still holds them; borrowing one would hand that player a
+   * stayover that was over before it started.
+   */
+  ARRIVE_LUXURY_APARTMENT: 'travel.luxury_apartment',
+  LUXURY_GET_READY: 'activity.luxury.get_ready',
+  LUXURY_MARGO_COME_HOME: 'scene.luxury.margo_come_home',
+  LUXURY_STAYOVER_REST: 'sleep.luxury.stayover',
+  LUXURY_MARGO_WAKE: 'scene.luxury.margo_wake',
+  RETURN_LUXURY_APARTMENT: 'travel.luxury_apartment_return',
   /* The final chapter has no apartment hub between scenes, so its travel and
-   * runtime spans live in this same exact-once ledger.  These markers make the
-   * calendar agree with the authored Day 5 / Day 6 sequence without letting a
-   * reload, retry, or repeated Continue click farm hours. */
+   * runtime spans live in this same exact-once ledger. These markers preserve
+   * the authored final-arc calendar without letting a reload, retry, or
+   * repeated Continue click farm hours. */
   DEPART_SILVER_CASE: 'travel.silver_case',
   COMPLETE_SILVER_CASE: 'mission.silver_case',
   DEPART_INITIATION: 'travel.initiation',
@@ -313,9 +524,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_CARTEL_PALACE: 'mission.cartel_palace',
   /* THE SPECIAL MEETING: waiting in the flat for a car nobody described, and
    * then the drive out. `DEPART` is the wait and the walk downstairs; the
-   * completion is Seff's forty-two minutes plus the standing about at the spur
-   * and the walk up the trail. Relative minutes rather than an `atLeast`
-   * because the final arc's day is whatever the Palace left behind it. */
+   * completion is Seff's forty-two minutes plus twenty-three at the spur and
+   * on the trail. Both live on Day 13 now; see their anchors below. */
   DEPART_SPECIAL_MEETING: 'travel.special_meeting',
   COMPLETE_SPECIAL_MEETING: 'scene.special_meeting',
 });
@@ -345,6 +555,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.PHONE_READ_FAMILY]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_LOU]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_MUM]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.PHONE_READ_CABIN]: Object.freeze({ minutes: 0 }),
   /* Costs nothing on the clock. This is a one-shot cutscene marker rather than
    * an errand: Day 4 already opens at the authored seven-o'clock checkpoint,
    * and Margo leaving should not move the Golf call or either departure. */
@@ -363,26 +574,24 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_GOLF_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.LOU_HEIST_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   /* Zero, and that is not an oversight.
    *
    * Every other call on this list buys its own minutes because nothing else
-   * prices it. This one is already priced: DEPART_SPECIAL_MEETING below is
-   * thirty-five minutes of "the phone call, getting changed, and going down to
-   * a car already running", written when the whole of Act One lived on the
-   * Special Meeting's own page. Act One is played in the flat now, but the
-   * thirty-five minutes still cover it end to end, so charging the call again
-   * here would bill the same forty seconds twice. Kept as a registered event
-   * with no cost rather than dropped, because `advanceTime` is the exact-once
-   * ledger that records the call as answered -- see the id's note above. */
+   * prices it. This one is already inside DEPART_SPECIAL_MEETING below: that
+   * Day 13 pickup anchor covers the call, changing, decompression and going
+   * down to the car. Charging here would bill one conversation twice. Kept as
+   * a registered zero-minute event because `advanceTime` is also the
+   * exact-once ledger that records the call as answered. */
   [TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
   }),
   /* The restaurant, the walk away from it and the drive back. He lets himself
    * in at three in the morning of the night Day One runs into: still Day One's
-   * chapter, on the second calendar day, exactly as the Motel already does at
-   * half four. Sleeping from here is what turns the page. */
+   * chapter, on the second calendar day, just as the Motel later returns him
+   * after daylight. Sleeping from here is what turns the page. */
   [TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER]: Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 3 * 60 }),
   }),
@@ -395,81 +604,289 @@ const TIME_EVENTS = Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 20 * 60 + 30 }),
   }),
   // The club again, late the same evening Lou calls him back in.
+  /* +2 DAYS, FROM HERE TO THE END OF THE WAR.
+   *
+   * The Act-One cabin takes Days 2, 3 and 4 -- the lay-low, the Beef Run, the
+   * dungeon -- where the campaign used to be at the second Bing visit by the
+   * night of Day 2. Every anchor from here on was written against that older
+   * calendar and had to move with the route, in the same commit.
+   *
+   * Not moving them would not have failed anywhere. `advanceTime` takes
+   * `Math.max(now, atLeast)`, so an anchor the route now overshoots simply
+   * stops naming its hour: the golf round would have "ended" at 07:18 having
+   * teed off at 07:30, and nothing in the game would have said a word. The
+   * hours themselves are untouched -- 23:00 is still 23:00 -- because it was
+   * never the hours that were wrong, only which day they fell on.
+   *
+   * The Beef Run is the exception that proves it: DEPART_AIRSTRIP (Day 2
+   * 09:10) and COMPLETE_AIRSTRIP (Day 2 20:30) did NOT move, because the
+   * bible already puts the flight on Day 2 and back by night. They were right
+   * before the route reached them and they are right now. */
   [TIME_EVENT_IDS.DEPART_BADA_BING_TWO]: Object.freeze({
-    atLeast: Object.freeze({ day: 2, timeMinutes: 23 * 60 }),
+    atLeast: Object.freeze({ day: 4, timeMinutes: 23 * 60 }),
   }),
   // Lockdown, cleanup, loading the body, and the drive into the woods.
   [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 15 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 15 }),
   }),
   // Lou's assignment lands after the club crosses midnight.
   [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 45 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 45 }),
   }),
   // The drive out to the Motel, straight from the club.
   [TIME_EVENT_IDS.DEPART_JERKY_MOTEL]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 60 + 30 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 60 + 30 }),
   }),
-  // Deal, betrayal, recovery, and the getaway end before dawn.
+  /* Deal, betrayal, recovery, and the getaway finish before dawn, but the
+   * bible's bridge does not send Tony back to a watched home in the dark.
+   * Snow waits for a clean daylight block and drops him there at 06:30. */
   [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 4 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 6 * 60 + 30 }),
   }),
-  // A deliberately vague call, then the drive down to South Harbor.
+  /* NO WAKE IS DAY 7 NOW, AND IT MOVED WITH THE ROUTE.
+   *
+   * The bible's beat 18 is a family call AFTER Margo leaves -- the morning
+   * of the stayover, from the luxury apartment, on the day after the date.
+   * This read Day 5 because NO WAKE used to be the first thing he did on
+   * waking off the back of the Motel, two beats before the date rather than
+   * three after it.
+   *
+   * Leaving it on Day 5 would not have failed anywhere, which is exactly what
+   * makes it dangerous: `advanceTime` takes `Math.max(now, atLeast)`, and the
+   * route reaches this beat at 07:14 on Day 7. A Day 5 anchor is absorbed
+   * whole, so the harbour job would have "started" at 07:14 on the morning
+   * Lou rang and "finished" at 07:14 as well -- an afternoon on a boat that
+   * takes no time and names no hour. Measured on the first run before these
+   * moved: DEPART_NO_WAKE landed 07:14, COMPLETE_NO_WAKE 07:14.
+   *
+   * The HOURS are untouched. A quarter to one at Gate C is still a quarter to
+   * one; it is which day it falls on that the reorder changed. */
   [TIME_EVENT_IDS.DEPART_NO_WAKE]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 12 * 60 + 45 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 12 * 60 + 45 }),
   }),
   // Dock work, the run offshore, and the silent return consume the afternoon.
   [TIME_EVENT_IDS.COMPLETE_NO_WAKE]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 16 * 60 + 40 }),
+    atLeast: Object.freeze({ day: 7, timeMinutes: 16 * 60 + 40 }),
   }),
-  /* Day 3 turns through NO WAKE first. He wakes at noon off the back of the
-   * Motel, completes the harbor job, takes Margo's afternoon call, and leaves
-   * at half seven for a nine o'clock table -- the Silver Room's own evening. */
+  /* FRONT & CENTER IS DAY 6, THE NIGHT OF THE HANDOVER.
+   *
+   * The bible's beat 15 is the evening of the day Lou hands over the keys:
+   * the round in the morning, the new flat at lunchtime, GET READY FOR YOUR
+   * DATE, and a nine o'clock table. Both of these were Day 5 when the date
+   * came before the round. Half seven and twenty past eleven are unchanged --
+   * only the date moved. */
   [TIME_EVENT_IDS.DEPART_SILVER_ROOM]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 19 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 19 * 60 + 30 }),
   }),
   // Dinner, a set by the Midnight Pines, and the walk out the front.
   [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 23 * 60 + 20 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 23 * 60 + 20 }),
   }),
-  /* Margo wakes him at seven. Lou's short invitation sends Tony out at half
-   * seven for an eight-o'clock tee time; three holes and the return trip put
-   * him back in the flat before THE TAKE begins. */
+  /* The round did NOT move, and that is the point of the reorder.
+   *
+   * Silver Pines was already a Day 6 morning and the bible already puts it
+   * there. What changed is what it is a morning AFTER: the bank, not the
+   * date. He sleeps off THE TAKE, Lou's invitation from the night before
+   * sends him out at half seven for an eight-o'clock tee time, and three
+   * holes later somebody hands him a set of keys. */
   [TIME_EVENT_IDS.DEPART_SILVER_PINES]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 7 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 7 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_SILVER_PINES]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 10 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 6, timeMinutes: 10 * 60 + 30 }),
   }),
-  // After the round, Lou's crew collects Tony late that morning.
+  /* THE TAKE IS DAY 5, WHICH IS THE OWNER'S RULING AND NOT A TIDY-UP.
+   *
+   * *"Home from the Motel, do the heist, THEN Lou rings about the new
+   * space"* -- the job is what earns the upgrade, so the call reads as the
+   * reward for it. Both of these were Day 6, after the round. He now wakes
+   * at noon off the back of the Motel, takes Lou's call, and a car collects
+   * him at a quarter to one.
+   *
+   * Same span as before, six hours and five minutes of it: briefing, bank,
+   * withdrawal, pursuit, swap and the count. It ends after dark, which is why
+   * beat 12's call is the last thing that happens on Day 5 and the course is
+   * the first thing that happens on Day 6. */
   [TIME_EVENT_IDS.DEPART_BANK_HEIST]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 11 * 60 + 15 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 12 * 60 + 45 }),
   }),
-  // Briefing, bank, withdrawal, pursuit, swap, and the count fill the day.
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 17 * 60 + 20 }),
+    atLeast: Object.freeze({ day: 5, timeMinutes: 18 * 60 + 50 }),
   }),
-  /* THE TAKE ends at 5:20 PM on Day 4.  The final chapter opens on the next
-   * afternoon, without adding another playable apartment detour: Ape's pickup
-   * and the off-screen rendezvous land The Silver Case at 4 PM on Day 5. */
+  /* THE POST-HEIST DRIVE NORTH, WHICH NO LIVE ROUTE TAKES ANY MORE.
+   *
+   * Beats 12-19 gave the Silver Case its own doorway out of the luxury
+   * apartment, so `SCENES[COUNTRYSIDE_CABIN].next` no longer names it and
+   * `post_heist` sends him to bed rather than to the county road. This anchor
+   * and CABIN_REST below are reachable only by a save that was already parked
+   * on that property, which MIGRATIONS[20] moves off it. Kept and dated
+   * because an id in this ledger can be spent, and a spent id has to stay
+   * readable. */
+  [TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN]: Object.freeze({
+    atLeast: Object.freeze({ day: 7, timeMinutes: 11 * 60 + 15 }),
+  }),
+  /* Legacy Cabin builds offered one full rest. Keep its marker/time readable;
+   * the dungeon chapter now owns the actual night-to-morning progression. */
+  [TIME_EVENT_IDS.CABIN_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 7, timeMinutes: 14 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_CREEK]: Object.freeze({ minutes: 20 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_SHED]: Object.freeze({ minutes: 15 }),
+  [TIME_EVENT_IDS.CABIN_EXPLORE_RANGE]: Object.freeze({ minutes: 15 }),
+  /* Kept readable for saves made before the range replaced the fire ring. */
+  [TIME_EVENT_IDS.CABIN_EXPLORE_FIREPIT]: Object.freeze({ minutes: 10 }),
+  /* THE ACT-ONE CABIN's own clock, which is a relative one on purpose.
+   *
+   * The Squatchfather ends around 11:41 PM on Day 1 and the driver goes
+   * straight out of the city, so every span here is a duration rather than an
+   * anchor: the drive is long enough to be out of town and short enough to
+   * still be the same night, and the lay-low wakes him the next morning
+   * without asserting a date the earlier beats have not reached yet. Only
+   * CABIN_LAY_LOW_REST names an hour, and it names one relative to arrival. */
+  [TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW]: Object.freeze({ minutes: 140 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 9 * 60 + 20 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL]: Object.freeze({ minutes: 12 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL]: Object.freeze({ minutes: 6 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_CREEK]: Object.freeze({ minutes: 20 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_OVERLOOK]: Object.freeze({ minutes: 30 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_SHED]: Object.freeze({ minutes: 15 }),
+  [TIME_EVENT_IDS.CABIN_LAY_LOW_EXPLORE_FIREPIT]: Object.freeze({ minutes: 10 }),
+  /* Sasole runs him back rather than dropping him at a flat he is not
+   * supposed to be seen at. Cabin II is one night and a phone call. */
+  [TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP]: Object.freeze({ minutes: 70 }),
+  [TIME_EVENT_IDS.CABIN_SECOND_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 8 * 60 + 10 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL]: Object.freeze({ minutes: 8 }),
+  [TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN]: Object.freeze({ minutes: 140 }),
+  [TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.CABIN_MARGO_READY]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_GRATIN_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.CABIN_RETURN_TO_CABIN_LINE]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_CELLAR_OPEN]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_DUNGEON_ENTERED]: Object.freeze({ minutes: 1 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_1]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_2]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_3]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_4]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_5]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_6]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_7]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_HIT_8]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_1]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_2]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_3]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_4]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_5]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_6]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_7]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_HIT_8]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_PLAYER]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_GRATIN]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_TIMEOUT_SELECTED]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_EXECUTION_BRANCH_VO_COMPLETE]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_DEAD]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_DEAD]: Object.freeze({ minutes: 0 }),
+  /* The executions end the daylight chapter. Wrapping and carrying happen
+   * only after this exact-once nightfall seam has landed. */
+  /* THE DUNGEON'S TWO ANCHORED HOURS, RE-ANCHORED WITH THE ROUTE.
+   *
+   * These read day 5 and day 6 because the cabin used to be a post-heist
+   * lay-low. The bible puts it in Act One and the calendar puts the dungeon on
+   * Day 3 -- nightfall 20:45 -- with the blackout ending at 09:30 on Day 4.
+   *
+   * They HAD to move in the same commit as the route, and in this direction
+   * specifically. `advanceTime` takes `Math.max(now, atLeast)`: a route that
+   * reaches this beat on Day 3 against a Day 5 anchor does not play at 20:45,
+   * it JUMPS the clock two days and eats the Beef Run's own dates. Left
+   * behind, the whole chapter would have silently happened in the wrong week. */
+  [TIME_EVENT_IDS.CABIN_NIGHTFALL]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 20 * 60 + 45 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_NIGHTFALL_BRIEFING_COMPLETE]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_WRAPPED]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_WRAPPED]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_AT_FIRE]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_ATEAM_AT_FIRE]: Object.freeze({ minutes: 4 }),
+  [TIME_EVENT_IDS.CABIN_GAS_POURED]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.CABIN_BONFIRE_IGNITED]: Object.freeze({ minutes: 1 }),
+  [TIME_EVENT_IDS.CABIN_BODIES_STAGED]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_FIRE_CLEANUP]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.CABIN_DRINK]: Object.freeze({ minutes: 5 }),
+  /* The drink is followed by a hard blackout. Reloading after it resumes on
+   * Day 4 in the current route (or the next morning for a later compatibility
+   * save), never back beside the fire. */
+  [TIME_EVENT_IDS.CABIN_BLACKOUT]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 9 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.CABIN_MORNING_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE]: Object.freeze({ minutes: 0 }),
+  /* THE LUXURY APARTMENT'S FOUR VISITS, PRICED.
+   *
+   * Two anchors and five spans, and which is which is the design. The two
+   * anchored ones are the beats the bible puts at a stated time of day -- he
+   * gets the keys on Day 6 and he wakes up on Day 7 -- and the rest are
+   * durations, because their hour is whatever the beat in front of them left
+   * behind.
+   *
+   * ARRIVE: the round ends at half ten. Then the handshake on the eighteenth
+   * green, the drive across town with Lou in the passenger seat, and a lift
+   * up to a floor he has never been on. A quarter to twelve, measured against
+   * the golf's own completion rather than guessed. */
+  [TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT]: Object.freeze({
+    atLeast: Object.freeze({ day: 6, timeMinutes: 11 * 60 + 45 }),
+  }),
+  /* Shower, shave, and put on the one suit -- the bible's optional objective
+   * for beat 14, which is the whole content of the afternoon. Forty-five
+   * minutes and it cannot move the date: DEPART_SILVER_ROOM is anchored. */
+  [TIME_EVENT_IDS.LUXURY_GET_READY]: Object.freeze({ minutes: 45 }),
+  /* Zero, for the same reason the starter flat's version was zero:
+   * COMPLETE_SILVER_ROOM has already staged the walk home and the hour it
+   * lands at. This marks that the two of them came through the door. */
+  [TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME]: Object.freeze({ minutes: 0 }),
+  /* The bible's beat 16 ends "fade/sleep into the following morning", and
+   * beat 17 is a morning. Ten past seven on Day 7, which is a kitchen
+   * manager's alarm rather than his. */
+  [TIME_EVENT_IDS.LUXURY_STAYOVER_REST]: Object.freeze({
+    atLeast: Object.freeze({ day: 7, timeMinutes: 7 * 60 + 10 }),
+  }),
+  /* Also zero. Her leaving must not move Lou's call or the departure after
+   * it -- the bible asks for "a short quiet window", and a window that eats
+   * the clock is not quiet, it is a time skip. */
+  [TIME_EVENT_IDS.LUXURY_MARGO_WAKE]: Object.freeze({ minutes: 0 }),
+  /* South Harbor back to the tower. Not the same drive as the arrival and
+   * not priced as one: he is coming from a dock rather than a golf course,
+   * in somebody else's car, at the end of an afternoon nobody wants to talk
+   * about. Forty minutes. */
+  [TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT]: Object.freeze({ minutes: 40 }),
+  /* Day 8, and it did not have to move. Chapter 3 ends on the evening of Day
+   * 7 -- home from South Harbor at twenty past five, Booskibro rings at
+   * twenty-five past -- and the bible gives the case its own day. Ape's
+   * pickup and the off-screen rendezvous land it at 4 PM that afternoon, and
+   * everything behind it (mansion, siege and Enola through Day 9, then the
+   * repaired house and Palace on Day 12 and the ceremony on Day 13) keeps its
+   * authored place. */
   [TIME_EVENT_IDS.DEPART_SILVER_CASE]: Object.freeze({
-    atLeast: Object.freeze({ day: 5, timeMinutes: 16 * 60 }),
+    atLeast: Object.freeze({ day: 8, timeMinutes: 16 * 60 }),
   }),
   // Car ride, apartment takeover, ambush, aftermath, and recovery of the case.
   [TIME_EVENT_IDS.COMPLETE_SILVER_CASE]: Object.freeze({ minutes: 90 }),
-  /* The big night is the day after the date. Sleeping off the Silver Room is
-   * what turns the page, so the ceremony lands on Day 4 at seven sharp. */
+  /* The ceremony begins at seven on Day 13. The Special Meeting pickup is
+   * anchored sixty-five minutes earlier, so Seff's forty-two-minute drive and
+   * twenty-three minutes at the spur and on the trail land exactly here. */
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
-    atLeast: Object.freeze({ day: 4, timeMinutes: 19 * 60 }),
+    atLeast: Object.freeze({ day: 13, timeMinutes: 19 * 60 }),
   }),
   /* Speech, quiz, execution, gauntlet, roar, anointing: a long evening at the
    * bonfire. Exact-once, so replaying a failed rite never farms hours. */
   [TIME_EVENT_IDS.COMPLETE_INITIATION]: Object.freeze({ minutes: 110 }),
-  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case.  The drive is
-   * twenty-five minutes and the night in the basement is a little over two
-   * hours.  Eight hours in Lou's guest room wakes Tony at 4:10 AM on calendar
-   * Day 6; the workbook's "Day 5 night" label describes the overnight begun on
-   * Day 5, just as HotDog's Day 2 night already crosses calendar midnight. */
+  /* PROJECT SILENT SQUATCH follows the now-routed Silver Case on Day 8. The
+   * drive and basement work end that evening; six hours in Lou's guest room
+   * wake Tony at 2:10 AM on Day 9, inside the bible's 2-3 AM siege window. */
   [TIME_EVENT_IDS.DEPART_MANSION]: Object.freeze({ minutes: 25 }),
   [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: Object.freeze({ minutes: 135 }),
   /* Zero minutes, on purpose and with precedent (the phone read markers,
@@ -480,41 +897,44 @@ const TIME_EVENTS = Object.freeze({
    * bed's wind-down and Lou's briefing, for no story reason at all. The id is
    * here for its exactly-once property, which is the whole point of it. */
   [TIME_EVENT_IDS.BEAT_RIPPINFLOW_AT_POOL]: Object.freeze({ minutes: 0 }),
-  [TIME_EVENT_IDS.REST_AT_MANSION]: Object.freeze({ minutes: 8 * 60 }),
+  [TIME_EVENT_IDS.REST_AT_MANSION]: Object.freeze({ minutes: 6 * 60 }),
   // Guest-room wake through the Sasole handoff at the end of the assault.
   [TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE]: Object.freeze({ minutes: 120 }),
-  /* The house survives at dawn.  Repair, mission planning, and aircraft prep
-   * consume the day; Enola opens on the last of the Day 6 afternoon, matching
-   * the airfield runtime's visible daylight-to-nightfall cut. */
+  /* The house survives at dawn. Repair, mission planning, and aircraft prep
+   * consume the day; Enola opens at two on Day 9, preserving the airfield
+   * runtime's visible daylight-to-nightfall cut. */
   [TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 14 * 60 }),
+    atLeast: Object.freeze({ day: 9, timeMinutes: 14 * 60 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_ENOLA_SQUATCH]: Object.freeze({ minutes: 4 * 60 }),
-  [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({ minutes: 30 }),
+  /* A FEW DAYS ON. Enola ends at six on Day 9, but the repaired-mansion scene
+   * is not the thirty-minute drive that old builds made it. The bible requires
+   * visible time for repair and recovery, so this exact-once handoff jumps to
+   * half six on Day 12. `Math.max` keeps a genuinely later save from rewinding. */
+  [TIME_EVENT_IDS.RETURN_TO_MANSION]: Object.freeze({
+    atLeast: Object.freeze({ day: 12, timeMinutes: 18 * 60 + 30 }),
+  }),
   [TIME_EVENT_IDS.COMPLETE_MANSION_RETURN]: Object.freeze({ minutes: 45 }),
-  /* Lou holds the raid until full dark.  The estate approach therefore keeps
-   * its Day 6 night label even if a faster preceding scene finishes early. */
+  /* Lou holds the raid until full dark on the same Day 12. */
   [TIME_EVENT_IDS.DEPART_CARTEL_PALACE]: Object.freeze({
-    atLeast: Object.freeze({ day: 6, timeMinutes: 20 * 60 + 30 }),
+    atLeast: Object.freeze({ day: 12, timeMinutes: 20 * 60 + 30 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE]: Object.freeze({ minutes: 150 }),
-  /* The phone call, getting changed, and going down to a car already running.
-   *
-   * All three of those are now played rather than described -- Act One (beats
-   * SM-010 to SM-090) happens in the flat, so this is the hour the FLAT spends,
-   * and the apartment's own `leaveForMission` books it on the way out of the
-   * front door the same way every other departure is booked. The Special
-   * Meeting's page still asks for it on boot, which costs nothing: `advanceTime`
-   * is exact-once, so whichever of the two gets there first is the only one
-   * that moves the clock. */
-  [TIME_EVENT_IDS.DEPART_SPECIAL_MEETING]: Object.freeze({ minutes: 35 }),
-  /* Forty-two minutes, per Seff, who is not being funny; then the spur, the
-   * boot, and the walk in. */
+  /* The next evening. Act One (SM-010 to SM-090) happens in the luxury flat;
+   * the call, changing and the wait are folded into this 17:55 pickup anchor.
+   * The flat writes it at the lift and the Special Meeting page asks for it on
+   * boot as a recovery guard. Exact-once means only the first can move the
+   * clock, and no reload can replay the overnight decompression. */
+  [TIME_EVENT_IDS.DEPART_SPECIAL_MEETING]: Object.freeze({
+    atLeast: Object.freeze({ day: 13, timeMinutes: 17 * 60 + 55 }),
+  }),
+  /* Forty-two minutes, per Seff, who is not being funny; then twenty-three at
+   * the spur, the boot, and on the trail. 42 + 23 lands at 19:00 exactly. */
   [TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING]: Object.freeze({ minutes: 65 }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 19;
+export const CAMPAIGN_VERSION = 26;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -656,6 +1076,10 @@ export const BANK_HEIST_CHECKPOINT_IDS = Object.freeze([
   'street_withdrawal',
   'mercer_garage',
   'vehicle_swap',
+  /* The job is still live here: the guns are down and Lou is ringing Tony's
+   * campaign phone. Keeping this distinct from `vehicle_swap` lets a reload
+   * resume the call instead of replaying first aid, the count, and cleanup. */
+  'safehouse_debrief',
 ]);
 
 export const BANK_HEIST_OUTCOMES = Object.freeze([
@@ -1067,11 +1491,16 @@ export const SCENES = Object.freeze({
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
-      SCENE_IDS.SILVER_CASE,
-      /* THE SPECIAL MEETING. Act One (SM-010 to SM-090) is played in this
-       * flat -- the call, the getting ready, the door refusing him and the
-       * headlights -- and the front door is what ends it. The kerb is the
-       * next thing he stands on. */
+      SCENE_IDS.COUNTRYSIDE_CABIN,
+      /* BEAT 14. The round hands him a set of keys and he is driven to the
+       * new address; this edge is what a save that reloads home mid-handover
+       * leaves by. The starter flat has no edge BACK from there and never
+       * gets one -- the Home Ladder climbs and does not come down. */
+      SCENE_IDS.LUXURY_APARTMENT,
+      /* Legacy safety edge for pre-v22 saves which had already reached the
+       * starter-flat implementation of SM-010 to SM-090. MIGRATIONS[21]
+       * carries the canonical Palace landing to the luxury apartment, whose
+       * private lift now owns this exit. */
       SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
       SCENE_IDS.MANSION,
@@ -1081,19 +1510,29 @@ export const SCENES = Object.freeze({
     href: 'bing.html',
     defaultSpawn: 'driver_seat',
     spawns: Object.freeze(['driver_seat', 'club_entrance']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    /* Production leaves in the Family driver's car and goes straight to the
+     * restaurant. Apartment remains a whitelist-only fallback for pre-route
+     * saves already parked on the retired home landing. */
+    next: Object.freeze([SCENE_IDS.SQUATCHFATHER, SCENE_IDS.APARTMENT]),
   }),
+  /* The driver who brought him is still at the kerb when it is done, and the
+   * bible has that same driver take him straight out of the city rather than
+   * home. The apartment edge stays: `Campaign.transition()` is a whitelist
+   * that throws on an unlisted edge, so an edge nothing routes through is
+   * inert, while a missing one strands a player on a finished end card. */
   [SCENE_IDS.SQUATCHFATHER]: Object.freeze({
     href: 'squatchfather.html',
     defaultSpawn: 'restaurant_exterior',
     spawns: Object.freeze(['restaurant_exterior', 'development_entry']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.APARTMENT]),
   }),
+  /* Sasole runs him back to where he picked him up, which under the bible is
+   * the cabin and not the flat he is laying low from. */
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: Object.freeze({
     href: 'beefrun.html',
     defaultSpawn: 'hangar',
     spawns: Object.freeze(['hangar']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.COUNTRYSIDE_CABIN, SCENE_IDS.APARTMENT]),
   }),
   [SCENE_IDS.BADA_BING_TWO]: Object.freeze({
     href: 'bing.html?visit=2',
@@ -1113,28 +1552,39 @@ export const SCENES = Object.freeze({
     spawns: Object.freeze(['passenger_seat']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
+  /* Beat 18 goes home to the flat he actually lives in now. The starter
+   * apartment edge is kept for the same add-first reason as the two below. */
   [SCENE_IDS.NO_WAKE]: Object.freeze({
     href: 'nowake.html',
     defaultSpawn: 'gate_c',
     spawns: Object.freeze(['gate_c']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.APARTMENT]),
   }),
   /* The date. One continuous scene with no loads of its own, so it has a single
-   * spawn on the pavement where the hired car drops them, and it comes home the
-   * way every other mission does. */
+   * spawn on the pavement where the hired car drops them.
+   *
+   * BEAT 15's EXIT IS THE LUXURY APARTMENT, not the starter flat. The bible:
+   * "Margo leaves Front & Center with the Prospect and goes back to the
+   * luxury apartment." The APARTMENT edge stays because removing an edge
+   * strands anybody parked behind it -- a save that walked into the Silver
+   * Room under the old order still has to be able to come home. */
   [SCENE_IDS.SILVER_ROOM]: Object.freeze({
     href: 'silver.html',
     defaultSpawn: 'kerb',
     spawns: Object.freeze(['kerb']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.APARTMENT]),
   }),
-  /* Silver Pines is a three-hole Day 4 morning chapter. Two spawns keep the
-   * ordinary car-park arrival and the first-tee preview seam explicit. */
+  /* Silver Pines is a three-hole Day 6 morning chapter. Two spawns keep the
+   * ordinary car-park arrival and the first-tee preview seam explicit.
+   *
+   * BEAT 13's EXIT IS THE HANDOVER. "Three holes, and the keys to somewhere
+   * better" -- he does not go back to the starter flat from the eighteenth
+   * green, he is driven to the new one. Same add-first rule as above. */
   [SCENE_IDS.SILVER_PINES]: Object.freeze({
     href: 'golf.html',
     defaultSpawn: 'car_park',
     spawns: Object.freeze(['car_park', 'first_tee']),
-    next: Object.freeze([SCENE_IDS.APARTMENT]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT, SCENE_IDS.APARTMENT]),
   }),
   /* THE TAKE owns all of its internal phases and checkpoints behind one scene
    * boundary. Preview spawns expose those phases without inventing campaign
@@ -1152,6 +1602,57 @@ export const SCENES = Object.freeze({
       'safehouse_debrief',
     ]),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* luxury-apartment.html already ships arrival/main/loft/bed/arcade spawns.
+   * The five story states reuse them rather than inventing new ones: arrival
+   * for the day Lou hands over the keys, bed for the stayover and the
+   * morning, main for coming home and for the special-meeting call.
+   *
+   * All five are wired. `SILVER_CASE` is beat 19's exit and it is now the
+   * ONLY reachable entrance to the final third of
+   * the game: `SCENES[COUNTRYSIDE_CABIN].next` gave that doorway up in the
+   * same commit, having held it open since the cabin moved to Act One. Add
+   * first, remove last -- this edge was added on 2026-08-26 and the cabin's
+   * was removed once something routed through this one. */
+  [SCENE_IDS.LUXURY_APARTMENT]: Object.freeze({
+    href: 'luxury-apartment.html',
+    defaultSpawn: 'arrival',
+    spawns: Object.freeze(['arrival', 'main', 'loft', 'bed', 'arcade']),
+    next: Object.freeze([
+      SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.NO_WAKE,
+      SCENE_IDS.SILVER_CASE,
+      SCENE_IDS.SPECIAL_MEETING,
+    ]),
+  }),
+  /* Three exits, and the order they were added in is the story.
+   *
+   * AIRSTRIP_SMUGGLING is Cabin I: Booski rings about Sasole and he leaves
+   * from here. APARTMENT is Cabin II: the heat is down, Billy is getting out,
+   * come back to the Bing.
+   *
+   * THE SILVER_CASE EDGE IS GONE, and this is the commit that could finally
+   * take it. It was the last surviving piece of the post-heist lay-low: with
+   * the cabin moved to Act One there was nothing left to play on this
+   * property, but the edge was the only reachable entry to the Silver Case
+   * and the whole final chapter behind it, so pulling it early would have
+   * stranded every post-heist save. Beat 19 gives that doorway to
+   * `LUXURY_APARTMENT`, which is where the bible always had it. Add first,
+   * remove last -- and MIGRATIONS[20] walks the saves that were parked here
+   * across to the new flat rather than leaving them on a road to nowhere. */
+  [SCENE_IDS.COUNTRYSIDE_CABIN]: Object.freeze({
+    href: 'cabin.html',
+    defaultSpawn: 'arrival',
+    spawns: Object.freeze(['arrival', 'wake', 'porch']),
+    next: Object.freeze([
+      SCENE_IDS.AIRSTRIP_SMUGGLING,
+      /* Beat 7's exit. Booski rings while the ash is still warm -- Billy is
+       * getting out, come back to the Bing -- and the county road is what he
+       * drives back down. This edge is what makes the Act-One cabin a place
+       * the campaign passes THROUGH rather than a cul-de-sac. */
+      SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.APARTMENT,
+    ]),
   }),
   [SCENE_IDS.SILVER_CASE]: Object.freeze({
     href: 'silvercase.html',
@@ -1201,35 +1702,23 @@ export const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.CARTEL_PALACE]),
   }),
   [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
-    /* Two edges, and both of them are THE SPECIAL MEETING.
+    /* One edge: home for Act One of THE SPECIAL MEETING.
      *
      * The Palace is over and nobody has told him whether killing Sauce was the
      * right call. He goes home; Booskibro rings to say there is a meeting and
      * it is going to be a special one; three men come and collect him. That
      * scene hands off to the Initiation at the treeline on its own.
      *
-     * This list carried a second, legacy edge straight to INITIATION for
-     * exactly as long as the Palace's own exit button still named it -- a
-     * transition the graph refuses THROWS rather than degrading, so pulling
-     * the edge before repointing the button would have stranded anybody who
-     * had just finished the Palace. The button now names SPECIAL_MEETING
-     * (`src/cartel-palace/main.js`), so that bridge is pulled.
-     *
-     * APARTMENT is here for the same reason SPECIAL_MEETING was left in place
-     * while the button still said INITIATION, and it is the same manoeuvre in
-     * the same direction. "He goes home" above is literal: Act One of the
-     * Special Meeting -- beats SM-010 to SM-090, the call, the getting ready,
-     * the door refusing him and the headlights -- is played in the flat, and
-     * the flat's own front door is what carries him to the kerb (see
-     * `SCENES[APARTMENT].next` and `tryLeave` in core/apartment-story.js).
-     * The Palace's exit button has not been repointed yet, because
-     * `src/cartel-palace/main.js` belongs to another pass; it still names
-     * SPECIAL_MEETING and jumps the flat entirely. The edge is declared first
-     * so that repoint is one line and cannot throw when it lands. */
+     * "He goes home" above is literal: the call is played in the luxury flat
+     * Lou handed him on the eighteenth green, and that flat's private lift is
+     * what carries him to the kerb (see `SCENES[LUXURY_APARTMENT].next` and
+     * `tryLeave` in core/luxury-apartment-story.js).
+     * No direct Palace edge may name Special Meeting or Initiation: either one
+     * would route around authored player-facing story. */
     href: 'cartel-palace.html',
     defaultSpawn: 'approach',
     spawns: Object.freeze(['approach', 'perimeter', 'estate', 'dining_room']),
-    next: Object.freeze([SCENE_IDS.APARTMENT, SCENE_IDS.SPECIAL_MEETING]),
+    next: Object.freeze([SCENE_IDS.LUXURY_APARTMENT]),
   }),
   /* THE SPECIAL MEETING.
    *
@@ -1247,6 +1736,74 @@ export const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.INITIATION]),
   }),
 });
+
+/**
+ * WHERE A FINISHED MISSION SENDS HIM, AND WHY IT IS A TABLE.
+ *
+ * "Home" is not one place in this campaign. Lou hands over the keys on the
+ * eighteenth green at beat 13, the Home Ladder climbs there and never comes
+ * back down, so the round, the date and the harbour job all end at the luxury
+ * apartment while everything before them ends at the starter flat.
+ *
+ * It lives here rather than in each scene's ending card because it was in
+ * each scene's ending card: `navigateCampaign(campaign, SCENE_IDS.APARTMENT,
+ * { spawn: 'front_door' })`, written out three times, in three files that had
+ * no way of knowing the answer had changed. The Skip Scene adapter reads the
+ * same table (see DESTINATIONS in core/campaign-scene-skip.js), so a
+ * developer's skip and a player's ending card cannot disagree about which
+ * front door he walks through.
+ *
+ * `travelEvent` is the journey itself, and it is exact-once by id: a skip
+ * stands in for a drive the player would otherwise have made, so both halves
+ * have to cost the same drive.
+ */
+const MISSION_HOMECOMINGS = Object.freeze({
+  [SCENE_IDS.SILVER_PINES]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'arrival',
+    travelEvent: TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT,
+  }),
+  [SCENE_IDS.SILVER_ROOM]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+    travelEvent: null,
+  }),
+  [SCENE_IDS.NO_WAKE]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+    travelEvent: TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
+  }),
+  [SCENE_IDS.CARTEL_PALACE]: Object.freeze({
+    sceneId: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'main',
+    travelEvent: null,
+  }),
+});
+
+const STARTER_FLAT_HOMECOMING = Object.freeze({
+  sceneId: SCENE_IDS.APARTMENT,
+  spawn: 'front_door',
+  travelEvent: null,
+});
+
+/** The front door a mission's ending card opens onto. Never null. */
+export function missionHomecoming(sceneId) {
+  return MISSION_HOMECOMINGS[sceneId] ?? STARTER_FLAT_HOMECOMING;
+}
+
+/**
+ * Walk out of a finished mission into whichever flat is his at the time,
+ * booking the journey on the way.
+ *
+ * The one call an ending card needs. `advanceTime` is exact-once, so a card
+ * a player clicks twice books the drive once.
+ */
+export function returnHomeFromMission(campaign, sceneId, { location } = {}) {
+  const home = missionHomecoming(sceneId);
+  if (home.travelEvent) campaign.advanceTime(home.travelEvent);
+  navigateCampaign(campaign, home.sceneId, { spawn: home.spawn, location });
+  return home;
+}
 
 function normalizedSpawn(sceneId, spawn) {
   const scene = SCENES[sceneId];
@@ -1317,6 +1874,10 @@ function initialState() {
       carried: [],
       concealed: [],
     },
+    /* One bounded record, folded only at durable scene/mission seams. The
+     * exact-once mission ids are a fixed whitelist in campaign-stats.js, not
+     * an event log and never a reason to write on each gunshot. */
+    statistics: initialCampaignStatistics(),
     /* The frozen Initiation earns this handoff; the Apartment owns presenting
      * credits and releasing the same save into post-campaign freeplay. */
     finale: {
@@ -1438,6 +1999,8 @@ function initialState() {
           finalCalls: false,
         },
         bankEntered: false,
+        shotsFired: 0,
+        peopleKilled: 0,
         civiliansHarmed: 0,
         guardsDisarmed: 0,
         alarmTriggered: false,
@@ -1509,6 +2072,16 @@ function initialState() {
       [EVENT_IDS.LOU_ATTABOY_CALL]: {
         status: 'pending',
       },
+      /* The Act-One cabin. One outgoing, two incoming. */
+      [EVENT_IDS.CABIN_MARGO_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.CABIN_BILLY_CALL]: {
+        status: 'pending',
+      },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
         status: 'pending',
       },
@@ -1525,6 +2098,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.LOU_HEIST_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
@@ -1594,6 +2170,48 @@ const FINAL_ARC_TIME_EVENT_ORDER = Object.freeze([
   TIME_EVENT_IDS.DEPART_CARTEL_PALACE,
   TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
 ]);
+
+/* The bible's repaired-mansion jump and the following night, in order. This
+ * is separate from FINAL_ARC_TIME_EVENT_ORDER because it also includes the
+ * Special Meeting and ceremony markers that have no mission record of their
+ * own. Schema 23 uses the highest marker actually consumed by an old save to
+ * recover the new clock floor without inventing an event the player did not
+ * reach. */
+const FINAL_TAIL_TIME_EVENT_ORDER = Object.freeze([
+  TIME_EVENT_IDS.RETURN_TO_MANSION,
+  TIME_EVENT_IDS.COMPLETE_MANSION_RETURN,
+  TIME_EVENT_IDS.DEPART_CARTEL_PALACE,
+  TIME_EVENT_IDS.COMPLETE_CARTEL_PALACE,
+  TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
+  TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+  TIME_EVENT_IDS.DEPART_INITIATION,
+  TIME_EVENT_IDS.COMPLETE_INITIATION,
+]);
+
+function finalTailClockFloor(story) {
+  const spent = new Set(uniqueStrings(story?.timeEvents));
+  let highest = -1;
+  for (let i = 0; i < FINAL_TAIL_TIME_EVENT_ORDER.length; i += 1) {
+    if (spent.has(FINAL_TAIL_TIME_EVENT_ORDER[i])) highest = i;
+  }
+  if (highest < 0) return null;
+
+  /* Enola's exact ending before the deliberate jump. Replaying the consumed
+   * tail events from this fixed seam derives every later floor from the same
+   * TIME_EVENTS table the live route uses. Do not start from the saved clock:
+   * a relative completion would otherwise add its duration to a legitimately
+   * later post-campaign save rather than leaving that later clock alone. */
+  let canonical = {
+    ...(story ?? {}),
+    day: 9,
+    timeMinutes: 18 * 60,
+    timeEvents: [],
+  };
+  for (let i = 0; i <= highest; i += 1) {
+    canonical = storyAfterTimeEvent(canonical, FINAL_TAIL_TIME_EVENT_ORDER[i]);
+  }
+  return { day: canonical.day, timeMinutes: canonical.timeMinutes };
+}
 
 function finalArcTimeEventsReached(saved) {
   const missions = saved.missions ?? {};
@@ -2173,6 +2791,282 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  19(saved) {
+    /* Schema 20 moves the cabin into Act One and adds its three telephones.
+     *
+     * The `events` half is the same obligation the last two migrations were
+     * written for: `normalize()` rebuilds that block from the base object's
+     * keys, so without a migration to set `changed` a v19 save comes back
+     * carrying three fields it never had on disk, `structurallyBroken` fires,
+     * and every save in the world is announced to its owner as recovered.
+     * All three land `pending`, which is honest -- nobody has taken a call
+     * that did not exist yesterday.
+     *
+     * The `chapter` half is the part that actually rescues players, and it
+     * has two shapes to repair.
+     *
+     * A save on `day_two` is the dangerous one. That chapter is being split:
+     * its first half (Booski's call and the Beef Run) moves to the cabin and
+     * its second half (Lou's call, the Bing, the graveyard, the motel) stays
+     * in the flat. A v19 save sitting in `day_two` would keep the string,
+     * find no door branch answering to it, fall through to the day-one tail
+     * and be told to go to bed -- while `sleep()` refuses, because the motel
+     * it wants is not complete. A soft lock, on the most common mid-campaign
+     * save there is. Migration 6 is the checked-in precedent for rewriting a
+     * stale chapter on load, and this does the same: a save that has already
+     * flown the Beef Run has done everything Act One's cabin exists to
+     * deliver, so it is moved forward to the chapter that owns what it has
+     * left to do. One that has not is moved back to the lay-low.
+     *
+     * A save at the cabin post-heist is left exactly where it is. That route
+     * still works -- COUNTRYSIDE_CABIN keeps its SILVER_CASE edge until the
+     * luxury apartment takes over the doorway -- and moving it would strand
+     * the very players furthest into the game. */
+    const chapter = typeof saved.story?.chapter === 'string' ? saved.story.chapter : null;
+    const flownBeefRun = saved.missions?.[MISSION_IDS.AIRSTRIP_SMUGGLING]?.status === 'complete';
+    const repaired = chapter === 'day_two'
+      ? (flownBeefRun ? 'day_two_town' : 'cabin_lay_low')
+      : chapter;
+    return {
+      ...saved,
+      version: 20,
+      story: {
+        ...(saved.story ?? {}),
+        ...(repaired === chapter ? {} : { chapter: repaired }),
+      },
+      events: {
+        ...(saved.events ?? {}),
+        [EVENT_IDS.CABIN_MARGO_CALL]: {
+          status: saved.events?.[EVENT_IDS.CABIN_MARGO_CALL]?.status === 'answered'
+            ? 'answered' : 'pending',
+        },
+        [EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]: {
+          status: saved.events?.[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]?.status === 'answered'
+            || flownBeefRun ? 'answered' : 'pending',
+        },
+        [EVENT_IDS.CABIN_BILLY_CALL]: {
+          status: saved.events?.[EVENT_IDS.CABIN_BILLY_CALL]?.status === 'answered'
+            ? 'answered' : 'pending',
+        },
+      },
+    };
+  },
+  20(saved) {
+    /**
+     * Schema 21 wires beats 12 to 19 and repairs three kinds of save.
+     *
+     * ONE: the new key. `BOOSKI_SILVER_CASE_CALL` is beat 19's telephone and
+     * it is a field the `events` block did not have. `normalize()` rebuilds
+     * that block from `initialState`, so a v20 save arriving at v21 without
+     * it set here comes back carrying a field it never had on disk,
+     * `structurallyBroken` fires, and every save in the world is announced to
+     * its owner as recovered. Answered when the Silver Case is already out of
+     * the way, pending otherwise -- a man who has delivered the case has
+     * plainly had the call about it.
+     *
+     * TWO: the three chapters the starter flat no longer uses. `no_wake`,
+     * `date` and `golf_morning` were all played in that flat under the old
+     * order; the bible puts the first two in the luxury apartment and the
+     * third after THE TAKE rather than before it. A save left in one of them
+     * would find a door with no branch answering to its chapter -- the same
+     * soft lock MIGRATIONS[19] was written for. So it is moved to the beat
+     * the new route puts him in with the missions he has actually finished:
+     * `post_heist` once the bank is done, `heist_day` otherwise. Anything he
+     * had already completed early stays completed; the luxury apartment reads
+     * mission status rather than replaying a beat it can see is behind him.
+     *
+     * THREE: the saves parked at the post-heist cabin. That property's
+     * SILVER_CASE edge came out in this commit -- beat 19 owns the doorway
+     * now -- and `Campaign.transition()` throws on an edge nobody declared,
+     * so leaving them there would strand the players furthest into the game
+     * on a scene with no way forward. They are moved to the luxury apartment,
+     * standing in the main room, with the beat-19 call still owed. That is
+     * the same place beat 19 leaves a player who walked the route.
+     */
+    const chapter = typeof saved.story?.chapter === 'string' ? saved.story.chapter : null;
+    const status = (missionId) => saved.missions?.[missionId]?.status ?? 'locked';
+    const done = (missionId) => status(missionId) === 'complete';
+    const silverCaseSettled = ['available', 'in_progress', 'complete']
+      .includes(status(MISSION_IDS.SILVER_CASE));
+
+    const strandedChapter = ['no_wake', 'date', 'golf_morning'].includes(chapter);
+    const repairedChapter = strandedChapter
+      ? (done(MISSION_IDS.BANK_HEIST) ? 'post_heist' : 'heist_day')
+      : chapter;
+
+    const parkedAtCabin = saved.scene?.id === SCENE_IDS.COUNTRYSIDE_CABIN
+      && done(MISSION_IDS.BANK_HEIST);
+    const scene = parkedAtCabin
+      ? { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' }
+      : saved.scene;
+
+    return {
+      ...saved,
+      version: 21,
+      ...(parkedAtCabin ? { scene } : {}),
+      story: {
+        ...(saved.story ?? {}),
+        ...(repairedChapter === chapter ? {} : { chapter: repairedChapter }),
+      },
+      events: {
+        ...(saved.events ?? {}),
+        [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: {
+          status: saved.events?.[EVENT_IDS.BOOSKI_SILVER_CASE_CALL]?.status === 'answered'
+            || silverCaseSettled ? 'answered' : 'pending',
+        },
+      },
+    };
+  },
+  21(saved) {
+    /**
+     * Schema 22 moves Beat 27 to the home the Prospect actually owns.
+     *
+     * The first implementation returned a completed Palace to the starter
+     * apartment for the Special Meeting call. Lou handed over the luxury flat
+     * at beat 14 and the Home Ladder never descends, so current route saves
+     * parked at that old landing need to cross the same seam as new play.
+     *
+     * Restrict the repair to the exact pre-call landing: a genuinely played
+     * Palace, Initiation merely available, and the starter flat still current.
+     * Grandfathered campaigns did not play this final arc, while an Initiation
+     * already in progress or complete may legitimately be at a later landing.
+     * The call event is left untouched. Pending stays pending; answered stays
+     * answered, so a reload never repeats or silently consumes SM-030.
+     */
+    const palace = saved.missions?.[MISSION_IDS.CARTEL_PALACE] ?? {};
+    const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
+    const parkedAtOldBeat27 = saved.scene?.id === SCENE_IDS.APARTMENT
+      && palace.status === 'complete'
+      && palace.grandfathered !== true
+      && initiation.status === 'available';
+    return {
+      ...saved,
+      version: 22,
+      ...(parkedAtOldBeat27 ? {
+        scene: { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' },
+        lastTransition: {
+          from: SCENE_IDS.CARTEL_PALACE,
+          to: SCENE_IDS.LUXURY_APARTMENT,
+          spawn: 'main',
+        },
+      } : {}),
+    };
+  },
+  22(saved) {
+    /**
+     * Schema 23 repairs saves which already spent a final-tail event before
+     * the story bible's Day 12 / Day 13 calendar was wired.
+     *
+     * Merely changing TIME_EVENTS fixes new runs, but an exact-once marker in
+     * an existing save is never applied again. Use the highest tail marker the
+     * save actually carries to derive the minimum clock it has proved, floor
+     * the clock there, and never rewind a clock that is already later. No
+     * markers are added or removed. Grandfathered final-arc saves preserve the
+     * old terminal timeline exactly as earlier migrations promised.
+     */
+    const finalArcMissions = [
+      MISSION_IDS.SILVER_CASE,
+      MISSION_IDS.MANSION_SIEGE,
+      MISSION_IDS.ENOLA_SQUATCH,
+      MISSION_IDS.MANSION_RETURN,
+      MISSION_IDS.CARTEL_PALACE,
+    ];
+    const grandfathered = finalArcMissions.some(
+      (id) => saved.missions?.[id]?.grandfathered === true,
+    );
+    const floor = grandfathered ? null : finalTailClockFloor(saved.story);
+    const repair = floor && absoluteStoryMinutes(floor) > absoluteStoryMinutes(saved.story)
+      ? { story: { ...(saved.story ?? {}), ...floor } }
+      : {};
+    return { ...saved, version: 23, ...repair };
+  },
+  23(saved) {
+    /**
+     * Schema 24 adds THE PROSPECT'S RECORD.
+     *
+     * Old saves never wrote missed rounds, so this migration does not invent
+     * them. It folds only the mission facts they can already prove, marks
+     * those fixed mission ids consumed, and lets unfinished missions add their
+     * real runtime counters at their eventual completion seam. A partially
+     * populated development save is normalised through the same path, which
+     * is why migration is stable when the resulting v24 save is loaded again.
+     */
+    return {
+      ...saved,
+      version: 24,
+      statistics: migrateCampaignStatistics(saved),
+    };
+  },
+  24(saved) {
+    /**
+     * Schema 25 repairs two clock promises whose event ids may already have
+     * been consumed by a v24 save.
+     *
+     * COMPLETE_JERKY_MOTEL used to land at 04:30 even though the story bible
+     * says Snow waits for daylight. A completed Motel save still before the
+     * new 06:30 landing is floored there. Its exact-once marker is preserved,
+     * not replayed or invented.
+     *
+     * REST_AT_MANSION changed from eight hours to six. That change moves the
+     * canonical rest and siege-completion clocks two hours earlier, but a
+     * broad subtraction would rewind players who legitimately spent time in
+     * the mansion or after the fight. Repair only the two exact clock shapes
+     * the old v24 duration produced, and use the ledger to distinguish an old
+     * 04:10 rest from a new 04:10 completed siege.
+     */
+    const story = saved.story ?? {};
+    const spent = new Set(uniqueStrings(story.timeEvents));
+    const motelComplete = spent.has(TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL)
+      || saved.missions?.[MISSION_IDS.JERKY_MOTEL]?.status === 'complete';
+    const motelFloor = { day: 5, timeMinutes: 6 * 60 + 30 };
+    let repairedClock = motelComplete
+      && absoluteStoryMinutes(story) < absoluteStoryMinutes(motelFloor)
+      ? motelFloor : null;
+
+    const mansionRested = spent.has(TIME_EVENT_IDS.REST_AT_MANSION);
+    const siegeComplete = spent.has(TIME_EVENT_IDS.COMPLETE_MANSION_SIEGE);
+    const enolaDeparted = spent.has(TIME_EVENT_IDS.DEPART_ENOLA_SQUATCH);
+    if (mansionRested && !siegeComplete
+      && story.day === 9 && story.timeMinutes === 4 * 60 + 10) {
+      repairedClock = { day: 9, timeMinutes: 2 * 60 + 10 };
+    } else if (siegeComplete && !enolaDeparted
+      && story.day === 9 && story.timeMinutes === 6 * 60 + 10) {
+      repairedClock = { day: 9, timeMinutes: 4 * 60 + 10 };
+    }
+
+    return {
+      ...saved,
+      version: 25,
+      ...(repairedClock ? {
+        story: { ...story, ...repairedClock },
+      } : {}),
+    };
+  },
+  25(saved) {
+    /**
+     * Schema 26 banks THE TAKE's final firearm counters before Lou's
+     * safehouse call.
+     *
+     * Version 25 saves can prove only civilian casualties from the old
+     * mission summary; they never stored missed rounds or officer kills,
+     * so zero is the honest migration value. Explicitly adding both keys here
+     * also marks the shape change as intentional, preventing a healthy v25
+     * save from being misreported as recovered when normalisation sees them.
+     */
+    const bankHeist = saved.missions?.[MISSION_IDS.BANK_HEIST] ?? {};
+    return {
+      ...saved,
+      version: 26,
+      missions: {
+        ...(saved.missions ?? {}),
+        [MISSION_IDS.BANK_HEIST]: {
+          ...bankHeist,
+          shotsFired: boundedNumber(bankHeist.shotsFired, 0, 1_000_000, 0, true),
+          peopleKilled: boundedNumber(bankHeist.peopleKilled, 0, 1_000_000, 0, true),
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -2338,12 +3232,16 @@ function normalize(saved) {
     : base.missions[MISSION_IDS.SILENT_SQUATCH].status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
   const attaboyCall = saved.events?.[EVENT_IDS.LOU_ATTABOY_CALL] ?? {};
+  const cabinMargoCall = saved.events?.[EVENT_IDS.CABIN_MARGO_CALL] ?? {};
+  const cabinBooskiCall = saved.events?.[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL] ?? {};
+  const cabinBillyCall = saved.events?.[EVENT_IDS.CABIN_BILLY_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
   const louNoWakeCall = saved.events?.[EVENT_IDS.LOU_NO_WAKE_CALL] ?? {};
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
   const golfCall = saved.events?.[EVENT_IDS.LOU_GOLF_CALL] ?? {};
   const louHeistCall = saved.events?.[EVENT_IDS.LOU_HEIST_CALL] ?? {};
+  const booskiSilverCaseCall = saved.events?.[EVENT_IDS.BOOSKI_SILVER_CASE_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
   const booskiSpecialMeetingCall = saved
     .events?.[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL] ?? {};
@@ -2404,6 +3302,7 @@ function normalize(saved) {
       carried: uniqueStrings(saved.inventory?.carried),
       concealed: uniqueStrings(saved.inventory?.concealed),
     },
+    statistics: normalizeCampaignStatistics(saved.statistics),
     finale: {
       status: finaleStatus,
       creditsViewed: finaleStatus === 'freeplay',
@@ -2551,6 +3450,8 @@ function normalize(saved) {
           finalCalls: bankHeist.cleanup?.finalCalls === true,
         },
         bankEntered: bankHeist.bankEntered === true,
+        shotsFired: boundedNumber(bankHeist.shotsFired, 0, 1_000_000, 0, true),
+        peopleKilled: boundedNumber(bankHeist.peopleKilled, 0, 1_000_000, 0, true),
         civiliansHarmed: boundedNumber(bankHeist.civiliansHarmed, 0, 99, 0, true),
         guardsDisarmed: boundedNumber(bankHeist.guardsDisarmed, 0, 16, 0, true),
         alarmTriggered: bankHeist.alarmTriggered === true,
@@ -2696,6 +3597,27 @@ function normalize(saved) {
       [EVENT_IDS.LOU_ATTABOY_CALL]: {
         status: attaboyCall.status === 'answered' ? 'answered' : 'pending',
       },
+      /* THE ACT-ONE CABIN's three calls.
+       *
+       * Booski's cabin call is inferred the same way his apartment one is,
+       * and for the same reason: once the airstrip has been exposed, the
+       * thing that authorises it has demonstrably happened, and re-arming it
+       * would ring a phone at a cabin the player has already left. Margo's
+       * call now records the later appointment too, but it is deliberately
+       * not inferred HERE: doing so would pre-answer it for an old save still
+       * standing at the cabin. `LuxuryApartmentStory` reconciles that legacy
+       * save only after a later route seam proves the player moved on. Billy's
+       * call unlocks nothing and remains explicit for the same reason. */
+      [EVENT_IDS.CABIN_MARGO_CALL]: {
+        status: cabinMargoCall.status === 'answered' ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL]: {
+        status: cabinBooskiCall.status === 'answered' || airstripStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.CABIN_BILLY_CALL]: {
+        status: cabinBillyCall.status === 'answered' ? 'answered' : 'pending',
+      },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
         // Once the airstrip mission has been exposed, Booski's call must not
         // replay even if this save predates the explicit event record.
@@ -2710,7 +3632,7 @@ function normalize(saved) {
         status: louNoWakeCall.status === 'answered' || noWakeStatus !== 'locked'
           ? 'answered' : 'pending',
       },
-      // An exposed Silver Room is proof Margo already rang.
+      // An exposed Silver Room is proof the date was already scheduled.
       [EVENT_IDS.MARGO_DATE_CALL]: {
         status: margoCall.status === 'answered' || silverStatus !== 'locked'
           ? 'answered' : 'pending',
@@ -2723,6 +3645,23 @@ function normalize(saved) {
       // Once THE TAKE is exposed, Lou's Day 4 call has already landed.
       [EVENT_IDS.LOU_HEIST_CALL]: {
         status: louHeistCall.status === 'answered' || bankHeistStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      /**
+       * Beat 19, and the inference is deliberately the narrow one.
+       *
+       * `available` is NOT evidence here, which is the opposite of the rule
+       * every other call on this list uses. THE TAKE makes the Silver Case
+       * available the moment it completes, on the afternoon of Day 5, and
+       * beat 19's call does not ring until the evening of Day 7 -- so
+       * "exposed" would pre-answer a telephone two days before it is due and
+       * the luxury apartment's quiet evening would have nothing to wait for.
+       * Having actually STARTED the case is the honest proof: a man carrying
+       * it has plainly been told to.
+       */
+      [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: {
+        status: booskiSilverCaseCall.status === 'answered'
+          || ['in_progress', 'complete'].includes(silverCaseStatus)
           ? 'answered' : 'pending',
       },
       /* Same rule at the end of the line: an exposed Initiation is proof
@@ -2767,6 +3706,13 @@ function normalize(saved) {
     };
   }
   return state;
+}
+
+function withoutCampaignStatistics(value) {
+  if (!value || typeof value !== 'object') return value;
+  const rest = { ...value };
+  delete rest.statistics;
+  return rest;
 }
 
 function load(storage) {
@@ -2824,9 +3770,17 @@ function load(storage) {
   }
 
   const state = normalize(migrated.value);
+  synchronizeCampaignStatistics(state);
   const normalizedChanged = JSON.stringify(state) !== JSON.stringify(migrated.value);
+  /* Statistics are additive and self-normalising. A v24 development save may
+   * contain only the counters its scene knew when it was written; filling the
+   * rest of this bounded block is not corruption and must not display the
+   * save-recovered warning. Every other top-level shape retains the existing
+   * strict recovery policy. */
+  const normalizedChangedOutsideStatistics = JSON.stringify(withoutCampaignStatistics(state))
+    !== JSON.stringify(withoutCampaignStatistics(migrated.value));
   const structurallyBroken = !migrated.changed
-    && (!hasCurrentShape(migrated.value) || normalizedChanged);
+    && (!hasCurrentShape(migrated.value) || normalizedChangedOutsideStatistics);
   return {
     ...fresh,
     state,
@@ -2912,6 +3866,9 @@ class Campaign {
     if (typeof change !== 'function') throw new TypeError('Campaign update requires a function');
     const candidate = clone(this._state);
     change(candidate);
+    /* Runtime counters arrive with the mission-completion mutation and are
+     * folded before this one save. There is deliberately no per-shot write. */
+    synchronizeCampaignStatistics(candidate);
     candidate.version = CAMPAIGN_VERSION;
     candidate.revision = this._state.revision + 1;
     this._state = normalize(candidate);
@@ -2927,6 +3884,7 @@ class Campaign {
     const before = clone(this._state);
     const candidate = clone(this._state);
     change(candidate);
+    synchronizeCampaignStatistics(candidate);
     candidate.version = CAMPAIGN_VERSION;
     candidate.revision = this._state.revision + 1;
     this._state = normalize(candidate);
@@ -3166,8 +4124,8 @@ const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
     timeMinutes: 20 * 60 + 30,
   }),
   'after-motel': Object.freeze({
-    progress: 4, spawn: 'front_door', chapter: 'day_two', day: 3,
-    timeMinutes: 4 * 60 + 30,
+    progress: 4, spawn: 'front_door', chapter: 'day_two', day: 5,
+    timeMinutes: 6 * 60 + 30,
   }),
   'day-three-wake': Object.freeze({
     progress: 4, spawn: 'wake', chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
@@ -3432,6 +4390,396 @@ function seedApartmentPreviewCampaign(state, variant) {
   return checkpoint.spawn;
 }
 
+function appendPreviewTimeEvents(state, ...eventIds) {
+  state.story.timeEvents = uniqueStrings([
+    ...uniqueStrings(state.story.timeEvents),
+    ...eventIds.filter(Boolean),
+  ]);
+}
+
+/** The current Act-One route through the Motel, without the retired flat hops. */
+function seedPreviewThroughMotel(state) {
+  const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
+  Object.assign(firstBing, {
+    status: 'complete', packageReceived: true, ending: 'clean',
+  });
+  Object.assign(state.missions[MISSION_IDS.SQUATCHFATHER], {
+    status: 'complete', weaponStaged: true, weaponDropped: true,
+  });
+  Object.assign(state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING], {
+    status: 'complete',
+    checkpoint: 'landed_home',
+    cargoLoaded: true,
+    detected: false,
+    landingQuality: 'greased',
+    rank: 'Certified Meat Aviator',
+    packagesDelivered: 27,
+    gunsDelivered: 3,
+  });
+  Object.assign(state.missions[MISSION_IDS.BADA_BING_TWO], {
+    status: 'complete',
+    checkpoint: 'buried',
+    assignment: 'reserve_pickup',
+    attackResolved: true,
+    cleanupTasks: [...PREVIEW_CLEANUP_TASKS],
+    bodyWrapped: true,
+    bodyLoaded: true,
+    burialComplete: true,
+  });
+  Object.assign(state.missions[MISSION_IDS.JERKY_MOTEL], {
+    status: 'complete',
+    ending: 'home',
+    cargoRecovered: true,
+    packagesIntact: 3,
+    freshness: 78,
+    policeHeat: 18,
+  });
+  state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+  state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+  state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+  state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'answered';
+  state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+  state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+  previewCarry(state, ITEM_IDS.PHONE);
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LOU_FIRST_CALL,
+    TIME_EVENT_IDS.DEPART_BADA_BING_ONE,
+    TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER,
+    TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+    TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
+    TIME_EVENT_IDS.CABIN_EXPLORE_CREEK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_SHED,
+    TIME_EVENT_IDS.CABIN_EXPLORE_RANGE,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL,
+    TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP,
+    TIME_EVENT_IDS.CABIN_SECOND_REST,
+    TIME_EVENT_IDS.CABIN_GRATIN_CALL,
+    TIME_EVENT_IDS.CABIN_CELLAR_OPEN,
+    TIME_EVENT_IDS.CABIN_DUNGEON_ENTERED,
+    TIME_EVENT_IDS.CABIN_ATEAM_INTEL_LEARNED,
+    TIME_EVENT_IDS.CABIN_EXECUTION_GRATIN,
+    TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_DEAD,
+    TIME_EVENT_IDS.CABIN_ATEAM_DEAD,
+    TIME_EVENT_IDS.CABIN_NIGHTFALL,
+    TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_WRAPPED,
+    TIME_EVENT_IDS.CABIN_ATEAM_WRAPPED,
+    TIME_EVENT_IDS.CABIN_COUNTER_STRIKE_AT_FIRE,
+    TIME_EVENT_IDS.CABIN_ATEAM_AT_FIRE,
+    TIME_EVENT_IDS.CABIN_GAS_POURED,
+    TIME_EVENT_IDS.CABIN_BONFIRE_IGNITED,
+    TIME_EVENT_IDS.CABIN_FIRE_CLEANUP,
+    TIME_EVENT_IDS.CABIN_DRINK,
+    TIME_EVENT_IDS.CABIN_BLACKOUT,
+    TIME_EVENT_IDS.CABIN_MORNING_CALL,
+    TIME_EVENT_IDS.CABIN_MORNING_WAKE_COMPLETE,
+    TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
+    TIME_EVENT_IDS.DEPART_CABIN_FOR_TOWN,
+    TIME_EVENT_IDS.DEPART_BADA_BING_TWO,
+    TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD,
+    TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO,
+    TIME_EVENT_IDS.DEPART_JERKY_MOTEL,
+    TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL,
+  );
+  state.story.chapter = 'day_two';
+  state.story.day = 5;
+  state.story.timeMinutes = 6 * 60 + 30;
+}
+
+function seedPreviewCompletedHeist(state, { cleanupComplete = true } = {}) {
+  const heist = state.missions[MISSION_IDS.BANK_HEIST];
+  state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+  Object.assign(heist.preparation, {
+    armor: true,
+    gloves: true,
+    mask: true,
+    carbine: true,
+    sidearm: true,
+    magazines: true,
+    duffel: true,
+  });
+  Object.assign(heist, {
+    status: 'complete',
+    checkpoint: 'vehicle_swap',
+    briefingComplete: true,
+    preparationComplete: true,
+    bankEntered: true,
+    guardsDisarmed: 2,
+    alarmTriggered: true,
+    vaultOpened: true,
+    bagsStaged: 8,
+    bagsRecovered: 7,
+    grossTake: 1_260_000,
+    compromisedCash: 0,
+    operationalLoss: 55_500,
+    familyShare: 602_250,
+    crewShare: 481_800,
+    prospectShare: 120_450,
+    primaryVanLost: true,
+    playerDroveEscape: true,
+    vehicleDamage: 41,
+    followedSnow: true,
+    disciplinedFire: true,
+    crewSurvived: true,
+    outcome: 'professional',
+  });
+  heist.crewInjuries[CHARACTER_IDS.RIPPINFLOW] = 'moderate';
+  Object.assign(heist.cleanup, {
+    washed: cleanupComplete,
+    changed: cleanupComplete,
+    gearSecured: cleanupComplete,
+    finalCalls: true,
+  });
+  state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+  state.story.chapter = 'post_heist';
+  state.story.day = 5;
+  state.story.timeMinutes = 18 * 60 + 50;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LOU_HEIST_CALL,
+    TIME_EVENT_IDS.DEPART_BANK_HEIST,
+    TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
+  );
+}
+
+function seedPreviewMovingUp(state, stage) {
+  seedPreviewThroughMotel(state);
+
+  if (stage === 'bank_heist') {
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'available';
+    Object.assign(state.missions[MISSION_IDS.BANK_HEIST].preparation, {
+      armor: true, gloves: true, mask: true, carbine: true,
+      sidearm: true, magazines: true, duffel: true,
+    });
+    state.story.chapter = 'heist_day';
+    state.story.day = 5;
+    state.story.timeMinutes = 12 * 60 + 45;
+    appendPreviewTimeEvents(state, TIME_EVENT_IDS.LOU_HEIST_CALL, TIME_EVENT_IDS.DEPART_BANK_HEIST);
+    return;
+  }
+
+  seedPreviewCompletedHeist(state);
+  if (stage === 'new_space_call') return;
+
+  state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+  state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
+  state.story.chapter = 'golf_morning';
+  state.story.day = 6;
+  state.story.timeMinutes = 7 * 60 + 30;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.LOU_GOLF_CALL, TIME_EVENT_IDS.DEPART_SILVER_PINES);
+  if (stage === 'silver_pines') return;
+
+  seedCompletedGolfRound(state.missions[MISSION_IDS.SILVER_PINES]);
+  state.story.day = 6;
+  state.story.timeMinutes = 10 * 60 + 30;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.COMPLETE_SILVER_PINES);
+
+  state.story.chapter = 'luxury_apartment';
+  state.story.day = 6;
+  state.story.timeMinutes = 11 * 60 + 45;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.ARRIVE_LUXURY_APARTMENT);
+  if (stage === 'luxury_apartment_intro') return;
+
+  state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+  state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+  state.story.chapter = 'date';
+  state.story.day = 6;
+  state.story.timeMinutes = 19 * 60 + 30;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LUXURY_GET_READY,
+    TIME_EVENT_IDS.DEPART_SILVER_ROOM,
+  );
+  if (stage === 'silver_room') return;
+
+  Object.assign(state.missions[MISSION_IDS.SILVER_ROOM], {
+    status: 'complete',
+    outcome: 'strong',
+    woo: 74,
+    band: 'midnight_pines',
+    tippedEverybody: true,
+    rememberedDrink: true,
+    seeingHerAgain: true,
+    knowsWhatHeDoes: true,
+    cameHome: true,
+  });
+  state.story.chapter = 'date';
+  state.story.day = 6;
+  state.story.timeMinutes = 23 * 60 + 20;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.COMPLETE_SILVER_ROOM);
+  if (stage === 'margo_stayover') return;
+
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME,
+    TIME_EVENT_IDS.LUXURY_STAYOVER_REST,
+  );
+  state.story.chapter = 'luxury_morning';
+  state.story.day = 7;
+  state.story.timeMinutes = 7 * 60 + 10;
+  if (stage === 'luxury_apartment_morning') return;
+
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.LUXURY_MARGO_WAKE);
+  state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+  state.missions[MISSION_IDS.NO_WAKE].status = 'available';
+  state.story.chapter = 'no_wake';
+  state.story.day = 7;
+  state.story.timeMinutes = 12 * 60 + 45;
+  appendPreviewTimeEvents(state, TIME_EVENT_IDS.LOU_NO_WAKE_CALL, TIME_EVENT_IDS.DEPART_NO_WAKE);
+  if (stage === 'no_wake') return;
+
+  Object.assign(state.missions[MISSION_IDS.NO_WAKE], {
+    status: 'complete',
+    checkpoint: 'returned',
+    betrayalConfirmed: true,
+    playerFired: true,
+    bodyDisposed: true,
+  });
+  state.story.chapter = 'luxury_return';
+  state.story.day = 7;
+  state.story.timeMinutes = 17 * 60 + 20;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.COMPLETE_NO_WAKE,
+    TIME_EVENT_IDS.RETURN_LUXURY_APARTMENT,
+  );
+}
+
+function seedPreviewCabinBeat(state, beatId) {
+  Object.assign(state.missions[MISSION_IDS.BADA_BING_ONE], {
+    status: 'complete', packageReceived: true, ending: 'clean',
+  });
+  Object.assign(state.missions[MISSION_IDS.SQUATCHFATHER], {
+    status: 'complete', weaponStaged: true, weaponDropped: true,
+  });
+  state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+  previewCarry(state, ITEM_IDS.PHONE);
+  state.story.chapter = 'cabin_lay_low';
+  state.story.day = 2;
+  state.story.timeMinutes = 5 * 60 + 20;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.LOU_FIRST_CALL,
+    TIME_EVENT_IDS.DEPART_BADA_BING_ONE,
+    TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER,
+    TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW,
+  );
+  if (beatId === 'cabin_lay_low') return 'arrival';
+
+  state.story.timeMinutes = 10 * 60 + 43;
+  state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+  state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_REST,
+    TIME_EVENT_IDS.CABIN_LOU_OPENING_CALL,
+    TIME_EVENT_IDS.CABIN_EXPLORE_CREEK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_OVERLOOK,
+    TIME_EVENT_IDS.CABIN_EXPLORE_SHED,
+    TIME_EVENT_IDS.CABIN_EXPLORE_RANGE,
+    TIME_EVENT_IDS.CABIN_MARGO_READY,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL,
+  );
+  if (beatId === 'booski_sasole_call') return 'porch';
+
+  state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'answered';
+  state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+  Object.assign(state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING], {
+    status: 'complete', checkpoint: 'landed_home', cargoLoaded: true,
+    detected: false, landingQuality: 'greased',
+  });
+  state.story.day = 2;
+  state.story.timeMinutes = 22 * 60 + 50;
+  appendPreviewTimeEvents(
+    state,
+    TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL,
+    TIME_EVENT_IDS.DEPART_AIRSTRIP,
+    TIME_EVENT_IDS.COMPLETE_AIRSTRIP,
+    TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP,
+    TIME_EVENT_IDS.CABIN_SECOND_REST,
+  );
+  state.story.day = 3;
+  state.story.timeMinutes = 8 * 60 + 10;
+  return 'wake';
+}
+
+function seedCampaignHubPreview(state, beatId) {
+  if (beatId === 'squatch_smash_intro') {
+    state.story.chapter = 'day_one';
+    state.story.day = 1;
+    state.story.timeMinutes = 6 * 60 + 4;
+    return 'wake';
+  }
+  if (beatId === 'first_apartment') {
+    state.story.chapter = 'day_one';
+    state.story.day = 1;
+    state.story.timeMinutes = 6 * 60 + 4;
+    return 'wake';
+  }
+  if (['cabin_lay_low', 'booski_sasole_call', 'cabin_two'].includes(beatId)) {
+    return seedPreviewCabinBeat(state, beatId);
+  }
+  if (beatId === 'return_to_old_apartment') {
+    seedPreviewThroughMotel(state);
+    return 'front_door';
+  }
+  if (beatId === 'new_space_call') {
+    seedPreviewMovingUp(state, 'new_space_call');
+    return 'front_door';
+  }
+  if ([
+    'luxury_apartment_intro',
+    'margo_stayover',
+    'luxury_apartment_morning',
+    'luxury_apartment_return',
+  ].includes(beatId)) {
+    seedPreviewMovingUp(state, beatId);
+    return beatId === 'luxury_apartment_intro' ? 'arrival' : 'main';
+  }
+  if (beatId === 'special_meeting_call') {
+    seedPreviewMovingUp(state, 'luxury_apartment_return');
+    Object.assign(state.missions[MISSION_IDS.SILVER_CASE], {
+      status: 'complete', checkpoint: 'case_recovered', caseRecovered: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.SILENT_SQUATCH], {
+      status: 'complete', checkpoint: 'clear', casePlaced: true,
+      caseDelivered: true, labLocked: true, aubbieEliminated: true,
+      silentNightActivated: true, basementUnlocked: true, notesRecovered: true,
+      conspiracyBoard: true, trophyAwarded: true, eveningReady: true,
+      sleptAtMansion: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.MANSION_SIEGE], {
+      status: 'complete', checkpoint: 'wave_one', attackersDown: 8,
+      littleFriendSaid: true, sasoleMet: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.ENOLA_SQUATCH], {
+      status: 'complete', checkpoint: 'return', payloadReleased: true,
+      returnedHome: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.MANSION_RETURN], {
+      status: 'complete', briefingComplete: true, wrongCityConfirmed: true,
+      sauceMissingConfirmed: true, palaceLocationKnown: true,
+    });
+    Object.assign(state.missions[MISSION_IDS.CARTEL_PALACE], {
+      status: 'complete', checkpoint: 'clear',
+      evidenceFound: ['photograph', 'security_tape'],
+      sauceBetrayalConfirmed: true, markEliminated: true,
+      sauceEliminated: true, outcome: 'clean', grandfathered: false,
+    });
+    state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
+    state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'pending';
+    state.story.chapter = 'big_night';
+    state.story.day = 12;
+    state.story.timeMinutes = 23 * 60;
+    return 'main';
+  }
+  return null;
+}
+
 /**
  * Build the same normalized temporary campaign state used by an Apartment
  * preview without consulting browser globals or persistent storage. Headless
@@ -3447,7 +4795,7 @@ export function apartmentPreviewCampaignState(variant) {
   return Object.freeze({ state, spawn });
 }
 
-function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
+function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null, previewBeat = null) {
   let apartmentSpawn = null;
   campaign.update((state) => {
     const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
@@ -3475,9 +4823,13 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     ].includes(sceneId);
     const seedFinalArcClock = (eventCount) => {
       const reached = FINAL_ARC_TIME_EVENT_ORDER.slice(0, eventCount);
+      /* COMPLETE_BANK_HEIST's own anchor. It moved from Day 4 to Day 6 with
+       * the rest of the calendar when the Act-One cabin took Days 2 to 4, and
+       * a preview that seeded the old date would put every final-arc scene two
+       * days before the play route reaches it. */
       let clock = {
         ...state.story,
-        day: 4,
+        day: 6,
         timeMinutes: 17 * 60 + 20,
         timeEvents: [],
       };
@@ -3489,6 +4841,43 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
         ...reached,
       ]);
     };
+
+    if (previewBeat) {
+      apartmentSpawn = seedCampaignHubPreview(state, previewBeat);
+      if (apartmentSpawn === null) {
+        throw new RangeError(`Unknown campaign preview beat "${previewBeat}"`);
+      }
+      return;
+    }
+
+    /* Public standalone previews follow the current Moving Up route. The
+     * former chain encoded NO WAKE -> date -> golf -> THE TAKE, which made a
+     * direct scene boot look playable while silently putting every preceding
+     * mission on the wrong side of it. */
+    if (sceneId === SCENE_IDS.COUNTRYSIDE_CABIN) {
+      apartmentSpawn = seedCampaignHubPreview(state, 'cabin_lay_low');
+      return;
+    }
+    if (sceneId === SCENE_IDS.LUXURY_APARTMENT) {
+      apartmentSpawn = seedCampaignHubPreview(state, 'luxury_apartment_intro');
+      return;
+    }
+    if (sceneId === SCENE_IDS.BANK_HEIST) {
+      seedPreviewMovingUp(state, 'bank_heist');
+      return;
+    }
+    if (sceneId === SCENE_IDS.SILVER_PINES) {
+      seedPreviewMovingUp(state, 'silver_pines');
+      return;
+    }
+    if (sceneId === SCENE_IDS.SILVER_ROOM) {
+      seedPreviewMovingUp(state, 'silver_room');
+      return;
+    }
+    if (sceneId === SCENE_IDS.NO_WAKE) {
+      seedPreviewMovingUp(state, 'no_wake');
+      return;
+    }
 
     if (sceneId === SCENE_IDS.APARTMENT) {
       apartmentSpawn = seedApartmentPreviewCampaign(state, apartmentVariant);
@@ -3626,7 +5015,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
 
     if (sceneId === SCENE_IDS.NO_WAKE) {
       state.story.chapter = 'no_wake';
-      state.story.day = 3;
+      state.story.day = 5;
       state.story.timeMinutes = 12 * 60 + 45;
       state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
       noWake.status = 'available';
@@ -3648,10 +5037,16 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     }
 
     if (sceneId === SCENE_IDS.SILVER_ROOM) {
+      /* Keep the standalone preview on the same side of the scene boundary as
+       * SilverStory.begin(). The route reorder made the completed Silver Pines
+       * round (not NO WAKE) the immediate prerequisite for Front & Center, but
+       * this seed kept constructing the old side of that gate. The page then
+       * correctly refused its own preview as `golf_incomplete`. */
+      seedCompletedGolfRound(golf);
       /* He slept off the Motel, woke at noon, and she rang in the afternoon.
-       * Half seven on the evening of Day 3, on his way out of the door. */
+       * Half seven on the evening of Day 5, on his way out of the door. */
       state.story.chapter = 'date';
-      state.story.day = 3;
+      state.story.day = 5;
       state.story.timeMinutes = 19 * 60 + 30;
       silver.status = 'available';
       return;
@@ -3668,7 +5063,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
 
     if (sceneId === SCENE_IDS.SILVER_PINES) {
       state.story.chapter = 'golf_morning';
-      state.story.day = 4;
+      state.story.day = 6;
       state.story.timeMinutes = 7 * 60 + 30;
       if (!state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) {
         state.story.timeEvents.push(TIME_EVENT_IDS.MARGO_WAKE);
@@ -3691,7 +5086,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       || finalArcPrelude) {
       seedCompletedGolfRound(golf);
       state.story.chapter = 'heist_day';
-      state.story.day = 4;
+      state.story.day = 6;
       state.story.timeMinutes = 11 * 60 + 15;
       for (const eventId of [
         TIME_EVENT_IDS.MARGO_WAKE,
@@ -3865,7 +5260,12 @@ export function createCampaign(options = {}) {
   const campaign = new Campaign(storage);
 
   if (preview && !preview.seeded) {
-    seedPreviewCampaign(campaign, preview.sceneId, preview.apartmentVariant);
+    seedPreviewCampaign(
+      campaign,
+      preview.sceneId,
+      preview.apartmentVariant,
+      preview.beatId,
+    );
     preview.seeded = true;
   }
   if (preview) installPreviewNotice();

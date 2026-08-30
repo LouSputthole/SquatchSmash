@@ -1264,9 +1264,9 @@ try {
       });
       return meshes;
     };
-    const legReports = [0, 1].map((index) => {
+    const legReports = [[0, 4], [1, 6], [3, 1], [4, 3]].map(([index, chairIndex]) => {
       const rig = m.cast.poolPerformerRig(index);
-      const expectedChair = m.grounds.props.poolPatio.chairs[index === 0 ? 4 : 6];
+      const expectedChair = m.grounds.props.poolPatio.chairs[chairIndex];
       const counts = {};
       const hits = [];
       rig?.target?.updateMatrixWorld?.(true);
@@ -1331,8 +1331,8 @@ try {
       && Math.min(...swimmerZs) > performerAudit.pool.z0 + 0.35
       && Math.max(...swimmerZs) < performerAudit.pool.z1 - 0.35,
     JSON.stringify({ composition: swimmerComposition, x: [Math.min(...swimmerXs), Math.max(...swimmerXs)], y: [Math.min(...swimmerYs), Math.max(...swimmerYs)], z: [Math.min(...swimmerZs), Math.max(...swimmerZs)] }));
-  check(3, 'both pool recliners expose visible thigh/shin/foot meshes clear of their actual loungers',
-    performerAudit.legReports.length === 2 && performerAudit.legReports.every((report) => (
+  check(3, 'all four pool recliners expose visible thigh/shin/foot meshes clear of their actual loungers',
+    performerAudit.legReports.length === 4 && performerAudit.legReports.every((report) => (
       report.published && report.actualChair && report.violations.length === 0
       && ['left', 'right'].every((side) => (
         ['thigh', 'shin', 'foot'].every((part) => report.counts[side][part] > 0)

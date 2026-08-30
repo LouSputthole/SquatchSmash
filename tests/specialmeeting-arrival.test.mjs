@@ -25,10 +25,24 @@ ensureThreeShim();
 ensureDomShim();
 
 const THREE = await import('three');
+const { boundsInFrame } = await import('../src/core/spatial-bounds.js');
 const { buildMeetingSedan, SEATS, SEAT_IDS } = await import('../src/specialmeeting/sedan.js');
+const { buildSpecialMeetingCast } = await import('../src/specialmeeting/cast.js');
+const {
+  createFrontPassengerDoorTarget,
+  FRONT_PASSENGER_DOOR_AFFORDANCE,
+} = await import('../src/specialmeeting/door-interaction.js');
 const { buildSpecialMeetingBlock } = await import('../src/specialmeeting/block.js');
 const { createArrivalSequence } = await import('../src/specialmeeting/arrival.js');
 const { RouteDriver, bearingTo, wrapAngle } = await import('../src/specialmeeting/drive.js');
+const { ForestDrive } = await import('../src/specialmeeting/forest/driver.js');
+const { ROAD_EVENTS, roadAt } = await import('../src/specialmeeting/forest/road.js');
+const { createNightForestRoad } = await import('../src/specialmeeting/forest/index.js');
+const { buildNightSedan } = await import('../src/specialmeeting/forest/car.js');
+const { FOREST_HEADLIGHT_PROFILES } = await import('../src/specialmeeting/forest/headlight-profile.js');
+const { PassengerRig, exitYaw } = await import('../src/specialmeeting/forest/passenger.js');
+const { adaptMeetingSedan } = await import('../src/specialmeeting/forest/sedan-adapter.js');
+const { createRideSequence } = await import('../src/specialmeeting/ride.js');
 const {
   ARRIVAL_ROUTE,
   ROAD,
@@ -53,6 +67,22 @@ function runUntil(sequence, predicate, limitSeconds = 60) {
     elapsed += STEP;
   }
   return elapsed;
+}
+
+function segmentOwners(root, from, to) {
+  root.updateMatrixWorld(true);
+  const delta = to.clone().sub(from);
+  const length = delta.length();
+  const ray = new THREE.Ray(from, delta.normalize());
+  const hit = new THREE.Vector3();
+  const owners = [];
+  root.traverse((object) => {
+    if (!object.isMesh || !object.visible) return;
+    const bounds = new THREE.Box3().setFromObject(object);
+    if (!ray.intersectBox(bounds, hit)) return;
+    if (hit.distanceTo(from) <= length + 1e-6) owners.push(object);
+  });
+  return owners;
 }
 
 test('the sedan has four seats and the prospect-facing one is on the kerb', () => {
@@ -82,6 +112,107 @@ test('the sedan has four seats and the prospect-facing one is on the kerb', () =
   }
 });
 
+test('the meeting sedan keeps the windscreen and side glass separately readable from inside', () => {
+  const sedan = buildMeetingSedan();
+  const sideGlass = sedan.car.glass;
+  const sharedExteriorGlass = sedan.car.glassMat;
+  const windscreen = sedan.group.getObjectByName('sedan.windscreen');
+
+  assert.notEqual(sideGlass.material, sharedExteriorGlass,
+    'the interior side-glass treatment must remain isolated from the shared exterior material');
+  assert.equal(sharedExteriorGlass.opacity, 0.82,
+    'opening this cabin must not wash out the standard exterior-car glazing');
+
+  assert.equal(sideGlass.material.transparent, true);
+  assert.equal(sideGlass.material.side, THREE.DoubleSide,
+    'side and rear panes must render from the passenger compartment');
+  assert.equal(sideGlass.material.depthWrite, false,
+    'transparent side glass must not occlude the forest behind it in the depth buffer');
+  assert.ok(sideGlass.material.opacity > 0.1 && sideGlass.material.opacity <= 0.24,
+    `side glass opacity ${sideGlass.material.opacity} blocks the passenger's route view`);
+
+  assert.ok(windscreen, 'the dedicated windscreen is missing');
+  assert.equal(windscreen.material.transparent, true);
+  assert.equal(windscreen.material.side, THREE.DoubleSide);
+  assert.ok(windscreen.material.opacity > 0.05 && windscreen.material.opacity <= 0.2,
+    `windscreen opacity ${windscreen.material.opacity} blocks the road`);
+});
+
+test('both Special Meeting sedan builders install exactly the same six discrete panes', () => {
+  const active = buildMeetingSedan();
+  const scene = new THREE.Scene();
+  const fallback = buildNightSedan(scene, { shadows: false });
+
+  for (const [label, built, prefix] of [
+    ['active', active, 'sedan'],
+    ['fallback', fallback, 'lincoln'],
+  ]) {
+    const names = built.glazing.panes.map((pane) => pane.name).sort();
+    assert.deepEqual(names, [
+      `${prefix}.rear-glass`,
+      `${prefix}.window.front.left`,
+      `${prefix}.window.front.right`,
+      `${prefix}.window.rear.left`,
+      `${prefix}.window.rear.right`,
+      `${prefix}.windscreen`,
+    ].sort(), `${label} sedan did not get the canonical six-pane greenhouse`);
+
+    const windscreens = [];
+    built.group.traverse((object) => {
+      if (object.isMesh && /\.windscreen$/.test(object.name)) windscreens.push(object);
+    });
+    assert.equal(windscreens.length, 1,
+      `${label} sedan carries ${windscreens.length} overlapping windscreens`);
+    assert.equal(built.glazing.borrowedGreenhouse.parent, null,
+      `${label} sedan retained the borrowed solid greenhouse`);
+    assert.equal(built.group.getObjectByName('car.glass'), undefined,
+      `${label} sedan still contains the traffic shell's full glass cube`);
+    assert.equal(built.car.glass, built.glazing.sidePanes.frontRight,
+      `${label} sedan's compatibility glass handle does not identify a real pane`);
+
+    for (const pane of built.glazing.panes) {
+      assert.equal(pane.material.transparent, true, `${pane.name} is opaque`);
+      assert.equal(pane.material.side, THREE.DoubleSide, `${pane.name} vanishes from inside`);
+      assert.equal(pane.material.depthWrite, false, `${pane.name} occludes what is behind it`);
+      assert.ok(pane.material.opacity <= 0.24, `${pane.name} is too dark to see through`);
+    }
+  }
+
+  fallback.dispose();
+  active.dispose();
+});
+
+test('each side aperture reaches the cabin through one pane and no duplicate shell', () => {
+  const active = buildMeetingSedan();
+  const scene = new THREE.Scene();
+  const fallback = buildNightSedan(scene, { shadows: false });
+
+  for (const [label, built, prefix] of [
+    ['active', active, 'sedan'],
+    ['fallback', fallback, 'lincoln'],
+  ]) {
+    const { cabinHalfW, glassY0, glassY1 } = built.cabin;
+    const y = (glassY0 + glassY1) / 2;
+    for (const [row, x] of [['front', -0.12], ['rear', -1.42]]) {
+      for (const side of [-1, 1]) {
+        const key = side > 0 ? 'left' : 'right';
+        const outsideZ = side * (cabinHalfW + 0.30);
+        const owners = segmentOwners(
+          built.group,
+          new THREE.Vector3(x, y, outsideZ),
+          new THREE.Vector3(x, y, 0),
+        );
+        assert.deepEqual(owners.map((owner) => owner.name), [`${prefix}.window.${row}.${key}`],
+          `${label} ${row}-${key} aperture is blocked by ${owners.map((owner) => owner.name).join(', ')}`);
+        assert.equal(owners[0].material.transparent, true);
+      }
+    }
+  }
+
+  fallback.dispose();
+  active.dispose();
+});
+
 test('the door the player walks to is the front one, and it is on the pavement', () => {
   const sedan = buildMeetingSedan();
   sedan.placeAt(SEDAN_STOP.x, SEDAN_STOP.z, SEDAN_STOP.heading);
@@ -90,6 +221,104 @@ test('the door the player walks to is the front one, and it is on the pavement',
   assert.ok(door.z > SIDEWALK.north.z1, 'and not inside the building');
   const walk = Math.hypot(door.x - SPAWN.x, door.z - SPAWN.z);
   assert.ok(walk < 3, `it is two steps from where he is standing, not ${walk.toFixed(2)}m`);
+});
+
+test('the passenger-door interaction target follows the real door at person height', () => {
+  const sedan = buildMeetingSedan();
+  sedan.placeAt(SEDAN_STOP.x, SEDAN_STOP.z, SEDAN_STOP.heading);
+  const target = createFrontPassengerDoorTarget(sedan);
+  const door = sedan.doorWorld('front_passenger');
+  const world = target.getWorldPosition(new THREE.Vector3());
+
+  assert.equal(target.parent, sedan.group, 'the affordance must follow the moving car');
+  assert.equal(target.userData.anchor, 'front_passenger_door');
+  assert.ok(Math.abs(world.x - door.x) < 1e-9);
+  assert.ok(Math.abs(world.z - door.z) < 1e-9);
+  assert.ok(Math.abs(world.y - (door.y + FRONT_PASSENGER_DOOR_AFFORDANCE.centreHeight)) < 1e-9);
+
+  const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.04, 100);
+  camera.position.set(SPAWN.x, SPAWN.groundY + 1.66, SPAWN.z);
+  camera.rotation.set(0, SPAWN.yaw, 0, 'YXZ');
+  camera.updateMatrixWorld(true);
+  target.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster();
+  ray.far = 2.7;
+  ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+  assert.ok(ray.intersectObject(target, false).length > 0,
+    'the authored spawn crosshair can discover the passenger door at eye height');
+});
+
+test('the pickup men face the Prospect with their bodies and heads after the tableau is restaged', () => {
+  const scene = new THREE.Scene();
+  const sedan = buildMeetingSedan();
+  scene.add(sedan.group);
+  const cast = buildSpecialMeetingCast(scene, {
+    sedan,
+    colliders: [],
+    groundAt: () => 0,
+    faces: new Set(),
+  });
+  cast.boardForArrival();
+  cast.disembarkForPickup();
+
+  const door = sedan.doorWorld('front_passenger');
+  const prospect = new THREE.Vector3(door.x + 0.65, 1.66, door.z - 0.55);
+  for (let i = 0; i < 60; i++) cast.update(STEP, prospect);
+  cast.holdTheFrontDoor();
+  for (let i = 0; i < 60; i++) cast.update(STEP, prospect);
+
+  for (const [key, name] of [['lag', 'Lag'], ['numbskull', 'Numbskull']]) {
+    const npc = cast.byKey(key);
+    const origin = npc.group.getWorldPosition(new THREE.Vector3());
+    const toward = prospect.clone().sub(origin).setY(0).normalize();
+    const bodyForward = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(npc.group.getWorldQuaternion(new THREE.Quaternion()))
+      .setY(0).normalize();
+    const headForward = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(npc.parts.head.getWorldQuaternion(new THREE.Quaternion()))
+      .setY(0).normalize();
+
+    assert.ok(bodyForward.dot(toward) > 0.9,
+      `${name}'s body still points away from the Prospect (${bodyForward.dot(toward).toFixed(3)})`);
+    assert.ok(headForward.dot(toward) > 0.9,
+      `${name}'s head is still pinned at its gaze limit (${headForward.dot(toward).toFixed(3)})`);
+  }
+});
+
+test('Kittenboss exits on the passenger-side trunk corner inside Tony’s default reveal frame', () => {
+  const scene = new THREE.Scene();
+  const sedan = buildMeetingSedan();
+  scene.add(sedan.group);
+  const cast = buildSpecialMeetingCast(scene, {
+    sedan,
+    colliders: [],
+    groundAt: () => 0,
+    faces: new Set(),
+  });
+  cast.boardForArrival();
+  cast.getOut();
+  cast.kittenbossOut();
+  scene.updateMatrixWorld(true);
+
+  const exit = sedan.doorWorld('front_passenger');
+  const eye = exit.clone().setY(exit.y + 1.66);
+  const kitten = cast.byKey('kittenboss');
+  const head = kitten.parts.head.getWorldPosition(new THREE.Vector3());
+  const opaqueCarHits = segmentOwners(sedan.group, eye, head)
+    .filter((object) => !object.material?.transparent);
+  assert.deepEqual(opaqueCarHits.map((object) => object.name), [],
+    'the Lincoln still stands between Tony and the trunk reveal');
+
+  const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.04, 100);
+  const forestCar = adaptMeetingSedan(sedan, { shadows: false });
+  camera.position.copy(eye);
+  camera.rotation.set(0, exitYaw(forestCar, eye), 0, 'YXZ');
+  camera.updateMatrixWorld(true);
+  const projected = head.clone().project(camera);
+  assert.ok(projected.z > -1 && projected.z < 1, 'Kittenboss is behind the reveal camera');
+  assert.ok(Math.abs(projected.x) < 0.95 && Math.abs(projected.y) < 0.95,
+    `Kittenboss projects outside the reveal frame (${projected.x.toFixed(3)}, ${projected.y.toFixed(3)})`);
+  forestCar.dispose();
 });
 
 test('the boot is a hole with a lid, not a slab', () => {
@@ -118,6 +347,73 @@ test('the boot is a hole with a lid, not a slab', () => {
   sedan.setTrunk(0);
   for (let i = 0; i < 90; i++) sedan.update(STEP);
   assert.ok(Math.abs(sedan.trunk.hinge.rotation.z) < 1e-9, 'and it shuts again');
+});
+
+test('the forest adapter advances the borrowed boot without stepping its physics', () => {
+  const sedan = buildMeetingSedan();
+  sedan.placeAt(12, -7, 0.4);
+  const adapted = adaptMeetingSedan(sedan, { shadows: false });
+  const pose = { x: sedan.vehicle.x, z: sedan.vehicle.z, heading: sedan.vehicle.heading };
+
+  adapted.setTrunk(1);
+  for (let i = 0; i < 90; i++) adapted.updateCabin(STEP, { speed: 0, distance: 0 });
+
+  assert.equal(sedan.trunkOpen, 1, 'the forest-owned visual never opened the borrowed boot');
+  assert.ok(sedan.trunk.hinge.rotation.z < -0.9, 'the lid did not visibly rise');
+  assert.deepEqual(
+    { x: sedan.vehicle.x, z: sedan.vehicle.z, heading: sedan.vehicle.heading },
+    pose,
+    'advancing presentation also stepped the dormant block physics',
+  );
+  adapted.dispose();
+});
+
+test('the authored reveal opens the boot and shuts it after Numbskull’s last word', () => {
+  const stageDirections = [];
+  const sequence = createRideSequence({
+    onLine: () => 0.01,
+    onStage: (line) => stageDirections.push({
+      opens: line.opensTrunk === true,
+      closes: line.closesTrunk === true,
+      holdSeconds: line.holdSeconds ?? 0,
+    }),
+  });
+
+  sequence.begin('SM-410', { phase: 'spur' });
+  runUntil(sequence, (ride) => ride.beatId === 'SM-430', 20);
+
+  assert.ok(stageDirections.some((line) => line.opens && line.holdSeconds >= 1.1),
+    'SM-410 did not hold Kittenboss inside until the boot had visibly opened');
+  assert.ok(stageDirections.some((line) => line.closes), 'SM-420 never asked the boot to shut');
+  assert.equal(sequence.trunkOpen, false, 'story state still claims the reveal boot is open');
+});
+
+test('the final dissolve owns its authored time without adding a dead-black hold', () => {
+  const transitions = [];
+  const sequence = createRideSequence({
+    onBlackout: (seconds) => transitions.push({ type: 'out', seconds }),
+    onFadeIn: (seconds) => transitions.push({ type: 'in', seconds }),
+  });
+
+  sequence.begin('SM-326', { phase: 'driving' });
+  assert.equal(sequence.beatId, 'SM-326');
+  assert.deepEqual(transitions, [{ type: 'out', seconds: 1.2 }]);
+
+  runFor(sequence, 1.1);
+  assert.equal(sequence.beatId, 'SM-326',
+    'the sequence faded back in before the authored 1.2 second dissolve completed');
+  runFor(sequence, 0.15);
+  assert.equal(sequence.beatId, 'SM-327');
+  assert.deepEqual(transitions, [
+    { type: 'out', seconds: 1.2 },
+    { type: 'in', seconds: 0.8 },
+  ]);
+
+  runFor(sequence, 0.5);
+  assert.equal(sequence.beatId, 'SM-327',
+    'arrival staging began before the picture had faded back up');
+  runFor(sequence, 0.4);
+  assert.equal(sequence.beatId, 'SM-330');
 });
 
 test('nothing happens for ten seconds, and then the headlights do', () => {
@@ -256,8 +552,9 @@ test('four riders stay in their seats all the way out of the block', () => {
   assert.equal(sedan.seatsTaken, 4);
   sequence.update(STEP);
 
-  const before = riders.map(({ body }) => body.position.clone());
+  const before = riders.map(({ body }) => body.getWorldPosition(new THREE.Vector3()));
   for (const [index, { id }] of riders.entries()) {
+    assert.equal(riders[index].body.parent, sedan.seatAnchor(id), `${id} is parented to its seat`);
     assert.ok(before[index].distanceTo(sedan.seatWorld(id)) < 0.01, `${id} is on its seat`);
   }
 
@@ -267,12 +564,110 @@ test('four riders stay in their seats all the way out of the block', () => {
   assert.ok(sedan.vehicle.x > 40, 'east, and out of the block');
 
   for (const [index, { id, body }] of riders.entries()) {
-    assert.ok(body.position.distanceTo(before[index]) > 30, `${id} went with the car`);
-    assert.ok(body.position.distanceTo(sedan.seatWorld(id)) < 0.01, `${id} is still in its seat`);
+    const world = body.getWorldPosition(new THREE.Vector3());
+    assert.ok(world.distanceTo(before[index]) > 30, `${id} went with the car`);
+    assert.ok(world.distanceTo(sedan.seatWorld(id)) < 0.01, `${id} is still in its seat`);
   }
 
   sedan.release('rear_left');
   assert.equal(sedan.seatsTaken, 3);
+});
+
+test('the oversized rear passenger remains below the physical headliner', () => {
+  const scene = new THREE.Scene();
+  const sedan = buildMeetingSedan();
+  scene.add(sedan.group);
+  const cast = buildSpecialMeetingCast(scene, {
+    sedan,
+    colliders: [],
+    groundAt: () => 0,
+    faces: new Set(),
+  });
+  cast.boardForArrival();
+  const headlinerObject = sedan.group.getObjectByName('sedan.headliner');
+  for (const [pitch, yaw, roll] of [
+    [0, 0, 0],
+    [0.09, 1.2, 0.05],
+    [-0.08, -0.7, -0.05],
+  ]) {
+    sedan.group.rotation.set(pitch, yaw, roll);
+    scene.updateMatrixWorld(true);
+    const numbskull = boundsInFrame(cast.byKey('numbskull').group, sedan.group);
+    const headliner = boundsInFrame(headlinerObject, sedan.group);
+    const localEye = sedan.group.worldToLocal(sedan.eyeWorld('front_passenger').clone());
+    assert.ok(headliner.min.y - localEye.y >= 0.25,
+      `passenger eye has only ${(headliner.min.y - localEye.y).toFixed(3)}m below the headliner`);
+    assert.ok(
+      numbskull.max.y <= headliner.min.y - 0.015,
+      `Numbskull crown ${numbskull.max.y.toFixed(3)} clips headliner ${headliner.min.y.toFixed(3)}`,
+    );
+  }
+  assert.equal(cast.byKey('numbskull').group.parent, sedan.seatAnchor('rear_right'),
+    'headroom is solved at the seat offset, not by detaching him from the car');
+});
+
+test('the player eye stays on the same vehicle anchor from SM-195 into the forest', () => {
+  const sedan = buildMeetingSedan();
+  const sequence = createArrivalSequence({ sedan });
+  sequence.snapToKerb();
+
+  const camera = new THREE.PerspectiveCamera();
+  const player = {
+    camera,
+    mode: 'walk',
+    position: new THREE.Vector3(),
+    velocity: new THREE.Vector3(),
+    yaw: 0,
+    pitch: 0,
+    roll: 0,
+    sway: { yaw: 0, pitch: 0, roll: 0 },
+    clearKeys() {},
+    update() { camera.position.copy(this.position); },
+  };
+  const blockRig = new PassengerRig(player, sedan, { seat: 'frontPassenger' }).board();
+  const start = player.position.clone();
+  assert.ok(start.distanceTo(sedan.eyeWorld('front_passenger')) < 1e-8);
+
+  sequence.driveAway();
+  for (let i = 0; i < 5 / STEP; i++) {
+    sequence.update(STEP);
+    blockRig.update(STEP);
+    assert.ok(player.position.distanceTo(sedan.eyeWorld('front_passenger')) < 1e-8,
+      'the player left the VehicleOccupants eye anchor during SM-195');
+    assert.ok(camera.position.distanceTo(player.position) < 1e-8,
+      'the rendered camera chased the seat by a frame');
+  }
+  assert.ok(player.position.distanceTo(start) > 8, 'the camera stayed at the kerb while the car left');
+
+  blockRig.release();
+  const adapted = adaptMeetingSedan(sedan, { shadows: false });
+  const beforeHandoff = player.position.clone();
+  const forestRig = new PassengerRig(player, adapted, { seat: 'frontPassenger' }).board();
+  assert.ok(player.position.distanceTo(beforeHandoff) < 1e-8,
+    'the block-to-forest passenger handoff snapped to another seat');
+  assert.equal(blockRig.seated, false);
+  assert.equal(forestRig.seated, true);
+  adapted.dispose();
+});
+
+test('the dormant forest sedan uses the same tip-at-lamp headlight invariant', () => {
+  const scene = new THREE.Scene();
+  const car = buildNightSedan(scene, { shadows: false });
+  assert.equal(car.beams.length, 2);
+  for (const beam of car.beams) {
+    assert.deepEqual(beam.userData.headlightBeam, {
+      axis: '+x', nearRadius: 0, farRadius: 4.6, reach: 27,
+    });
+    assert.ok(Math.abs(beam.position.x - (car.length / 2 - 0.1)) < 1e-8,
+      'beam tip is not on the lamp fixture');
+  }
+  car.setHeadlights(true);
+  assert.ok(car.spots.every((spot) => spot.intensity === FOREST_HEADLIGHT_PROFILES.dipped.intensity),
+    'the fallback sedan drifted from the shared dipped-beam photometry');
+  car.setMainBeam(true);
+  assert.ok(car.spots.every((spot) => spot.intensity === FOREST_HEADLIGHT_PROFILES.main.intensity),
+    'the fallback sedan drifted from the shared main-beam photometry');
+  car.dispose();
 });
 
 test('the beat can be skipped or snapped to for a restart', () => {
@@ -293,6 +688,80 @@ test('the beat can be skipped or snapped to for a restart', () => {
   assert.equal(sequence.settled, true);
   assert.equal(sedan.headlightsOn, true);
   assert.ok(Math.hypot(sedan.vehicle.x - SEDAN_STOP.x, sedan.vehicle.z - SEDAN_STOP.z) < 0.01);
+});
+
+test('a forest checkpoint restores the authored road node without replaying it', () => {
+  const callbacks = [];
+  const car = {
+    group: new THREE.Group(),
+    length: 5.4,
+    width: 2,
+    setBrakeLights() {},
+    steer() {},
+    rollWheels() {},
+  };
+  const drive = new ForestDrive(car, { onNode: (id) => callbacks.push(id) });
+  const arrival = ROAD_EVENTS.find((event) => event.id === 'arrival');
+
+  drive.restoreAtEvent('arrival');
+
+  assert.equal(drive.distance, arrival.s);
+  assert.equal(drive.speed, 0);
+  assert.equal(drive.running, false);
+  assert.equal(drive.waitingAt, 'arrival');
+  assert.equal(drive.arrived, true);
+  assert.equal(callbacks.length, 0, 'a reload does not replay story callbacks');
+  assert.ok(
+    Math.hypot(car.group.position.x - roadAt(arrival.s).x, car.group.position.z - roadAt(arrival.s).z) < 2,
+    'the restored car is physically at the authored spur',
+  );
+
+  drive.update(STEP);
+  assert.deepEqual(callbacks, [], 'already-crossed road events stay crossed after restore');
+});
+
+test('the final exchange is tied to a moving road event before the arrival stop', () => {
+  const approach = ROAD_EVENTS.find((event) => event.id === 'final_approach');
+  const fade = ROAD_EVENTS.find((event) => event.id === 'arrival_fade');
+  const arrival = ROAD_EVENTS.find((event) => event.id === 'arrival');
+  assert.ok(approach, 'the final exchange has no road event');
+  assert.ok(fade, 'the fade has no pre-arrival road event');
+  assert.ok(arrival, 'the arrival stop has no road event');
+  assert.equal(approach.stop, false, 'the final line must play in a moving car');
+  assert.equal(fade.stop, false, 'the picture must return before the car stops');
+  assert.equal(arrival.stop, true);
+  assert.ok(arrival.s - approach.s >= 70,
+    `only ${(arrival.s - approach.s).toFixed(1)}m remain for the coda and fade`);
+  assert.ok(arrival.s - approach.s <= 90,
+    `the final exchange starts ${(arrival.s - approach.s).toFixed(1)}m before arrival`);
+  assert.ok(arrival.s - fade.s >= 2 && arrival.s - fade.s <= 3,
+    `the fade returns ${(arrival.s - fade.s).toFixed(1)}m before the stop, not on it`);
+});
+
+test('the forest owns the borrowed sedan lights and reconstructs the spur', () => {
+  const scene = new THREE.Scene();
+  const sedan = buildMeetingSedan();
+  const car = adaptMeetingSedan(sedan, { shadows: false });
+  const forest = createNightForestRoad({ scene, car, shadows: false });
+
+  assert.equal(car.headlightsOn, false, 'the adapter starts dark until the forest takes ownership');
+  forest.start();
+  assert.equal(car.headlightsOn, true, 'starting the forest drive lights the borrowed car');
+  assert.ok(car.spots.every((spot) => spot.intensity === FOREST_HEADLIGHT_PROFILES.dipped.intensity),
+    'the production sedan adapter drifted from shared dipped-beam photometry');
+
+  forest.restoreAtNode('arrival');
+  assert.equal(forest.drive.arrived, true);
+  assert.equal(car.mainBeamOn, true, 'crossing the turn-off is reflected in restored lamp state');
+  assert.ok(car.spots.every((spot) => spot.intensity === FOREST_HEADLIGHT_PROFILES.main.intensity),
+    'the production sedan adapter drifted from shared main-beam photometry');
+  assert.equal(car.headlightsOn, true, 'the authored SM-330 light hold is reconstructed before shutdown');
+
+  forest.killEngine();
+  forest.killLights();
+  assert.equal(forest.drive.running, false);
+  assert.equal(car.headlightsOn, false);
+  forest.dispose();
 });
 
 test('the route driver steers by the vehicle frame, not by a guess at it', () => {

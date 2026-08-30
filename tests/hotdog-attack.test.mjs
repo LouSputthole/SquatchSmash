@@ -5,6 +5,9 @@ import {
   APE_EXIT_ROUTE,
   APE_RETURN_ROUTE,
   HOTDOG_ATTACK_HIT_COUNT,
+  HOTDOG_MAX_HIP_BUCKLE,
+  HOTDOG_MAX_KNEE_BUCKLE,
+  HOTDOG_MAX_TORSO_HINGE,
   createHotDogAttack,
 } from '../src/bing/hotdog-attack.js';
 
@@ -21,6 +24,10 @@ function rig(x, z) {
       foreR: part(),
       armL: part(),
       foreL: part(),
+      legL: part(),
+      legR: part(),
+      shinL: part(),
+      shinR: part(),
     },
   };
 }
@@ -82,7 +89,15 @@ test('the local HotDog cinematic lands four beatable impacts before allowing cle
   assert.equal(hotdog.route, null);
   assert.equal(knife.visible, true);
 
-  for (let i = 0; i < 200 && attack.active; i += 1) attack.update(0.02);
+  let maxTorsoHinge = 0;
+  let maxHipBuckle = 0;
+  let maxKneeBuckle = 0;
+  for (let i = 0; i < 200 && attack.active; i += 1) {
+    attack.update(0.02);
+    maxTorsoHinge = Math.max(maxTorsoHinge, Math.abs(hotdog.parts.body.rotation.x));
+    maxHipBuckle = Math.max(maxHipBuckle, Math.abs(hotdog.parts.legL.rotation.x));
+    maxKneeBuckle = Math.max(maxKneeBuckle, Math.abs(hotdog.parts.shinL.rotation.x));
+  }
 
   assert.equal(attack.active, false);
   assert.equal(attack.landed, HOTDOG_ATTACK_HIT_COUNT);
@@ -90,4 +105,10 @@ test('the local HotDog cinematic lands four beatable impacts before allowing cle
   assert.deepEqual(impacts.map(({ final }) => final), [false, false, false, true]);
   assert.deepEqual(completion, { hits: HOTDOG_ATTACK_HIT_COUNT });
   assert.notEqual(ape.parts.armR.rotation.x, 0, 'impact keeps Ape in an authored strike pose');
+  assert.ok(maxTorsoHinge <= HOTDOG_MAX_TORSO_HINGE + 1e-9,
+    `torso hinge ${maxTorsoHinge} exceeds the connected waist limit`);
+  assert.ok(maxHipBuckle > HOTDOG_MAX_HIP_BUCKLE * 0.7,
+    'accumulated damage transfers into the hips instead of tearing the torso away');
+  assert.ok(maxKneeBuckle > HOTDOG_MAX_KNEE_BUCKLE * 0.7,
+    'the knees absorb the late-strike collapse');
 });

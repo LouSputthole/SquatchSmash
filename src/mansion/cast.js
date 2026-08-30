@@ -101,15 +101,16 @@
  * Every bark below is one flat sentence from somebody who is at work.
  */
 import * as THREE from 'three';
-import { Npc, BADA_BING_PERFORMERS } from '../bing/cast.js';
+import { Npc, SEATED_LEG_ROOT_Y } from '../bing/cast.js';
 import { FAMILY, buildFamilyScripts } from '../bing/family.js';
 import {
   SWING_LANDS_AT, SWING_SECONDS, makeCord, poseCord,
 } from '../bing/license-to-grill-runtime.js';
 import {
-  BADA_BING_BARTENDER, BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
+  BADA_BING_BARTENDER, BIG_UNCLE_LOU_MANSION, BIG_UNCLE_LOU_MANSION_RETURN,
+  BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON,
   ERIC, GRATIN, HOG_MAMA, IRISH, MANSION_BOOTH_MAN, MANSION_DOOR_MAN,
-  MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW,
+  MANSION_GUARDS, NUMBSKULL, RIPPINFLOW, SHUBENATOR, SNOW, SNOW_MAINTENANCE,
 } from '../core/wardrobe.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { coarseActorRole, markActor } from '../core/staging.js';
@@ -121,9 +122,17 @@ import { createDressHelpActorStaging } from '../world/dress-help-staging.js';
 import { mountLilTomCruze } from './dog.js';
 import {
   createLanGamerMotion, createPoolTreadingMotion, createSeatedPerformerMotion,
+  poseAllFours, reclineTorsoAboutHip,
 } from './performer-motion.js';
+import {
+  MANSION_PERFORMER_VARIANTS, MANSION_POOL_PERFORMER_POSTS,
+  MANSION_POOL_RECLINER_CHAIRS, MANSION_SUITE_PERFORMER_POSTS,
+} from './performer-wardrobe.js';
 import { DialogueController } from './mission/DialogueController.js';
 import { createMissionHud } from './mission/hud.js';
+import {
+  applySnowRepairPose, createSnowRepairHammer, snowRepairPoseAt,
+} from './snow-repair-motion.js';
 
 /** The cast owns who is sitting in a theatre chair; the Mansion composition
  * owns whether the player may use it. Publish that ownership on the chair so
@@ -373,6 +382,37 @@ const POSE_CUSHION = 0.53;
 const seatBase = (floorY, cushion) => floorY + cushion - POSE_CUSHION;
 /** How high this house's seats are, measured off its own colliders. */
 const CUSHION = Object.freeze({ chair: 0.50, islandStool: 0.75, barStool: 0.90 });
+
+/**
+ * THE SUN LOUNGER, and why 0.47 sank four women through it.
+ *
+ * A lounger's frame rails sit at 0.42, so 0.47 looks like an honest seat
+ * height and is the number that was here. It is the wrong reference. What a
+ * body lies on is the SLATTED DECK above those rails -- `buildLoungeChair`
+ * puts the slats at deckY + 0.045 with 0.045 of thickness, so the lying
+ * surface is 0.4875 above the lounger's own origin, and the origin sits on
+ * the pool deck rather than at the seat.
+ *
+ * Measured in the built house at 0.47: hips at y 1.3925 against a slat top of
+ * 1.6875. Twenty-nine centimetres under the thing she is lying on.
+ *
+ * What made it look like a small problem is `sitOnTheSeat`, which is supposed
+ * to catch exactly this. It raycasts down from above the hips and keeps the
+ * first surface at or BELOW their top (`candidate.point.y <= top`) -- so a
+ * body already sunk clean through a lounger cannot see the lounger at all,
+ * only the deck underneath it. It dutifully lifted her the last seven
+ * centimetres onto the DECK, which is why the geometry gate reported the
+ * bikini rear panels 58 to 78 mm inside `pool-deck-segment-*` across fourteen
+ * mansion states, 112 violations, rather than reporting a woman half a metre
+ * underground.
+ *
+ * That correction step is also why this number does not behave linearly:
+ * raising it far enough flips which surface the ray finds, and she jumps.
+ * Swept against the built house rather than reasoned about. At 0.70 her
+ * lowest point lands 1.0 cm into the slats -- resting, with a centimetre of
+ * give, and inside the 1.2 cm the leg-clearance test allows.
+ */
+const POOL_LOUNGER_POSE_CUSHION = 0.70;
 
 /* ================================================================== */
 /* ...AND THEN MEASURING IT IN THE HOUSE THAT WAS ACTUALLY BUILT        */
@@ -981,8 +1021,26 @@ export function mountMansionCast(scene, world = {}, {
    * Three men, one voice, on three loops. The grounds publish each loop's
    * walking height: lawns are y 0, while the centre drive follows its 5 cm
    * paver top instead of burying the guards' shoes in it. */
+  /* THE MORNING AFTER, EVERY ONE OF THEM SAYS SOMETHING ELSE.
+   *
+   * Owner playtest: *"Repaired mansion is really just the same thing as the
+   * original mansion. The guards should have some voicelines acknowledging
+   * your actions."* The return visit re-mounts this module verbatim, so until
+   * now the five men who had watched the player fight the siege through this
+   * house greeted him the next morning with the mission night's lines -- "Keep
+   * on the path", "Nothing down here belongs to you". The house had not
+   * noticed what happened in it.
+   *
+   * One helper, so the choice is made in exactly one place and a post that
+   * gains a line cannot pick up a return variant by accident: pass the pair,
+   * get the one this visit wants. `script.js` holds both. */
+  const forVisit = (missionLine, returnLine) => (
+    visit === 'return' && returnLine ? returnLine : missionLine
+  );
   const PERIMETER_BARKS = [
-    SEQUENCES.guardPathBark, SEQUENCES.guardCameraBark, SEQUENCES.guardLapBark,
+    forVisit(SEQUENCES.guardPathBark, SEQUENCES.guardPathReturn),
+    forVisit(SEQUENCES.guardCameraBark, SEQUENCES.guardCameraReturn),
+    forVisit(SEQUENCES.guardLapBark, SEQUENCES.guardLapReturn),
   ];
   /* The grounds publish the live routes beside the geometry they avoid. The
    * legacy constant remains only as a fallback for isolated cast fixtures
@@ -1024,8 +1082,8 @@ export function mountMansionCast(scene, world = {}, {
     z: balcony.z,
     yaw: yawToward(balcony.x + 1.2, balcony.z, balcony.x, balcony.z - 10),
     folded: true,
-    bark: SEQUENCES.guardStairsBark,
-    idle: SEQUENCES.guardStairsIdle,
+    bark: forVisit(SEQUENCES.guardStairsBark, SEQUENCES.guardStairsReturn),
+    idle: forVisit(SEQUENCES.guardStairsIdle, SEQUENCES.guardStairsReturnIdle),
     look: 'He is watching the front doors, not you.',
   });
 
@@ -1073,8 +1131,8 @@ export function mountMansionCast(scene, world = {}, {
     /* At the set, not past it. */
     yaw: yawToward(basementAt.x, basementAt.z, cellarTvAt.x, cellarTvAt.z),
     folded: true,
-    bark: SEQUENCES.guardBasementBark,
-    idle: SEQUENCES.guardBasementIdle,
+    bark: forVisit(SEQUENCES.guardBasementBark, SEQUENCES.guardBasementReturn),
+    idle: forVisit(SEQUENCES.guardBasementIdle, SEQUENCES.guardBasementReturnIdle),
     look: 'Down here watching a television with the sound off.',
   });
 
@@ -1095,8 +1153,8 @@ export function mountMansionCast(scene, world = {}, {
     z: vaultPost,
     yaw: yawToward(vault.x, vaultPost, vault.x, vault.z),
     folded: true,
-    bark: SEQUENCES.guardVaultBark,
-    idle: SEQUENCES.guardVaultIdle,
+    bark: forVisit(SEQUENCES.guardVaultBark, SEQUENCES.guardVaultReturn),
+    idle: forVisit(SEQUENCES.guardVaultIdle, SEQUENCES.guardVaultReturnIdle),
     look: 'He is standing between you and a door nobody closed.',
   });
 
@@ -1150,18 +1208,72 @@ export function mountMansionCast(scene, world = {}, {
    * the centreline -- the cart's offset from Snow is untouched, so it still
    * clears him the same way the note below describes -- and the bucket now
    * sits at x -2.551..-1.749, 349 mm clear of the table's western edge. */
-  const snowAt = { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
-  post('snow', {
+  /* THE MORNING AFTER HE IS NOT MOPPING, HE IS REBUILDING THE ROOM.
+   *
+   * Owner playtest: *"Maybe Snow is working on it as a maintenance man -- lets
+   * give him a maintenance outfit and a voice line about how long its going to
+   * take to get everything fixed up."*
+   *
+   * ./repairs.js lifts a patch of the compass inlay on the return visit and
+   * publishes the spot a man kneeling over it stands on, through the anchor
+   * table like every other post in this house -- so this reads the anchor
+   * rather than repeating its arithmetic, and the two cannot drift apart if
+   * the work site moves. `foyerCenter` is the fallback for a cast mounted
+   * without the return dressing (a fixture, a preview) and it puts him back
+   * where the mission night has always had him. */
+  const repairing = visit === 'return';
+  const repairSpot = at('foyerRepairSpot', { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 });
+  const snowAt = repairing
+    ? repairSpot
+    : { x: foyer.x - 3.6, y: foyer.y, z: foyer.z - 1.2 };
+  const snow = post('snow', {
     role: 'family_member',
     name: 'Snow',
-    model: withFace(SNOW, FACES.snow),
+    model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),
     job: 'work',
     x: snowAt.x,
     y: snowAt.y,
     z: snowAt.z,
-    yaw: yawToward(snowAt.x, snowAt.z, foyer.x, foyer.z - 6),
-    look: 'Gloves, a cart and a bucket, in a house where nothing has happened yet.',
+    /* Facing the hole in the floor on the return visit, and the front doors
+     * on the mission night. */
+    yaw: repairing
+      ? yawToward(snowAt.x, snowAt.z, snowAt.x + 0.30, snowAt.z + 1.55)
+      : yawToward(snowAt.x, snowAt.z, foyer.x, foyer.z - 6),
+    /* His foyer bark belongs to the MISSION, which owns the `snow` zone and
+     * fires `SEQUENCES.snowFoyer` from it. The return visit has no mission
+     * running, so nothing else in the game would ever give him a line -- and
+     * a maintenance man standing silently over a hole he is not talking about
+     * is the same shape of miss as the guards saying "keep on the path". */
+    bark: repairing ? SEQUENCES.snowRepairFoyer : null,
+    idle: repairing ? SEQUENCES.snowRepairIdle : null,
+    look: repairing
+      ? 'Snow, in a work vest, hammering the lifted marble beside the open floor.'
+      : 'Gloves, a cart and a bucket, in a house where nothing has happened yet.',
+    /* Walking past him gets the quote for the foyer; ASKING him gets why. He
+     * is the only man in the house who can say what is actually wrong with
+     * the floor, and "marble you can't patch" is the sentence that makes the
+     * bare grey rectangle beside him read as work rather than as damage.
+     *
+     * NOT gated behind `interactEnabled`. On the mission night he has a `look`
+     * and no `onUse`, and `post()` registers a LOOK prompt for exactly that
+     * case -- gating the registration on the visit would take his mission-night
+     * look-at away to add a return-visit E press. */
+    onUse: repairing
+      ? () => {
+        if (dialogue.busy) return false;
+        dialogue.interject(SEQUENCES.snowRepairSecond);
+        return true;
+      }
+      : null,
   });
+  const snowRepairHammer = repairing ? createSnowRepairHammer() : null;
+  if (snowRepairHammer) {
+    /* Props attach to the unit-scale socket, not the scaled hand slab. The
+     * return visit therefore shows a real tool moving with the same joints
+     * the pose owns, while mission-night Snow remains exactly as he was. */
+    snow.parts.handR.add(snowRepairHammer);
+    applySnowRepairPose(snow, 0);
+  }
   const cart = makeJanitorCart();
   /* Far enough forward that the cart's own rear — the push bar and the mop
    * leaning out of the bucket — clears the man behind it. At +0.85 the built
@@ -1374,13 +1486,19 @@ export function mountMansionCast(scene, world = {}, {
    * is at home and not working" — and the mansion was posting him in the BASE
    * suit, so the one entry written for this room had never been worn in it.
    * Same man, same face photo, same jewellery; the camp shirt instead of the
-   * armour, which is the entire reason a second dressing exists. */
+   * armour, which is the entire reason a second dressing exists.
+   *
+   * The return briefing is deliberately the exception: after the Enola, home
+   * is business again. `visit` selects the dark oxblood-charcoal return suit,
+   * cream shirt and black tie for that morning only. The first visit and the
+   * same-night Siege both keep this camp-shirt continuity. */
   const desk = at('officeDesk', { x: 0, y: UPPER_Y, z: 70.2 });
   const louAt = { x: desk.x + 1.05, y: desk.y, z: desk.z + 2.55 };
+  const louModel = visit === 'return' ? BIG_UNCLE_LOU_MANSION_RETURN : BIG_UNCLE_LOU_MANSION;
   post('lou', {
     role: 'boss',
     name: 'Big Uncle Lou',
-    model: withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),
+    model: withFace(louModel, FACES.lou),
     x: louAt.x,
     y: louAt.y,
     z: louAt.z,
@@ -1893,9 +2011,9 @@ export function mountMansionCast(scene, world = {}, {
   /* Owner, on the master suite: "hot tub with girls, the dog, and      */
   /* everything."                                                       */
   /*                                                                     */
-  /* THE TWO IN THE TUB ARE BADA BING CAST, NOT NEW PEOPLE. Their looks   */
-  /* are spread straight off `BADA_BING_PERFORMERS` in `src/bing/cast.js` */
-  /* -- the same four figures who work the club's poles -- so the woman   */
+  /* THE TWO IN THE TUB ARE BADA BING CAST, NOT NEW PEOPLE. Their stable  */
+  /* bodies come from the renderer-free performer roster and their exact   */
+  /* Mansion clothes from `performer-wardrobe.js`, so the woman            */
   /* in Lou's tub is a woman the player has already met, which is the      */
   /* whole point of the family owning the club. The GARMENT is the only    */
   /* thing decided here, and it is the same `dress: 'bikini'` the stage     */
@@ -1910,10 +2028,11 @@ export function mountMansionCast(scene, world = {}, {
   const tubSeats = suite?.tubSeats ?? [];
   const suitePerformers = [];
   tubSeats.slice(0, 2).forEach((seat, i) => {
-    const look = BADA_BING_PERFORMERS[i === 0 ? 3 : 1];
-    const npc = post(`suitePerformer${i}`, {
+    const postId = MANSION_SUITE_PERFORMER_POSTS[i];
+    const spec = MANSION_PERFORMER_VARIANTS[postId];
+    const npc = post(postId, {
       role: 'performer',
-      name: 'a dancer',
+      name: spec.name,
       tier: 'ambient',
       job: 'sit',
       x: seat.x,
@@ -1922,10 +2041,7 @@ export function mountMansionCast(scene, world = {}, {
       y: seat.y,
       z: seat.z,
       yaw: seat.yaw,
-      model: {
-        role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-        height: i === 0 ? 1.74 : 1.71, build: 1.08, dress: 'bikini', ...look,
-      },
+      model: spec.model,
       look: 'One of the girls from the club, up here where the water is warmer.',
     });
     /* SHE IS SUPPOSED TO BE INSIDE THE FURNITURE. `verify:mansion` asserts
@@ -1936,12 +2052,13 @@ export function mountMansionCast(scene, world = {}, {
      * mean it rather than being loosened for everybody. */
     npc.inFixture = 'the hot tub';
     npc.performerMotion = 'seated-social';
+    npc.performerIdentity = spec.identity;
     suitePerformers.push(npc);
   });
 
   /* ---- The pool-deck evening -----------------------------------------
-   * Three women, composed against the actual pool build: two reclining on
-   * the empty east-side loungers and one standing shoulder-deep in the
+   * Five women, composed against the actual pool build: four reclining on
+   * the four towel-free loungers and one standing shoulder-deep in the
    * water. The first keeps the existing three-press flirt -> strap-help path;
    * moving her onto furniture must not replace that interaction. */
   const poolAt = at('poolPatio', { x: 0, y: GROUND_Y, z: 85 });
@@ -1955,22 +2072,33 @@ export function mountMansionCast(scene, world = {}, {
     );
     return { x: position.x, y: position.y, z: position.z, yaw: rotation.y };
   }
-  /* Towel-free chairs. The towel alternates across the row; 4 and 6 are the
-   * two unoccupied surfaces built for bodies rather than folded linen. */
+  /* Towel-free chairs. The east pair keep the interactions; the matching
+   * west pair carry two additional off-shift performers without narrowing
+   * the coping route or putting a body through folded linen. */
   const firstLounger = poolChair(4, {
     x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z - 5.6, yaw: -Math.PI / 2,
   });
   const secondLounger = poolChair(6, {
     x: poolAt.x + 10.6, y: poolAt.y, z: poolAt.z + 0.8, yaw: -Math.PI / 2,
   });
-  const poolRecliners = [];
-  const POOL_PERFORMER_IDENTITIES = Object.freeze({
-    poolPerformer0: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' }),
-    poolPerformer1: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' }),
-    poolPerformer2: Object.freeze({ source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' }),
+  const thirdLounger = poolChair(1, {
+    x: poolAt.x - 10.6, y: poolAt.y, z: poolAt.z - 2.4, yaw: Math.PI / 2,
   });
+  const fourthLounger = poolChair(3, {
+    x: poolAt.x - 10.6, y: poolAt.y, z: poolAt.z + 4.0, yaw: Math.PI / 2,
+  });
+  const poolRecliners = [];
+  const POOL_PERFORMER_IDENTITIES = Object.freeze(Object.fromEntries(
+    MANSION_POOL_PERFORMER_POSTS.map((id) => [id, MANSION_PERFORMER_VARIANTS[id].identity]),
+  ));
   function posePoolRecliner(npc) {
     if (!npc?.parts) return;
+    /* The seated leg root, written rather than assumed. `sit()` raises it 38 mm
+     * and `_neutralPose()` never touches it again, so a fixture pose that moves
+     * it -- the dress beat's hands-and-knees does -- would otherwise hand her
+     * back 38 mm out of her own hip for the rest of the evening. */
+    npc.parts.legL.position.y = SEATED_LEG_ROOT_Y;
+    npc.parts.legR.position.y = SEATED_LEG_ROOT_Y;
     /* A dining-chair sit folds the shin vertical at the knee. On a sun
      * lounger that vertical shin went through the deck slats by their full
      * 45 mm thickness. Extend both legs down the cushion instead: the thigh
@@ -1980,7 +2108,10 @@ export function mountMansionCast(scene, world = {}, {
     npc.parts.legR.rotation.x = -1.75;
     npc.parts.shinL.rotation.x = 0.25;
     npc.parts.shinR.rotation.x = 0.25;
-    npc.parts.body.rotation.x = -0.46;
+    /* ABOUT THE HIP. `body.rotation.x = -0.46` on its own pivots the torso at
+     * her ankles and takes the pelvis 0.44 m off the top of her own thighs --
+     * see reclineTorsoAboutHip, which is the arithmetic that puts it back. */
+    reclineTorsoAboutHip(npc, -0.46);
     /* Npc.update resets the shared pose first, but this assignment is still
      * deliberate: a fixture pose must never accumulate if that reset changes. */
     npc.parts.head.rotation.x = 0.2;
@@ -1992,19 +2123,58 @@ export function mountMansionCast(scene, world = {}, {
     secondPhase: 'hello', secondDressHelped: false,
   };
   let dressStrap = null;
+  /** Fallen 0.42, seated 0.06. The pull runs between these two. */
+  const STRAP_FALLEN_TILT = 0.42;
+  const STRAP_SEATED_TILT = 0.06;
+  /** How far up the strap travels over a completed pull. */
+  const STRAP_PULL_RISE = 0.06;
+
+  function looseStrapFor(npc, { name, color }) {
+    const bust = npc?.parts?.curves?.bustR;
+    if (!bust) return null;
+    npc.group.updateMatrixWorld(true);
+    npc.parts.body.updateMatrixWorld(true);
+    /* Follow the real outside/front surface of the fuller costume cup. A
+     * fixed x/z lived inside the 1.18 silhouette and made the interaction
+     * strap disappear before the player could fix it. */
+    const surface = bust.localToWorld(new THREE.Vector3(0.94, -0.28, 0.22));
+    npc.parts.body.worldToLocal(surface);
+    /* A STRAP, NOT A BAR. Owner playtest, verbatim: *"they also have a red or
+     * black bar just in their shoulder. Not sure what the deal is with that."*
+     *
+     * The deal was this piece. It was 0.42 m long and 45 mm wide -- longer
+     * than a forearm and half again the width of a real strap -- CENTRED on
+     * the outer face of the costume cup and tilted -0.68 rad. Worked through:
+     * a 0.21 half-length at that tilt puts its top end 0.13 m outboard and
+     * 0.16 m above the anchor, which is out past the shoulder line entirely.
+     * So it did not read as a strap that had slipped; it read as a coloured
+     * rod sticking out of her shoulder into the air, in whichever accent
+     * colour her costume happened to be.
+     *
+     * A slipped strap is short, thin, and hangs DOWN THE OUTSIDE of the arm:
+     * 0.20 long and 32 mm wide, tilted the other way (+0.42) so its top leans
+     * INBOARD under the shoulder and its bottom rests outboard over the cup.
+     * Measured on the built figure, both ends now sit inside her own
+     * silhouette. */
+    return box({
+      size: [0.032, 0.20, 0.012],
+      pos: [surface.x + 0.010, surface.y + 0.030, surface.z + 0.012],
+      mat: mat({ color, roughness: 0.7 }),
+      rotZ: STRAP_FALLEN_TILT,
+      cast: false,
+      name,
+    });
+  }
   const primaryPoolGirl = post('poolPerformer0', {
     role: 'performer',
-    name: 'the Bada Bing platinum performer',
+    name: MANSION_PERFORMER_VARIANTS.poolPerformer0.name,
     tier: 'ambient',
     job: 'sit',
     x: firstLounger.x,
-    y: seatBase(firstLounger.y, 0.47),
+    y: seatBase(firstLounger.y, POOL_LOUNGER_POSE_CUSHION),
     z: firstLounger.z,
     yaw: firstLounger.yaw,
-    model: {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height: 1.73, build: 1.08, dress: 'bikini', ...BADA_BING_PERFORMERS[0],
-    },
+    model: MANSION_PERFORMER_VARIANTS.poolPerformer0.model,
     look: () => {
       if (poolEvening.phase === 'hello') return 'Say hello to the dancer by the pool';
       if (poolEvening.phase === 'flirt') return 'Try flirting with her';
@@ -2027,8 +2197,8 @@ export function mountMansionCast(scene, world = {}, {
         poolEvening.phase = 'done';
         poolEvening.dressHelped = true;
         if (dressStrap) {
-          dressStrap.rotation.z = 0.18;
-          dressStrap.position.y += 0.08;
+          dressStrap.rotation.z = STRAP_SEATED_TILT;
+          dressStrap.position.y += STRAP_PULL_RISE;
         }
         dialogue.play(SEQUENCES.poolGirlDressHelp);
         /* The exchange lands as a settling-in beat only once it is done. */
@@ -2043,29 +2213,22 @@ export function mountMansionCast(scene, world = {}, {
   primaryPoolGirl.performerIdentity = POOL_PERFORMER_IDENTITIES.poolPerformer0;
   poolRecliners.push(primaryPoolGirl);
   posePoolRecliner(primaryPoolGirl);
-  dressStrap = box({
-    size: [0.045, 0.42, 0.025],
-    pos: [0.2, 1.34, 0.13],
-    mat: mat({ color: 0x6e1834, roughness: 0.7 }),
-    rotZ: -0.68,
-    cast: false,
+  dressStrap = looseStrapFor(primaryPoolGirl, {
     name: 'pool-performer-dress-strap',
+    color: MANSION_PERFORMER_VARIANTS.poolPerformer0.model.swimAccent,
   });
-  primaryPoolGirl.parts.body.add(dressStrap);
+  if (dressStrap) primaryPoolGirl.parts.body.add(dressStrap);
 
   const secondPoolGirl = post('poolPerformer1', {
     role: 'performer',
-    name: 'the Bada Bing black-haired performer',
+    name: MANSION_PERFORMER_VARIANTS.poolPerformer1.name,
     tier: 'ambient',
     job: 'sit',
     x: secondLounger.x,
-    y: seatBase(secondLounger.y, 0.47),
+    y: seatBase(secondLounger.y, POOL_LOUNGER_POSE_CUSHION),
     z: secondLounger.z,
     yaw: secondLounger.yaw,
-    model: {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height: 1.71, build: 1.06, dress: 'bikini', ...BADA_BING_PERFORMERS[2],
-    },
+    model: MANSION_PERFORMER_VARIANTS.poolPerformer1.model,
     look: () => {
       if (poolEvening.secondPhase === 'hello') return 'Say hello to the other dancer';
       if (poolEvening.secondPhase === 'flirt') return 'Try flirting with her';
@@ -2098,12 +2261,11 @@ export function mountMansionCast(scene, world = {}, {
   poolRecliners.push(secondPoolGirl);
   posePoolRecliner(secondPoolGirl);
 
-  const secondDressStrap = box({
-    size: [0.045, 0.42, 0.025], pos: [0.2, 1.34, 0.13],
-    mat: mat({ color: 0x351125, roughness: 0.7 }), rotZ: -0.68,
-    cast: false, name: 'pool-performer-2-dress-strap',
+  const secondDressStrap = looseStrapFor(secondPoolGirl, {
+    name: 'pool-performer-2-dress-strap',
+    color: MANSION_PERFORMER_VARIANTS.poolPerformer1.model.swimAccent,
   });
-  secondPoolGirl.parts.body.add(secondDressStrap);
+  if (secondDressStrap) secondPoolGirl.parts.body.add(secondDressStrap);
   const secondDressStart = {
     y: secondDressStrap.position.y,
     rotation: secondDressStrap.rotation.z,
@@ -2124,10 +2286,18 @@ export function mountMansionCast(scene, world = {}, {
    * ambient loop happened to be. Twelve centimetres down the real lounger and
    * a small three-quarter turn are still fully supported by its cushion, but
    * visibly compose her fastening toward the authored player-side aisle. */
+  /* SHE GETS OFF THE CHAIR. Owner playtest: *"Need to fix the dress fix scene,
+   * they need to get on all fours."* A pose on hands and knees does not
+   * happen on a sun lounger, so the mark comes off it: 0.62 m along the same
+   * clear north-side aisle the player's own mark uses, and at the DECK's
+   * height rather than the seated figure's -- `poseAllFours` drops her the
+   * measured 0.39 m from there to put her knees on it. The lounger's half
+   * width is 0.39 m, so 0.62 clears the chair by 0.23 m and still leaves the
+   * player's mark at 1.14 half a metre further out. */
   const secondDressActorMarker = Object.freeze({
-    x: secondPoolGirl.group.position.x + Math.sin(secondLounger.yaw) * 0.12,
-    y: secondPoolGirl.group.position.y,
-    z: secondPoolGirl.group.position.z + Math.cos(secondLounger.yaw) * 0.12,
+    x: secondLounger.x - Math.cos(secondLounger.yaw) * 0.62,
+    y: secondLounger.y,
+    z: secondLounger.z + Math.sin(secondLounger.yaw) * 0.62,
     yaw: secondLounger.yaw + 0.18,
   });
   const secondDressActorStaging = createDressHelpActorStaging({
@@ -2170,11 +2340,18 @@ export function mountMansionCast(scene, world = {}, {
       },
       onHit({ index, total }) {
         const progress = index / total;
-        secondDressStrap.rotation.z = THREE.MathUtils.lerp(secondDressStart.rotation, 0.18, progress);
-        secondDressStrap.position.y = secondDressStart.y + progress * 0.08;
+        secondDressStrap.rotation.z = THREE.MathUtils.lerp(
+          secondDressStart.rotation, STRAP_SEATED_TILT, progress,
+        );
+        secondDressStrap.position.y = secondDressStart.y + progress * STRAP_PULL_RISE;
       },
+      /* A miss lets it slip back OUT, toward fallen. It used to run toward
+       * 0.28 -- which, from a start of -0.68, moved the strap the same way a
+       * hit did, so missing every pull still finished the job. */
       onMiss() {
-        secondDressStrap.rotation.z = Math.min(0.28, secondDressStrap.rotation.z + 0.04);
+        secondDressStrap.rotation.z = Math.min(
+          STRAP_FALLEN_TILT + 0.10, secondDressStrap.rotation.z + 0.04,
+        );
       },
       finish() {
         secondDressActorStaging.end();
@@ -2218,11 +2395,36 @@ export function mountMansionCast(scene, world = {}, {
     return true;
   }
 
+  function mountAmbientPoolRecliner(id, chair) {
+    const spec = MANSION_PERFORMER_VARIANTS[id];
+    const npc = post(id, {
+      role: 'performer',
+      name: spec.name,
+      tier: 'background',
+      job: 'sit',
+      x: chair.x,
+      y: seatBase(chair.y, POOL_LOUNGER_POSE_CUSHION),
+      z: chair.z,
+      yaw: chair.yaw,
+      model: spec.model,
+      look: 'One of the off-shift Bada Bing performers is relaxing by the pool.',
+    });
+    npc.inFixture = 'pool lounger';
+    npc.poolPose = 'reclined';
+    npc.performerMotion = 'reclined-rest';
+    npc.performerIdentity = POOL_PERFORMER_IDENTITIES[id];
+    poolRecliners.push(npc);
+    posePoolRecliner(npc);
+    return npc;
+  }
+  mountAmbientPoolRecliner('poolPerformer3', thirdLounger);
+  mountAmbientPoolRecliner('poolPerformer4', fourthLounger);
+
   const water = pool?.pool ?? { x0: -7, x1: 7, z0: 81, z1: 89 };
   const waterY = pool?.waterY ?? poolAt.y - 0.2;
   const poolGirlInWater = post('poolPerformer2', {
     role: 'performer',
-    name: 'the Bada Bing brunette performer',
+    name: MANSION_PERFORMER_VARIANTS.poolPerformer2.name,
     tier: 'ambient',
     x: (water.x0 + water.x1) / 2 + 2.2,
     /* The basin's finished floor is waterY-1.1. At -1.15 the standing rig's
@@ -2233,10 +2435,7 @@ export function mountMansionCast(scene, world = {}, {
     z: (water.z0 + water.z1) / 2 + 0.4,
     yaw: yawToward((water.x0 + water.x1) / 2 + 2.2, (water.z0 + water.z1) / 2 + 0.4,
       firstLounger.x, firstLounger.z),
-    model: {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height: 1.7, build: 1.04, dress: 'bikini', ...BADA_BING_PERFORMERS[1],
-    },
+    model: MANSION_PERFORMER_VARIANTS.poolPerformer2.model,
     look: 'One of the girls from the club is cooling off in the pool.',
   });
   poolGirlInWater.inFixture = 'the pool';
@@ -3016,7 +3215,8 @@ export function mountMansionCast(scene, world = {}, {
       });
       return parts;
     };
-    const chairIndex = index === 0 ? 4 : index === 1 ? 6 : null;
+    const id = `poolPerformer${index}`;
+    const chairIndex = MANSION_POOL_RECLINER_CHAIRS[id] ?? null;
     return {
       target: npc.group,
       strap: npc.parts?.body?.getObjectByName?.(
@@ -3172,6 +3372,14 @@ export function mountMansionCast(scene, world = {}, {
      * threat state, no health and no team, and nothing in this module gives
      * him any. */
     get snow() { return people.snow; },
+    /** Return-visit repair evidence: a real prop plus the current authored stroke. */
+    get snowRepair() {
+      if (!repairing || !snowRepairHammer) return null;
+      return {
+        tool: snowRepairHammer.name,
+        stroke: snowRepairPoseAt(snow.t + snow.phase).strike,
+      };
+    },
     /**
      * Booski has called him down. Owner playtest: he has clean-up lines about
      * the laboratory and was never in it. Returns false in a house with no
@@ -3210,17 +3418,35 @@ export function mountMansionCast(scene, world = {}, {
       stageLanEvening();
       const p = playerPosition();
       for (const key of Object.keys(people)) people[key].update(dt, p);
+      /* Npc.update restores its generic work loop each frame. Snow's hammer
+       * pass must be the later writer, like every fixture-specific pose below. */
+      if (repairing) applySnowRepairPose(snow, snow.t + snow.phase);
       /* Npc.update deliberately restores the neutral torso pose every frame;
        * the loungers are a fixture-specific rest pose, so apply it after the
        * shared animation has done its work. */
-      for (const npc of poolRecliners) posePoolRecliner(npc);
+      for (const npc of poolRecliners) {
+        /* The dress beat owns her pose while it is running; re-posing her into
+         * the lounger recline first and out of it again in the same frame is
+         * work nobody sees, and it is the kind of double-write that survives
+         * as a one-frame flicker the moment the ordering below changes. */
+        if (secondDressSequence.active && npc === secondPoolGirl) continue;
+        posePoolRecliner(npc);
+      }
       for (const motion of seatedPerformerMotions) motion.update(dt);
       poolTreadingMotion?.update(dt);
       /* Shubes' mouse hand, applied after Npc.update's shared pose reset,
        * the same ordering every fixture motion above relies on. */
       lanGamerMotion?.update(dt);
       const dressTiming = secondDressSequence.update(dt);
-      if (secondDressSequence.active) secondDressActorStaging.apply();
+      if (secondDressSequence.active) {
+        secondDressActorStaging.apply();
+        /* AFTER the staging and after `posePoolRecliner` above, because both
+         * of those write the same joints every frame and the last writer wins.
+         * The pose is fully authored rather than accumulated, so running it
+         * once a frame for the length of the beat is the same as running it
+         * once. */
+        poseAllFours(secondPoolGirl, secondLounger.y);
+      }
       /* TimingBar deliberately retains its last view after stop so a caller
        * can inspect the seven landed hits. That snapshot is not an active HUD:
        * republishing it every cast frame resurrected PULL 7 / 7 after
@@ -3315,7 +3541,7 @@ export function mountMansionCast(scene, world = {}, {
             focus: secondDressFocus.debug,
             actorStaging: secondDressActorStaging.debug,
           },
-          poolComposition: ['poolPerformer0', 'poolPerformer1', 'poolPerformer2']
+          poolComposition: MANSION_POOL_PERFORMER_POSTS
             .map((id) => ({
               id,
               name: people[id]?.name ?? '',
@@ -3331,6 +3557,8 @@ export function mountMansionCast(scene, world = {}, {
             .filter((id) => people[id])
             .map((id) => ({
               id,
+              name: people[id]?.name ?? '',
+              identity: people[id]?.performerIdentity ?? null,
               motion: people[id]?.performerMotion ?? '',
               y: Number(people[id]?.group?.position?.y?.toFixed?.(3) ?? 0),
               bodyZ: Number(people[id]?.parts?.body?.rotation?.z?.toFixed?.(4) ?? 0),

@@ -292,6 +292,50 @@ try {
       && started.radio.tracks > 0,
     JSON.stringify(started.radio));
 
+  /* The old verifier exercised FlightInput directly but never crossed the
+   * browser-to-Player Seam. Earn capture with a real click, then prove that
+   * mouse look, a held W, and release all reach the live on-foot Player. */
+  await page.locator('#scene').click({ position: { x: 480, y: 300 } });
+  await page.waitForFunction(() => window.__beefrun.browserInput.snapshot().captured, null, {
+    timeout: 5000,
+  });
+  const beforeRealInput = await page.evaluate(() => {
+    const player = window.__beefrun.player;
+    return { x: player.position.x, z: player.position.z, yaw: player.yaw };
+  });
+  await page.mouse.move(480, 300);
+  await page.mouse.move(550, 265, { steps: 2 });
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const player = window.__beefrun.player;
+    return Math.hypot(player.position.x - x, player.position.z - z) > 0.35;
+  }, beforeRealInput, { polling: 'raf', timeout: 5000 });
+  const heldRealInput = await page.evaluate(() => ({
+    keys: [...window.__beefrun.player.keys],
+    yaw: window.__beefrun.player.yaw,
+  }));
+  await page.keyboard.up('w');
+  const afterRealInput = await page.evaluate(() => {
+    const b = window.__beefrun;
+    return {
+      x: b.player.position.x,
+      z: b.player.position.z,
+      yaw: b.player.yaw,
+      keys: [...b.player.keys],
+      input: b.browserInput.snapshot(),
+    };
+  });
+  check('real click, mouse, and W input capture, look, move, and release on the airstrip',
+    afterRealInput.input.captured
+      && heldRealInput.keys.includes('KeyW')
+      && !afterRealInput.keys.includes('KeyW')
+      && Math.hypot(
+        afterRealInput.x - beforeRealInput.x,
+        afterRealInput.z - beforeRealInput.z,
+      ) > 0.35
+      && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+    JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+
   const knockingIntro = await page.evaluate(async () => {
     const b = window.__beefrun;
     const handle = await b.mission.playTakeoffRecord();
@@ -1081,10 +1125,20 @@ const chain = await page.evaluate(() => {
       completeUp: b.flightHud.completeUp,
       moved: Math.abs(b.physics.position.x - before.x)
         + Math.abs(b.physics.position.z - before.z),
+      radio: {
+        on: b.radio.on,
+        paused: b.radio._paused,
+        mediaPaused: b.radio.el?.paused ?? true,
+        beds: [...b.audio.engine.loops.keys()].filter((key) => key.startsWith('radio.')).sort(),
+      },
     };
   });
   check('the simulation freezes under the report card',
     frozen.completeUp === true && frozen.moved < 0.01, JSON.stringify(frozen));
+  check('the Beef Run report card pauses its physical receiver with no stale radio beds',
+    (!frozen.radio.on || frozen.radio.paused)
+      && frozen.radio.mediaPaused && frozen.radio.beds.length === 0,
+    JSON.stringify(frozen.radio));
   const endPauseState = await page.evaluate(() => {
     const wasPaused = window.__scenePause?.isPaused() ?? false;
     window.__scenePause?.resume();
@@ -1301,7 +1355,7 @@ const chain = await page.evaluate(() => {
       && seat.airBrakePanels?.length === 2,
     JSON.stringify({ text: seat.controlsText.replace(/\s+/g, ' ').trim(),
       hud: seat.airBrakeHud, panels: seat.airBrakePanels }));
-  check('the apartment-fridge Tammy sticker rides the flying pilot\'s dash rail',
+  check('the apartment-fridge Tammy sticker stays below the neutral forward scan',
     seat.tammy.name === 'tammy-golden-ak-sticker'
       // +X is the aeroplane's left, because its nose is +Z. Her rail is the
       // outboard end of the left seat's dash, away from Sasole.
@@ -1310,7 +1364,11 @@ const chain = await page.evaluate(() => {
       && seat.tammy.sourceFile === 'sticker-pinup.png'
       && /assets\/art\/sticker-pinup\.png(?:\?|$)/.test(seat.tammy.imageSrc)
       && seat.tammy.loadedWidth > 1
-      && seat.tammy.projected?.visible,
+      // The owner's 2026-08-25 placement moved her off the glare shield so
+      // she never blocks the horizon. A neutral-view visibility requirement
+      // directly contradicts that authored placement.
+      && seat.tammy.projected?.y < -1
+      && seat.tammy.projected?.z >= -1 && seat.tammy.projected?.z <= 1,
     JSON.stringify(seat.tammy));
   check('the cockpit carries a complete readable radio stack',
     seat.radio.name === 'cockpit-radio-stack'
@@ -1319,6 +1377,48 @@ const chain = await page.evaluate(() => {
       && seat.radio.knobs === 6
       && seat.radio.projected?.visible,
     JSON.stringify(seat.radio));
+
+  /* Prove the other half of that placement through the real browser input
+   * seam: Tammy must be available on a deliberate down-left glance, not just
+   * exist below the camera. Programmatic start clicks cannot earn pointer
+   * lock, so the saved-flight pass clicks the shipping canvas, moves the real
+   * mouse by a bounded amount, and lets CameraManager apply the look. */
+  await resumePage.locator('#scene').click({ position: { x: 480, y: 300 } });
+  await resumePage.waitForFunction(() => window.__beefrun.browserInput.snapshot().captured, null, {
+    timeout: 5000,
+  });
+  await resumePage.mouse.move(480, 300);
+  await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    b.cameras.lookYaw = 0;
+    b.cameras.lookPitch = 0;
+    b.cameras.update(0.016, b.physics, b.aircraft.group, b.aircraft.pilotEye, {});
+  });
+  await resumePage.mouse.move(366, 460, { steps: 3 });
+  await resumePage.waitForFunction(() => {
+    const b = window.__beefrun;
+    const point = b.aircraft.parts.tammySticker.getWorldPosition(new b.THREE.Vector3());
+    point.project(b.camera);
+    return b.cameras.lookYaw > 0.18 && b.cameras.lookPitch < -0.25
+      && Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1
+      && point.z >= -1 && point.z <= 1;
+  }, null, { timeout: 5000 });
+  const tammyGlance = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const point = b.aircraft.parts.tammySticker.getWorldPosition(new b.THREE.Vector3());
+    point.project(b.camera);
+    return {
+      lookYaw: b.cameras.lookYaw,
+      lookPitch: b.cameras.lookPitch,
+      projected: { x: point.x, y: point.y, z: point.z },
+    };
+  });
+  check('a real down-left cockpit glance brings Tammy into view',
+    tammyGlance.lookYaw > 0.18 && tammyGlance.lookPitch < -0.25
+      && Math.abs(tammyGlance.projected.x) <= 1
+      && Math.abs(tammyGlance.projected.y) <= 1
+      && tammyGlance.projected.z >= -1 && tammyGlance.projected.z <= 1,
+    JSON.stringify(tammyGlance));
   check('tail braces, cowling bands, and the VHF aerial are attached visual detail',
     seat.tailSupport?.length === 4
       && seat.tailSupport.every((brace) => brace.endpoints)

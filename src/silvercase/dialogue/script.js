@@ -5,11 +5,10 @@
  * the only thing that plays this; the mission state machine is the only thing
  * that decides *when*. Every spoken line carries a `cue` name on the
  * `vo.silvercase.` prefix so a future voice pass has something to generate
- * against (see assets/sfx/manifest.json's convention) — none of these cues
- * exist yet, so every line plays as a subtitle with no audio, which is the
- * deliberate silence-over-synthesis fallback the rest of the game already
- * uses. Nothing here is wired into the shared voice-manifest/check.mjs
- * catalog checks; that is future work for whoever records the part.
+ * against (see assets/sfx/manifest.json's convention). The manifest and the
+ * delivery ledgers are synchronized by `tools/silvercase-vo.mjs`; a newly
+ * authored cue therefore remains an honest subtitle-only line until its take
+ * is delivered instead of borrowing an unrelated recording.
  *
  * Speaker keys match `cast/cast.js`. Ape's identity (name, voice profile) is
  * canonical — see src/bing/family-ape.js and CHARACTER_IDS.APE — everyone
@@ -24,7 +23,9 @@ export const SPEAKERS = Object.freeze({
   APE: Object.freeze({ name: 'Ape', voice: 'ape' }),
   PROSPECT: Object.freeze({ name: 'Prospect', voice: 'player' }),
   DEKE: Object.freeze({ name: 'Deke', voice: 'npc-male' }),
-  WINSTON: Object.freeze({ name: 'Winston', voice: 'npc-male' }),
+  /* The frightened kitchen witness uses the existing anxious-reserve profile;
+   * he no longer shares Deke's throat in the same room. */
+  WINSTON: Object.freeze({ name: 'Winston', voice: 'npc-reserve-1' }),
   /* HIS OWN VOICE, owner-cast 2026-08-06. He is the man in the chair — the one
    * the whole night is spent talking to — and he was sharing `npc-male` with
    * Deke, Winston and Pruitt, which is three other men in the same room in the
@@ -32,7 +33,9 @@ export const SPEAKERS = Object.freeze({
    * takes; see the profile's own note in `assets/sfx/manifest.json`, including
    * the length question on the id. */
   CHESTER: Object.freeze({ name: 'Chester', voice: 'chester' }),
-  PRUITT: Object.freeze({ name: 'Pruitt', voice: 'npc-male' }),
+  /* Pruitt is the silent bathroom ambusher. Reserve a distinct existing
+   * profile now so any future bark cannot collapse back onto Deke or Winston. */
+  PRUITT: Object.freeze({ name: 'Pruitt', voice: 'npc-reserve-2' }),
   HUD: Object.freeze({ name: '', voice: null }),
 });
 
@@ -109,10 +112,9 @@ export const SEQUENCES = Object.freeze({
   ]),
 
   // Ambient one-shots, played opportunistically by the mission, not queued
-  // as a hard sequence — see main.js's ambient-bark scheduling.
-  ambientTV: Object.freeze([
-    { speaker: 'DEKE', text: 'That’s — that’s a good show.', cue: cue('control', 'deke.goodshow'), hold: 2.0 },
-  ]),
+  // as a hard sequence — see main.js's ambient-bark scheduling. There is no
+  // spoken TV bark here: it was the only unrelated voice allowed to queue in
+  // the search beat and was reported intruding on Ape's first execution order.
   ambientFood: Object.freeze([
     { speaker: 'HUD', text: 'Cold takeout. Several days’ worth.', hold: 2.0 },
   ]),
@@ -158,6 +160,9 @@ export const SEQUENCES = Object.freeze({
   couchAftermath: Object.freeze([
     { speaker: 'APE', text: 'Now we have more seating.', cue: cue('couch', 'ape.moreseating'), hold: 2.4, look: 'chester' },
   ]),
+  chesterShotReaction: Object.freeze([
+    { speaker: 'CHESTER', text: 'What the hell, man?!', cue: cue('couch', 'chester.whatthehell'), hold: 1.8, look: 'deke' },
+  ]),
 
   // ---------------------------------------------------------------------
   // Shot feedback. The mission resolves a trigger pull against whatever the
@@ -175,41 +180,49 @@ export const SEQUENCES = Object.freeze({
   ]),
 
   // ---------------------------------------------------------------------
-  // Beat 6 — the Lou question. Chester's own excuses lead him straight
-  // into it; the choice prompt fires after the line below.
+  // Beat 6 — the Lou question. This is Ape interrogating CHESTER, not a
+  // multiple-choice question aimed at the player. The split lets Ape close
+  // the last step to the chair between Chester's "What?" and the repeated
+  // question without letting either performance overlap the movement.
   // ---------------------------------------------------------------------
-  louQuestionSetup: Object.freeze([
-    { speaker: 'CHESTER', text: 'Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —', cue: cue('lou', 'chester.notpersonal'), hold: 3.8 },
-    { speaker: 'APE', text: 'You ever meet Lou?', cue: cue('lou', 'ape.evermeet'), hold: 1.8 },
-    { speaker: 'CHESTER', text: 'No.', cue: cue('lou', 'chester.no'), hold: 1.0 },
-    { speaker: 'APE', text: 'Do you know what Lou looks like?', cue: cue('lou', 'ape.whatlookslike'), hold: 2.2 },
-    { speaker: 'CHESTER', text: 'I mean — I’ve heard of him, everybody’s heard of —', cue: cue('lou', 'chester.heardofhim'), hold: 3.0 },
+  louQuestionOpening: Object.freeze([
     { speaker: 'APE', text: 'Does he look like a bitch?', cue: cue('lou', 'ape.lookslikeabitch'), hold: 2.2 },
+    { speaker: 'CHESTER', text: 'What?', cue: cue('lou', 'chester.what'), hold: 1.2 },
   ]),
-  // Ape's reaction after the player's choice resolves — one line per branch.
-  louQuestionReaction: Object.freeze({
-    no: Object.freeze([{ speaker: 'APE', text: 'Good. Then start acting like it.', cue: cue('lou', 'ape.reaction.no'), hold: 2.4 }]),
-    absolutely_not: Object.freeze([{ speaker: 'APE', text: 'Good. Then start acting like it.', cue: cue('lou', 'ape.reaction.absolutelynot'), hold: 2.4 }]),
-    silent: Object.freeze([{ speaker: 'APE', text: 'Nothing to say. Smart, for once.', cue: cue('lou', 'ape.reaction.silent'), hold: 2.4 }]),
-    lighting: Object.freeze([{ speaker: 'APE', text: '…No. It does not depend on the lighting.', cue: cue('lou', 'ape.reaction.lighting'), hold: 2.8 }]),
-  }),
+  louQuestionPress: Object.freeze([
+    { speaker: 'APE', text: 'Does he look like a bitch?', cue: cue('lou', 'ape.lookslikeabitch.again'), hold: 2.4 },
+    { speaker: 'CHESTER', text: 'No.', cue: cue('lou', 'chester.no'), hold: 1.1 },
+    {
+      speaker: 'APE',
+      text: 'Then why you trying to fuck him like a bitch? Because the only one he likes to fuck is Mrs. Sputthole.',
+      cue: cue('lou', 'ape.mrssputthole'),
+      hold: 5.2,
+    },
+  ]),
 
   // ---------------------------------------------------------------------
   // Beat 7 — the Squatch prayer, partly finished by the player.
   // ---------------------------------------------------------------------
   squatchPrayerIntro: Object.freeze([
-    { speaker: 'APE', text: 'Lou believes every man should get one moment to understand why this is happening.', cue: cue('prayer', 'ape.onemoment'), hold: 3.4 },
+    { speaker: 'APE', text: 'I’m gonna share a little passage with you.', cue: cue('prayer', 'ape.sharepassage'), hold: 2.8 },
+    { speaker: 'APE', text: 'Squatchiel. Sixty-nine, seventeen.', cue: cue('prayer', 'ape.squatchiel6917'), hold: 2.8 },
   ]),
   squatchPrayer: Object.freeze([
-    { speaker: 'APE', text: 'Great Beast of the dark timber, steady our hands and mark our trail.', cue: cue('prayer', 'ape.line1'), hold: 3.6 },
-    { speaker: 'APE', text: 'Let the loyal walk beneath the silver branches.', cue: cue('prayer', 'ape.line2'), hold: 2.8 },
-    { speaker: 'APE', text: 'Let thieves hear the footsteps before they see what’s coming.', cue: cue('prayer', 'ape.line3'), hold: 3.2 },
-    { speaker: 'APE', text: 'When the forest closes behind us, let it leave no path for betrayal.', cue: cue('prayer', 'ape.line4'), hold: 3.4 },
-    { speaker: 'APE', text: 'Silver above. Family below.', cue: cue('prayer', 'ape.line5'), hold: 2.4 },
+    { speaker: 'APE', text: 'The trail of the righteous Squatch is surrounded on every side by the greed of weak men.', cue: cue('prayer', 'ape.squatchiel.line1'), hold: 4.8 },
+    { speaker: 'APE', text: 'Blessed is the Squatch who walks with his brothers.', cue: cue('prayer', 'ape.squatchiel.line2'), hold: 3.1 },
+    { speaker: 'APE', text: 'But to those who betray the family, or raise a hand against one of our own...', cue: cue('prayer', 'ape.squatchiel.line3'), hold: 4.3 },
+    { speaker: 'APE', text: 'I will strike down upon thee with great vengeance and furious anger!', cue: cue('prayer', 'ape.squatchiel.line4'), hold: 4.2 },
   ]),
-  // The player's completion line, played once the prompt resolves.
+  // The existing player-finish mechanic now carries the requested final
+  // sentence. It lands immediately before the paired chair execution rather
+  // than being buried inside Ape's recital.
   squatchPrayerFinish: Object.freeze([
-    { speaker: 'PROSPECT', text: 'No footprints left.', cue: cue('prayer', 'prospect.nofootprints'), hold: 2.0 },
+    {
+      speaker: 'PROSPECT',
+      text: 'And you will know my name is the Squatch when I lay my vengeance upon thee.',
+      cue: cue('prayer', 'prospect.squatchiel.finish'),
+      hold: 4.6,
+    },
   ]),
 
   // ---------------------------------------------------------------------
@@ -238,7 +251,7 @@ export const SEQUENCES = Object.freeze({
   // Beat 8 — the bathroom ambush.
   // ---------------------------------------------------------------------
   bathroomWarning: Object.freeze([
-    { speaker: 'HUD', text: 'BATHROOM — aim at him and fire.', hold: 2.0 },
+    { speaker: 'APE', text: 'Bathroom!', cue: cue('bathroom', 'ape.warning'), hold: 1.2 },
   ]),
   bathroomFast: Object.freeze([
     { speaker: 'APE', text: 'Good. You do listen occasionally.', cue: cue('bathroom', 'ape.listen'), hold: 2.6 },
@@ -284,32 +297,32 @@ export const SEQUENCES = Object.freeze({
 
 /**
  * Choice prompts. `options[].key` is the literal digit key that resolves it.
- * `timeout` (seconds) is how long the prompt waits before resolving to the
- * `silent`/default branch on its own — the scene keeps running the whole
+ * `timeout` (seconds) is how long the prompt waits before resolving to its
+ * default branch on its own — the scene keeps running the whole
  * time, nothing pauses.
  */
+/** Explicit tuning point for the final survivor decision. */
+export const WINSTON_DECISION_SECONDS = 27;
+
+/** Entry-to-first-objective audio bank audited as one non-vacuous contract. */
+export const SILVERCASE_OPENING_SEQUENCE_IDS = Object.freeze([
+  'carRide',
+  'hallwayArrival',
+  'arrival',
+  'doorStall',
+]);
+
 export const CHOICES = Object.freeze({
-  louQuestion: Object.freeze({
-    id: 'louQuestion',
-    timeout: 6,
-    defaultOutcome: 'silent',
-    options: Object.freeze([
-      Object.freeze({ key: '1', text: 'No.', outcome: 'no', cue: cue('lou', 'prospect.choice.no') }),
-      Object.freeze({ key: '2', text: 'Absolutely not.', outcome: 'absolutely_not', cue: cue('lou', 'prospect.choice.absolutelynot') }),
-      Object.freeze({ key: '3', text: '(Say nothing.)', outcome: 'silent', silent: true }),
-      Object.freeze({ key: '4', text: 'Depends on the lighting.', outcome: 'lighting', cue: cue('lou', 'prospect.choice.lighting'), irritatesApe: true }),
-    ]),
-  }),
   prayerFinish: Object.freeze({
     id: 'prayerFinish',
     timeout: 4,
     defaultOutcome: 'finish',
-    prompt: 'Hold E to finish the ritual.',
+    prompt: 'Hold E to finish the passage.',
     hold: 1.1,
   }),
   aftermath: Object.freeze({
     id: 'aftermath',
-    timeout: 10,
+    timeout: WINSTON_DECISION_SECONDS,
     defaultOutcome: 'spare',
     options: Object.freeze([
       Object.freeze({ key: '1', text: 'Spare him — order the cleanup.', outcome: 'spare' }),
@@ -329,9 +342,11 @@ export const OBJECTIVES = Object.freeze({
   ENTER_APARTMENT: 'Close and lock the door.',
   ESTABLISH_CONTROL: 'Find Lou’s case.',
   CASE_REVEAL: 'Watch Winston open the case.',
+  COUCH_ORDER: 'Listen to Ape.',
   COUCH_SHOOTING: 'Shoot the man on the couch.',
-  LOU_QUESTION: 'Answer, or don’t.',
-  SQUATCH_PRAYER: 'Hold E to finish the ritual.',
+  LOU_QUESTION: 'Listen to Ape.',
+  SQUATCH_PRAYER: 'Listen to Ape.',
+  PRAYER_FINISH: 'Finish the passage.',
   CHAIR_SHOOTING: 'Shoot the man in the chair.',
   BATHROOM_AMBUSH: 'BATHROOM!',
   AFTERMATH: 'Decide what happens to Winston.',

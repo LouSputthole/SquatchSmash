@@ -142,6 +142,7 @@ const {
   MANSION_BACKGROUND_SCOPES,
   MANSION_NEXT_BEAT_SCOPES,
   MANSION_NEXT_BEAT_ZONES,
+  MANSION_RETURN_SCOPES,
   MANSION_START_SCOPES,
   mansionAudioBanks,
 } = await import('../src/mansion/audio-banks.js');
@@ -203,7 +204,10 @@ test('Mansion: every script scope is banked, and no scope is banked twice', () =
   const scriptSource = readSource('src/mansion/script.js');
   const minted = new Set([...scriptSource.matchAll(/cue\('([a-z]+)'/g)].map((match) => match[1]));
   assert.ok(minted.size >= 20, `expected the whole script, saw ${minted.size} scopes`);
-  const banked = [...MANSION_START_SCOPES, ...MANSION_NEXT_BEAT_SCOPES, ...MANSION_BACKGROUND_SCOPES];
+  const banked = [
+    ...MANSION_START_SCOPES, ...MANSION_NEXT_BEAT_SCOPES,
+    ...MANSION_BACKGROUND_SCOPES, ...MANSION_RETURN_SCOPES,
+  ];
   assert.equal(new Set(banked).size, banked.length, 'a scope in two banks decodes twice');
   for (const scope of minted) {
     assert.ok(banked.includes(scope), `scope "${scope}" fell out of every bank`);
@@ -225,25 +229,37 @@ test('Mansion: the opening walk is start-bank, the basement is nextBeat, the eve
   for (const name of ['silent.case.hum', 'bing.grill.cord.handoff', 'chair.sit']) {
     assert.ok(coveredBy(name, banks.start), name);
   }
-  assert.ok(coveredBy('vo.silentsquatch.arrival.prospect.humming', banks.start));
+  assert.ok(coveredBy('vo.silentsquatch.arrival.prospect.firstvisitcase', banks.start));
   assert.ok(coveredBy('vo.silentsquatch.delivery.booski.deliveryboy', banks.nextBeat));
   assert.ok(!coveredBy('vo.silentsquatch.delivery.booski.deliveryboy', banks.start),
     'the basement must not block the start button');
   assert.ok(coveredBy('vo.silentsquatch.evening.stove.godfather', banks.background));
 
   /* Every recorded mansion take lands in exactly one bank. */
+  const returnBanks = mansionAudioBanks('return');
   for (const cue of soundManifest.sfx) {
     if (!cue.name.startsWith('vo.silentsquatch.')) continue;
     const homes = [banks.start, banks.nextBeat, banks.background]
       .filter((bank) => coveredBy(cue.name, bank)).length;
+    /* THE ONE SCOPE THE MISSION VISIT MUST NOT CARRY. `return` is the morning
+     * after -- the guards acknowledging the siege, Snow quoting six weeks for
+     * the foyer -- and none of it is reachable on the night of the mission, so
+     * a take of it in the mission's start bank is a decode in front of the
+     * start button for a line nobody can hear. It belongs to the return visit
+     * and to nothing else. */
+    if (cue.name.startsWith('vo.silentsquatch.return.')) {
+      assert.equal(homes, 0, `${cue.name} is a return-visit line, banked on the mission night`);
+      assert.ok(coveredBy(cue.name, returnBanks.start), `${cue.name} is in no return bank`);
+      continue;
+    }
     assert.equal(homes, 1, `${cue.name} is in ${homes} banks`);
   }
 
   /* The return briefing folds the mission scopes into its start bank. */
-  const returnBanks = mansionAudioBanks('return');
   assert.equal(returnBanks.nextBeat, null);
   assert.ok(returnBanks.start.prefixes.includes('vo.silentsquatch.aftermath.'));
   assert.ok(returnBanks.start.prefixes.includes('vo.silentsquatch.evening.'));
+  assert.ok(returnBanks.start.prefixes.includes('vo.silentsquatch.return.'));
 });
 
 test('Mansion: the cellar boundary awaits by construction — zones held, resume paths awaited', () => {
@@ -320,7 +336,7 @@ test('Enola Squatch: the dispatch gate holds a beat\'s first line until its bank
     audio: { line: () => 0 },
     canSpeak: () => !banksPending,
   });
-  dialogue.play('hangar.reveal');
+  dialogue.play('preflight.arrival');
   /* Simulated clock; the bank is still decoding, so nothing dispatches. */
   for (let tick = 0; tick < 20; tick++) dialogue.update(0.5);
   assert.equal(dialogue.current, null);
@@ -560,7 +576,15 @@ test('THE SPECIAL MEETING: the block asks for its whole cue catalogue by name', 
   const mainSource = fs.readFileSync(path.join(ROOT, 'src/specialmeeting/main.js'), 'utf8');
   const call = mainSource.match(/loadAdditional\(\{([^]*?)\}\);/);
   assert.ok(call, 'the page still preloads through loadAdditional');
-  assert.match(call[1], /names: \[\.\.\.SPECIAL_MEETING_VOICE_CUES, \.\.\.AMBIENCE_CUES\]/);
+  /* Keep this semantic rather than pinning the array's old one-line formatting.
+   * The forest drive now owns two continuous travel beds in addition to the
+   * block catalogue; all three sources must be passed to the same residency
+   * request so the fade can carry real engine/road audio through black. */
+  assert.match(call[1], /\.\.\.SPECIAL_MEETING_VOICE_CUES/);
+  assert.match(call[1], /\.\.\.AMBIENCE_CUES/);
+  assert.match(call[1], /\.\.\.Object\.values\(FOREST_TRAVEL_AUDIO\)\.map\(\(\{ cue \}\) => cue\)/);
+  assert.match(mainSource, /cue: 'car\.engine\.idle'/);
+  assert.match(mainSource, /cue: 'heist\.vehicle\.tires\.road'/);
   const prefixes = [...call[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
   /* Why the names list is not redundant: two of the nine cues share no prefix
    * with the other seven, and both are recorded. `ambience.alley` is the
@@ -571,7 +595,7 @@ test('THE SPECIAL MEETING: the block asks for its whole cue catalogue by name', 
   for (const cue of missedByPrefixAlone) assert.ok(delivered(cue), cue);
 });
 
-test('Mansion: the house receiver and the sets decode, and they do it in the background bank', () => {
+test('Mansion: the one persistent house receiver decodes in the background bank', () => {
   /* THE SIXTH RADIO-HOSTING PAGE, AND THE ONLY ONE THAT NEVER ASKED.
    *
    * The flat, the Bing, Silver Pines' cart, the Beef Run cockpit and NO WAKE
@@ -618,9 +642,30 @@ test('Mansion: the house receiver and the sets decode, and they do it in the bac
   assert.match(mainSource, /mansionAudioBanks\(\n\s+mansionVisit,\n\s+houseRadio\.preloadCueNames\(\{ hours: \[HOUSE_RADIO_HOUR\] \}\),\n\)/);
   /* One hour, read twice from one constant -- the receiver's clock and the
    * preload window cannot drift apart into a bank that decodes the wrong show. */
-  assert.match(mainSource, /\{ hour: HOUSE_RADIO_HOUR \}, \{ venue: 'mansion' \}/);
-  /* And it is still built switched off, which is the affordability argument. */
-  assert.match(mainSource, /houseRadio\.on = false;\n\s*houseRadio\.preferredOn = false;/);
+  assert.match(mainSource, /\{ hour: HOUSE_RADIO_HOUR \}, \{\n\s+venue: 'mansion'/);
+  /* One physical tuner across both campaign visits, default-off on a new
+   * save. A saved-on tuner is restored only inside beginTour, after the real
+   * start gesture initializes the AudioContext, and that restoration cannot
+   * create a second radio.talk owner because there is only one Radio. */
+  assert.match(mainSource,
+    /state: createCampaignRadioAdapter\(mansionRecoveryCampaign, \{[\s\S]*?receiverId: 'mansion_house',[\s\S]*?defaultPower: false,/);
+  assert.match(mainSource,
+    /if \(houseRadio\.preferredOn\) \{[\s\S]*?houseRadio\.turnOn\(\{ remember: false \}\);[\s\S]*?syncHouseRadioSets\(\);/);
+  assert.equal((mainSource.match(/\bnew Radio\(/g) ?? []).length, 1);
+});
+
+test('Luxury and Mansion persist separate default-off physical receivers after audio unlock', () => {
+  const luxurySource = readSource('src/luxury-apartment/main.js');
+  const mansionSource = readSource('src/mansion/main.js');
+
+  assert.match(luxurySource,
+    /state: createCampaignRadioAdapter\(campaign, \{[\s\S]*?receiverId: 'luxury_apartment',[\s\S]*?defaultPower: false,/);
+  assert.match(luxurySource,
+    /await audio\.loadManifest\([\s\S]*?if \(radio\.preferredOn\) radio\.turnOn\(\{ remember: false \}\);\n\s+home\.state\.radioOn = radio\.on;/);
+  assert.match(mansionSource,
+    /state: createCampaignRadioAdapter\(mansionRecoveryCampaign, \{[\s\S]*?receiverId: 'mansion_house',[\s\S]*?defaultPower: false,/);
+  assert.doesNotMatch(luxurySource, /receiverId: 'mansion_house'/);
+  assert.doesNotMatch(mansionSource, /receiverId: 'luxury_apartment'/);
 });
 
 test('Mansion: every recorded mansion.* take is one the house actually plays', () => {

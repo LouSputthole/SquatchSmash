@@ -105,7 +105,7 @@ import {
  * AUBBIE is not imported for the same reason, found by the owner on the
  * 2026-08-13 playtest: *"Voice lines from Aubbie in the siege? he should be
  * dead."* He is -- PROJECT SILENT SQUATCH ends with Booski's "Eliminate
- * Aubbie" objective on Day 5 at 8:10 PM, and this siege starts eight hours
+ * Aubbie" objective on Day 8 at 8:10 PM, and this siege starts six hours
  * later. GRATIN inherits his post: an established Family member with a landed
  * face photograph (`src/mansion/cast.js` already runs him in the
  * interrogation area) who has no death anywhere in the campaign. A test in
@@ -1472,7 +1472,14 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
     beat = name;
     killBudget = KILL_BUDGET[name] ?? 0;
     for (const member of members.values()) {
-      const post = member.posts[name] ?? null;
+      /* Reaching the armory is when the defence is already taking shape out
+       * of sight above the player. ARM intentionally reuses the TO_OFFICE
+       * posting: this stages and faces the squad before either an ordinary
+       * pickup or a direct Armory checkpoint can expose the upper floors.
+       * The next beat is therefore a same-post no-op, not a visible snap. */
+      const post = member.posts[name]
+        ?? (name === 'ARM' ? member.posts.TO_OFFICE : null)
+        ?? null;
       member.post = post;
       /* A beat changes the job of somebody who is still on his feet. It does
        * not move a body to the next mark or stand a protected man up while
@@ -2032,6 +2039,7 @@ export function buildSiegeEnsemble({ scene, damage, matrix, audio = null, ground
 
       /* --- fire --- */
       member.figure.update(step, { fear: member.suppression.value * 0.6 });
+      if (ctx.holdFire === true) continue;
       if (!best || member.wounded || !member.weapon) continue;
       if (member.businessKey === 'reload' || member.businessKey === 'tend') continue;
       if (member.suppression.value > 0.8) continue;

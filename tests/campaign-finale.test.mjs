@@ -59,8 +59,10 @@ test('Initiation completion makes one durable recap ready at the Apartment', () 
   });
 
   const recap = buildCampaignCareerRecap(campaign.state);
-  assert.equal(recap.title, 'Made.');
-  assert.equal(recap.stats.length, 6);
+  assert.equal(recap.title, "THE PROSPECT'S RECORD");
+  assert.equal(recap.stats.length, 9);
+  assert.equal(recap.stats.find(({ label }) => label === 'Cabin execution').value,
+    'Not recorded');
   assert.equal(recap.credits.at(-1).name, 'Thanks for playing');
 
   const reloaded = createCampaign({ storage });
@@ -100,4 +102,3 @@ test('a v16 completed save migrates forward and receives the finale once', () =>
   assert.equal(migrated.state.finale.creditsViewed, false);
   assert.equal(migrated.state.finale.freeplayUnlocked, false);
 });
-

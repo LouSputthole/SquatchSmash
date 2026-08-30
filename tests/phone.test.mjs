@@ -15,6 +15,7 @@ const {
 const {
   EVENT_IDS,
   MISSION_IDS,
+  SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
 } = await import('../src/core/campaign.js');
@@ -54,6 +55,90 @@ test('Lou uses the phone to stage the Bing, never the removed Day One email', ()
   });
   const answeredLou = phoneThreadsForCampaign(campaign.state).find((thread) => thread.id === 'lou');
   assert.match(answeredLou.messages.at(-1).text, /Bing tonight/i);
+});
+
+test('Lou’s lay-low thread belongs only to the real Act One cabin', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  assert.equal(phoneThreadsForCampaign(campaign.state).some(({ id }) => id === 'cabin'), false);
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+    state.scene = { id: SCENE_IDS.COUNTRYSIDE_CABIN, spawn: 'arrival' };
+  });
+  const cabin = phoneThreadsForCampaign(campaign.state).find(({ id }) => id === 'cabin');
+  assert.equal(cabin.who, 'UNCLE LOU · LAY LOW');
+  assert.equal(cabin.readEventId, TIME_EVENT_IDS.PHONE_READ_CABIN);
+  assert.equal(cabin.unread, true);
+  assert.match(cabin.messages.map(({ text }) => text).join(' '), /cabin.*forestry gate/i);
+  assert.match(cabin.messages.map(({ text }) => text).join(' '), /walk the property/i);
+  assert.match(cabin.messages.map(({ text }) => text).join(' '), /driver.*north.*do not go home/i);
+  assert.doesNotMatch(cabin.messages.map(({ text }) => text).join(' '), /clean the apartment|Ape will collect/i);
+
+  campaign.advanceTime(phoneReadEventForThread('cabin'));
+  const restored = phoneThreadsForCampaign(createCampaign({ storage }).state)
+    .find(({ id }) => id === 'cabin');
+  assert.equal(restored.unread, false);
+
+  campaign.update((state) => {
+    state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+  });
+  assert.equal(phoneThreadsForCampaign(campaign.state).some(({ id }) => id === 'cabin'), false,
+    'finishing THE TAKE resurrected the retired post-heist cabin route');
+});
+
+test('legacy big-night state never speaks for the current Special Meeting pickup', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
+    state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'pending';
+  });
+
+  const beforeMeeting = phoneThreadsForCampaign(campaign.state)
+    .find(({ id }) => id === 'family').messages.map(({ text }) => text).join(' ');
+  assert.doesNotMatch(beforeMeeting, /big night|everybody is waiting|seven sharp/i);
+  assert.match(beforeMeeting, /get some sleep.*keep your phone on/i);
+
+  campaign.update((state) => {
+    state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL].status = 'answered';
+  });
+  const afterMeeting = phoneThreadsForCampaign(campaign.state)
+    .find(({ id }) => id === 'family').messages.map(({ text }) => text).join(' ');
+  assert.match(afterMeeting, /special meeting/i);
+  assert.match(afterMeeting, /Seff.*Lag.*Numbskull.*pick you up/i);
+});
+
+test('campaign texts wait for the matching Cabin calls instead of spoiling them from mission state', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+    state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'pending';
+    state.events[EVENT_IDS.CABIN_BILLY_CALL].status = 'pending';
+  });
+
+  const texts = () => phoneThreadsForCampaign(campaign.state)
+    .find(({ id }) => id === 'family').messages.map(({ text }) => text).join(' ');
+  assert.doesNotMatch(texts(), /Sasole|plane|HotDog party/i);
+
+  campaign.update((state) => {
+    state.events[EVENT_IDS.CABIN_BOOSKI_SASOLE_CALL].status = 'answered';
+  });
+  assert.match(texts(), /Sasole|plane/i);
+  assert.doesNotMatch(texts(), /HotDog party/i);
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+    state.events[EVENT_IDS.CABIN_BILLY_CALL].status = 'pending';
+  });
+  assert.doesNotMatch(texts(), /HotDog party/i,
+    'finishing the flight exposed the later Billy call');
+
+  campaign.update((state) => {
+    state.events[EVENT_IDS.CABIN_BILLY_CALL].status = 'answered';
+  });
+  assert.match(texts(), /HotDog party/i);
 });
 
 test('reading the selected phone thread marks it through the shared campaign callback', () => {
@@ -111,6 +196,34 @@ test('the campaign can own scheduled calls and observe a physical-phone answer',
   assert.deepEqual(callStates, [[true, 'Lou'], [false, 'Lou']]);
 });
 
+test('an unskippable story call ignores double-E and manual hang-up until its script completes', () => {
+  const callStates = [];
+  const phone = new Phone({
+    time: { day: 5, hour: 11.5 },
+    calls: [],
+    audio: { play: () => null, startLoop() {}, stopLoop() {} },
+    onCallState: (connected) => callStates.push(connected),
+  });
+
+  phone.ring({
+    from: 'Gratin',
+    vo: 'call.gratin.required',
+    lines: ['Listen to the whole thing.'],
+    allowHangup: false,
+  });
+  phone.press();
+  assert.equal(phone.inCall, true);
+  phone.press();
+  assert.equal(phone.inCall, true, 'the second E must not turn an answer into completion');
+  assert.equal(phone.hangUp(), false);
+  assert.equal(phone.inCall, true);
+  assert.deepEqual(callStates, [true]);
+
+  for (let index = 0; index < 100 && phone.inCall; index += 1) phone.update(0.25);
+  assert.equal(phone.call, null);
+  assert.deepEqual(callStates, [true, false]);
+});
+
 test('a call is both halves, and Tony’s take their cue from the caller’s bank', () => {
   const turns = callScript({
     vo: 'call.lou.bada_bing',
@@ -131,6 +244,56 @@ test('a call is both halves, and Tony’s take their cue from the caller’s ban
   assert.deepEqual(callScript({ vo: 'call.hr', lines: ['Hi!'] }), [
     { who: 'them', text: 'Hi!', cue: 'vo.call.hr.1' },
   ]);
+});
+
+test('an outgoing call has no incoming ring or decline and Tony speaks before the other person answers', () => {
+  const played = [];
+  const loops = [];
+  const answered = [];
+  const states = [];
+  const definition = {
+    from: 'Margo',
+    vo: 'call.margo.cabin_date',
+    outgoing: true,
+    allowHangup: false,
+    lines: ['Tony. I was starting to think the number was decorative.'],
+    replies: ['Hello? Tony. From the Bing.'],
+  };
+  assert.deepEqual(callScript(definition), [
+    { who: 'me', text: 'Hello? Tony. From the Bing.', cue: 'vo.call.margo.cabin_date.tony.1' },
+    { who: 'them', text: definition.lines[0], cue: 'vo.call.margo.cabin_date.1' },
+  ]);
+
+  const phone = new Phone({
+    calls: [],
+    audio: {
+      play(name) { played.push(name); return null; },
+      startLoop(name) { loops.push(name); },
+      stopLoop() {},
+    },
+    onCallState: (connected) => states.push(connected),
+  });
+  phone.onAnswered = (call) => answered.push(call);
+
+  assert.equal(phone.startOutgoing(definition), true);
+  assert.equal(phone.ringing, false);
+  assert.equal(phone.inCall, true);
+  assert.equal(phone.outgoing, true);
+  assert.equal(phone.call.connected, false, 'the screen must begin in its calling state');
+  assert.deepEqual(loops, [], 'an outgoing decision played the incoming ringtone');
+  assert.deepEqual(answered, [definition]);
+  assert.deepEqual(states, [true]);
+  assert.equal(phone.hangUp(), false, 'required outgoing dialogue became skippable');
+
+  phone.update(0.01);
+  assert.deepEqual(played, ['vo.call.margo.cabin_date.tony.1']);
+  assert.equal(phone.call.connected, false);
+  phone.update(10);
+  assert.deepEqual(played.slice(0, 2), [
+    'vo.call.margo.cabin_date.tony.1',
+    'vo.call.margo.cabin_date.1',
+  ]);
+  assert.equal(phone.call.connected, true, 'the caller never changed from calling to connected');
 });
 
 test('both halves of a call are played, and an unrecorded one holds a beat', () => {

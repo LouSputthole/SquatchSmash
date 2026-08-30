@@ -88,9 +88,9 @@ test('the runtime party and graveyard scripts are the authoritative voice catalo
   assert.deepEqual(
     graveyard.filter((line) => line.cue.startsWith('vo.graveyard.arrival.')).map((line) => line.cue),
     [
-      'vo.graveyard.arrival.snow.1',
-      'vo.graveyard.arrival.prospect.1',
-      'vo.graveyard.arrival.snow.2',
+      'vo.graveyard.arrival.snow.watched-home',
+      'vo.graveyard.arrival.prospect.why-motel',
+      'vo.graveyard.arrival.snow.daylight-cover',
     ],
   );
   assert.deepEqual(
@@ -101,13 +101,13 @@ test('the runtime party and graveyard scripts are the authoritative voice catalo
     })),
     [
       {
-        cue: 'vo.graveyard.snow.bark.car',
-        text: 'Car. Now. Room twelve is not getting cleaner while we stand here.',
+        cue: 'vo.graveyard.snow.bark.daylight',
+        text: 'Car. Now. Room twelve buys us daylight.',
         voice: 'snow',
       },
       {
         cue: 'vo.graveyard.snow.bark.plot',
-        text: 'Fresh plot is past GeeWiz. Sauce\'s hole stays open.',
+        text: 'Fresh plot is past GeeWiz. The reserved hole stays open.',
         voice: 'snow',
       },
     ],

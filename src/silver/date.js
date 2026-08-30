@@ -121,6 +121,13 @@ export class Date_ {
     this._hisSpeed = 0;
     /** Which shoulder. A decision, kept until that side is blocked. */
     this._side = 1;
+    this._seatMove = null;
+    this._seatedClock = 0;
+    this._seatedNext = 5.5;
+    this._seatedAction = null;
+    this._seatedActionFor = 0;
+    this._seatedActionIndex = 0;
+    this.drinkLevel = 0;
   }
 
   get position() { return this.group.position; }
@@ -167,6 +174,46 @@ export class Date_ {
     this.npc.homeYaw = seat.yaw;
     this.npc.job = 'sit';
     this.npc.sit();
+    this._seatMove = null;
+    this._seatedClock = 0;
+  }
+
+  /**
+   * Walk the last half-step, turn, back into the chair and lower into it.
+   * Checkpoint restores still use the immediate `sitAt`; only a live chair
+   * pull needs root motion the player can watch.
+   */
+  sitAtAnimated(seat, { chair = null } = {}) {
+    if (!seat || this.mode === 'seating' || this.mode === 'seated') return false;
+    const from = this.group.position.clone();
+    const table = this.room.anchors.frontTable;
+    const ox = seat.x - table.x;
+    const oz = seat.z - table.z;
+    const d = Math.hypot(ox, oz) || 1;
+    const approach = new THREE.Vector3(
+      seat.x + (ox / d) * 0.52,
+      this.room.groundAt(seat.x, seat.z),
+      seat.z + (oz / d) * 0.52,
+    );
+    this.mode = 'seating';
+    this.npc.job = 'stand';
+    this.npc.stand();
+    const chairFrom = chair?.position?.clone?.() ?? null;
+    const chairPulled = chairFrom?.clone?.() ?? null;
+    if (chairPulled) {
+      chairPulled.x += (ox / d) * 0.38;
+      chairPulled.z += (oz / d) * 0.38;
+    }
+    this._seatMove = {
+      seat, from, approach, chair, chairFrom, chairPulled,
+      t: 0, duration: 2.8,
+    };
+    return true;
+  }
+
+  /** A refill/replacement gives her something real to sip. */
+  setDrinkLevel(level = 1) {
+    this.drinkLevel = Math.max(0, Math.min(1, Number(level) || 0));
   }
 
   standFrom(spot) {
@@ -234,6 +281,11 @@ export class Date_ {
   update(dt, playerPos, playerYaw) {
     const npc = this.npc;
 
+    if (this.mode === 'seating') {
+      this._updateSeating(dt, playerPos);
+      return;
+    }
+
     if (this.mode === 'seated' || this.mode === 'scene' || this.mode === 'idle') {
       if (this.lookFor > 0) {
         this.lookFor -= dt;
@@ -245,6 +297,7 @@ export class Date_ {
         npc.faceToward(playerPos.x, playerPos.z);
       }
       npc.update(dt, playerPos);
+      if (this.mode === 'seated') this._updateSeatedLife(dt, playerPos);
       return;
     }
 
@@ -460,6 +513,117 @@ export class Date_ {
     }
 
     npc.update(dt, playerPos);
+  }
+
+  _updateSeating(dt, playerPos) {
+    const move = this._seatMove;
+    if (!move) return;
+    move.t = Math.min(move.duration, move.t + dt);
+    const k = move.t / move.duration;
+    const pos = this.group.position;
+    const smooth = (v) => v * v * (3 - 2 * v);
+
+    this.npc.update(dt, playerPos);
+    /* First the chair visibly comes out. She waits for the gesture instead of
+     * phasing through a chair that never moved. */
+    if (k < 0.20) {
+      if (move.chair && move.chairFrom && move.chairPulled) {
+        move.chair.position.lerpVectors(move.chairFrom, move.chairPulled, smooth(k / 0.20));
+        this.room.syncFrontTableNav?.(true);
+      }
+      this.npc.faceToward(move.approach.x, move.approach.z);
+      return;
+    }
+
+    if (k < 0.56) {
+      const p = smooth((k - 0.20) / 0.36);
+      pos.lerpVectors(move.from, move.approach, p);
+      this.npc.faceToward(move.approach.x, move.approach.z);
+      const gait = Math.sin(move.t * 9) * 0.34;
+      this.npc.parts.legL.rotation.x = gait;
+      this.npc.parts.legR.rotation.x = -gait;
+      this.npc.parts.armL.rotation.x = -gait * 0.35;
+      this.npc.parts.armR.rotation.x = gait * 0.35;
+      return;
+    }
+
+    const turn = smooth(Math.min(1, (k - 0.56) / 0.16));
+    const yaw = move.seat.yaw;
+    const delta = Math.atan2(Math.sin(yaw - this.group.rotation.y), Math.cos(yaw - this.group.rotation.y));
+    this.group.rotation.y += delta * turn;
+    if (k < 0.72) return;
+
+    /* Back the hips into the marker while knees fold. The final snap is only
+     * the switch to the stable shared seated pose, after roots already agree. */
+    const lower = smooth((k - 0.72) / 0.28);
+    pos.x = move.approach.x + (move.seat.x - move.approach.x) * lower;
+    pos.z = move.approach.z + (move.seat.z - move.approach.z) * lower;
+    pos.y = this.room.groundAt(pos.x, pos.z) - lower * 0.02;
+    this.npc.parts.legL.rotation.x = -lower * 1.22;
+    this.npc.parts.legR.rotation.x = -lower * 1.22;
+    this.npc.parts.body.rotation.x = lower * 0.08;
+    /* Bring the chair back under her only as her hips lower. The root and the
+     * furniture arrive at the authored seat together, so the final stable sit
+     * pose is a handoff rather than a visible snap. */
+    if (move.chair && move.chairFrom && move.chairPulled) {
+      const chairK = smooth(Math.max(0, (k - 0.80) / 0.20));
+      move.chair.position.lerpVectors(move.chairPulled, move.chairFrom, chairK);
+      this.room.syncFrontTableNav?.(true);
+    }
+    if (k >= 1) this.sitAt(move.seat);
+  }
+
+  /**
+   * A varied seated life pass. The actions are deliberately long and sparse;
+   * this is a person following the room, not a three-second idle loop.
+   */
+  _updateSeatedLife(dt, playerPos) {
+    this._seatedClock += dt;
+    if (this._seatedActionFor > 0) this._seatedActionFor -= dt;
+    if (this._seatedActionFor <= 0 && this._seatedClock >= this._seatedNext) {
+      const actions = this.drinkLevel > 0.08
+        ? ['sip', 'stage', 'adjust', 'player', 'gesture', 'waiter']
+        : ['stage', 'adjust', 'player', 'gesture', 'waiter'];
+      this._seatedAction = actions[this._seatedActionIndex++ % actions.length];
+      this._seatedActionFor = 2.1 + (this._seatedActionIndex % 3) * 0.55;
+      this._seatedNext = this._seatedClock + 7.5 + (this._seatedActionIndex % 4) * 1.7;
+      if (this._seatedAction === 'sip') this.drinkLevel = Math.max(0, this.drinkLevel - 0.24);
+    }
+    const P = this.npc.parts;
+    const phase = Math.max(0, Math.min(1, this._seatedActionFor / 2.8));
+    const ease = Math.sin(phase * Math.PI);
+    switch (this._seatedAction) {
+      case 'sip':
+        P.armR.rotation.x = -0.58 - ease * 0.38;
+        P.foreR.rotation.x = -0.82 - ease * 1.02;
+        P.head.rotation.x = -ease * 0.11;
+        break;
+      case 'stage':
+        if (this.room.anchors.stageCentre) {
+          this.npc.faceToward(this.room.anchors.stageCentre.x, this.room.anchors.stageCentre.z);
+        }
+        P.body.rotation.z = ease * 0.035;
+        break;
+      case 'adjust':
+        P.body.rotation.x = 0.04 + ease * 0.07;
+        P.armL.rotation.z = -ease * 0.20;
+        break;
+      case 'gesture':
+        P.armL.rotation.x = -ease * 0.56;
+        P.foreL.rotation.x = -ease * 0.88;
+        P.head.rotation.z = -ease * 0.045;
+        break;
+      case 'waiter':
+        P.armR.rotation.x = -ease * 0.48;
+        P.foreR.rotation.x = -ease * 0.62;
+        P.head.rotation.y = ease * 0.24;
+        break;
+      case 'player':
+      default:
+        if (playerPos) this.npc.faceToward(playerPos.x, playerPos.z);
+        P.head.rotation.z = Math.sin(this._seatedClock * 0.8) * 0.025;
+        break;
+    }
   }
 
   /** Her own collision, against the same boxes the player uses. */

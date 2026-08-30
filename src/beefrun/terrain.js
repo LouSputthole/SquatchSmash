@@ -206,6 +206,160 @@ export function terrainSlope(x, z) {
   return Math.acos(clamp(n.y, -1, 1));
 }
 
+/* ---------- LOD seams ----------------------------------------------------
+ *
+ * OWNER PLAYTEST, VERBATIM: *"The map has slight gaps between the terrain
+ * chunks. You can see blue sky between the big large terrain chunks as you go
+ * through the desert and approach the el hueso airport."*
+ *
+ * He is looking at a T-junction crack, and it is not slight. Every chunk is a
+ * 500 m plane triangulated at `DETAIL[ring]` segments a side, and the ring is
+ * the chunk's distance from the aircraft -- so two chunks that share an edge
+ * routinely carry DIFFERENT segment counts. Both sample the same continuous
+ * heightfield, but a 28-segment edge has 29 vertices along it and an
+ * 8-segment edge has 9, and between vertices each is a straight line. Two
+ * different straight-line approximations of the same ridge do not meet.
+ *
+ * MEASURED over the whole route, every chunk edge, every pair of detail
+ * levels: the two surfaces part company by up to 73.9 m, worst at cx -1,
+ * cz -20 between DETAIL 28 and DETAIL 8 -- which is the desert run into El
+ * Hueso, exactly where he saw it. Through that gap is the sky.
+ *
+ * THE FIX IS A SKIRT, not a re-topology. Stitching an edge to its neighbour
+ * means knowing the neighbour's detail at build time and rebuilding both
+ * whenever a ring boundary sweeps past -- order-dependent, and wrong in the
+ * one frame the order slips. A skirt is an apron of ground-coloured geometry
+ * hanging straight DOWN from all four borders: it is under the terrain and
+ * invisible everywhere except through a crack, where it is the thing you see
+ * instead of sky. It cannot be wrong, and it does not care what the neighbour
+ * is doing.
+ *
+ * The depth is measured rather than picked. Every border vertex already knows
+ * its own height; comparing it against what the COARSEST possible neighbour
+ * would interpolate at that point gives this chunk's own worst disagreement,
+ * and the apron is cut to that plus a margin. A flat chunk gets the floor
+ * value; the cliff at El Hueso gets what the cliff needs.
+ */
+
+/** Every segment count a neighbouring chunk can ever be built at. */
+const NEIGHBOUR_DETAILS = DETAIL;
+/** Never less than this, so a flat chunk still closes on float noise. */
+const SKIRT_MIN = 8;
+/** Added to the measured worst case. */
+const SKIRT_MARGIN = 6;
+
+/**
+ * Linear interpolation along an edge whose `n + 1` sample heights are known.
+ *
+ * `t` runs 0..1 across the chunk side. This is exactly what the GPU draws
+ * between two vertices, which is the whole point: the crack is the difference
+ * between two of these at different `n`, not between either and the field.
+ */
+function edgeLerp(heights, t) {
+  const n = heights.length - 1;
+  const f = Math.min(n - 1e-9, Math.max(0, t * n));
+  const j = Math.floor(f);
+  return heights[j] + (f - j) * (heights[j + 1] - heights[j]);
+}
+
+/**
+ * Hang an apron off all four borders of a built chunk geometry, deep enough
+ * to close the worst seam this chunk can have against any neighbour.
+ *
+ * Appends to the geometry in place: the plane's own vertices and triangles are
+ * untouched and the skirt rides the same draw call, so this costs no extra
+ * material, mesh or state change per chunk.
+ */
+function skirtChunk(geo, ox, oz, segs) {
+  const pos = geo.attributes.position;
+  const col = geo.attributes.color;
+  const n = segs + 1;
+  const half = CHUNK / 2;
+  /* PlaneGeometry rows run +Z after the -90 rotate about X, columns run +X, so
+   * a vertex is `iy * n + ix`. The four borders are the two extreme rows and
+   * the two extreme columns. */
+  const border = [
+    { at: (u) => terrainHeight(ox - half + u * CHUNK, oz - half), idx: (k) => k },
+    { at: (u) => terrainHeight(ox - half + u * CHUNK, oz + half), idx: (k) => segs * n + k },
+    { at: (u) => terrainHeight(ox - half, oz - half + u * CHUNK), idx: (k) => k * n },
+    { at: (u) => terrainHeight(ox + half, oz - half + u * CHUNK), idx: (k) => k * n + segs },
+  ];
+
+  /* SAMPLED FINER THAN EITHER EDGE, deliberately. The largest gap between two
+   * piecewise-linear reads of the same ridge sits at a vertex of ONE of them,
+   * and which one is not known in advance -- checking only this chunk's own
+   * vertices misses every maximum that falls at a coarse vertex, and measured
+   * on the El Hueso cliff that undercounts the real 73.9 m seam by a third.
+   * Four samples per fine segment costs nothing: both sides are pure
+   * interpolation over heights that are already in hand. */
+  /* AGAINST EVERY DETAIL LEVEL, not just the coarsest. It is tempting to
+   * assume the coarsest neighbour is the worst one; it is not. Where the
+   * vertices of a middling level straddle a ridge crest that the coarsest
+   * level happens to sample near, the middling read parts company further --
+   * measured on the El Hueso cliff, DETAIL 8 opens a 73.9 m seam against
+   * DETAIL 28 where DETAIL 6 opens 55.6. Six extra edge reads is the price of
+   * not guessing which one is the enemy.
+   *
+   * Sampled finer than either edge, too: the largest gap between two
+   * piecewise-linear reads of the same ridge sits at a vertex of ONE of them,
+   * and checking only this chunk's own vertices misses every maximum that
+   * falls at the neighbour's. */
+  let worst = 0;
+  for (const edge of border) {
+    const fine = [];
+    for (let k = 0; k <= segs; k += 1) fine.push(pos.getY(edge.idx(k)));
+    for (const level of NEIGHBOUR_DETAILS) {
+      if (level === segs) continue;                  // a matching edge cannot crack
+      const other = [];
+      for (let k = 0; k <= level; k += 1) other.push(edge.at(k / level));
+      const samples = Math.max(segs, level) * 4;
+      for (let k = 0; k <= samples; k += 1) {
+        const t = k / samples;
+        const d = Math.abs(edgeLerp(fine, t) - edgeLerp(other, t));
+        if (d > worst) worst = d;
+      }
+    }
+  }
+  const depth = Math.max(SKIRT_MIN, worst + SKIRT_MARGIN);
+
+  const base = pos.count;
+  const added = border.length * n;
+  const newPos = new Float32Array((base + added) * 3);
+  const newCol = new Float32Array((base + added) * 3);
+  newPos.set(pos.array.subarray(0, base * 3));
+  newCol.set(col.array.subarray(0, base * 3));
+
+  const index = [...geo.index.array];
+  for (let e = 0; e < border.length; e += 1) {
+    const { idx } = border[e];
+    const first = base + e * n;
+    for (let k = 0; k <= segs; k += 1) {
+      const src = idx(k);
+      const dst = first + k;
+      newPos[dst * 3] = pos.getX(src);
+      newPos[dst * 3 + 1] = pos.getY(src) - depth;
+      newPos[dst * 3 + 2] = pos.getZ(src);
+      newCol[dst * 3] = col.getX(src);
+      newCol[dst * 3 + 1] = col.getY(src);
+      newCol[dst * 3 + 2] = col.getZ(src);
+    }
+    /* Wound both ways. The apron is seen from outside on one border and from
+     * inside on the opposite one, and a back-faced skirt is a skirt that is
+     * not there in half the cases -- which is the bug this is closing. */
+    for (let k = 0; k < segs; k += 1) {
+      const a = idx(k);
+      const b = idx(k + 1);
+      const c = first + k + 1;
+      const d = first + k;
+      index.push(a, b, c, a, c, d, a, c, b, a, d, c);
+    }
+  }
+
+  geo.setAttribute('position', new THREE.BufferAttribute(newPos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(newCol, 3));
+  geo.setIndex(index);
+}
+
 // ---------- Chunk meshes ----------
 
 const treeTrunkGeo = new THREE.CylinderGeometry(0.5, 0.8, 6, 5);
@@ -344,6 +498,7 @@ export class TerrainStreamingSystem {
       colors[i * 3] = _c.r; colors[i * 3 + 1] = _c.g; colors[i * 3 + 2] = _c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    skirtChunk(geo, ox, oz, segs);
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, this.groundMat);
     m.name = `${group.name}-ground`;

@@ -1,10 +1,11 @@
 /**
  * A Quick Stop at the Bing.
  *
- * The mission is a state machine with one requirement -- get the package --
- * and no way to fail. Everything optional in the club runs alongside it and
- * reports in: the slot machine, the table, the bar, the sedan in the lot. The
- * only thing that changes is what Lou says and how the evening ends.
+ * The mission is a state machine with two story requirements -- finish Lou's
+ * business and leave with Margo's number -- and no way to fail. Everything
+ * else in the club runs alongside it and reports in: the slot machine, the
+ * table, the bar, the sedan in the lot. The only thing that changes is what
+ * Lou says and how the evening ends.
  */
 
 export const STATES = [
@@ -63,29 +64,38 @@ export class Mission {
       alarmTripped: false,
       secretPanel: false,
       plateRead: false,
-      /* The one thing the woman at the end of the bar changes. Flavour, not a
-       * gate: the campaign decides whether the date happens. */
+      /* The drink detail is flavour. Getting her number is the story seam the
+       * cabin's outgoing call depends on, so that separate fact gates leaving. */
       heardHerDrink: false,
       /* She has introduced herself. The objective and the interaction prompt
        * both stop calling her "the woman at the end of the bar" once she has
        * a name, which is how names work. */
       metHer: false,
-      gaveNumber: false,
+      hasMargoNumber: false,
       /* The shot Booskibro will not take no for an answer about. */
       tookShot: false,
       foundBody: false,
     };
 
-    /* The three things the evening is actually for. The rest of the club --
-     * the machine, the felt, the runway, the floor -- reports in as optional
-     * from main.js, which owns that list because it owns those systems. */
+    /* Lou is the only objective shown on arrival. Margo becomes the next
+     * required soft story beat only after his briefing, so the panel neither
+     * spoils the encounter nor presents a wall of simultaneous errands. */
     this.addObjective('lou', 'Meet Lou in the back office');
-    this.addObjective('margo', 'Talk to the cute girl at the bar');
-    this.addObjective('shot', 'Take a shot with Booski');
+    this.addObjective('shot', 'Take a shot with Booski', { optional: true });
+  }
+
+  get leaveBlocker() {
+    if (!this.flags.gotPackage) return 'lou_business';
+    if (STATES.indexOf(this.state) < STATES.indexOf('briefed')) return 'lou_briefing';
+    if (!this.flags.hasMargoNumber) return 'margo_number';
+    return null;
   }
 
   get readyToLeave() {
-    return this.flags.gotPackage;
+    /* The package in hand is not the end of Lou's briefing, and the cabin
+     * cannot call a number Tony never received. The exit, objective and wheel
+     * all read this one predicate. */
+    return this.leaveBlocker === null;
   }
 
   /* ---------------------------------------------------------------- */
@@ -98,9 +108,9 @@ export class Mission {
     this.hooks.onState?.(next, this);
   }
 
-  addObjective(id, text) {
+  addObjective(id, text, { optional = false } = {}) {
     if (this.objectives.some((o) => o.id === id)) return;
-    this.objectives.push({ id, text, done: false });
+    this.objectives.push({ id, text, done: false, ...(optional ? { optional: true } : {}) });
     this.hooks.onObjective?.(this.objectives);
   }
 
@@ -154,7 +164,19 @@ export class Mission {
   louDone() {
     this.setState('briefed');
     this.complete('listen');
-    this.addObjective('leave', 'Leave the Bada Bing');
+    if (this.flags.hasMargoNumber) this.addObjective('leave', 'Leave the Bada Bing');
+    else this.addObjective('margo', 'Get Margo’s number before you go');
+  }
+
+  /** The causal handoff into the cabin's one outgoing call. Exact once. */
+  receivedMargoNumber() {
+    if (this.flags.hasMargoNumber) return false;
+    this.flags.hasMargoNumber = true;
+    this.complete('margo');
+    if (STATES.indexOf(this.state) >= STATES.indexOf('briefed')) {
+      this.addObjective('leave', 'Leave the Bada Bing');
+    }
+    return true;
   }
 
   leftOffice() {

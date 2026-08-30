@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import { Dialogue } from '../src/bing/dialogue.js';
 
@@ -128,6 +129,29 @@ test('walking away hushes the trailing take through the scene onEnd hook', () =>
   assert.equal(dialogue.lastEndReason, 'walked-away');
   assert.deepEqual(stopped, ['stopped'],
     'the recording must stop when the conversation lapses, not just the subtitle');
+});
+
+test('conversation range follows a speaker parented under a moving vehicle', () => {
+  const scene = new THREE.Scene();
+  const vehicle = new THREE.Group();
+  vehicle.position.set(40, 0, -12);
+  const anchor = new THREE.Group();
+  anchor.position.set(0.5, 0.8, -0.3);
+  const body = new THREE.Group();
+  vehicle.add(anchor);
+  anchor.add(body);
+  scene.add(vehicle);
+  const speaker = { name: 'Lou', group: body, say() {} };
+  const dialogue = new Dialogue(ui());
+  dialogue.start(tree, 'brief', speaker);
+
+  dialogue.update(0.016, { x: 40.5, z: -12.3 });
+  assert.equal(dialogue.active, true,
+    'seat-local coordinates made a nearby moving speaker look forty metres away');
+
+  vehicle.position.x += 20;
+  dialogue.update(0.016, { x: 40.5, z: -12.3 });
+  assert.equal(dialogue.lastEndReason, 'walked-away');
 });
 
 test('a thread that runs to done is not hushed by the lapse convention', () => {

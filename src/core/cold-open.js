@@ -155,14 +155,18 @@ export class ColdOpen {
     this.t += dt;
 
     if (this.phase === 'shutdown' && this.t >= this.shutdownFor) {
+      /* Keep the elapsed wall time that crossed this seam. Resetting to zero
+       * made a slow rendered frame disappear once per phase, and feeding this
+       * state machine the physics-clamped delta turned a 5.2-second reveal
+       * into minutes on the deployed software renderer. */
+      this.t -= this.shutdownFor;
       this.phase = 'pullback';
-      this.t = 0;
       this.revealed = true;
       events.push('reveal');
     }
     if (this.phase === 'pullback' && this.t >= this.pullbackFor) {
+      this.t -= this.pullbackFor;
       this.phase = 'beat';
-      this.t = 0;
       this.landed = true;
       events.push('land');
     }

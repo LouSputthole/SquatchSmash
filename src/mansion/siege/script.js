@@ -44,6 +44,12 @@
  * and never a lock. The only thing a sequence does to the mission is finish.
  */
 import { WEAPON_IDS } from '../../core/weapons/catalog.js';
+import {
+  SPEECH_GAIN,
+  SPEECH_MIX_CLOSE,
+  SPEECH_MIX_INDOORS,
+  speak,
+} from '../../core/dialogue.js';
 
 
 /**
@@ -58,6 +64,9 @@ export const SIEGE_VOICES = Object.freeze({
   prospect: 'player',
   lou: 'lou1',
   sasole: 'lou2',
+  /* The cold A-Team voice already cast for messages delivered and promises
+   * kept. This is a caller, not another body on the landing. */
+  ateam_caller: 'ateam3',
   booski: 'booski',
   guard: 'mansion-guard',
   deathmegatron: 'deathmegatron',
@@ -68,6 +77,7 @@ export const SIEGE_SPEAKER_NAMES = Object.freeze({
   prospect: 'The Prospect',
   lou: 'Big Uncle Lou',
   sasole: 'Captain Lou Sasole',
+  ateam_caller: 'A-Team Caller',
   booski: 'Booski',
   guard: 'Mansion guard',
   deathmegatron: 'Deathmegatron',
@@ -96,6 +106,18 @@ const say = (id, speaker, text, extra = {}) => Object.freeze({
   say: text,
   seconds: extra.seconds ?? readingSeconds(text),
   ...extra,
+});
+
+/**
+ * The attack stops and the telephone starts. Reuse the same real ringtone and
+ * pickup the campaign's Phone uses; loop it only long enough for Lou to answer
+ * instead of letting a whole recorded ring cycle talk over him.
+ */
+const AFTERMATH_PHONE_RING = Object.freeze({
+  cue: 'phone.ring',
+  answerCue: 'phone.pickup',
+  seconds: 1.2,
+  volume: 0.42,
 });
 
 /* ================================================================== */
@@ -163,7 +185,14 @@ export const SEQUENCES = Object.freeze({
 
   /** Once, ever. PART VI. */
   little_friend: Object.freeze([
-    say('prospect.little_friend', 'prospect', 'Say hello to my little friend.'),
+    say('prospect.little_friend', 'prospect', "Fine. Everybody at once. Let's find out how many of you this thing was designed for.", {
+      /* This is the siege payoff, not another conversational line. The named
+       * flag lets the scene hold weapon reports and give the subtitle its own
+       * visual weight for exactly the recording's measured duration. */
+      gain: 1.5,
+      protected: true,
+      priority: 'hero',
+    }),
   ]),
 
   /**
@@ -197,11 +226,55 @@ export const SEQUENCES = Object.freeze({
    * finding out.
    */
   aftermath: Object.freeze([
+    /* Owner, 2026-08-27: the post-siege Taken-style parody is Lou speaking
+     * directly to the A-Team before he sends the Prospect to Sasole. Play it
+     * straight. Recognition comes from the calm threat over a telephone, not
+     * from lifting the film's wording or having anybody acknowledge the joke. */
+    say('aftermath.call.lou.answer', 'lou', 'Sputthole.', {
+      leadIn: AFTERMATH_PHONE_RING,
+      direction: 'Dry and immediate into the receiver. One word; no greeting and no uncertainty.',
+    }),
+    say('aftermath.call.ateam.walk', 'ateam_caller',
+      'Walk away. Keep what family you have left.', {
+        remote: true,
+        direction: 'Cold telephone threat. He believes he is offering mercy, not performing menace.',
+      }),
+    say('aftermath.call.lou.terms', 'lou',
+      'You sent twenty-two men into my home, and now you are offering me terms.', {
+        direction: 'Level and incredulous without raising his voice. The bodies are still around him.',
+      }),
+    say('aftermath.call.ateam.more', 'ateam_caller',
+      'We can send twenty-two more. The A-Team does not stop because a house was expensive.', {
+        remote: true,
+        direction: 'Matter-of-fact and completely serious about the A-Team. No wink in the house line.',
+      }),
+    say('aftermath.call.lou.trade', 'lou',
+      'You know my name and my address. I know your voice. That is an uneven trade.', {
+        direction: 'Quiet calculation. This is when Lou stops reacting and starts hunting.',
+      }),
+    say('aftermath.call.ateam.family', 'ateam_caller',
+      'You will learn what happens when the A-Team comes for your family.', {
+        remote: true,
+        direction: 'A promise delivered flatly over the telephone. Proud of the crew, deadly serious.',
+      }),
+    say('aftermath.call.lou.not-home', 'lou',
+      'No. You are going to learn what happens when I stop waiting at home.', {
+        endCue: 'phone.hangup',
+        endCueVolume: 0.58,
+        direction: 'Final and controlled. Hang up at the end; the decision to counterstrike is made.',
+      }),
     say('aftermath.lou.last', 'lou', 'That is the last of them. Somebody kill that alarm.'),
     say('aftermath.lou.house', 'lou',
       'They came to my house. With cars, and a plan, and enough men to spare four of them for a window.'),
     say('aftermath.lou.budget', 'lou',
       'This is not a neighbourhood thing any more, kid. This is somebody with a budget.'),
+    /* The threat establishes motive; this recovered route package establishes
+     * the target. The bad conclusion is deliberate and only pays off at the
+     * repaired-mansion debrief. Nobody aboard SQUATCHOLA GAY points at it. */
+    say('aftermath.lou.route-package', 'lou',
+      'We pulled a route package out of their command car. It marks their desert compound. Sasole already has it.', {
+        direction: 'Cold, decisive, and wrong without knowing it. This is an order, not a clue for the audience.',
+      }),
     say('aftermath.lou.sasole', 'lou',
       'There is a man on my landing in a flight jacket. Captain Lou Sasole. Go and talk to him — he is how we answer this.'),
     say('aftermath.prospect.sasole', 'prospect', 'Sasole. Right.'),
@@ -211,7 +284,7 @@ export const SEQUENCES = Object.freeze({
   sasole: Object.freeze([
     say('sasole.sasole.stairs', 'sasole',
       'You are the one who held the stairs. Good. Then you can hold a bomb bay.'),
-    /* The siege ENDS at first light (campaign clock: Day 6, 6:10 AM), and the
+    /* The siege ends before dawn (campaign clock: Day 9, 4:10 AM), and the
      * Enola raid flies in the dark -- so Sasole promises a NIGHT flight. The
      * 2:00 PM travel row in docs/CAMPAIGN-TIMELINE.md is the drive and the
      * aircraft prep; wheels-up follows, in full dark. */
@@ -240,6 +313,20 @@ export function siegeVoiceCueNames() {
   return allSiegeLines().map((line) => line.name);
 }
 
+/** Non-dialogue cues embedded in the authored sequences, in first-use order. */
+export function siegeDialogueEffectCueNames() {
+  const names = [];
+  const add = (name) => {
+    if (typeof name === 'string' && name && !names.includes(name)) names.push(name);
+  };
+  for (const line of allSiegeLines()) {
+    add(line.leadIn?.cue);
+    add(line.leadIn?.answerCue);
+    add(line.endCue);
+  }
+  return names;
+}
+
 /**
  * Plays one sequence at a time over live gameplay.
  *
@@ -249,26 +336,41 @@ export function siegeVoiceCueNames() {
  * the three: the player is holding a machine gun the whole time. What is left
  * after taking those out is a queue and a clock, which is this.
  *
- * `onLine` gets every line as it starts; `onDone` fires once, when the last
- * one's hold expires. `onDone` is where the mission advances, so a sequence
- * that cannot finish is a beat that cannot be left -- and that is a loud
- * failure rather than the silent one this file was written to remove.
+ * `onLeadIn` gets the deliberate silence before a line (the aftermath phone
+ * ring), `onLine` gets every line as it starts, and `onDone` fires once when
+ * the last one's hold expires. `onDone` is where the mission advances, so a
+ * sequence that cannot finish is a beat that cannot be left -- and that is a
+ * loud failure rather than the silent one this file was written to remove.
  */
 export class SiegeDialogue {
-  constructor({ audio = null, onLine = null, onDone = null } = {}) {
+  constructor({
+    audio = null,
+    resolveSpeaker = null,
+    onLeadIn = null,
+    onLine = null,
+    onDone = null,
+  } = {}) {
     this.audio = audio;
+    this.resolveSpeaker = resolveSpeaker;
+    this.onLeadIn = onLeadIn;
     this.onLine = onLine;
     this.onDone = onDone;
     this.sequence = null;
     this.queue = [];
     this.line = null;
+    this.pendingLine = null;
+    this.leadIn = null;
+    this._leadInLoopStarted = false;
     this.hold = 0;
     /** Sequences already played, so a checkpoint restore cannot replay one. */
     this.played = new Set();
     this._playbackSuppressionDepth = 0;
   }
 
-  get active() { return this.line !== null || this.queue.length > 0; }
+  get active() {
+    return this.line !== null || this.pendingLine !== null
+      || this.leadIn !== null || this.queue.length > 0;
+  }
 
   /**
    * Start a sequence. Returns false if it is already playing, has already
@@ -280,9 +382,11 @@ export class SiegeDialogue {
     if (!lines || (!replay && this.played.has(id))) return false;
     if (this.sequence === id) return false;
     this.played.add(id);
+    this._clearLeadIn();
     this.sequence = id;
     this.queue = [...lines];
     this.line = null;
+    this.pendingLine = null;
     this.hold = 0;
     this._next();
     return true;
@@ -315,16 +419,59 @@ export class SiegeDialogue {
     }
   }
 
-  _next() {
-    const line = this.queue.shift() ?? null;
-    this.line = line;
-    if (!line) {
-      const finished = this.sequence;
-      this.sequence = null;
-      this.hold = 0;
-      this.onDone?.(finished);
-      return;
+  _playEffect(cue, volume = 0.7) {
+    if (this._playbackSuppressionDepth > 0 || typeof cue !== 'string' || !cue) return false;
+    try {
+      this.audio?.play?.(cue, { volume, bus: 'sfx' });
+      return true;
+    } catch { return false; }
+  }
+
+  _beginLeadIn(line) {
+    const leadIn = line?.leadIn;
+    if (!leadIn?.cue || !(leadIn.seconds > 0)) return false;
+    this.line = null;
+    this.pendingLine = line;
+    this.leadIn = leadIn;
+    this.hold = leadIn.seconds;
+    this._leadInLoopStarted = false;
+    if (this._playbackSuppressionDepth === 0) {
+      /* Presentation must enter the answer beat too. Otherwise the last
+       * shouted combat subtitle sits over a now-ringing telephone until Lou
+       * speaks, which makes two different moments appear to be one. */
+      this.onLeadIn?.(leadIn, line);
+      try {
+        if (typeof this.audio?.startLoop === 'function') {
+          this.audio.startLoop(leadIn.cue, {
+            volume: leadIn.volume ?? 0.7,
+            bus: 'sfx',
+            fadeIn: 0.04,
+          });
+          this._leadInLoopStarted = true;
+        } else {
+          this._playEffect(leadIn.cue, leadIn.volume ?? 0.7);
+        }
+      } catch { /* subtitles and the load-bearing handoff still run */ }
     }
+    return true;
+  }
+
+  _clearLeadIn({ answer = false } = {}) {
+    const leadIn = this.leadIn;
+    if (leadIn && this._leadInLoopStarted) {
+      try { this.audio?.stopLoop?.(leadIn.cue, 0.08); } catch { /* already stopped */ }
+    }
+    this._leadInLoopStarted = false;
+    this.leadIn = null;
+    if (answer && leadIn?.answerCue) {
+      this._playEffect(leadIn.answerCue, leadIn.answerVolume ?? leadIn.volume ?? 0.7);
+    }
+    return leadIn;
+  }
+
+  _startLine(line) {
+    this.pendingLine = null;
+    this.line = line;
     /* THE RECORDING'S OWN LENGTH BEATS THE AUTHORED GUESS. `sampleDuration()`
      * is null until the take lands, and the day it lands the subtitle starts
      * leaving with the voice instead of a second and a half after it -- with
@@ -334,23 +481,74 @@ export class SiegeDialogue {
       ? recorded + 0.45
       : line.seconds;
     if (this._playbackSuppressionDepth === 0) {
-      try { this.audio?.play?.(line.name, { volume: 1 }); } catch { /* no audio yet */ }
-      this.onLine?.(line);
+      /* Siege still owns sequence/checkpoint policy, but it does not own a
+       * second speech engine. Player lines and house-radio guidance are close
+       * mix; everybody visibly present in the room follows their world rig.
+       * `speak()` owns the voice bus, analyser, speech floor, positional mix,
+       * required-recording policy and receipt -- the same Interface used by
+       * combat barks and the rest of the game. */
+      const close = line.remote === true
+        || line.speaker === 'prospect'
+        || line.speaker === 'guard'
+        || this.sequence === 'guide_armory'
+        || this.sequence === 'guide_office';
+      const speaker = close ? null : this.resolveSpeaker?.(line.speaker) ?? null;
+      let spoken = null;
+      try {
+        spoken = speak(this.audio, line.name, {
+          speaker,
+          speakerId: line.speaker,
+          subtitle: line.say,
+          requiredRecorded: true,
+          mix: close ? SPEECH_MIX_CLOSE : SPEECH_MIX_INDOORS,
+          gain: line.gain ?? SPEECH_GAIN.normal,
+          priority: line.priority ?? 'story',
+        });
+      } catch { /* no audio yet; subtitles and mission handoff still run */ }
+      this.onLine?.(line, spoken);
     }
   }
 
+  _next() {
+    const line = this.queue.shift() ?? null;
+    if (!line) {
+      this.line = null;
+      this.pendingLine = null;
+      const finished = this.sequence;
+      this.sequence = null;
+      this.hold = 0;
+      this.onDone?.(finished);
+      return;
+    }
+    if (this._beginLeadIn(line)) return;
+    this._startLine(line);
+  }
+
   update(dt) {
+    if (this.leadIn) {
+      this.hold -= Math.max(0, Number(dt) || 0);
+      if (this.hold > 0) return;
+      const pending = this.pendingLine;
+      this._clearLeadIn({ answer: true });
+      if (pending) this._startLine(pending);
+      return;
+    }
     if (!this.line) return;
     this.hold -= Math.max(0, Number(dt) || 0);
     if (this.hold > 0) return;
+    const finished = this.line;
+    this.line = null;
+    if (finished.endCue) this._playEffect(finished.endCue, finished.endCueVolume ?? 0.7);
     this._next();
   }
 
   /** Run the whole rest of the sequence out. For a skip key and for tests. */
   finish() {
-    if (!this.line) return false;
+    if (!this.active) return false;
+    this._clearLeadIn();
     this.queue.length = 0;
     this.line = null;
+    this.pendingLine = null;
     const finished = this.sequence;
     this.sequence = null;
     this.hold = 0;
@@ -369,8 +567,10 @@ export class SiegeDialogue {
    * ends after the mission has already gone back to the landing.
    */
   cancel() {
+    this._clearLeadIn();
     this.queue.length = 0;
     this.line = null;
+    this.pendingLine = null;
     this.sequence = null;
     this.hold = 0;
     return this;

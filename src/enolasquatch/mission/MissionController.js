@@ -79,6 +79,7 @@ import { WP, KT, FT } from '../../beefrun/config.js';
 import { evaluateLineupGate } from '../../beefrun/lineup-gate.js';
 import { clamp, lerp, headingDelta, unlit } from '../../beefrun/util.js';
 import { SmokeSystem } from '../../world/smoke.js';
+import { ENOLA_ESCAPE_MUSIC_DELAY_SECONDS } from '../audio.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const TOWN = LANDMARKS_EAST.find((l) => l.id === 'town');
@@ -366,6 +367,18 @@ const DROP_CAM_SECONDS = 4.2;
  * malfunction sequence begins at 1600 m, leaving roughly 550 m of lead. */
 const BOMB_MALFUNCTION_TRIGGER_M = 1600;
 
+/* THE APPROACH RECORD STARTS BEFORE THE APPROACH PHASE.
+ *
+ * Owner QA, 2026-08-28: "The music leading into the Fat Squatch bomb drop
+ * needs to begin earlier." The former trigger was the `bombApproach` handoff
+ * at 2200 m. At the authored ~62 m/s run-in that left only about 26 seconds
+ * before an ordinary read-the-lines release, throwing away roughly twelve
+ * seconds of the delivered 37.704 s master. Starting at 2800 m gives that
+ * missing ten-second breath while the player is still flying the approach;
+ * the release frame remains the authoritative hard cut. Exported so the
+ * regression test and browser verifier do not retype the distance. */
+export const BOMB_APPROACH_MUSIC_LEAD_M = 2800;
+
 /* ------------------------------------------------------------------ */
 /* THE TWO DIAMONDS                                                    */
 /*
@@ -565,6 +578,8 @@ export class MissionController {
     /** True once Sasole has handed the tail gun over — see `offerTailGun()`. */
     this.gunOffered = false;
     this._returnT = 0;
+    this._escapeMusicStarted = false;
+    this._bombApproachMusicStarted = false;
     this._nearFieldT = 0;
     this._waveIndex = 0;
     this._airborneT = 0;
@@ -1202,6 +1217,11 @@ export class MissionController {
     this.dialogue.setHeadset(true);
     this.input.rudderKeys = true;
     this.flightHud?.show?.(true);
+    /* Beef Run's cockpit contract: the controls card is raised every time the
+     * player enters the seat, on the left, then ages to its quieter state.
+     * Enola shared the HUD and markup but skipped both lifecycle calls, which
+     * left the familiar 1/2/3/4 start controls permanently hidden. */
+    this.flightHud?.showControls?.(true);
     // `advance: false` is how the console/verification `go(phase)` helper gets
     // everybody aboard without also forcing the phase back to preflight.
     if (!advance) return;
@@ -1361,6 +1381,12 @@ export class MissionController {
         this.setObjective(OBJECTIVES.BOMB_APPROACH);
         this.targeting.reset();
         this.saveCheckpoint('preRelease');
+        /* Organic flight has already started this during the defense run, at
+         * `BOMB_APPROACH_MUSIC_LEAD_M`. Keep this call as the checkpoint and
+         * direct-phase fallback; the once gate prevents the phase boundary
+         * from restarting the record ten seconds in. */
+        this.startBombApproachMusicOnce();
+        this._escapeMusicStarted = false;
         this.bombBayOpen = false;
         this._sawTargetInSight = false;
         this._sawCity = false;
@@ -1386,6 +1412,11 @@ export class MissionController {
 
       case 'explosion':
         this.setObjective(OBJECTIVES.BLAST);
+        /* Backstop the exact release-frame cut. There is intentionally no
+         * music under the falling bomb, flash, pressure front or first beat of
+         * aftermath. */
+        this.audio?.stopBombApproachMusic?.(0.04);
+        this._escapeMusicStarted = false;
         this._explosionT = 0;
         break;
 
@@ -1397,6 +1428,7 @@ export class MissionController {
         this.weather.setConditions({ turbulence: 0.95, lightning: 0.3 });
         this.bombBayOpen = false;
         this._escapeT = 0;
+        this._escapeMusicStarted = false;
         this._emergencyDecided = false;
         break;
 
@@ -1440,6 +1472,12 @@ export class MissionController {
         this.detection.active = false;
         this.weather.setConditions({ turbulence: 0.5, lightning: 0.1, cloudDensity: 0.5 });
         this._navCallTimer = 4;
+        /* Ordinary play already has this record running from `updateEscape`.
+         * A direct return-checkpoint restore does not, so resume it without
+         * restarting a live handle. */
+        if (!this._escapeMusicStarted) {
+          this._escapeMusicStarted = this.audio?.startEscapeMusic?.({ restart: false }) === true;
+        }
         break;
 
       case 'landing':
@@ -1449,7 +1487,7 @@ export class MissionController {
         break;
 
       case 'epilogue':
-        this.dialogue.play('arrival.lou', { delay: 1.0 });
+        this.dialogue.play('arrival.sasole', { delay: 1.0 });
         this._epilogueT = 0;
         break;
 
@@ -1710,7 +1748,7 @@ export class MissionController {
       this.stageNightRunway();
       cs.fade = clamp(1 - (t - 9.4) / 1.4, 0, 1);
       cs.caption = 'RUNWAY 18 — WHISPERING PINES';
-      cs.sub = 'The Enola Squatch, lined up and holding';
+      cs.sub = 'SQUATCHOLA GAY, lined up and holding';
       this.dialogue.play('nightfall.lineup', { once: true });
     } else {
       cs.active = false;
@@ -2190,10 +2228,20 @@ export class MissionController {
     /* THE ONE AUTHORED ENGINE PROBLEM — see the constants at the top of the
      * file. Toward the end of the flak/fighter stretch, not the start of it. */
     if (!this._engineOutFired && p.position.x > ENGINE_OUT_TRIGGER_X) this.triggerEngineOut();
+    if (p.position.x > TARGET_X - BOMB_APPROACH_MUSIC_LEAD_M) {
+      this.startBombApproachMusicOnce();
+    }
     if (p.position.x > TARGET_X - 2200) {
       this.defense.suppress();
       this.setPhase('bombApproach');
     }
+  }
+
+  /** Start the delivered target-run record once, with checkpoint-safe retry. */
+  startBombApproachMusicOnce() {
+    if (this._bombApproachMusicStarted) return true;
+    this._bombApproachMusicStarted = this.audio?.startBombApproachMusic?.() === true;
+    return this._bombApproachMusicStarted;
   }
 
   /**
@@ -2368,6 +2416,11 @@ export class MissionController {
          * `rearmPayload()`. If anything at all has left this in that state,
          * hang a fresh one up before pulling the handle. */
         if (this.payload.released) this.rearmPayload();
+        /* The drop itself is silent score-wise. This is the authoritative
+         * edge, not entering the choice phase: a player may hold at the lever
+         * as long as they like, but the music leaves on the exact frame the
+         * bomb does. A 40 ms ramp only removes the digital click. */
+        this.audio?.stopBombApproachMusic?.(0.04);
         this.payload.release(this.scene, this.physics.velocity.clone());
         this.payloadReleased = true;
 
@@ -2494,6 +2547,7 @@ export class MissionController {
      * restart before the drop can still detonate. */
     if (this.explosionPoint) return;
     this.explosionPoint = point.clone();
+    this.audio?.stopBombApproachMusic?.(0.02);
     // The whistle stops the instant it arrives, not a frame later.
     this.audio?.endFallingWhistle?.(0.03);
 
@@ -2713,6 +2767,14 @@ export class MissionController {
   updateEscape(dt) {
     const p = this.physics;
     this._escapeT += dt;
+    /* Twelve-plus seconds of explosion phase already pass without score. Give
+     * the blast one more deliberate breath after the phase handoff, then let
+     * the flight-away record rise. This is mission time, so pause and reload
+     * semantics stay honest instead of a wall-clock setTimeout firing while
+     * the game is stopped. */
+    if (!this._escapeMusicStarted && this._escapeT >= ENOLA_ESCAPE_MUSIC_DELAY_SECONDS) {
+      this._escapeMusicStarted = this.audio?.startEscapeMusic?.({ restart: false }) === true;
+    }
     // He works the gun as long as there is anything to work it at, and only
     // announces that he is out once the sky behind them is empty.
     this.updateRearGunner(dt, this.interceptors.engagedCount > 0);
@@ -2975,13 +3037,10 @@ export class MissionController {
 
   updateEpilogue(dt) {
     this._epilogueT += dt;
-    /* This is the one deliberate stub, called out in the phase brief as
-     * skippable: no populated hangar/crowd-of-Family-NPCs scene. `arrival.lou`
-     * plays as a straight dialogue beat; there is no camera-pan/scene-reveal
-     * system built here to drive one. A later phase can add it without
-     * touching this method's contract — `report()` and `finished` are what
-     * the composition root actually needs from this phase. */
-    if (this._epilogueT > 8 && !this.finished) {
+    /* The four visible crewmen own this apron. Sasole closes the flight while
+     * the ground crew checks the engines; Lou waits for the repaired-mansion
+     * debrief, where he has a body and the wrong-city reveal belongs. */
+    if (this._epilogueT > 12 && !this.finished) {
       this.finished = true;
       this.onComplete?.(this.report());
     }
@@ -3186,6 +3245,12 @@ export class MissionController {
   updateFlightCommon(dt) {
     const p = this.physics;
     const warn = new Set();
+
+    /* Same shared HUD lifecycle as Beef Run: after 22 seconds the left-side
+     * control card fades but remains recoverable with H. Without this call it
+     * stayed at its initial opacity forever once the missing show call above
+     * was repaired. */
+    this.flightHud?.ageControls?.(dt);
 
     this.updateEvasion(dt);
     this.updateAirBattle(dt);
@@ -3429,6 +3494,9 @@ export class MissionController {
      * and a restart is the mission saying that detonation did not happen. Same
      * reasoning as the turbulence and the screen wash below. */
     this.audio?.stopBlast?.(0.5);
+    this.audio?.stopNarrativeMusic?.(0.2);
+    this._escapeMusicStarted = false;
+    this._bombApproachMusicStarted = false;
     this.gunFiring = false;
     this.gunTracking = false;
     // See `onPayloadImpact`: a restart before the drop must be able to detonate.
@@ -3492,8 +3560,13 @@ export class MissionController {
       this.audio?.setHeadset?.(true);
       this.dialogue.setHeadset(true);
       this.input.rudderKeys = true;
-      this.flightHud?.show?.(true);
     }
+    /* Beef Run raises both on EVERY restore, even when the player was already
+     * in the seat. A restart is a fresh takeoff/leg and should restore the
+     * controls card instead of preserving its faded state from the failed
+     * attempt. */
+    this.flightHud?.show?.(true);
+    this.flightHud?.showControls?.(true);
 
     const setup = {
       takeoff: () => {
@@ -3662,6 +3735,7 @@ export class MissionController {
     this.audio?.setPhase?.('silent');
     this.audio?.setStallHorn?.(false);
     this.audio?.endFallingWhistle?.(0.15);
+    this.audio?.stopNarrativeMusic?.(0.3);
     this.gunFiring = false;
     this.gunTracking = false;
     this.gunner.leave();

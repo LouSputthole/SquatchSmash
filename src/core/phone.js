@@ -30,6 +30,9 @@
  * `vo.<bank>.tony.<i+1>` -- the same bank, so a call is one folder, and the
  * same reading-beat fallback, so his half works unrecorded exactly as the
  * caller's half always has. A hole in `replies` is a line he lets go past him.
+ * Incoming calls play caller then Tony. An `outgoing` definition reverses
+ * each pair: Tony placed the call, so he speaks first and the other person
+ * answers him. Cue identity does not change with direction.
  */
 
 export const W = 300;
@@ -146,13 +149,22 @@ export const THREADS = [
  * @param {object} def a call definition
  * @returns {{who: 'them'|'me', text: string, cue: string}[]}
  */
-export function callScript(def) {
+export function callScript(def, { outgoing = def?.outgoing === true } = {}) {
   const turns = [];
   const lines = def?.lines ?? [];
   for (let i = 0; i < lines.length; i++) {
-    turns.push({ who: 'them', text: lines[i], cue: `vo.${def.vo}.${i + 1}` });
     const reply = def.replies?.[i];
-    if (reply) turns.push({ who: 'me', text: reply, cue: `vo.${def.vo}.tony.${i + 1}` });
+    const theirs = { who: 'them', text: lines[i], cue: `vo.${def.vo}.${i + 1}` };
+    const mine = reply
+      ? { who: 'me', text: reply, cue: `vo.${def.vo}.tony.${i + 1}` }
+      : null;
+    if (outgoing) {
+      if (mine) turns.push(mine);
+      turns.push(theirs);
+    } else {
+      turns.push(theirs);
+      if (mine) turns.push(mine);
+    }
   }
   return turns;
 }
@@ -212,6 +224,7 @@ export class Phone {
 
   get ringing() { return !!this.call && this.call.state === 'ringing'; }
   get inCall() { return !!this.call && this.call.state === 'talking'; }
+  get outgoing() { return !!this.call && this.call.direction === 'outgoing'; }
   get unreadCount() { return this.threads.filter((thread) => thread.unread).length; }
 
   /** The phone is a held item. Every idle screen must say how to pocket it. */
@@ -253,9 +266,32 @@ export class Phone {
     if (this.call) return false;
     this.call = {
       def, state: 'ringing', t: 0, line: -1, hold: 0, source: null,
+      direction: 'incoming', connected: false,
       turns: callScript(def),
     };
     this.audio?.startLoop?.('phone.ring', { volume: 0.5 });
+    return true;
+  }
+
+  /**
+   * Place a call from the held handset.
+   *
+   * There is no ringtone or decline state: Tony chose to dial. The screen
+   * reads `calling` while his opening turn plays and changes to `connected`
+   * when the other person first answers. Required-call hang-up policy and the
+   * ordinary exact-once completion callback remain identical to an incoming
+   * call once the conversation is under way.
+   */
+  startOutgoing(def) {
+    if (!def || this.call) return false;
+    this.call = {
+      def, state: 'talking', t: 0, line: -1, hold: 0, source: null,
+      direction: 'outgoing', connected: false,
+      turns: callScript(def, { outgoing: true }),
+    };
+    this.onCallState?.(true, def);
+    this.onAnswered?.(def);
+    if (def.meeting) this.onMeeting?.();
     return true;
   }
 
@@ -266,15 +302,17 @@ export class Phone {
     this.call.t = 0;
     this.call.line = -1;
     this.call.hold = 0;
+    this.call.connected = true;
     this.onCallState?.(true, this.call.def);
     this.onAnswered?.(this.call.def);
     if (this.call.def.meeting) this.onMeeting?.();
   }
 
-  /** Hang up, or refuse to pick up. Both end the same way. */
-  hangUp() {
-    if (!this.call) return;
+  /** Hang up, or refuse to pick up. Required story calls only end naturally. */
+  hangUp({ force = false } = {}) {
+    if (!this.call) return false;
     const { def, state } = this.call;
+    if (state === 'talking' && def.allowHangup === false && !force) return false;
     this.audio?.stopLoop?.('phone.ring', 0.08);
     try { this.call.source?.stop(); } catch { /* already finished */ }
     this.audio?.play?.('phone.hangup', { volume: 0.5 });
@@ -286,6 +324,7 @@ export class Phone {
     if (state === 'ringing') this.missed++;
     this.call = null;
     if (state === 'talking') this.onCallState?.(false, def);
+    return true;
   }
 
   _stamp() {
@@ -302,9 +341,10 @@ export class Phone {
     const turn = c.turns[c.line];
     if (!turn) {
       // He does not get to say goodbye. Nobody on this phone says goodbye.
-      this.hangUp();
+      this.hangUp({ force: true });
       return;
     }
+    if (c.direction === 'outgoing' && turn.who === 'them') c.connected = true;
     /* His own voice is in the room and the caller's is coming out of an
      * earpiece held to his head, so they are not quite the same loudness. */
     c.source = this.audio?.play?.(turn.cue, {
@@ -499,7 +539,10 @@ export class Phone {
     g.textAlign = 'center';
     g.fillStyle = '#79839a';
     g.font = '13px ui-monospace, monospace';
-    g.fillText(c.state === 'ringing' ? 'incoming call' : 'connected', W / 2, H * 0.20);
+    const callState = c.state === 'ringing'
+      ? 'incoming call'
+      : c.direction === 'outgoing' && !c.connected ? 'calling' : 'connected';
+    g.fillText(callState, W / 2, H * 0.20);
 
     g.fillStyle = '#e6ecf5';
     g.font = '600 24px ui-monospace, monospace';
@@ -549,7 +592,7 @@ export class Phone {
     g.fillStyle = '#4d5768';
     g.font = '12px ui-monospace, monospace';
     g.fillText(`${Math.floor(c.t / 60)}:${String(Math.floor(c.t % 60)).padStart(2, '0')}`, W / 2, H * 0.80);
-    this._hint(g, '[E] hang up');
+    this._hint(g, c.def.allowHangup === false ? 'connected · listen' : '[E] hang up');
   }
 
   _hint(g, text) {

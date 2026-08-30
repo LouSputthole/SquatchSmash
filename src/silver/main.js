@@ -17,6 +17,7 @@ import { SilverAudioEngine } from './audio.js';
 import { SPEECH_MIX_INDOORS, hasSpeech, speak } from '../core/dialogue.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -25,7 +26,7 @@ import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
-import { makeHeldDrinks } from '../world/props.js';
+import { makeHeldDrinks, poseHeldDrink } from '../world/props.js';
 import { SmokeSystem } from '../world/smoke.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -34,10 +35,14 @@ import { ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './room.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS, BACK_OF_HOUSE_TOTAL } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF, WALK_GREETS } from './script.js';
+import {
+  buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF,
+  WALK_GREETS, silverSpokenWords,
+} from './script.js';
 import { Performance, Sway, SET } from './perform.js';
+import { SupperClubScore, SILVER_ROOM_MUSIC } from './music.js';
 import { enqueueVoiceFloor } from './voice-floor.js';
-import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
+import { SCENE_IDS, createCampaign, returnHomeFromMission } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
@@ -45,6 +50,14 @@ import * as prefs from '../core/settings.js';
 import {
   buildSilverRuntimeDate, buildSilverRuntimeRoom, populateSilverRuntimeEnvironment,
 } from './runtime-geometry.js';
+import { serviceAdvanceAllowed } from './cast.js';
+import {
+  planAuthoredServiceRoute,
+  planServiceReturn,
+  SERVICE_STALL_SECONDS,
+  SERVICE_STOP_DISTANCE,
+} from './service-navigation.js';
+import { createSilverInputPolicy } from './controls.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -160,6 +173,7 @@ window.addEventListener('resize', () => {
 /* ------------------------------------------------------------------ */
 
 const audio = new SilverAudioEngine();
+const roomScore = new SupperClubScore(audio);
 const hud = new Hud();
 const interaction = new InteractionSystem(camera, hud);
 const world = { colliders: [], floorZones: [], groundAt: () => 0 };
@@ -232,6 +246,7 @@ const game = {
   known: new Set(),          // things the player has been told and may recall
   greeted: new Set(),
   passGreeted: new Set(),    // staff who already said hello as he went by
+  barksHeard: new Set(),     // anonymous room lines never repeat this visit
   scene: null,               // the running cutscene, if any
   round: null,               // which conversation round is up
   pausedSeatedRound: null,   // Margo's exact table thread, paused by standing
@@ -241,6 +256,8 @@ const game = {
   swayRunning: false,
   /** Up between "get up" and the first bar, which is not nothing. */
   swayStarting: false,
+  danceApproach: null,
+  danceBase: null,
   checkpoint: null,
   /* Every voice cue the evening has asked for, recorded or not. The only way
    * to see that a line is wired before the recording exists. */
@@ -268,12 +285,7 @@ const woo = new Woo({
   },
   onStreak: (n) => {
     audio.play('woo.streak', { volume: 0.6 });
-    hud.toast('EVERYBODY EATS', 'good');
-    /* Seven closes the goal now, not fifteen — see TIP_GOAL. The line stops
-     * claiming "every last one of them" over a room with eight hands still
-     * unshaken; what it is actually marking is that the room is bought. */
-    narrate(`<em>${n} people looked after, and not one of them said thank you like it was a favour. `
-      + 'The room is taken care of.</em>', 5200);
+    hud.toast(`EVERYBODY EATS — ${n} LOOKED AFTER`, 'good');
     mission.complete('tips');
   },
 });
@@ -281,7 +293,9 @@ const woo = new Woo({
 const mission = new Mission({
   onState: onMissionState,
   onObjective: paintObjectives,
-  onNote: (text) => narrate(text, 4600),
+  /* Mission notes remain in the checkpoint/debug record. They no longer
+   * compete with Margo, nearby staff and the objective card as subtitles. */
+  onNote: () => {},
   onImpatient: (key) => date.bark(key, DATE_BARKS[key]),
   onCheckpoint: saveCheckpoint,
 });
@@ -378,8 +392,11 @@ function deferVoice(job, { expires = 11000, priority = false } = {}) {
 function narrate(text, ms = 4200, {
   cue = null, volume = 0.9, expires = 14000, speaker = null, priority = false,
 } = {}) {
+  const subtitle = silverSpokenWords(text);
   deferVoice(() => {
-    hud.say(text, ms);
+    /* Parenthetical blocking belongs to the animation. Keep only words a
+     * person actually says (plus concise gameplay instructions) on screen. */
+    if (subtitle) hud.say(subtitle, ms);
     narrationGapAt = performance.now() + ms + NARRATION_GAP;
     const take = cue ? voiceCue(cue, { volume }) : null;
     /* `speaker` is somebody in the room rather than the narrator, and this is
@@ -453,14 +470,22 @@ const cueSeconds = (name) => audio.buffers?.get(name)?.[0]?.duration ?? 0;
 
 const dialogue = new Dialogue(ui.dialogue, {
   onLine: (text, who, node) => {
+    /* Dialogue owns its raw authored copy, including blocking directions.
+     * Replace only the Silver Room's painted line after it is installed; the
+     * cue text and timing still use the complete authored node. */
+    ui.dialogue.line.textContent = silverSpokenWords(text);
     performance_.setDucked(true);
+    roomScore.setDialogueDucked(true);
     /* Returned so `Dialogue` can hand the take to the speaker's mouth. */
     return voiceCue(nodeCue(node));
   },
   /* The replies are Prospect's and he has never had a voice in this scene;
    * the hook is here so that when he gets one it is a `cue` on the option and
    * nothing else has to move. */
-  onChoice: (opt) => voiceCue(nodeCue(opt)),
+  onChoice: (opt) => {
+    ui.dialogue.line.textContent = silverSpokenWords(opt?.text);
+    return voiceCue(nodeCue(opt));
+  },
   cueSeconds,
   onEnd: (reason) => {
     /* A conversation that lapsed — walked away, interrupted by another
@@ -470,6 +495,7 @@ const dialogue = new Dialogue(ui.dialogue, {
      * had its full cue hold. */
     if (reason !== 'done') dialogue.hush();
     performance_.setDucked(false);
+    roomScore.setDialogueDucked(false);
     game.talkingTo = null;
   },
 });
@@ -497,7 +523,7 @@ const date = buildSilverRuntimeDate(scene, room, {
     const n = mission.leftBehind();
     woo.fire('Woo.DateLeftBehind');
     date.bark('behind', DATE_BARKS.behind);
-    if (n === 3) narrate('<em>She has stopped hurrying to keep up, which is a decision rather than a speed.</em>', 5000);
+    void n;
   },
 });
 
@@ -582,7 +608,6 @@ const performance_ = new Performance({
   onNumberError: (n, error) => {
     if (!n.theOne) return;
     hud.toast('THE HOUSE BAND CARRIES IT LIVE', 'bad');
-    narrate('<em>The featured recording drops out. The Midnight Pines do not. They carry the number live.</em>', 5600);
     console.warn(`Featured performance fallback: ${error?.message || 'stream unavailable'}`);
   },
   onApplause: () => { if (date.mode === 'seated') date.npc.say(1.2); },
@@ -591,10 +616,9 @@ const performance_ = new Performance({
    * — came round again, with the callback, the toast and another offer to dance
    * behind it. Four numbers, then a club between sets. */
   onSetEnd: () => {
+    roomScore.setPerformance(false, 3.5);
     setDinersDuck(0.76, 4);
     hud.toast('♫ end of the set', '');
-    narrate('<em>The lights come up a third and the room gets its voice back all at once. '
-      + 'Somebody at the back is still clapping on his own.</em>', 5200);
   },
 });
 
@@ -670,15 +694,33 @@ function paintTips() {
  * this scene rather than the scene being flattened to fit, which is
  * docs/REUSE-FIRST.md rule 2. Identical markup, so silver.css is untouched.
  */
-function paintObjectives(list) {
+function paintObjectives(list, { focusId = null } = {}) {
   const now = list.find((o) => !o.done && !o.optional);
   const item = (o) => ({
-    label: o.text, done: Boolean(o.done), required: !o.optional, current: o === now,
+    label: o.id === 'staff' ? 'Look after six staff on the way through' : o.text,
+    done: Boolean(o.done), required: !o.optional, current: o === now,
+    ...(o.id === 'staff' ? {
+      tally: {
+        count: Math.min(BACK_OF_HOUSE_TOTAL, mission.flags.backOfHouseTipped),
+        total: BACK_OF_HOUSE_TOTAL,
+      },
+    } : {}),
   });
-  const items = list.filter((o) => !o.optional).map(item);
-  const extra = list.filter((o) => o.optional);
-  if (extra.length) items.push({ rule: 'IF YOU LIKE' }, ...extra.map(item));
+  /* One main instruction and, at most, one soft opportunity. The mission
+   * keeps its full ledger for checkpoints; the upper-left card is a current
+   * instruction, not a transcript of every crossed-out thing tonight. */
+  const items = now ? [item(now)] : [];
+  const optional = focusId
+    ? list.find((o) => o.id === focusId)
+    : [...list].reverse().find((o) => o.optional && !o.done);
+  if (optional && optional !== now) items.push({ rule: 'IF YOU LIKE' }, item(optional));
   objectivePanel.set({ title: 'FRONT AND CENTER', items });
+  /* A new objective or a progress change is allowed to announce itself. It
+   * is not allowed to live on top of the scene forever. Tab still exposes the
+   * current objective through the pause menu below. */
+  ui.objectives.classList.remove('hidden');
+  clearTimeout(paintObjectives._hide);
+  paintObjectives._hide = setTimeout(() => ui.objectives.classList.add('hidden'), 12000);
 }
 
 /* ------------------------------------------------------------------ */
@@ -710,8 +752,16 @@ function tip(id, amount, { generous = false, contextual = false } = {}) {
   /* Everybody between the alley and the curtain, for the board's optional
    * line about looking after the room. The front of house is a different
    * thing and is not counted here — tipping the host is buying a table. */
-  if (BACK_OF_HOUSE.has(id)) mission.flags.backOfHouseTipped++;
-  mission.refreshBoard();
+  if (BACK_OF_HOUSE.has(id)) {
+    mission.flags.backOfHouseTipped++;
+    mission.refreshBoard();
+    /* The tally changes before the line completes, so the board's derived
+     * done/text comparison quite correctly sees no structural change. Paint
+     * the progress event explicitly: 1/6, 2/6 ... all unique and immediate. */
+    paintObjectives(mission.objectives, { focusId: 'staff' });
+  } else {
+    mission.refreshBoard();
+  }
   return true;
 }
 
@@ -779,18 +829,7 @@ const M = makeMaterials();
 const heldDrinks = makeHeldDrinks(M);
 heldDrinks.group.position.set(0.26, -0.30, -0.42);
 camera.add(heldDrinks.group);
-function poseDrink(which, k) {
-  const can = heldDrinks.can;
-  const bottle = heldDrinks.bottle;
-  can.visible = which === 'can';
-  bottle.visible = which === 'bottle';
-  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
-  if (!m) return;
-  const e = k * k * (3 - 2 * k);
-  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
-  m.rotation.set(-1.30 * e, 0, 0.34 * e);
-}
-poseDrink(null, 0);
+poseHeldDrink(heldDrinks, null, 0);
 
 function serveDrink(what) {
   const kind = what === 'whiskey' || what === 'rye' ? 'whiskey' : what === 'beer' ? 'beer' : 'soft';
@@ -807,30 +846,27 @@ function serveTable() {
   audio.play('ice.drop', { volume: 0.4, delay: 0.9, position: room.anchors.frontTable });
   audio.play('glass.set', { volume: 0.4, delay: 1.2, position: room.anchors.frontTable });
   frontGlasses(true);
-  if (mission.flags.drinkOrdered === 'rye') {
-    narrate('<em>One cube. He did not have to be told, and she watches him not be told.</em>', 4600);
-  }
+  cast.byName.waiter?.serviceTray?.hide();
+  if (cast.byName.waiter) cast.byName.waiter.carryingShot = false;
+  placeTableDrinks();
 }
 
 function drinkTick(dt) {
   if (!game.heldDrink) return;
-  if (!keys.has('KeyF')) {
-    if (game.drinking > 0) { game.drinking = 0; poseDrink(null, 0); }
+  if (!silverInputPolicy.isDown('KeyF')) {
+    if (game.drinking > 0) { game.drinking = 0; poseHeldDrink(heldDrinks, null, 0); }
     return;
   }
   game.drinking += dt;
   const k = Math.min(1, game.drinking / DRINK_TIME);
-  poseDrink(game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
+  poseHeldDrink(heldDrinks, game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
   if (k < 1) return;
   drunk.drink(game.heldDrink === 'whiskey' ? WHISKEY_UNITS : BEER_UNITS);
   audio.play('can.sip', { volume: 0.5 });
   inventory.remove?.(game.heldDrink === 'whiskey' ? 'whiskey' : 'beer');
   game.heldDrink = null;
   game.drinking = 0;
-  poseDrink(null, 0);
-  if (drunk.level > 0.55) {
-    narrate('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
-  }
+  poseHeldDrink(heldDrinks, null, 0);
   /* Past a certain point the glass goes over. This is the only thing in the
    * mission that makes a mess, and it is the whole of the chaos counter — which
    * had a value, an ending written for it ("from a distance"), and no way at all
@@ -841,8 +877,6 @@ function drinkTick(dt) {
     audio.play('glass.set', { volume: 0.6, position: room.anchors.frontTable });
     audio.play('ice.drop', { volume: 0.5, delay: 0.15, position: room.anchors.frontTable });
     date.bark('spill', DATE_BARKS.spill);
-    narrate('<em>The glass goes over. Not far, and not much in it, and a waiter is on it '
-      + 'before you are — which is somehow the worst part.</em>', 4200);
   }
 }
 
@@ -1039,6 +1073,103 @@ reg(room.anchors.crateMesh, {
 /* ------------------------------------------------------------------ */
 
 const front = room.frontTable;
+const tableService = front.service;
+
+function setGlassLevel(glass, level) {
+  if (!glass) return;
+  const liquid = glass.userData.liquid;
+  const next = Math.max(0, Math.min(1, Number(level) || 0));
+  glass.userData.level = next;
+  if (!liquid) return;
+  liquid.visible = next > 0.02;
+  liquid.scale.y = Math.max(0.03, next);
+  liquid.position.y = 0.004 + 0.041 * next;
+}
+
+function placeTableDrinks({ shots = false } = {}) {
+  if (!tableService) return;
+  for (const glass of [tableService.hisDrink, tableService.herDrink]) {
+    glass.visible = true;
+    setGlassLevel(glass, 1);
+  }
+  date.setDrinkLevel(1);
+  if (shots) {
+    tableService.playerShot.visible = true;
+    tableService.margoShot.visible = true;
+    setGlassLevel(tableService.playerShot, 1);
+    setGlassLevel(tableService.margoShot, 1);
+  }
+}
+
+/* A single physical pair of shots. Both glasses leave the cloth, rise in the
+ * two visible hands, empty, and are cleared; nothing invisible increments a
+ * drink counter. */
+let tableShot = null;
+function takeTableShot() {
+  if (tableShot || !game.seated || !tableService?.playerShot?.visible) return false;
+  const his = tableService.playerShot;
+  const hers = tableService.margoShot;
+  scene.updateMatrixWorld(true);
+  camera.attach(his);
+  date.npc.parts.foreR.attach(hers);
+  his.position.set(0.23, -0.25, -0.48);
+  his.rotation.set(0.08, 0, 0);
+  hers.position.set(0, -0.29, 0.015);
+  hers.rotation.set(0, 0, 0);
+  tableShot = { t: 0, his, hers };
+  audio.play('dining.glass.clink', { volume: 0.55, position: room.anchors.frontTable });
+  woo.fire('Woo.ToastMade');
+  mission.flags.toast = mission.flags.toast || 'shots';
+  mission.refreshBoard();
+  return true;
+}
+
+function tableShotTick(dt) {
+  if (!tableShot) {
+    if (tableService?.herDrink?.visible) setGlassLevel(tableService.herDrink, date.drinkLevel);
+    return;
+  }
+  tableShot.t += dt;
+  const t = tableShot.t;
+  const lift = Math.sin(Math.min(1, t / 2.0) * Math.PI);
+  tableShot.his.position.y = -0.25 + lift * 0.17;
+  tableShot.his.rotation.x = 0.08 - lift * 0.72;
+  const P = date.npc.parts;
+  P.armR.rotation.x = -0.66 - lift * 0.34;
+  P.foreR.rotation.x = -0.86 - lift * 1.04;
+  P.head.rotation.x = -lift * 0.10;
+  if (t > 1.05) {
+    setGlassLevel(tableShot.his, Math.max(0, 1 - (t - 1.05) * 2.2));
+    setGlassLevel(tableShot.hers, Math.max(0, 1 - (t - 1.05) * 2.2));
+  }
+  if (t < 2.35) return;
+  tableShot.his.visible = false;
+  tableShot.hers.visible = false;
+  tableService.group.attach(tableShot.his);
+  tableService.group.attach(tableShot.hers);
+  tableShot.his.position.set(0.20, 0.785, 0.15);
+  tableShot.hers.position.set(-0.20, 0.785, 0.15);
+  audio.play('glass.set', { volume: 0.38, position: room.anchors.frontTable });
+  tableShot = null;
+}
+
+if (tableService) {
+  const shotPad = new THREE.Mesh(
+    new THREE.BoxGeometry(0.34, 0.28, 0.34),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  shotPad.position.set(
+    room.anchors.frontTable.x + 0.20,
+    0.90,
+    room.anchors.frontTable.z + 0.15,
+  );
+  scene.add(shotPad);
+  reg(shotPad, {
+    label: 'Take the <b>shot</b>',
+    enabled: () => game.seated && tableService.playerShot.visible && !tableShot,
+    onUse: () => takeTableShot(),
+  });
+}
 
 function frontGlasses(on) {
   for (const c of front.group.children) {
@@ -1064,6 +1195,7 @@ function showFrontTable() {
     c.position.set(A.frontSeats[i].x, 0, A.frontSeats[i].z);
     c.rotation.y = A.frontSeats[i].yaw;
   });
+  room.syncFrontTableNav?.(true);
   const lamp = front.group.children.find((c) => c.isPointLight);
   if (lamp) lamp.intensity = lamp.userData.base;
   game.chairPads?.his.position.set(A.frontSeats[0].x, 0.7, A.frontSeats[0].z);
@@ -1099,7 +1231,7 @@ function seatPlayer(done) {
    * conversations, a waiter, the champagne, the band — with his date standing
    * beside the table like a woman waiting for a bus. Pulling her chair out is
    * still worth something; it is no longer the only way she ever sits. */
-  if (date.mode !== 'seated') date.sitAt(room.anchors.frontSeats[1]);
+  if (date.mode !== 'seated' && date.mode !== 'seating') date.sitAt(room.anchors.frontSeats[1]);
 }
 
 /** Sit down. His chair, her chair, and the club carries on around it. */
@@ -1156,7 +1288,7 @@ function standFromTable() {
       woo.fire('Woo.ChairPulled');
       audio.play('chair.pull', { volume: 0.5, position: herPad.position });
       const seat = room.anchors.frontSeats[1];
-      date.sitAt(seat);
+      date.sitAtAnimated(seat, { chair: front.chairs[1] });
       const moment = scripts.moments.chairPulled;
       narrate(`<em>${moment.who}:</em> ${moment.line}`, moment.hold * 1000, {
         cue: nodeCue(moment), priority: true, expires: 30000,
@@ -1227,8 +1359,6 @@ function saludThePillar() {
     date.npc.parts.foreR.rotation.x = -1.9;
     setTimeout(() => { if (date.mode === 'seated') date.npc.sit(); }, 1600);
   }
-  narrate('<em>Two fingers off the cloth, and back to whatever they were saying. '
-    + 'That is the entire exchange and everybody in this room understood it.</em>', 5200);
   date.watch(thanksPad, 3);
   return true;
 }
@@ -1309,7 +1439,7 @@ class Cutscene {
     this.from = { pos: player.position.clone(), yaw: player.yaw, pitch: player.pitch };
     this.dur = Math.max(...this.beats.map((b) => b.at + (b.hold ?? 3)), 1);
     player.mode = 'frozen';
-    player.clearKeys();
+    input.clear('cutscene-start');
     interaction.setPaused(true);
     date.takeOver();
     document.body.classList.add('cutscene');
@@ -1320,7 +1450,9 @@ class Cutscene {
 
     while (this.next < this.beats.length && this.t >= this.beats[this.next].at) {
       const b = this.beats[this.next++];
-      if (b.line) {
+      /* A line without a speaker is stage direction. If the player can see a
+       * waiter lift a towel or a room turn, the animation gets to say it. */
+      if (b.line && b.who) {
         ui.dialogue.root.classList.remove('hidden');
         ui.dialogue.name.textContent = (b.who || '').toUpperCase();
         ui.dialogue.line.innerHTML = b.line;
@@ -1533,7 +1665,11 @@ function startTableCutscene() {
   date.group.position.set(A.hostMark.x - 1.1, 0, A.hostMark.z - 0.3);
   date.npc.faceToward(A.host.x, A.host.z, true);
 
-  for (const m of movers) { m.route = null; m.job = 'stand'; }
+  for (const m of movers) {
+    rememberServiceHome(m);
+    m.route = null;
+    m.job = 'stand';
+  }
 
   const beats = [
     ...scripts.scenes.table.map((b) => ({ ...b })),
@@ -1652,12 +1788,12 @@ function startTableCutscene() {
       game.chairPads.her.position.set(A.frontSeats[1].x, 0.7, A.frontSeats[1].z);
       date.release();
       date.follow();
-      narrate('<em>She has not said anything for eleven seconds, which for her is a review.</em>', 5000);
+      room.syncFrontTableNav?.(true);
       hud.setPosture(null);
-      for (const m of movers) {
-        m.job = 'patrol';
-        m.route = [{ x: -9.5, z: 0.5 }, { x: -4, z: 4 }, { x: -12, z: 2 }];
-      }
+      /* Each carrier rejoins his own surveyed floor round. The old handoff
+       * assigned both men the same obsolete diagonal, including a leg through
+       * the table they had just put down. */
+      for (const m of movers) goesBack(m);
     },
   });
 }
@@ -1670,11 +1806,39 @@ let champagneSent = false;
  * next beat at the table actually has to wait for. */
 let champagneComplete = false;
 function sendChampagne() {
-  if (champagneSent || !game.seated) return;
+  if (champagneSent) return true;
+  if (!game.seated) return false;
+  const waiter = cast.byName.waiter;
+  if (!waiter || serviceArrivals.some((entry) => entry.npc === waiter)) return false;
+  waiter.serviceTray?.show('champagne');
+  waiter.carryingShot = true;
+  const trip = walkServiceToTable(
+    waiter,
+    { x: 1.2, z: 1.4 },
+    () => presentChampagne(waiter),
+    { departIn: 1.25 },
+  );
+  if (!trip) {
+    waiter.serviceTray?.hide();
+    waiter.carryingShot = false;
+    return false;
+  }
+  /* The sending table starts the chain on screen: the bouncer catches the
+   * waiter's eye, the waiter turns with the bucket, then takes the aisle. The
+   * short hold is physical service business, not a story timer or teleport. */
+  const sender = cast.byName['bing-bouncer'];
+  glanceOver(sender, waiter.group.position.x, waiter.group.position.z, 2.2);
+  if (sender) waiter.faceToward(sender.group.position.x, sender.group.position.z, true);
+  /* Sent means a physical waiter now owns a real route. Setting this before
+   * route construction was the silent-failure hole: the queue retired the
+   * bottle even when no waiter existed or no path could start. */
   champagneSent = true;
   mission.flags.champagneSent = true;
+  return true;
+}
+
+function presentChampagne(waiter) {
   const target = room.anchors.frontTable;
-  const waiter = comesToTable(cast.byName.waiter, { x: 1.2, z: 1.4 });
   audio.play('cork.pop', { volume: 0.55, position: target });
 
   /* He says who sent it and he points at them.
@@ -1688,6 +1852,8 @@ function sendChampagne() {
    */
   const pillar = cast.crewTable;
   const bouncer = cast.byName['bing-bouncer'];
+  const waiterClearFrom = waiter.group.position.clone();
+  const waiterClearTo = new THREE.Vector3(target.x + 1.0, 0, target.z + 2.6);
   let pointing = 0;
   /* The staging the owner asked to feel: brought a drink, FROM them. He
    * presents facing the player — bottle down into the bucket while he is
@@ -1702,6 +1868,10 @@ function sendChampagne() {
       run: () => {
         // Presenting: square to the player, and the bottle lands on the cloth.
         waiter?.faceToward(player.position.x, player.position.z);
+        waiter?.serviceTray?.hide();
+        if (waiter) waiter.carryingShot = false;
+        if (tableService?.champagne) tableService.champagne.visible = true;
+        placeTableDrinks();
         audio.play('glass.set', { volume: 0.4, delay: 0.6, position: target });
       },
     },
@@ -1728,10 +1898,8 @@ function sendChampagne() {
     {
       at: 8.9,
       run: () => {
-        // And he steps aside — back off the table, clear of the seat→pillar
-        // sightline, still turned toward the men who sent it.
+        // The onUpdate walk has him clear of the seat→pillar sightline.
         if (!waiter) return;
-        waiter.group.position.set(target.x + 1.0, 0, target.z + 2.6);
         waiter.faceToward(pillar.x, pillar.z, true);
       },
     },
@@ -1751,6 +1919,13 @@ function sendChampagne() {
       waiter.parts.armR.rotation.x = -1.42;
       waiter.parts.armR.rotation.z = -0.22;
       waiter.parts.foreR.rotation.x = -0.12;
+    },
+    onUpdate: (t) => {
+      if (t < 8.4 || t > 9.2) return;
+      const raw = Math.max(0, Math.min(1, (t - 8.4) / 0.8));
+      const k = raw * raw * (3 - 2 * raw);
+      waiter.group.position.lerpVectors(waiterClearFrom, waiterClearTo, k);
+      waiter.faceToward(waiterClearTo.x, waiterClearTo.z, true);
     },
     onDone: () => {
       // Control comes back sitting down, which is where it was.
@@ -1779,6 +1954,7 @@ function startShowCutscene() {
 
   room.setHouse(0.28, 0);
   setDinersDuck(0.29, 2.2);
+  roomScore.setPerformance(true, 1.8);
 
   /* The band comes on when the announcement is OVER, not at 8.2 seconds.
    *
@@ -1947,10 +2123,18 @@ const ROUND_QUEUE = [
   /* Skipped if the order already happened — the waiter patrols within reach
    * of the front table, so a player can wave him down before the queue does,
    * and the round must not then play a second time. */
-  { id: 'drinks', after: 44, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
+  { id: 'drinks', after: 44, run: () => (
+    mission.roundsDone.has('drinks') ? true : waiterComesOver()
+  ) },
   /* The bottle. After the waiter has been to the table and before the family
    * comes over, because that is the order the evening happens in. */
-  { id: 'champagne', after: 74, run: () => sendChampagne() },
+  /* Dispatching the waiter is not completing the order. Since service staff
+   * now walk the real floor, the old queue advanced at once and the 74-second
+   * bottle reused that same waiter while he was still carrying the first
+   * drinks over. Hold this beat on the conversation's completion flag: waiter
+   * takes the order, then the bottle is presented, then Ape may approach. */
+  { id: 'champagne', after: 74, ready: () => mission.roundsDone.has('drinks'),
+    run: () => sendChampagne() },
   /* Ape does not walk over while the champagne is still being explained. */
   { id: 'family', after: 96, ready: () => champagneComplete, run: () => apeComesOver() },
   { id: 'funny', after: 132 },
@@ -1987,16 +2171,29 @@ const ROUND_QUEUE = [
 
 let queueAt = 0;
 let seatedFor = 0;
+let queueRetryIn = 0;
 function runSeatedQueue(dt) {
   if (!game.seated || game.scene) return;
   seatedFor += dt;
+  queueRetryIn = Math.max(0, queueRetryIn - dt);
+  if (queueRetryIn > 0) return;
   const next = ROUND_QUEUE[queueAt];
   if (!next || seatedFor < next.after) return;
   if (dialogue.active) return;
   if (next.ready && !next.ready()) return;
+  const started = next.run ? next.run() : beginRound(next.id);
+  /* A failed physical dispatch remains the next entry. The following frame
+   * retries it once the aisle is available, rather than advancing to an Ape
+   * beat whose bottle never arrived. Existing non-service rounds return
+   * undefined and therefore retain their historical one-shot behavior. */
+  if (started === false) {
+    /* A real obstruction can last several rendered frames. Retry at a human
+     * service cadence, not sixty graph searches a second. */
+    queueRetryIn = 0.6;
+    return;
+  }
+  queueRetryIn = 0;
   queueAt++;
-  if (next.run) next.run();
-  else beginRound(next.id);
 }
 
 /**
@@ -2011,37 +2208,174 @@ function runSeatedQueue(dt) {
  *
  * So anybody whose job is to arrive at your table arrives at it.
  */
-function comesToTable(npc, offset = { x: 1.3, z: 0.9 }) {
+const serviceArrivals = [];
+
+function cloneServiceRoute(route) {
+  return route?.map((mark) => new THREE.Vector3(mark.x, mark.y ?? 0, mark.z)) ?? null;
+}
+
+function rememberServiceHome(npc) {
+  if (!npc || npc.__serviceHome) return npc?.__serviceHome ?? null;
+  npc.__serviceHome = {
+    route: cloneServiceRoute(npc.route),
+    routeAt: npc.routeAt ?? 0,
+    speed: npc.speed,
+    job: npc.job,
+  };
+  return npc.__serviceHome;
+}
+
+function startServiceTrip(npc, target, route, onArrive = null, { departIn = 0 } = {}) {
+  if (!npc || !route?.length) return null;
+  /* One body cannot own two trays or two arrival callbacks. Keeping the new
+   * queue entry pending is safer than replacing the trip already on screen. */
+  if (serviceArrivals.some((entry) => entry.npc === npc)) return null;
+  const plannedRoute = cloneServiceRoute(route);
+  if (departIn > 0) {
+    npc.route = null;
+    npc.job = 'stand';
+  } else {
+    npc.route = plannedRoute;
+    npc.routeAt = 0;
+    npc.job = 'patrol';
+  }
+  serviceArrivals.push({
+    npc,
+    target: target.clone(),
+    onArrive,
+    stalledFor: 0,
+    lastPosition: npc.group.position.clone(),
+    replans: 0,
+    departIn,
+    departRoute: departIn > 0 ? plannedRoute : null,
+  });
+  return npc;
+}
+
+function walkServiceToTable(
+  npc,
+  offset = { x: 1.3, z: 0.9 },
+  onArrive = null,
+  options = {},
+) {
   if (!npc) return null;
   const t = room.anchors.frontTable;
   /* His station's round, kept the first time he is called over. `goesBack`
    * falls back to it, so a man summoned twice without being released between
    * — which is a timing accident, not a plan — still has somewhere to go
    * instead of standing at the table for the rest of the evening. */
-  npc.__homeRoute ??= npc.route;
-  npc.__wasPatrolling = npc.route;
-  npc.route = null;
-  npc.job = 'stand';
-  npc.stand?.();
-  npc.group.position.set(t.x + offset.x, 0, t.z + offset.z);
-  npc.faceToward(player.position.x, player.position.z, true);
-  return npc;
+  rememberServiceHome(npc);
+  const target = new THREE.Vector3(t.x + offset.x, 0, t.z + offset.z);
+  const route = planAuthoredServiceRoute(npc, cast.serviceNetwork, target, {
+    people: cast.all,
+  });
+  if (!route) return null;
+  npc.speed = npc.serviceTray?.group?.visible ? 1.22 : 1.38;
+  return startServiceTrip(npc, target, route, onArrive, options);
+}
+
+function updateServiceArrivals(dt) {
+  for (let i = serviceArrivals.length - 1; i >= 0; i--) {
+    const trip = serviceArrivals[i];
+    const p = trip.npc.group.position;
+    if (trip.departIn > 0) {
+      trip.departIn = Math.max(0, trip.departIn - dt);
+      if (trip.departIn > 0) continue;
+      trip.npc.route = trip.departRoute;
+      trip.npc.routeAt = 0;
+      trip.npc.job = 'patrol';
+      trip.departRoute = null;
+      trip.lastPosition.copy(p);
+      continue;
+    }
+    if (Math.hypot(p.x - trip.target.x, p.z - trip.target.z) <= SERVICE_STOP_DISTANCE) {
+      serviceArrivals.splice(i, 1);
+      trip.npc.route = null;
+      trip.npc.routeAt = 0;
+      trip.npc.job = 'stand';
+      trip.npc.stand?.();
+      trip.npc.faceToward(player.position.x, player.position.z, true);
+      trip.onArrive?.(trip.npc);
+      continue;
+    }
+    const moved = Math.hypot(
+      p.x - trip.lastPosition.x,
+      p.z - trip.lastPosition.z,
+    );
+    trip.lastPosition.copy(p);
+    trip.stalledFor = moved > 0.006 ? 0 : trip.stalledFor + dt;
+    if (trip.stalledFor >= SERVICE_STALL_SECONDS) {
+      trip.stalledFor = 0;
+      /* Re-plan from where he actually is, treating the body presently in
+       * front of him as a blocker on recovery. The transform never jumps. */
+      const route = planAuthoredServiceRoute(trip.npc, cast.serviceNetwork, trip.target, {
+        people: cast.all,
+        includeMovingPeople: true,
+      });
+      trip.replans++;
+      if (route) {
+        trip.npc.route = cloneServiceRoute(route);
+        trip.npc.routeAt = 0;
+      }
+    }
+  }
+}
+
+function recoverInterruptedServiceTrips() {
+  const interrupted = [...new Set(serviceArrivals.map(({ npc }) => npc))];
+  serviceArrivals.length = 0;
+  /* A checkpoint is allowed to cut across a walk, but it does not strand the
+   * body or snap it home. Each interrupted worker takes the same clear return
+   * graph used after an ordinary conversation. */
+  for (const npc of interrupted) goesBack(npc);
 }
 
 function goesBack(npc) {
   if (!npc) return;
-  const route = npc.__wasPatrolling ?? npc.__homeRoute;
-  if (route) {
-    npc.route = route;
-    npc.job = 'patrol';
-    npc.__wasPatrolling = null;
-  }
+  npc.serviceTray?.hide();
+  npc.carryingShot = false;
+  const home = npc.__serviceHome;
+  if (!home?.route?.length) return false;
+  const back = planServiceReturn(npc, cast.serviceNetwork, home.route, {
+    people: cast.all,
+  });
+  if (!back) return false;
+  npc.speed = Math.max(1.2, home.speed ?? 1.1);
+  return !!startServiceTrip(npc, back.target, back.route, () => {
+    npc.route = cloneServiceRoute(home.route);
+    npc.routeAt = back.joinAt;
+    npc.speed = home.speed;
+    npc.job = home.job;
+    npc.__serviceHome = null;
+  });
 }
 
 function waiterComesOver(at = 'open') {
-  const w = comesToTable(cast.byName.waiter, { x: 1.1, z: 1.0 });
-  if (!w) return;
-  greet(w, scripts.waiter, at);
+  const w = cast.byName.waiter;
+  if (!w || serviceArrivals.some((entry) => entry.npc === w)) return false;
+  const kind = at === 'dessert' ? 'plates' : at === 'another' ? 'cocktails' : 'cocktails';
+  w.serviceTray?.show(kind);
+  w.carryingShot = true;
+  const trip = walkServiceToTable(w, { x: 1.1, z: 1.0 }, () => {
+    if (at === 'another') {
+      w.serviceTray?.hide();
+      w.carryingShot = false;
+      placeTableDrinks({ shots: true });
+      audio.play('glass.set', { volume: 0.45, position: room.anchors.frontTable });
+    }
+    if (at === 'dessert') {
+      w.serviceTray?.hide();
+      w.carryingShot = false;
+      audio.play('table.set', { volume: 0.38, position: room.anchors.frontTable });
+    }
+    greet(w, scripts.waiter, at);
+  });
+  if (!trip) {
+    w.serviceTray?.hide();
+    w.carryingShot = false;
+    return false;
+  }
+  return true;
 }
 
 function apeComesOver() {
@@ -2138,22 +2472,98 @@ function startSway() {
   game.swayStarting = true;
   mission.startSway();
   standFromTable();
-  const spot = { x: room.anchors.frontTable.x + 0.6, z: room.anchors.frontTable.z - 1.6 };
-  setTimeout(() => {
-    game.swayStarting = false;
-    date.standFrom(spot);
-    date.hold();
-    /* "The dancing minigame is completely fucked" was two bugs and this is
-     * the other one: a player judging a timing bar against a partner who was
-     * standing bolt upright the whole four bars, which reads as a quiz, not
-     * a dance. `standFrom` puts her in the default `stand` job; `sway`
-     * overrides it with the couple's-sway pose in `bing/cast.js`, cleared
-     * back to `stand` in `finishSway` below. */
-    date.npc.job = 'sway';
-    sway.start(settings.assist);
-    game.swayRunning = true;
-    narrate('<em>Four bars. Hit [E] on the beat and try to look like you meant it.</em>', 4600);
-  }, 900);
+  date.standFrom();
+  date.hold();
+  player.mode = 'frozen';
+  const centre = {
+    x: room.anchors.frontTable.x,
+    z: room.anchors.frontTable.z - 1.72,
+  };
+  const playerTarget = { x: centre.x + 0.58, z: centre.z };
+  const dateTarget = { x: centre.x - 0.58, z: centre.z };
+  game.danceApproach = {
+    t: 0,
+    duration: 2.8,
+    playerFrom: player.position.clone(),
+    playerTarget,
+    datePath: [
+      date.position.clone(),
+      new THREE.Vector3(room.anchors.frontSeats[1].x - 0.58, 0, room.anchors.frontSeats[1].z),
+      new THREE.Vector3(room.anchors.frontSeats[1].x - 0.58, 0, centre.z),
+      new THREE.Vector3(dateTarget.x, 0, dateTarget.z),
+    ],
+  };
+}
+
+function danceApproachTick(dt) {
+  const move = game.danceApproach;
+  if (!move) return;
+  move.t = Math.min(move.duration, move.t + dt);
+  const k = move.t / move.duration;
+  const e = k * k * (3 - 2 * k);
+  player.position.x = move.playerFrom.x + (move.playerTarget.x - move.playerFrom.x) * e;
+  player.position.z = move.playerFrom.z + (move.playerTarget.z - move.playerFrom.z) * e;
+  player.position.y = room.groundAt(player.position.x, player.position.z) + player.eyeHeight;
+
+  const legs = move.datePath.length - 1;
+  const along = Math.min(legs - 1e-6, e * legs);
+  const leg = Math.floor(along);
+  const u = along - leg;
+  const a = move.datePath[leg];
+  const b = move.datePath[leg + 1];
+  date.position.set(
+    a.x + (b.x - a.x) * u,
+    room.groundAt(a.x + (b.x - a.x) * u, a.z + (b.z - a.z) * u),
+    a.z + (b.z - a.z) * u,
+  );
+  date.npc.baseY = date.position.y;
+  date.npc.faceToward(b.x, b.z, true);
+  const gait = Math.sin(move.t * 9) * 0.38;
+  date.npc.parts.legL.rotation.x = gait;
+  date.npc.parts.legR.rotation.x = -gait;
+
+  if (k < 1) return;
+  game.danceApproach = null;
+  game.swayStarting = false;
+  game.danceBase = { player: { ...move.playerTarget }, date: { ...move.datePath.at(-1) } };
+  date.npc.job = 'sway';
+  sway.start(settings.assist);
+  game.swayRunning = true;
+  narrate('<em>Four bars. Hit [E] on the beat.</em>', 3600, { priority: true });
+}
+
+function posePartnerDance() {
+  if (!game.swayRunning || !game.danceBase) return;
+  const base = game.danceBase;
+  const beat = sway.t / sway.beatLength;
+  const pulse = Math.sin(beat * Math.PI * 2);
+  const side = pulse * 0.12;
+  const rock = Math.sin(beat * Math.PI) * 0.07;
+  player.position.x = base.player.x - rock;
+  player.position.z = base.player.z + side;
+  date.position.x = base.date.x + rock;
+  date.position.z = base.date.z - side;
+  date.position.y = room.groundAt(date.position.x, date.position.z);
+  date.npc.baseY = date.position.y;
+
+  const dx = date.position.x - player.position.x;
+  const dz = date.position.z - player.position.z;
+  player.yaw = Math.atan2(-dx, -dz);
+  const facing = Math.atan2(player.position.x - date.position.x, player.position.z - date.position.z);
+  const spin = sway.index === 2 ? sway.phase * Math.PI * 2 : 0;
+  date.group.rotation.y = facing + spin;
+
+  const P = date.npc.parts;
+  P.body.rotation.z = pulse * 0.055;
+  P.body.rotation.x = -0.035 + Math.abs(pulse) * 0.04;
+  P.legL.rotation.x = pulse * 0.20;
+  P.legR.rotation.x = -pulse * 0.20;
+  const joined = sway.index === 1 || sway.index === 2;
+  P.armR.rotation.set(joined ? -0.92 : -0.36, 0, joined ? 0.42 : 0.18);
+  P.foreR.rotation.set(joined ? -1.02 : -0.64, 0, 0);
+  P.armL.rotation.x = sway.index === 3 ? -0.90 : -0.30 - Math.abs(pulse) * 0.18;
+  P.foreL.rotation.x = sway.index === 3 ? -1.10 : -0.62;
+  P.head.rotation.z = -pulse * 0.04;
 }
 
 /**
@@ -2169,6 +2579,9 @@ function startSway() {
 function finishSway() {
   if (!game.swayRunning) return;
   game.swayRunning = false;
+  game.danceApproach = null;
+  game.danceBase = null;
+  player.mode = 'walk';
   const result = sway.result;
   mission.flags.swayed = result;
   hud.setTiming(null);
@@ -2218,10 +2631,20 @@ function closeTheEvening() {
   /* The plates go first. He is clearing a table, not delivering a cue, so he
    * arrives, works, and leaves without a word — and the room gets quiet
    * behind him, which is the only stage direction this beat needs. */
-  const w = comesToTable(cast.byName.waiter, { x: 1.05, z: 1.05 });
-  audio.play('cutlery.set', { volume: 0.42, position: room.anchors.frontTable });
-  audio.play('glass.set', { volume: 0.34, delay: 0.7, position: room.anchors.frontTable });
-  setTimeout(() => goesBack(w), 2600);
+  const w = cast.byName.waiter;
+  w?.serviceTray?.show('plates');
+  if (w) w.carryingShot = true;
+  walkServiceToTable(w, { x: 1.05, z: 1.05 }, () => {
+    audio.play('cutlery.set', { volume: 0.42, position: room.anchors.frontTable });
+    audio.play('glass.set', { volume: 0.34, delay: 0.7, position: room.anchors.frontTable });
+    for (const prop of [
+      tableService?.hisDrink, tableService?.herDrink,
+      tableService?.playerShot, tableService?.margoShot, tableService?.champagne,
+    ]) if (prop) prop.visible = false;
+    w?.serviceTray?.hide();
+    if (w) w.carryingShot = false;
+    setTimeout(() => goesBack(w), 1800);
+  });
   setDinersDuck(0.29, 3);
   dialogue.start(scripts.invitation, 'plates', date.npc);
   mission.addObjective('ask', 'Decide how the night ends');
@@ -2270,6 +2693,10 @@ function judgeInvitation() {
   const outcome = mission.resolve(woo.score, woo.band.key);
   if (!rushed && (outcome === 'perfect' || outcome === 'strong')) woo.fire('Woo.InvitationTiming');
   if (rushed) woo.fire('Woo.InvitationRushed');
+  const rating = woo.score >= 90 ? 'Front and Center'
+    : woo.score >= 70 ? 'Still Got It'
+      : woo.score >= 45 ? 'Interesting Company' : 'Lucky You’re Interesting';
+  hud.toast(`WOO SCORE: ${woo.score} — ${rating}`, woo.score >= 70 ? '' : 'bad');
   mission.finish(outcome);
   setTimeout(() => dialogue.start(scripts.invitation, outcome, date.npc), 500);
   setTimeout(() => finish(outcome), 8000);
@@ -2279,7 +2706,7 @@ function finish(outcome) {
   if (game.over) return;
   game.over = true;
   mission.done();
-  const e = ENDINGS[outcome] ?? ENDINGS.awkward;
+  const e = ENDINGS[outcome] ?? ENDINGS.strong;
   const saved = mission.persist(woo);
   /* The evening goes into the campaign, not into a private key only this page
    * has ever read. The story class takes the persist() payload as-is and keeps
@@ -2287,6 +2714,10 @@ function finish(outcome) {
   story.complete(saved);
 
   performance_.finish();
+  /* The stage controller retires the feature and its 27-second opening tail.
+   * The non-diegetic room bed is a separate owner, so close it at the same
+   * campaign seam before Go Home can navigate into the apartment. */
+  roomScore.stop(1.2);
   overlay.classList.remove('hidden');
   overlay.classList.add('ending');
   overlay.querySelector('h1').innerHTML = 'FRONT AND<span>CENTER</span>';
@@ -2302,11 +2733,14 @@ function finish(outcome) {
   if (saved.seeingHerAgain) extras.push('<b>She will pick up if you ring the station.</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   /* The evening ends where every other mission ends: at his own front door.
+   * Which door that is stopped being a constant at beat 14 -- Lou handed him
+   * a set of keys on the eighteenth green this morning, and the bible has her
+   * leaving Front & Center WITH him and going back to the new place.
    * Replaying it is a preview/debug affordance, not the way out. */
   startBtn.textContent = 'Go Home';
   startBtn.disabled = false;
   startBtn.onclick = () => {
-    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+    returnHomeFromMission(campaign, SCENE_IDS.SILVER_ROOM);
   };
   document.exitPointerLock?.();
 }
@@ -2347,6 +2781,10 @@ function saveCheckpoint(state) {
     known: [...game.known],
     greeted: [...game.greeted],
     passGreeted: [...game.passGreeted],
+    /* Ambient room texture also has a one-visit ledger. Persist it with the
+     * direct greetings so a checkpoint cannot turn a restrained bark cadence
+     * into a fresh burst of repeated lines. */
+    barksHeard: [...game.barksHeard],
     noted: [...game.noted],
     seated: game.seated,
     round: game.round,
@@ -2358,6 +2796,7 @@ function saveCheckpoint(state) {
     latches: {
       tableCutsceneStarted,
       champagneSent,
+      champagneComplete,
       showStarted,
       taxiGone,
       /* Whether she has already asked about the front door. The `arrived`
@@ -2380,6 +2819,7 @@ function saveCheckpoint(state) {
 
 function restoreCheckpoint(cp = game.checkpoint) {
   if (!cp) return false;
+  recoverInterruptedServiceTrips();
   woo.restore(cp.woo);          // the ledger, so nothing pays out twice
   game.money = cp.money;
   addMoney(0);
@@ -2387,14 +2827,29 @@ function restoreCheckpoint(cp = game.checkpoint) {
   game.known = new Set(cp.known ?? []);
   game.greeted = new Set(cp.greeted ?? []);
   game.passGreeted = new Set(cp.passGreeted ?? []);
+  game.barksHeard = new Set(cp.barksHeard ?? []);
   game.noted = new Set(cp.noted ?? []);
   game.round = cp.round ?? null;
   queueAt = cp.queueAt;
   seatedFor = cp.seatedFor;
+  queueRetryIn = 0;
 
   const l = cp.latches ?? {};
   tableCutsceneStarted = !!l.tableCutsceneStarted;
   champagneSent = !!l.champagneSent;
+  champagneComplete = l.champagneComplete === undefined
+    ? champagneSent
+    : !!l.champagneComplete;
+  /* A new checkpoint taken after dispatch but before the bottle reaches the
+   * cloth owns an honest incomplete event. Put that queue entry back instead
+   * of restoring a `sent` flag whose delivery callback no longer exists. */
+  if (champagneSent && !champagneComplete) {
+    champagneSent = false;
+    mission.flags.champagneSent = false;
+    const champagneAt = ROUND_QUEUE.findIndex(({ id }) => id === 'champagne');
+    queueAt = Number.isInteger(queueAt) ? Math.min(queueAt, champagneAt) : champagneAt;
+    if (tableService?.champagne) tableService.champagne.visible = false;
+  }
   showStarted = !!l.showStarted;
   arrivalAsked = !!l.arrivalAsked;
   arrivalIn = -1;
@@ -2427,6 +2882,8 @@ function restoreCheckpoint(cp = game.checkpoint) {
 
   game.swayRunning = false;
   game.swayStarting = false;
+  game.danceApproach = null;
+  game.danceBase = null;
   sway.active = false;
   hud.setTiming(null);
   game.scene = null;
@@ -2473,7 +2930,6 @@ function restoreCheckpoint(cp = game.checkpoint) {
 function onMissionState(state) {
   if (state === 'arrived') {
     date.follow();
-    narrate('<em>She is out of the car and looking at the front door, which has a queue on it.</em>', 5000);
     /* Her opening question is owed, not fired-and-forgotten. See `arrivalTick`. */
     arrivalIn = 3;
   }
@@ -2568,6 +3024,7 @@ function updateZones() {
     1.4,
   );
   performance_.setRoomMix(mix.band, 1.1);
+  roomScore.setZone(nextZone, 1.1);
   // Behind a closed door, everything gets a blanket over it
   audio.setMuffle(nextZone === 'cellar' || nextZone === 'kitchen', 900);
 
@@ -2585,11 +3042,10 @@ function onRoomChange(next) {
     drystore: 'cellar', walkin: 'cellar', undercroft: 'cellar',
     prep: 'kitchen', kitchen: 'kitchen',
     dish: 'kitchen', corridor: 'corridor', floor: 'floor', lobby: 'floor' }[next];
-  const notes = NOTES[key];
-  if (notes && !game.noted.has(key)) {
-    game.noted.add(key);
-    narrate(notes[(Math.random() * notes.length) | 0], 4800);
-  }
+  /* Room notes used to subtitle what was already on screen — somebody
+   * working, a glance, a towel — directly on top of actual dialogue. The
+   * geometry, animation and sound now carry those observations themselves. */
+  if (key) game.noted.add(key);
   if (key && DATE_BARKS[key] && date.mode === 'follow') {
     setTimeout(() => date.bark(key, DATE_BARKS[key]), 1400);
   }
@@ -2941,16 +3397,20 @@ function barks(dt) {
   game.barkAt = key === 'floor' ? 28 + Math.random() * 20 : 11 + Math.random() * 12;
   if (!list) return;
   const available = list.map((line, i) => ({ line, i }))
-    .filter(({ i }) => !(key === 'floor' && i === 5 && game.floorFrontDoorBarked));
+    .filter(({ i }) => !(key === 'floor' && i === 5 && game.floorFrontDoorBarked))
+    .filter(({ i }) => !game.barksHeard.has(`${key}:${i}`));
+  if (!available.length) return;
   let picked = (Math.random() * available.length) | 0;
   if (available.length > 1 && available[picked].i === game.lastBark) {
     picked = (picked + 1) % available.length;
   }
   const { line: bark, i } = available[picked];
   game.lastBark = i;
+  game.barksHeard.add(`${key}:${i}`);
   if (key === 'floor' && i === 5) game.floorFrontDoorBarked = true;
   const [who, line] = bark;
-  hud.say(`<em>${who}:</em> ${line}`, 4200);
+  /* Deliberately no subtitle. This is overheard room texture, not somebody
+   * addressing the player; direct proximity greetings still use the floor. */
   /* The room's own voices. Anonymous by design — "a cook", "the pass" — so
    * they share the wait staff's profile and are named by where and which,
    * which is also the only stable thing about them. Quieter and never solo:
@@ -3004,8 +3464,11 @@ function evening(dt) {
   arrivalTick(dt);
   flushVoice();
 
+  danceApproachTick(dt);
+
   if (sway.active) { sway.update(dt); hud.setTiming(sway.view); }
   else if (game.swayRunning) finishSway();
+  posePartnerDance();
 
   /* He stopped, and she arrived, and that is worth a point once. */
   if (date.mode === 'follow') {
@@ -3044,29 +3507,17 @@ function evening(dt) {
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
-const keys = new Set();
-let dragLook = false;
-let dragging = false;
+let dragLookHinted = false;
+let input;
 
-function enableInput() {
-  player.enabled = true;
-  document.body.classList.remove('unlocked');
-}
+const primaryControl = Object.freeze({
+  press: () => pressInteract(),
+  release: () => interaction.release(),
+  cancel: () => interaction.cancel(),
+});
 
-function requestLock() {
-  if (dragLook) { enableInput(); return; }
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (dragLook) return;
-  dragLook = true;
-  enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+function paintInputCapture({ captured = false } = {}) {
+  document.body.classList.toggle('unlocked', !captured);
 }
 
 const pauseMenu = createPauseMenu({
@@ -3075,7 +3526,8 @@ const pauseMenu = createPauseMenu({
   // scene the switch does anything in, so it is the one that renders it.
   assist: true,
   canPause: () => game.started && !game.over,
-  getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
+  getObjective: () => (mission.objectives.find((objective) => !objective.done && !objective.optional)
+    ?? mission.objectives.find((objective) => !objective.done))?.text
     || 'Stay with Margo and finish the evening.',
   instructions: [
     'W A S D — move. E or Click — interact.',
@@ -3087,10 +3539,7 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     game.paused = true;
-    player.enabled = false;
-    keys.clear();
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     performance_.pause();
     audio.ctx?.suspend?.();
@@ -3101,36 +3550,13 @@ const pauseMenu = createPauseMenu({
     audio.ctx?.resume?.();
     performance_.resume();
     clock.getDelta();
-    requestLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
     sceneId: SCENE_IDS.SILVER_ROOM,
     location,
   }),
-});
-
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  player.enabled = locked || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !dragLook);
-  if (!locked && !dragLook) player.clearKeys();
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (dragLook && !dragging) return;
-  if (!dragLook && document.pointerLockElement !== canvas) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
-canvas.addEventListener('mousedown', (e) => {
-  if (game.paused) return;
-  if (dragLook) dragging = true;
-  if (e.button === 0) pressInteract();
-});
-window.addEventListener('mouseup', (e) => {
-  dragging = false;
-  if (e.button === 0) interaction.release();
 });
 
 function pressInteract() {
@@ -3146,17 +3572,16 @@ function swayPress() {
   if (!sway.active) finishSway();
 }
 
-window.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  if (e.code === 'Space') e.preventDefault();
-  keys.add(e.code);
-  player.setKey(prefs.translateKey(e.code), true);
-
-  if (e.code === 'KeyE') pressInteract();
-  if (e.code === 'KeyQ') {
-    if (game.seated && !sway.active) standFromTable();
+function handleSilverKeyDown(e, code) {
+  if (code === 'KeyE') {
+    pressInteract();
+    return true;
   }
-  if (e.code === 'KeyR' && !dialogue.active && game.seated) {
+  if (code === 'KeyQ') {
+    if (game.seated && !sway.active) standFromTable();
+    return true;
+  }
+  if (code === 'KeyR' && !dialogue.active && game.seated) {
     /* One key for "say the thing you have been working up to". What that is
      * depends on where the evening has got to, which is the same logic the
      * player is using. */
@@ -3173,35 +3598,46 @@ window.addEventListener('keydown', (e) => {
     else if (mission.flags.champagneSent && !mission.flags.champagneThanked) saludThePillar();
     else if (mission.flags.swayed === 'refused' && !mission.flags.toast) askAgain();
     else if (mission.flags.showStarted && !mission.flags.toast) raiseAGlass();
+    return true;
   }
-  if (/^Digit[1-7]$/.test(e.code)) {
-    const n = Number(e.code.slice(-1)) - 1;
+  if (/^Digit[1-7]$/.test(code)) {
+    const n = Number(code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) dialogue.choose(n);
     else if (n < inventory.slots) inventory.select(n);
+    return true;
   }
-  if (e.code === 'Escape') document.exitPointerLock?.();
-  if (e.code === 'Tab') {
-    e.preventDefault();
-    pauseMenu.toggle();
+  if (code === 'Escape') {
+    document.exitPointerLock?.();
+    return true;
   }
+  return false;
+}
+
+const silverInputPolicy = createSilverInputPolicy({
+  isActive: () => game.started && !game.paused && !game.over,
+  primaryControl,
+  routeKeyDown: handleSilverKeyDown,
+});
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction: primaryControl,
+  ...silverInputPolicy.adapterOptions,
+  onCaptureChange: (_event, state) => paintInputCapture(state),
+  onCaptureError: (_error, state) => {
+    paintInputCapture(state);
+    if (!state.recovered || dragLookHinted) return;
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  },
 });
 
-window.addEventListener('keyup', (e) => {
-  keys.delete(e.code);
-  player.setKey(prefs.translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-});
-window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 /* A hidden tab must not keep playing the evening at nobody: route through the
  * pause menu, whose onPause already clears keys, pauses the performance, and
  * suspends the audio context. pause() refuses politely outside the show. */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
-});
-
-canvas.addEventListener('click', () => {
-  if (!game.started || game.paused) return;
-  if (document.pointerLockElement !== canvas && !dragLook) requestLock();
 });
 
 /* ------------------------------------------------------------------ */
@@ -3390,10 +3826,16 @@ startBtn.addEventListener('click', async () => {
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
-  requestLock();
 
   if (!game.started) {
     game.started = true;
+    /* The title card waits only for arrival-critical voices and effects. The
+     * table/show bank fills while the player walks the service route. */
+    setTimeout(() => {
+      audio.loadDeferredVo().then((late) => {
+        console.info(`[sfx] ${late.total} deferred Silver takes decoded behind gameplay.`);
+      }).catch((error) => console.warn(`Deferred Silver voice load: ${error?.message || error}`));
+    }, 0);
     /* Draw the five empty boxes on the first gameplay frame. Waiting for the
      * first pickup made the inventory system invisible until it was too late
      * to teach the player that it existed. */
@@ -3411,16 +3853,20 @@ startBtn.addEventListener('click', async () => {
      * Silver Room simply was not asking for them. */
     audio.startLoop('ambience.crowd', { volume: 0, ambience: true, fade: 2 });
     audio.startLoop('ambience.city.night', { volume: 0, ambience: true, fade: 2 });
+    roomScore.start();
     audio.setLoopVolume('ambience.alley', 0.5, 1.5);
     room.setHouse(1, 0, true);
     addMoney(0);
     paintWoo(woo.score, 0, null);
     paintObjectives(mission.objectives);
     arrive();
-    narrate('<em>As far back as you can remember, you have wanted to be the man who does not '
-      + 'stand in that queue.</em>', 6400);
+    /* The arrival conversation owns the opening subtitle floor. The queue,
+     * the car and the service entrance are visible and no longer narrated on
+     * top of Margo. */
   }
   game.paused = false;
+  input.refresh('scene-start');
+  input.requestPointerLock();
 });
 
 /* ------------------------------------------------------------------ */
@@ -3428,11 +3874,39 @@ startBtn.addEventListener('click', async () => {
 /* ------------------------------------------------------------------ */
 
 const clock = new THREE.Clock();
+let renderedFrameCount = 0;
+
+/* Keep the service-floor update as one callable seam. The browser verifier
+ * advances long authored beats faster than wall time, and a walking waiter is
+ * part of those beats now; duplicating only the queue clock would certify the
+ * old teleport version of service instead of the shipped movement path. */
+function updateCastAndService(dt) {
+  const p = player.position;
+  for (const npc of cast.all) {
+    const d = Math.abs(npc.group.position.x - p.x) + Math.abs(npc.group.position.z - p.z);
+    if (d > 26) continue;
+    if (!serviceAdvanceAllowed(npc, cast.all, dt)) {
+      /* A held waiter stays alive — gaze and breathing still update — but
+       * receives no locomotion time until the lane clears. */
+      const job = npc.job;
+      npc.job = 'stand';
+      npc.update(dt, p);
+      npc.job = job;
+      continue;
+    }
+    npc.update(dt, p);
+  }
+  updateServiceArrivals(dt);
+}
 
 function frame() {
   requestAnimationFrame(frame);
   const raw = Math.min(clock.getDelta(), 0.05);
-  if (!game.started || game.paused) { renderer.render(scene, camera); return; }
+  if (!game.started || game.paused) {
+    renderer.render(scene, camera);
+    renderedFrameCount += 1;
+    return;
+  }
   const dt = raw * highs.timeScale;
   game.elapsed += raw;
 
@@ -3459,6 +3933,7 @@ function frame() {
   date.update(dt, player.position, player.yaw);
   mission.update(raw, { trailing: date.isTrailing });
   drinkTick(raw);
+  tableShotTick(raw);
   updateZones();
   checkHostStation();
   barks(raw);
@@ -3469,11 +3944,7 @@ function frame() {
   /* Crowd: the near half every frame, the far half on the Npc class's own
    * stagger. Beyond twenty metres in a dark room, nobody has ever noticed. */
   const p = player.position;
-  for (const npc of cast.all) {
-    const d = Math.abs(npc.group.position.x - p.x) + Math.abs(npc.group.position.z - p.z);
-    if (d > 26) continue;
-    npc.update(dt, p);
-  }
+  updateCastAndService(dt);
   for (const m of band.members) if (m.group.visible) m.update(dt, p);
   /* Cutscene work poses must be the final author on the two waiters' arms.
    * Their normal idle update still runs so faces and feet stay alive. */
@@ -3491,6 +3962,7 @@ function frame() {
   hud.setClock(2, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} PM`, game.elapsed);
 
   postfx.render(dt);
+  renderedFrameCount += 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -3501,8 +3973,9 @@ loading.classList.add('hidden');
 
 window.__silver = {
   THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
-  mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
-  scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
+  mission, woo, dialogue, hud, audio, game, interaction, input, drunk, inventory,
+  scripts, performance: performance_, roomScore, SILVER_ROOM_MUSIC,
+  sway, settings, ROOMS, SET, EVENTS, ENDINGS,
   /* The number the back of house is built to, so the verifier holds it to
    * the same one rather than to a copy of it. */
   STEP_UP,
@@ -3520,11 +3993,13 @@ window.__silver = {
    * to both. */
   VOICE_OF, PROFILE_OF,
   campaign, story,
+  get renderedFrameCount() { return renderedFrameCount; },
   get campaignState() { return campaign.state; },
   /* The pieces the headless driver has to be able to step by hand, because it
    * runs the update path directly rather than waiting on frames. */
   __zones: () => updateZones(),
   __seatTick: (dt) => { runSeatedQueue(dt); closingTick(dt); },
+  __serviceTick: (dt) => updateCastAndService(dt),
   /* The closing beat, so the harness can play the real dessert→invitation
    * path rather than calling the debug button and declaring it reachable. */
   __closing: () => ({
@@ -3532,7 +4007,12 @@ window.__silver = {
     prompt: !document.getElementById('ask')?.classList.contains('hidden'),
   }),
   __host: () => checkHostStation(),
-  __barks: (dt) => { barks(dt); flushVoice(); },
+  /* `flush: false` isolates the bark scheduler for certification. The live
+   * frame path never passes it; the verifier does so because flushing an
+   * unrelated queued narration after the first probe legitimately occupies
+   * the subtitle floor and used to turn calls two and three into `-1` timing
+   * artifacts instead of testing bark cadence or one-shot retirement. */
+  __barks: (dt, { flush = true } = {}) => { barks(dt); if (flush) flushVoice(); },
   /* The one-mouth-at-a-time gate, so the harness can prove a recorded line
    * is not being cut off by the next thing that wants to talk. */
   __voice: () => ({ speaking: voiceSpeaking(), deferred: waiting.length > 0, queued: waiting.length }),

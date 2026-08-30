@@ -64,6 +64,7 @@ function readSeconds(text) {
  *   onPhase(phase)           the scene has moved
  *   onSeated()               he is in the front seat and the door is shut
  *   onBlackout() / onFadeIn(seconds)
+ *   canHandoff()             whether the player has actually walked the trail
  *   onHandoff()              the trees have opened; leave for the Initiation
  */
 export function createRideSequence({
@@ -75,6 +76,7 @@ export function createRideSequence({
   onSeated = null,
   onBlackout = null,
   onFadeIn = null,
+  canHandoff = () => true,
   onHandoff = null,
   takeSeconds = null,
 } = {}) {
@@ -141,7 +143,14 @@ export function createRideSequence({
       }
       if (line.swapRear) rearSwapped = true;
       if (line.opensTrunk) trunkOpen = true;
-      return Math.max(0, line.holdSeconds ?? 0);
+      if (line.closesTrunk) trunkOpen = false;
+      /* A visual dissolve owns real time even when it deliberately has no
+       * additional hold. Previously `fadeSeconds` was sent to the DOM but the
+       * sequence advanced again on the next frame, so a 1.2 second fade to
+       * black could be followed by fade-in roughly 16 ms later. Treat the
+       * transition itself as the stage direction's minimum duration; an
+       * authored hold may still extend it. */
+      return Math.max(0, line.holdSeconds ?? 0, line.fadeSeconds ?? 0);
     }
     const reported = onLine?.(line, b);
     const spoken = Number.isFinite(reported) && reported > 0
@@ -158,7 +167,13 @@ export function createRideSequence({
     hold = 0;
     closeChoice();
 
-    if (b.kind === 'blackout') { blackedOut = true; setPhase('driving'); onBlackout?.(); }
+    /* The road is visible from its first frame now. Act three, not a blackout,
+     * is the durable phase boundary between the kerb and the drive. */
+    if (b.act === 3 && phase === 'seated') setPhase('driving');
+    if (b.kind === 'blackout') {
+      blackedOut = true;
+      onBlackout?.(b.lines[0]?.fadeSeconds ?? 0);
+    }
     if (b.kind === 'fade') { blackedOut = false; onFadeIn?.(b.lines[0]?.fadeSeconds ?? 3); }
     if (b.act === 4 && phase === 'driving') setPhase('spur');
     if (b.id === 'SM-530') setPhase('trail');
@@ -183,6 +198,10 @@ export function createRideSequence({
     }
     if (b.options.length) { openChoice(b); return; }
     if (b.kind === 'handoff') {
+      /* The lines can finish while the player is still standing beside the
+       * Lincoln. Keep the authored beat live until the world reports that he
+       * has actually walked the trail; a timer is not evidence of movement. */
+      if (!canHandoff()) return;
       finished = true;
       setPhase('handoff');
       onHandoff?.();
@@ -203,9 +222,18 @@ export function createRideSequence({
   }
 
   const seq = {
-    /** Start at the kerb, or anywhere else — a resume point, or a test. */
-    begin(id = 'SM-100') {
+    /** Start at the kerb, or reconstruct an explicit persisted scene phase. */
+    begin(id = 'SM-100', { phase: restoredPhase = null } = {}) {
       finished = false;
+      if (restoredPhase !== null) {
+        if (!PHASES.includes(restoredPhase)) {
+          throw new Error(`Unknown Special Meeting phase: ${restoredPhase}`);
+        }
+        /* `seated` records that the mandatory front-seat event occurred; it
+         * remains true after he gets out and is part of the sequence proof. */
+        if (restoredPhase !== 'kerb') seated = true;
+        setPhase(restoredPhase);
+      }
       enter(id);
       advance();
       return seq;

@@ -88,6 +88,22 @@ export class ScreenOverlay {
     this.el.src = src;
     this.el.title = 'Squatch Smash';
     this.el.setAttribute('scrolling', 'no');
+    /* FOCUS AGAIN WHEN THE PAGE ACTUALLY ARRIVES.
+     *
+     * `show()` focuses the frame, and has to -- otherwise WASD goes to the
+     * apartment and the sasquatch stands still. But at that moment the frame
+     * is still on its placeholder document: the real page is in flight, and
+     * when it lands it REPLACES the focused document with an unfocused one.
+     * The keyboard then belongs to nobody. The apartment's own key router
+     * only runs once the input adapter has captured, which during the cold
+     * open never happens, so a key pressed in that state reached neither
+     * document -- measured, keydown counted zero on both sides while the
+     * player sat looking at a game he could not quit.
+     *
+     * That is the cold open's whole failure mode, and the owner reported it
+     * twice: *"I still can't get up from the computer."* Re-focusing on load
+     * fixes it for every framed app rather than only for that one. */
+    this.el.addEventListener('load', () => this.focusFrame());
     Object.assign(this.el.style, {
       position: 'fixed',
       left: '0',

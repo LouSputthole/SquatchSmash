@@ -262,21 +262,18 @@ try {
       && woke.flat.panState === null
       && woke.flat.heldItem !== 'phone',
     JSON.stringify(woke.flat));
-  check('the objectives panel lists the Day Two morning, Booskibro’s call and the telly',
-    /* Five chores — the bathroom is two errands, not one — then the call, then
-     * Day Two's own PASTIME. Every chapter that sends him home now asks for
-     * one thing that is his rather than the family's (CHAPTER_PASTIMES in
-     * src/core/apartment-story.js), and Day Two's is half a minute of the
-     * news: he put a man in the ground last night and the local station does a
-     * bulletin on the hour. It is listed UNDER the call because that is the
-     * order the door enforces — he is told where he is going, and then he
-     * takes one thing for himself on the way out. */
-    woke.panel.length === 7
+  check('the Day Two panel shows one current step and one soft chore without spoiling the call or telly',
+    /* Owner note, 2026-08-28: do not put a wall of objectives on screen and
+     * do not reveal future beats before they are actionable. The durable
+     * ApartmentStory ledger still owns all five chores, the call, and the
+     * chapter pastime; Hud.setObjectives projects that ledger to one primary
+     * row plus one soft opportunity. At wake-up neither the call nor the TV
+     * beat exists for the player yet, so seeing either one here is a spoiler. */
+    woke.panel.length === 2
       && woke.panel.every((row) => row.done === false)
       && woke.panel[0].text === 'Eat something'
-      && woke.panel.filter((row) => /piss|dump/i.test(row.text)).length === 2
-      && woke.panel.at(-2).text === 'Answer Booskibro’s call'
-      && /news/i.test(woke.panel.at(-1).text)
+      && woke.panel[1].text === 'Have a shower'
+      && !woke.panel.some((row) => /call|news|telly|television/i.test(row.text))
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));
   await page.waitForFunction(
@@ -414,6 +411,7 @@ try {
     game.apartmentStory.update(19.7);
     const early = game.phone.ringing;
     game.apartmentStory.update(0.5);
+    game.updateObjectives();
     const definition = game.phone.call?.def;
     return {
       early,
@@ -422,6 +420,7 @@ try {
       characterId: definition?.characterId,
       targetCharacterId: definition?.targetCharacterId,
       from: definition?.from,
+      panel: [...document.querySelectorAll('#objectives li')].map((li) => li.textContent),
     };
   });
   check('Booskibro rings the physical phone after the Day Two wake-up',
@@ -435,6 +434,11 @@ try {
     ringing.targetCharacterId === 'captain_lou_sasole'
       && ringing.targetCharacterId !== 'lou',
     JSON.stringify(ringing));
+  check('the ringing call becomes actionable without revealing the later TV beat',
+    ringing.panel.length === 2
+      && ringing.panel.includes('Answer Booskibro’s call')
+      && !ringing.panel.some((row) => /news|telly|television/i.test(row)),
+    JSON.stringify(ringing.panel));
 
   const answered = await page.evaluate(() => {
     const game = window.__squatch;
@@ -451,6 +455,7 @@ try {
      * is the one place the new beat is proved to actually stand in his way. */
     const beforeTv = game.tryLeave();
     game.phone.hangUp();
+    game.updateObjectives();
     return {
       beforeTv,
       inCall: connected,
@@ -462,6 +467,7 @@ try {
         scale: game.radio.mixScale,
         knob: game.radio.volume,
       },
+      panel: [...document.querySelectorAll('#objectives li')].map((li) => li.textContent),
     };
   });
   check('answering Booskibro persists the event and unlocks the airstrip mission',
@@ -477,7 +483,11 @@ try {
       && answered.radioDuring.knob === answered.radioAfter.knob,
     JSON.stringify({ during: answered.radioDuring, after: answered.radioAfter }));
   check('the call answered, the door is about Day Two’s own thing rather than the job',
-    answered.beforeTv?.kind === 'activity' && answered.beforeTv?.id === 'watchedTv',
+    answered.beforeTv?.kind === 'activity'
+      && answered.beforeTv?.id === 'watchedTv'
+      && answered.panel.length === 2
+      && answered.panel.some((row) => /news/i.test(row))
+      && !answered.panel.some((row) => /Booskibro|call/i.test(row)),
     JSON.stringify(answered.beforeTv));
 
   /* HALF A MINUTE OF THE NEWS, FOR REAL.
@@ -514,18 +524,31 @@ try {
    * watching only counts while he is sat down AND the set is on. That lives in
    * `pastimeWatch()` in src/main.js and wants a harness hook to be reachable
    * from a verifier at all; noted in docs/FUTURE-EDITS.md rather than faked. */
-  const watched = await page.evaluate(() => {
+  const watched = await page.evaluate(async () => {
     const game = window.__squatch;
     game.campaign.advanceTime('activity.watch_tv', (state) => {
       state.activities.watchedTv = true;
     });
     game.updateObjectives();
+    const departure = game.tryLeave();
+    /* turnOff releases the program bed immediately and the streamed record at
+     * the end of its 300 ms UI fade, comfortably before the 1.8 s blackout
+     * hands the document to Beef Run. */
+    await new Promise((resolve) => setTimeout(resolve, 360));
     return {
       flag: game.campaign.state.activities.watchedTv,
       onTheClock: game.campaign.state.story.timeEvents.includes('activity.watch_tv'),
       panel: game.apartmentStory.objectives(game.activityContext()).items
         .map((item) => ({ id: item.id, done: item.done })),
-      departure: game.tryLeave(),
+      departure,
+      radioTeardown: {
+        on: game.radio.on,
+        /* turnOff releases the streamed element after its UI fade. A released
+         * null owner is a stronger teardown receipt than a retained paused
+         * element, and both are correctly silent. */
+        mediaPaused: !game.radio.el || game.radio.el.paused,
+        loopKeys: [...game.audio.loops.keys()].filter((key) => key.startsWith('radio.')),
+      },
     };
   });
   check('half a minute in front of it ticks the beat off, on the panel and on the clock',
@@ -541,6 +564,11 @@ try {
     watched.departure?.kind === 'go'
       && watched.departure?.destination === 'airstrip_smuggling',
     JSON.stringify(watched.departure));
+  check('the apartment departure tears down its physical receiver with no stale radio beds',
+    watched.radioTeardown.on === false
+      && watched.radioTeardown.mediaPaused === true
+      && watched.radioTeardown.loopKeys.length === 0,
+    JSON.stringify(watched.radioTeardown));
   const departTime = await page.evaluate(() => {
     const story = window.__squatch.campaign.state.story;
     return { day: story.day, timeMinutes: story.timeMinutes, events: story.timeEvents };

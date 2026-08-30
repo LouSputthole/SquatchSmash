@@ -375,7 +375,7 @@ cue('golf.h1.lou.before_he_changes_his_mind', LOU,
  * on Hole 1 only, before anybody gets in a cart.
  *
  * The hour is not a joke and is not approximate: this round is played at
- * 8:00 AM on Day 4 (`src/golf/main.js`, `radioClock.setTime(4, 8 * 60)`). If
+ * 8:00 AM on Day 6 (`src/golf/main.js`, `radioClock.setTime(6, 8 * 60)`). If
  * that ever moves, this line moves with it.
  */
 cue('golf.h1.lou.thinking_lunch', LOU,
@@ -391,23 +391,24 @@ cue('golf.h1.lou.thinking_lunch', LOU,
 /* THE CART RIDE                                                       */
 /* ================================================================== */
 
-cue('golf.h1.lou.you_did_good', LOU,
-  'You did good.',
+cue('golf.h1.lou.take_brought_everybody_home', LOU,
+  'The money came home. Everybody else did too. You did good.',
   {
     direction: 'After a long stretch of nothing but the motor. He does not turn '
-      + 'his head. This is the second most important line in the scene.',
+      + 'his head. A private review of THE TAKE, with the outcome counted before '
+      + 'the compliment.',
     priority: PRIORITY.STORY, once: true, interruptible: false, hold: 1.6,
   });
 
-cue('golf.h1.lou.rarer_than_you_think', LOU,
-  'That’s rarer than you think.',
+cue('golf.h1.lou.kept_your_head', LOU,
+  'You kept your head while everybody else was spending theirs.',
   { direction: 'Meant. Not softened.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.lucky_a_lot', LOU,
-  'Once is luck. You’ve been lucky a lot lately.',
+cue('golf.h1.lou.luck_doesnt_drive_home', LOU,
+  'Luck doesn’t bring the crew and the money home.',
   { direction: 'The nearest thing to a compliment he owns.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.everybody_gets_in_a_room', LOU,
-  'Everybody gets in a room and talks like they knew the answer already.',
-  { direction: 'Tired of rooms.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.lou.more_than_cash', LOU,
+  'More than cash. Less than a crown.',
+  { direction: 'Dry. He answers the question without inflating the answer.', priority: PRIORITY.STORY, once: true });
 cue('golf.h1.lou.dont_have_to_fill_it', LOU,
   'You don’t have to fill every quiet minute. That’s one of the reasons you’re here.',
   {
@@ -415,31 +416,31 @@ cue('golf.h1.lou.dont_have_to_fill_it', LOU,
     priority: PRIORITY.STORY, once: true, interruptible: false,
   });
 
-cue('golf.h1.lou.you_kept_listening', LOU,
-  'The Bing. The restaurant. The plane. The motel. The boat. You listened when it mattered.',
-  { direction: 'Counting them off without emphasis.', priority: PRIORITY.STORY, once: true, hold: 1.2 });
+cue('golf.h1.lou.work_added_up', LOU,
+  'The Bing. The restaurant. The plane. The cabin. Billy. The bank. You kept your head when it mattered.',
+  { direction: 'Counting completed work off without emphasis. Nothing from later in the campaign is named.', priority: PRIORITY.STORY, once: true, hold: 1.2 });
 
-cue('golf.h1.lou.job_and_night', LOU,
-  'You’ve got a big job and a big night coming.',
+cue('golf.h1.lou.take_changed_things', LOU,
+  'Taking care of that thing changed a few things.',
   { direction: 'Casual. He has been waiting the whole cart ride to say this.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.prospect.what_kind_of_job', PROSPECT, 'What kind of job?',
-  { direction: 'Careful.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.first_the_job', LOU,
-  'First, the job. Everybody’s on it.',
-  { direction: 'Flat, and enormous.', priority: PRIORITY.STORY, once: true, hold: 1.4 });
-cue('golf.h1.lou.after_that_the_room', LOU,
-  'After that, the room. Everybody’s there.',
-  { direction: 'He does not elaborate and does not intend to.', priority: PRIORITY.STORY, once: true, hold: 1.2 });
+cue('golf.h1.prospect.changed_for_who', PROSPECT, 'For who?',
+  { direction: 'Careful. He is not assuming the answer includes him.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.lou.changed_for_us', LOU,
+  'For us.',
+  { direction: 'Flat and complete.', priority: PRIORITY.STORY, once: true, hold: 1.0 });
+cue('golf.h1.lou.changed_for_you', LOU,
+  'And for you. Finish the round.',
+  { direction: 'The reward is real. The explanation can wait until the clubhouse.', priority: PRIORITY.STORY, once: true, hold: 1.2 });
 
-cue('golf.h1.lou.job_then_no_prospect', LOU,
-  'If the job goes how I think, tonight they stop calling you Prospect.',
-  { direction: 'The whole game, said once, quietly, from a golf cart.', priority: PRIORITY.STORY, once: true, interruptible: false });
-cue('golf.h1.lou.ready_is_a_word', LOU,
-  'Ready is a word people use before they know the question.',
-  { direction: 'Not a put-down.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.play_golf_again', LOU,
-  'Then we play golf again next week and pretend this conversation didn’t happen.',
-  { direction: 'Kind, and completely serious.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.lou.wait_for_clubhouse', LOU,
+  'Finish the round. I’ll show you.',
+  { direction: 'A promise, not a tease.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h1.lou.why_youre_getting_one', LOU,
+  'That’s one reason you’re getting one.',
+  { direction: 'He respects the answer and refuses to make a ceremony of it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.lou.not_today', LOU,
+  'Not today.',
+  { direction: 'Reassuring because it is specific.', priority: PRIORITY.STORY, once: true });
 cue('golf.h1.lou.good', LOU, 'Good.',
   { direction: 'Case closed.', priority: PRIORITY.STORY, once: true });
 
@@ -584,28 +585,24 @@ cue('golf.h1.rippin.havent_said_anything', RIPPIN, 'I haven’t said anything.',
 cue('golf.h1.eric.exactly_that_much', ERIC, 'Exactly that much.',
   { direction: 'The quiet last line again. Let it sit.', priority: PRIORITY.REACTION, once: true });
 
-cue('golf.h1.rippin.job_big_one_today', RIPPIN,
-  'So the job’s the big one today.',
-  { direction: 'Filling a wait, and not entirely by accident.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.one_of_them', LOU, 'One of them.',
-  { direction: 'Not encouraging this.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.rippin.second_one_is_fun', RIPPIN, 'The second one is the fun one.',
-  { direction: 'Lighting up.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.eric.only_if_first_goes_well', ERIC,
-  'The second one is only fun if the first one goes well.',
-  { direction: 'Levelling it.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.prospect.what_happens_second', PROSPECT,
-  'What happens on the second one?',
-  { direction: 'He wants to know and is trying not to sound like it.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.rippin.receipt_and_jacket', RIPPIN,
-  'You wake up with a receipt in your pocket and somebody else’s jacket.',
-  { direction: 'Fond memory. Not a warning.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.do_not_listen_to_him', LOU, 'Do not listen to him.',
-  { direction: 'Half-hearted.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.eric.that_does_happen', ERIC, 'That does happen.',
-  { direction: 'Flatly confirming it.', priority: PRIORITY.STORY, once: true });
-cue('golf.h1.lou.not_every_time', LOU, 'Not every time.',
-  { direction: 'The last word, and not a denial.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.rippin.take_was_the_big_one', RIPPIN,
+  'So THE TAKE was the big one.',
+  { direction: 'Filling a wait, and proud of the crew rather than fishing for details.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.lou.take_was_finished', LOU,
+  'It was the one he finished.',
+  { direction: 'Correcting the scale to the only measure Lou respects.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.rippin.everybody_came_home', RIPPIN,
+  'Everybody came home. Money did too.',
+  { direction: 'The toast without a glass.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.eric.preferred_order', ERIC,
+  'That is the preferred order.',
+  { direction: 'Flatly confirming the standard.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.prospect.what_did_it_change', PROSPECT,
+  'What did it change?',
+  { direction: 'He is asking about status, not money, and trying not to sound like it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h1.lou.finish_your_putt', LOU,
+  'Finish the putt. Then we’ll talk.',
+  { direction: 'Not evasive. There is a private cart waiting after this green.', priority: PRIORITY.STORY, once: true });
 
 /* ================================================================== */
 /* PUTTING                                                             */
@@ -624,9 +621,9 @@ cue('golf.h1.lou.had_the_line', LOU, 'Had the line.',
   { direction: 'Consoling, barely.', priority: PRIORITY.REACTION });
 cue('golf.h1.eric.needed_the_rest', ERIC, 'Needed the rest of the putt.',
   { direction: 'Helpfully unhelpful.', priority: PRIORITY.REACTION });
-cue('golf.h1.rippin.cant_leave_a_big_night_short', RIPPIN,
-  'You can’t leave a big night short.',
-  { direction: 'Enormously pleased with the callback.', priority: PRIORITY.REACTION });
+cue('golf.h1.rippin.left_the_door_open', RIPPIN,
+  'You left the door open and the ball outside.',
+  { direction: 'Enormously pleased with the diagnosis.', priority: PRIORITY.REACTION });
 
 cue('golf.h1.rippin.still_moving_1', RIPPIN, 'Still moving.',
   { direction: 'Narrating.', priority: PRIORITY.REACTION });
@@ -700,9 +697,9 @@ cue('golf.h1.lou.one_hole_doesnt_decide', LOU,
   'One hole doesn’t decide anything.',
   { direction: 'Meant about more than golf and not flagged as such.', priority: PRIORITY.REACTION, once: true });
 
-cue('golf.h1.rippin.good_thing_not_the_big_night', RIPPIN,
-  'Good thing this isn’t the big night.',
-  { direction: 'Cheerfully.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h1.rippin.good_thing_lou_keeps_score', RIPPIN,
+  'Good thing Lou keeps score and not grudges.',
+  { direction: 'Cheerfully, and not entirely certain.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h1.lou.he_finished', LOU, 'He finished.',
   { direction: 'Shutting it down, on the Prospect’s side.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h1.eric.that_matters', ERIC, 'That matters.',
@@ -909,20 +906,45 @@ cue('golf.h2.lou.i_know_they_are', LOU,
     priority: PRIORITY.STORY, once: true, interruptible: false, hold: 2.4,
   });
 
-/* --- the second big night, properly this time --- */
+/* --- what Lou meant by "new space" --- */
 
-cue('golf.h2.prospect.ten_drunk_cigarettes', PROSPECT,
-  'Somebody said something about ten drunk cigarettes.',
-  { direction: 'Trying it out. Testing whether he is allowed the vocabulary.', priority: PRIORITY.STORY, once: true });
-cue('golf.h2.rippin.oh_hes_heard', RIPPIN,
-  'Oh, he’s heard.',
-  { direction: 'Enormously pleased.', priority: PRIORITY.STORY, once: true });
-cue('golf.h2.eric.thats_after_the_job', ERIC,
-  'That’s after the job, yes.',
-  { direction: 'Confirming a fixture.', priority: PRIORITY.STORY, once: true });
-cue('golf.h2.lou.one_thing_at_a_time', LOU,
-  'One thing at a time.',
-  { direction: 'Closing it, without any weight on it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.new_space_is_front_and_center', LOU,
+  'The new space is Front & Center. Dining room, downstairs club, all of it.',
+  {
+    direction: 'The payoff to the apartment call, delivered while reading the green. '
+      + 'It is a business fact, not an announcement.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 1.2,
+  });
+cue('golf.h2.prospect.front_and_center_is_ours', PROSPECT,
+  'Front & Center is ours?',
+  { direction: 'Surprised by the scale, not the kind of business.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.we_bought_the_problems', RIPPIN,
+  'We bought the problems. Lou says the walls came free.',
+  { direction: 'Pleased with the line and with the acquisition.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.eric.walls_need_work', ERIC,
+  'The walls need work.',
+  { direction: 'A factual correction from somebody who has seen them.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.take_margo_tonight', LOU,
+  'Take Margo tonight. Silver Room. Let her see the place when it looks expensive.',
+  {
+    direction: 'A practical suggestion, not matchmaking. He knows the date is already arranged.',
+    priority: PRIORITY.STORY, once: true, hold: 1.0,
+  });
+cue('golf.h2.prospect.she_knows_nothing', PROSPECT,
+  'She doesn’t know about any of this.',
+  { direction: 'Protective and careful. He is checking the boundary before he crosses it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.keep_her_outside', LOU,
+  'Good. She gets dinner, not minutes. Keep her outside the business.',
+  {
+    direction: 'Kind in the way Lou is kind: by drawing a hard line that keeps her safe.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 1.4,
+  });
+cue('golf.h2.eric.two_instructions', ERIC,
+  'That is two instructions.',
+  { direction: 'Dry, after the line has landed.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.both_simple', LOU,
+  'They’re both simple.',
+  { direction: 'Closing the subject and returning to golf.', priority: PRIORITY.STORY, once: true });
 
 cue('golf.h2.rippin.squatch_up', RIPPIN,
   'Squatch up, Prospect. It’s a par five, not a funeral.',
@@ -976,11 +998,11 @@ cue('golf.h2.lou.its_a_golf_course', LOU,
   { direction: 'And the joke lands on the far side of something true.', priority: PRIORITY.STORY, once: true, hold: 1.8 });
 
 /* ================================================================== */
-/* HOLE 3 — THE BIG NIGHT                                             */
+/* HOLE 3 — THE HANDOVER                                              */
 /* ================================================================== */
 /* The last hole, with the clubhouse standing behind the green the whole way
- * in. Nobody mentions the building and nobody mentions seven o'clock until
- * the very end, and then only once. */
+ * in. Lou names the home upgrade privately on the approach, then puts the
+ * actual keys in the Prospect's hand before sending him to see it. */
 
 cue('golf.h3.rippin.last_one', RIPPIN,
   'Last one. Everybody still friends?',
@@ -1009,32 +1031,35 @@ cue('golf.h3.lou.he_did_hear_you', LOU, 'He did hear you.',
 
 /* --- the conversation the round has been walking toward --- */
 
-cue('golf.h3.lou.you_know_whats_at_seven', LOU,
-  'You know what’s at seven.',
+cue('golf.h3.lou.one_more_thing', LOU,
+  'One more thing before you hit.',
   {
-    direction: 'Not a question. First time either of them has said the hour out '
-      + 'loud, and he says it while looking down the fairway.',
-    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 2.0,
+    direction: 'Not ominous. Lou has already decided this is good news and sees '
+      + 'no reason to decorate it.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 1.4,
   });
-cue('golf.h3.prospect.i_know', PROSPECT, 'I know.',
-  { direction: 'Steady. No performance in it.', priority: PRIORITY.STORY, once: true });
-cue('golf.h3.lou.job_between_now_and_seven', LOU,
-  'There’s a job between now and seven. Nothing you can do about either one from a fairway. That’s why we’re out here.',
+cue('golf.h3.prospect.never_one_thing', PROSPECT,
+  'It is never one thing.',
+  { direction: 'Dry. Comfortable enough now to say it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.took_care_of_you', LOU,
+  'You took care of that thing for me. I took care of something for you.',
   {
-    direction: 'The whole reason for the morning, stated once, on the last hole, '
-      + 'as though it were a small practical matter.',
-    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 2.6,
+    direction: 'The owner’s reward logic, said plainly on the walk in. No speech '
+      + 'and no suggestion that the gift was owed.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 1.8,
   });
-
-cue('golf.h3.prospect.what_if_they_say_no', PROSPECT,
-  'What if they say no?',
-  { direction: 'Quiet. The question he has been carrying since the car park.', priority: PRIORITY.STORY, once: true });
-cue('golf.h3.lou.then_they_say_no', LOU,
-  'Then they say no, and I still know where you live, and we still play golf.',
-  { direction: 'Absolutely level. It is the most reassuring thing he could have said.', priority: PRIORITY.STORY, once: true, hold: 2.0 });
-cue('golf.h3.lou.but_they_wont', LOU,
-  'They won’t.',
-  { direction: 'Two words, thrown away, and he is already walking.', priority: PRIORITY.STORY, once: true, hold: 2.2 });
+cue('golf.h3.prospect.what_kind_of_something', PROSPECT,
+  'What kind of something?',
+  { direction: 'Careful. Lou’s gifts usually have instructions attached.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.out_of_the_shoebox', LOU,
+  'The kind with two floors. You’re out of that shoebox.',
+  { direction: 'A property description and a verdict on the old apartment.', priority: PRIORITY.STORY, once: true, hold: 1.2 });
+cue('golf.h3.prospect.an_apartment', PROSPECT,
+  'You bought me an apartment?',
+  { direction: 'The surprise finally gets through his guard.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.somewhere_better', LOU,
+  'I found you somewhere better. Don’t make it sentimental.',
+  { direction: 'Warmth buried under a practical correction.', priority: PRIORITY.STORY, once: true, hold: 1.8 });
 
 cue('golf.h3.rippin.what_are_we_talking_about', RIPPIN,
   'What are we talking about over there?',
@@ -1088,12 +1113,26 @@ cue('golf.h3.prospect.ill_be_here', PROSPECT,
   'I’ll be here.',
   { direction: 'And he means it, and everybody hears that he means it.', priority: PRIORITY.STORY, once: true, hold: 1.6 });
 
-cue('golf.h3.lou.seven_oclock', LOU,
-  'Seven o’clock. Don’t be early.',
+cue('golf.h3.lou.apartment_keys', LOU,
+  'Here. Keys. Address is on the tag.',
   {
-    direction: 'The last line of the morning. He is already walking to the car. '
-      + 'Do not make it heavy — the whole point is that he says it the way you '
-      + 'would tell somebody where to park.',
+    direction: 'The verbal and physical handover. Hold the ring out in his free '
+      + 'hand and let the keys make the gift real.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 1.2,
+    gesture: 'offer_apartment_keys',
+  });
+cue('golf.h3.prospect.keys_are_real', PROSPECT,
+  'This is real?',
+  {
+    direction: 'Looking at the keys now in his own hand. More affected than he wants Lou to hear.',
+    priority: PRIORITY.STORY, once: true, interruptible: false,
+    gesture: 'receive_apartment_keys',
+  });
+cue('golf.h3.lou.go_see_it', LOU,
+  'Go see it. Silver Room has your table at nine. Wear something that doesn’t look rented.',
+  {
+    direction: 'The final line of the morning. It sends him to the new home and '
+      + 'keeps the already-arranged Margo date on schedule.',
     priority: PRIORITY.STORY, once: true, interruptible: false, hold: 3.0,
   });
 
@@ -1127,25 +1166,25 @@ cue('golf.h1.prospect.whats_the_catch', PROSPECT,
   'What’s the catch?',
   { direction: 'Light joke with a real question underneath it.', priority: PRIORITY.STORY, once: true, interruptible: false });
 
-cue('golf.h1.prospect.did_what_you_asked', PROSPECT,
-  'I did what you asked. All of it. Including the part you didn’t say out loud.',
-  { direction: 'Professional and restrained. He is reporting, not fishing for praise.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h1.prospect.kept_everybody_moving', PROSPECT,
+  'I kept everybody moving.',
+  { direction: 'Professional and restrained. He is reporting THE TAKE, not fishing for praise.', priority: PRIORITY.STORY, once: true, interruptible: false });
 cue('golf.h1.prospect.got_lucky', PROSPECT,
   'I got lucky.',
   { direction: 'Modest, with enough experience to know luck was not the whole of it.', priority: PRIORITY.STORY, once: true, interruptible: false });
-cue('golf.h1.prospect.what_happens_at_seven', PROSPECT,
-  'What happens at seven?',
-  { direction: 'Plain and direct. This is the question he actually wants answered.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h1.prospect.what_did_it_buy', PROSPECT,
+  'What did it buy me?',
+  { direction: 'Plain and direct. He means standing as much as money.', priority: PRIORITY.STORY, once: true, interruptible: false });
 
-cue('golf.h1.prospect.what_happens', PROSPECT,
-  'What happens?',
+cue('golf.h1.prospect.what_changed', PROSPECT,
+  'What changed?',
   { direction: 'Quietly asking Lou to finish the thought.', priority: PRIORITY.STORY, once: true, interruptible: false });
-cue('golf.h1.prospect.im_ready', PROSPECT,
-  'I’m ready.',
-  { direction: 'Certain, concise, no performance of bravery.', priority: PRIORITY.STORY, once: true, interruptible: false });
-cue('golf.h1.prospect.if_it_goes_bad', PROSPECT,
-  'And if it doesn’t go well?',
-  { direction: 'Careful rather than frightened. He needs to know the consequence.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h1.prospect.didnt_do_it_for_reward', PROSPECT,
+  'I didn’t do it for a reward.',
+  { direction: 'Certain and concise. He wants Lou to know the work came first.', priority: PRIORITY.STORY, once: true, interruptible: false });
+cue('golf.h1.prospect.should_i_worry', PROSPECT,
+  'Should I be worried?',
+  { direction: 'Careful rather than frightened. Good news from Lou still deserves inspection.', priority: PRIORITY.STORY, once: true, interruptible: false });
 cue('golf.h1.prospect.understood', PROSPECT,
   'Understood.',
   { direction: 'Accepting the instruction without asking Lou to soften it.', priority: PRIORITY.STORY, once: true, interruptible: false });
@@ -1237,54 +1276,6 @@ cue('golf.h2.eric.first_honest_thing', ERIC,
   { direction: 'Warm. It is the closest Eric comes to liking somebody out loud.', priority: PRIORITY.STORY, once: true });
 
 /* ================================================================== */
-/* HOLE 2 — SOMETHING AFTER THE THING                                  */
-/* ================================================================== */
-
-/**
- * Lou seeds the next job.
- *
- * The rule the tone doctrine sets is that the scene never points at itself, so
- * none of this is a trailer. It is a man on a putting green mentioning a
- * practical difficulty with a piece of work: there is a hangar, there is
- * something in it that weighs six thousand pounds, and there is already a
- * captain for it who is a different Lou entirely. Nobody names the target,
- * nobody says what the load is, and nobody remarks that any of it is unusual —
- * which is the whole register of this family.
- *
- * Placed at the end of the long walk's green conversation, straight after Lou
- * has said "one thing at a time", because the joke is that he then does not do
- * one thing at a time.
- */
-cue('golf.h2.lou.thing_after_the_thing', LOU,
-  'One thing at a time. Although — there’s a thing after the thing, and it needs an aeroplane.',
-  {
-    direction: 'Reading a putt while he says it. The aside is not an aside and '
-      + 'he knows exactly how it lands.',
-    priority: PRIORITY.STORY, once: true, hold: 1.4,
-  });
-cue('golf.h2.prospect.an_aeroplane', PROSPECT, 'An aeroplane.',
-  { direction: 'Repeating the word to see whether it changes.', priority: PRIORITY.STORY, once: true });
-cue('golf.h2.lou.six_thousand_pounds_of_it', LOU,
-  'Six thousand pounds of it. It doesn’t go in a van and it doesn’t go in this conversation.',
-  {
-    direction: 'Cheerful. He is telling him the weight and nothing else, and '
-      + 'the weight is the most frightening part.',
-    priority: PRIORITY.STORY, once: true, hold: 1.2,
-  });
-cue('golf.h2.eric.lou', ERIC, 'Lou.',
-  { direction: 'One syllable. Not a rebuke — a check.', priority: PRIORITY.STORY, once: true });
-cue('golf.h2.lou.hes_going_to_find_out', LOU,
-  'He finds out in a couple of weeks either way. He can find out now with a putter in his hand.',
-  { direction: 'To Eric, about the Prospect, in front of the Prospect.', priority: PRIORITY.STORY, once: true });
-cue('golf.h2.lou.another_lou', LOU,
-  'There’s a captain for it already. Not me. Another Lou. You’ll know him when you see him — he’s the one holding a clipboard and looking at the weather.',
-  {
-    direction: 'Fond and faintly exasperated, the way you talk about a cousin '
-      + 'who is very good at one thing. Then straight back to the putt.',
-    priority: PRIORITY.STORY, once: true, hold: 2.0,
-  });
-
-/* ================================================================== */
 /* HOLE 3 — THE TEE, AND WHO KNOWS                                     */
 /* ================================================================== */
 
@@ -1302,8 +1293,8 @@ cue('golf.h3.lou.anybody_know_youre_here', LOU,
 
 cue('golf.h3.prospect.nobody_knows', PROSPECT, 'Nobody.',
   { direction: 'Immediate, and he hears how that sounds after he says it.', priority: PRIORITY.STORY, once: true, interruptible: false });
-cue('golf.h3.prospect.told_margo', PROSPECT,
-  'I told Margo I was playing golf.',
+cue('golf.h3.prospect.margo_only_knows_tonight', PROSPECT,
+  'Nobody. Margo only knows about tonight.',
   { direction: 'Careful. He is watching Lou’s face for the answer.', priority: PRIORITY.STORY, once: true, interruptible: false });
 cue('golf.h3.prospect.who_would_i_tell', PROSPECT, 'Who would I tell?',
   { direction: 'Blunt, and sadder than he means it.', priority: PRIORITY.STORY, once: true, interruptible: false });
@@ -1501,11 +1492,9 @@ export const SEQUENCES = Object.freeze({
     'golf.h1.rippin.havent_said_anything', 'golf.h1.eric.exactly_that_much',
   ],
   'green.big_night': [
-    'golf.h1.rippin.job_big_one_today', 'golf.h1.lou.one_of_them',
-    'golf.h1.rippin.second_one_is_fun', 'golf.h1.eric.only_if_first_goes_well',
-    'golf.h1.prospect.what_happens_second', 'golf.h1.rippin.receipt_and_jacket',
-    'golf.h1.lou.do_not_listen_to_him', 'golf.h1.eric.that_does_happen',
-    'golf.h1.lou.not_every_time',
+    'golf.h1.rippin.take_was_the_big_one', 'golf.h1.lou.take_was_finished',
+    'golf.h1.rippin.everybody_came_home', 'golf.h1.eric.preferred_order',
+    'golf.h1.prospect.what_did_it_change', 'golf.h1.lou.finish_your_putt',
   ],
 
   // --- putting ---
@@ -1514,7 +1503,7 @@ export const SEQUENCES = Object.freeze({
   ],
   'putt.short': [
     'golf.h1.lou.had_the_line', 'golf.h1.eric.needed_the_rest',
-    'golf.h1.rippin.cant_leave_a_big_night_short',
+    'golf.h1.rippin.left_the_door_open',
   ],
   'putt.long_past': [
     'golf.h1.rippin.still_moving_1', 'golf.h1.eric.yes_2',
@@ -1544,7 +1533,7 @@ export const SEQUENCES = Object.freeze({
     'golf.h1.lou.one_hole_doesnt_decide',
   ],
   'hole.double': [
-    'golf.h1.rippin.good_thing_not_the_big_night', 'golf.h1.lou.he_finished',
+    'golf.h1.rippin.good_thing_lou_keeps_score', 'golf.h1.lou.he_finished',
     'golf.h1.eric.that_matters',
   ],
   'hole.blowup': [
@@ -1610,13 +1599,14 @@ export const SEQUENCES = Object.freeze({
     'golf.h2.rippin.sallie_j_hit_one', 'golf.h2.lou.nehoo',
     'golf.h2.lou.good_ole_days', 'golf.h2.rippin.theyre_still_going',
     'golf.h2.lou.i_know_they_are',
-    'golf.h2.prospect.ten_drunk_cigarettes', 'golf.h2.rippin.oh_hes_heard',
-    'golf.h2.eric.thats_after_the_job', 'golf.h2.lou.one_thing_at_a_time',
-    /* And then he does not do one thing at a time. The hangar, the weight and
-     * the other Lou, dropped into a putting conversation and never explained. */
-    'golf.h2.lou.thing_after_the_thing', 'golf.h2.prospect.an_aeroplane',
-    'golf.h2.lou.six_thousand_pounds_of_it', 'golf.h2.eric.lou',
-    'golf.h2.lou.hes_going_to_find_out', 'golf.h2.lou.another_lou',
+    /* The apartment call's "new space" means the venue, not the home upgrade.
+     * Lou also draws Margo's boundary before the date can blur it. */
+    'golf.h2.lou.new_space_is_front_and_center',
+    'golf.h2.prospect.front_and_center_is_ours',
+    'golf.h2.rippin.we_bought_the_problems', 'golf.h2.eric.walls_need_work',
+    'golf.h2.lou.take_margo_tonight', 'golf.h2.prospect.she_knows_nothing',
+    'golf.h2.lou.keep_her_outside', 'golf.h2.eric.two_instructions',
+    'golf.h2.lou.both_simple',
   ],
 
   'h2.end.scorecard': [
@@ -1628,7 +1618,7 @@ export const SEQUENCES = Object.freeze({
     'golf.h2.rippin.so_it_ends_where_it_started', 'golf.h2.lou.its_a_golf_course',
   ],
 
-  /* ---- Hole 3: The Big Night ---- */
+  /* ---- Hole 3: The Handover ---- */
   'h3.tee.arrival': [
     'golf.h3.rippin.last_one', 'golf.h3.eric.provisionally',
     'golf.h3.lou.three_ninety_five', 'golf.h3.rippin.i_can_see_the_bar',
@@ -1639,14 +1629,14 @@ export const SEQUENCES = Object.freeze({
   'h3.tee.eric.after': [],
   'h3.tee.lou.before': [],
   'h3.tee.lou.after': [],
-  'h3.tee.player.before': ['golf.h3.lou.you_know_whats_at_seven', 'golf.h3.prospect.i_know'],
+  'h3.tee.player.before': ['golf.h3.lou.one_more_thing', 'golf.h3.prospect.never_one_thing'],
 
   /* The last conversation, on the walk in. Rippin is deliberately out of
    * earshot for the first half of it and comes back for the second. */
   'h3.green.big_night': [
-    'golf.h3.lou.job_between_now_and_seven',
-    'golf.h3.prospect.what_if_they_say_no', 'golf.h3.lou.then_they_say_no',
-    'golf.h3.lou.but_they_wont',
+    'golf.h3.lou.took_care_of_you', 'golf.h3.prospect.what_kind_of_something',
+    'golf.h3.lou.out_of_the_shoebox', 'golf.h3.prospect.an_apartment',
+    'golf.h3.lou.somewhere_better',
     'golf.h3.rippin.what_are_we_talking_about', 'golf.h3.lou.golf',
     'golf.h3.eric.leave_it_rip',
   ],
@@ -1663,7 +1653,8 @@ export const SEQUENCES = Object.freeze({
   'h3.end.walk_off': [
     'golf.h3.lou.thats_the_round', 'golf.h3.eric.good_morning_for_it',
     'golf.h3.rippin.same_time_next_week', 'golf.h3.prospect.ill_be_here',
-    'golf.h3.lou.seven_oclock',
+    'golf.h3.lou.apartment_keys', 'golf.h3.prospect.keys_are_real',
+    'golf.h3.lou.go_see_it',
   ],
 
   /* The grille balcony, on the last hole only. Two sets: one when he walks
@@ -1982,9 +1973,10 @@ export function buildScripts(ctx) {
   /**
    * The last tee.
    *
-   * A courtesy question with a body under it, asked while the clubhouse stands
-   * behind the green and seven o'clock is four hours away. Nobody says what it
-   * is for. Every answer gets an answer, because Lou always answers.
+   * A courtesy question with a boundary under it, asked while the clubhouse
+   * stands behind the green. Hole 2 established that Margo gets dinner and not
+   * Family business; every answer here lets the player show how he understands
+   * that boundary, and Lou always answers.
    */
   const thirdTee = {
     open: {
@@ -2004,7 +1996,7 @@ export function buildScripts(ctx) {
           next: 'nobody',
           effect: () => ctx.remember('h3.known.nobody'),
         }),
-        reply('golf.h3.prospect.told_margo', {
+        reply('golf.h3.prospect.margo_only_knows_tonight', {
           tone: 'Honest',
           next: 'margo',
           effect: () => ctx.remember('h3.known.margo'),
@@ -2035,8 +2027,8 @@ export function buildScripts(ctx) {
     open: {
       who: null,
       line: null,
-      __cues: ['golf.h1.lou.you_did_good'],
-      enter: () => ctx.play('golf.h1.lou.you_did_good'),
+      __cues: ['golf.h1.lou.take_brought_everybody_home'],
+      enter: () => ctx.play('golf.h1.lou.take_brought_everybody_home'),
       hold: 4.2,
       next: 'answer',
     },
@@ -2044,7 +2036,7 @@ export function buildScripts(ctx) {
       who: 'Prospect',
       line: null,
       options: [
-        reply('golf.h1.prospect.did_what_you_asked', {
+        reply('golf.h1.prospect.kept_everybody_moving', {
           tone: 'Professional',
           next: 'professional',
           effect: () => ctx.remember('cart.professional'),
@@ -2054,10 +2046,10 @@ export function buildScripts(ctx) {
           next: 'modest',
           effect: () => ctx.remember('cart.modest'),
         }),
-        reply('golf.h1.prospect.what_happens_at_seven', {
+        reply('golf.h1.prospect.what_did_it_buy', {
           tone: 'Direct',
-          next: 'at_seven',
-          effect: () => ctx.remember('cart.at_seven'),
+          next: 'direct',
+          effect: () => ctx.remember('cart.direct'),
         }),
         {
           tone: 'Say nothing',
@@ -2067,39 +2059,39 @@ export function buildScripts(ctx) {
         },
       ],
     },
-    professional: beat(['golf.h1.lou.rarer_than_you_think'], 'callbacks'),
-    modest: beat(['golf.h1.lou.lucky_a_lot'], 'callbacks'),
-    at_seven: beat(['golf.h1.lou.everybody_gets_in_a_room'], 'callbacks'),
+    professional: beat(['golf.h1.lou.kept_your_head'], 'callbacks'),
+    modest: beat(['golf.h1.lou.luck_doesnt_drive_home'], 'callbacks'),
+    direct: beat(['golf.h1.lou.more_than_cash'], 'callbacks'),
     silent: beat(['golf.h1.lou.dont_have_to_fill_it'], 'callbacks'),
 
     /* The conditional callbacks go here, between the answer and the big
-     * nights, because that is where a man reviewing your work would put them. */
+     * reward, because that is where a man reviewing your work would put them. */
     callbacks: {
       line: null,
       enter: () => ctx.playCallbacks('cart'),
       hold: () => ctx.callbackHold('cart'),
       next: 'listened',
     },
-    listened: beat(['golf.h1.lou.you_kept_listening'], 'nights'),
-    nights: beat([
-      'golf.h1.lou.job_and_night',
-      'golf.h1.prospect.what_kind_of_job',
-      'golf.h1.lou.first_the_job',
-      'golf.h1.lou.after_that_the_room',
-    ], 'nightsAnswer', 12),
-    nightsAnswer: {
+    listened: beat(['golf.h1.lou.work_added_up'], 'reward'),
+    reward: beat([
+      'golf.h1.lou.take_changed_things',
+      'golf.h1.prospect.changed_for_who',
+      'golf.h1.lou.changed_for_us',
+      'golf.h1.lou.changed_for_you',
+    ], 'rewardAnswer', 12),
+    rewardAnswer: {
       who: 'Prospect',
       line: null,
       options: [
-        reply('golf.h1.prospect.what_happens', { tone: 'Ask', next: 'ask' }),
-        reply('golf.h1.prospect.im_ready', { tone: 'Confident', next: 'ready' }),
-        reply('golf.h1.prospect.if_it_goes_bad', { tone: 'Nervous', next: 'nervous' }),
+        reply('golf.h1.prospect.what_changed', { tone: 'Ask', next: 'ask' }),
+        reply('golf.h1.prospect.didnt_do_it_for_reward', { tone: 'Loyal', next: 'loyal' }),
+        reply('golf.h1.prospect.should_i_worry', { tone: 'Careful', next: 'careful' }),
         reply('golf.h1.prospect.understood', { tone: 'Quiet', next: 'quiet' }),
       ],
     },
-    ask: beat(['golf.h1.lou.job_then_no_prospect'], 'closing'),
-    ready: beat(['golf.h1.lou.ready_is_a_word'], 'closing'),
-    nervous: beat(['golf.h1.lou.play_golf_again'], 'closing'),
+    ask: beat(['golf.h1.lou.wait_for_clubhouse'], 'closing'),
+    loyal: beat(['golf.h1.lou.why_youre_getting_one'], 'closing'),
+    careful: beat(['golf.h1.lou.not_today'], 'closing'),
     quiet: beat(['golf.h1.lou.good'], 'closing'),
 
     closing: beat(['golf.h1.lou.nobody_invited_you_to_audition'], null, 6),

@@ -38,6 +38,50 @@ function ancestorValue(object, key, stop = null) {
   return null;
 }
 
+/**
+ * WHERE A ROUND LANDS ON A MAN.
+ *
+ * The multiplier is applied to the damage handed to `CombatImpactResolver`,
+ * which is still the only thing that decides whether the hit lands at all. A
+ * headshot is 2.6 rounds' worth of one round; it is not a special case in the
+ * damage model, because there is only one damage model.
+ *
+ * These are the Mansion Siege's numbers, lifted here whole from
+ * `HIT_ZONES` in `src/mansion/siege/attackers.js` (which re-exports this table
+ * under that name) when THE TAKE needed the same thing. The Cartel Palace
+ * keeps its own tighter table on purpose — its guards are armoured and its
+ * fights are at conversational range — and says so where it is declared.
+ */
+export const COMBAT_HIT_ZONE_DAMAGE = Object.freeze({
+  head: 2.6,
+  chest: 1.0,
+  limb: 0.58,
+});
+
+/**
+ * The tagged zone and part a raycast contact belongs to.
+ *
+ * Three scenes had written this walk-up-the-parents loop for themselves before
+ * it lived anywhere: the siege's `zoneFor`/`hitPartFor`, the palace's
+ * `zoneOf`, and the same shape again inline in the palace's `main.js`. The
+ * resolver already did it internally for the damage it applies; a caller that
+ * needs the zone BEFORE it calls `resolve` — to choose the `damageScale`, or
+ * to name a hit-confirmation — had nowhere to get it.
+ *
+ * Untagged geometry answers `chest`, which is what an untagged prop with a
+ * `combatActor` on it has always been worth.
+ *
+ * @param {THREE.Object3D|null} object the contact, usually a raycast hit
+ * @param {THREE.Object3D|null} [root] stop walking here
+ * @returns {{zone: string, part: string}}
+ */
+export function resolveHitZone(object, root = null) {
+  const zone = ancestorValue(object, 'hitZone', root) ?? 'chest';
+  const part = ancestorValue(object, 'hitPart', root)
+    ?? (zone === 'limb' ? 'limb' : zone);
+  return { zone, part };
+}
+
 function defaultAnchor(object, root) {
   let node = object ?? null;
   while (node) {

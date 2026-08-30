@@ -67,7 +67,7 @@ export const HEIST_DIALOGUE = Object.freeze({
   numb_alarm: line('numb_alarm', CHARACTER_IDS.NUMBSKULL,
     'I am nowhere near the alarms. This is me saying it before anybody asks.', P.BARK, ['LOADOUT']),
   prospect_ready: line('prospect_ready', CHARACTER_IDS.PROSPECT,
-    'Armor is on. Magazines are full. I heard the plan.', P.OBJECTIVE, ['BOARD_VAN']),
+    "I'm set. Vest is on, mags are full, and my hands won't stop.", P.OBJECTIVE, ['BOARD_VAN']),
 
   rippin_two_lights: line('rippin_two_lights', CHARACTER_IDS.RIPPINFLOW,
     'Two lights.', P.OBJECTIVE, ['VAN_APPROACH']),
@@ -82,8 +82,8 @@ export const HEIST_DIALOGUE = Object.freeze({
     'Stop right there. Hands where I can see them.', P.TACTICAL, ['BANK_ENTRY']),
   snow_guard: line('snow_guard', CHARACTER_IDS.SNOW,
     'Prospect, visible guard. Put him on the floor.', P.TACTICAL, ['BANK_ENTRY', 'LOBBY_CONTROL']),
-  prospect_counterstrike: line('prospect_counterstrike', CHARACTER_IDS.PROSPECT,
-    "Good thing about all that Counter-Strike I've been playing.", P.TACTICAL, ['LOBBY_CONTROL']),
+  prospect_lobby_quiet: line('prospect_lobby_quiet', CHARACTER_IDS.PROSPECT,
+    "Huh. It's a lot slower than you'd think. That's the part nobody mentions.", P.TACTICAL, ['LOBBY_CONTROL']),
   snow_scoreboard: line('snow_scoreboard', CHARACTER_IDS.SNOW,
     'Save the scoreboard. Watch the lobby.', P.OBJECTIVE, ['LOBBY_CONTROL']),
   death_floor: line('death_floor', CHARACTER_IDS.DEATHMEGATRON,
@@ -128,14 +128,42 @@ export const HEIST_DIALOGUE = Object.freeze({
   death_load: line('death_load', CHARACTER_IDS.DEATHMEGATRON,
     'Cover me. Bags are heavier when everybody is shooting at the handles.', P.TACTICAL, ['SECONDARY_CAR_LOAD']),
 
+  /* THE STATE WINDOW ON A DRIVING CALL IS THE CALL PLUS THE TURN IT IS ABOUT.
+   *
+   * `DialogueArbiter` drops a queued line the moment the mission leaves its
+   * window, and finishes a playing one as `stale`. Every call below used to
+   * name exactly ONE state, and the states of the escape change at the
+   * junctions the calls are about — so a line still speaking, or still waiting
+   * its turn, at the junction was thrown away at the junction.
+   *
+   * `rippin_drive` was the one that failed every single run. It is 5.83 s of
+   * recording, and `PLAYER_TAKES_WHEEL` ends at `GARAGE_ESCAPE` the moment the
+   * car is 24 m from the garage — 2.2 s after the player touches the throttle.
+   * Its window is three states because the LEG it is given on is two of them:
+   * `GARAGE_ESCAPE` is a distance flip in the middle of the garage lane, not a
+   * junction, and the junction at the end of that lane arrives at 3.5 s at
+   * pinned throttle. It is a call about the first left AND the warehouse lights
+   * after it, so it is allowed to finish on the road it is describing.
+   *
+   * The others are given on legs that at 92 mph are shorter than the recording
+   * they carry — 140 m of financial row is 3.4 s and `snow_roadblock` is
+   * 3.45 s — so each of them now covers its own leg AND the state its turn puts
+   * the car into, which is also the only place the tail of a direction still
+   * makes sense: the driver is taking the corner it named. Nothing widens far
+   * enough to let a direction arrive a junction late, and
+   * `tests/heist-escape-car-voices.test.mjs` drives both timelines to prove it. */
   rippin_drive: line('rippin_drive', CHARACTER_IDS.RIPPINFLOW,
-    'Prospect drives. Left out, wrong way on purpose, then the warehouse lights.', P.TACTICAL, ['PLAYER_TAKES_WHEEL']),
+    'Prospect drives. Left out, wrong way on purpose, then the warehouse lights.',
+    P.TACTICAL, ['PLAYER_TAKES_WHEEL', 'GARAGE_ESCAPE', 'CITY_PURSUIT']),
   rippin_market_left: line('rippin_market_left', CHARACTER_IDS.RIPPINFLOW,
-    'Left at the warehouse. Hold it through Market, then right at the glass tower.', P.TACTICAL, ['CITY_PURSUIT']),
+    'Left at the warehouse. Hold it through Market, then right at the glass tower.',
+    P.TACTICAL, ['CITY_PURSUIT']),
   snow_roadblock: line('snow_roadblock', CHARACTER_IDS.SNOW,
-    'Roadblock. Center gap. Do not argue with the cruisers.', P.TACTICAL, ['ROADBLOCK']),
+    'Roadblock. Center gap. Do not argue with the cruisers.',
+    P.TACTICAL, ['ROADBLOCK', 'INDUSTRIAL_ROUTE']),
   rippin_canal: line('rippin_canal', CHARACTER_IDS.RIPPINFLOW,
-    'Canal road next. Narrow means they cannot put three cars beside us.', P.TACTICAL, ['INDUSTRIAL_ROUTE']),
+    'Canal road next. Narrow means they cannot put three cars beside us.',
+    P.TACTICAL, ['INDUSTRIAL_ROUTE', 'VEHICLE_SWAP']),
   shubes_swap: line('shubes_swap', CHARACTER_IDS.SHUBENATOR,
     'Cash first, coats second, weapons in the lined bin. In that order.', P.OBJECTIVE, ['VEHICLE_SWAP']),
   death_swap_bags: line('death_swap_bags', CHARACTER_IDS.DEATHMEGATRON,
@@ -164,10 +192,6 @@ export const HEIST_DIALOGUE = Object.freeze({
     'I saw the tracker late. I saw it. We are still all standing here.', P.BARK, ['DEBRIEF']),
   snow_good: line('snow_good', CHARACTER_IDS.SNOW,
     'You moved when I said move. You covered people before money. Lou will hear that.', P.OBJECTIVE, ['DEBRIEF']),
-  lou_call: line('lou_call', CHARACTER_IDS.LOU,
-    'Everybody breathing? Good. Clean up. Bada Bing, seven. Wear something worth remembering.', P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
-  prospect_home: line('prospect_home', CHARACTER_IDS.PROSPECT,
-    'We got out. Everybody came home.', P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
 });
 
 /**
@@ -199,7 +223,7 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
     'Two blocks. Masks on now, while there is nobody outside to watch us do it.',
     P.TACTICAL, ['VAN_APPROACH']),
   prospect_mask_on: line('prospect_mask_on', CHARACTER_IDS.PROSPECT,
-    'Mask is down. I can see fine.', P.BARK, ['MASKS_ON']),
+    "Mask's down. I can hear my own heart in this thing.", P.BARK, ['MASKS_ON']),
   numb_van_count: line('numb_van_count', CHARACTER_IDS.NUMBSKULL,
     'Four minutes on the floor, one on the vault, one to walk out. That is the whole plan.',
     P.OBJECTIVE, ['MASKS_ON']),
@@ -381,7 +405,7 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   hostage_refuses_two: npcLine('hostage_refuses_two', 'Bank Customer',
     'You’ve had it. There is nothing else in these pockets.', P.BARK, null),
   hostage_refuses_three: npcLine('hostage_refuses_three', 'Bank Customer',
-    'I’m overdrawn. That’s why I’m standing in a bank on a Thursday.', P.BARK, null),
+    'I’m overdrawn. That’s why I’m standing in a bank with nothing in my pockets.', P.BARK, null),
   hostage_tied: npcLine('hostage_tied', 'Bank Customer',
     'It’s too tight. It’s too tight.', P.BARK, null),
   hostage_tied_two: npcLine('hostage_tied_two', 'Bank Customer',
@@ -402,10 +426,10 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   /* ---- the drive ---- */
   rippin_tower_right: line('rippin_tower_right', CHARACTER_IDS.RIPPINFLOW,
     'Glass tower on the corner. Right there, and do not slow down for the light.',
-    P.TACTICAL, ['CITY_PURSUIT']),
+    P.TACTICAL, ['CITY_PURSUIT', 'ROADBLOCK']),
   rippin_swap_ahead: line('rippin_swap_ahead', CHARACTER_IDS.RIPPINFLOW,
     'Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in.',
-    P.TACTICAL, ['INDUSTRIAL_ROUTE']),
+    P.TACTICAL, ['INDUSTRIAL_ROUTE', 'VEHICLE_SWAP']),
   snow_lost_them: line('snow_lost_them', CHARACTER_IDS.SNOW,
     'Nothing behind us. Nothing above us. We are a grey car on a service road.',
     P.OBJECTIVE, ['VEHICLE_SWAP']),
@@ -425,7 +449,7 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
 
   /* ---- Big Uncle Lou ----
    *
-   * He had one cue in the entire mission — `heist.lou_call`, at the very end —
+   * He had one cue in the entire mission — the old `heist.lou_call`, at the very end —
    * which is a hole for the man whose job this is, and part of why the debrief
    * did not read as anything: the person who decides what a day was worth
    * never spoke. He is on the radio for the job and he is the last voice in the
@@ -472,9 +496,14 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   lou_debrief_verdict_bad: line('lou_debrief_verdict_bad', CHARACTER_IDS.LOU,
     'So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean.',
     P.OBJECTIVE, ['DEBRIEF', 'LOU_CALL_SAFEHOUSE']),
-  lou_prospect_verdict: line('lou_prospect_verdict', CHARACTER_IDS.LOU,
-    'You came home with the crew and you came home with the money. Whatever they decide about you later, that is on the record.',
+  lou_phone_home: line('lou_phone_home', CHARACTER_IDS.LOU,
+    'Everybody breathing? Good. Prospect, go home, clean up, and stay by your phone. Nobody sees anybody tonight.',
     P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
+  lou_home_order: line('lou_home_order', CHARACTER_IDS.LOU,
+    'You came home with the crew and you came home with the money. That is what I needed to know. The rest can wait.',
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
+  prospect_phone_home: line('prospect_phone_home', CHARACTER_IDS.PROSPECT,
+    'Home. Stay by the phone. I got it.', P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
 
   /* ---- the debrief, which the owner could not read at all ---- */
   snow_debrief_open: line('snow_debrief_open', CHARACTER_IDS.SNOW,
@@ -499,7 +528,21 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
   prospect_debrief: line('prospect_debrief', CHARACTER_IDS.PROSPECT,
     'First one. I moved when Snow said move and I did not make anything worse.',
     P.OBJECTIVE, ['DEBRIEF']),
+  prospect_debrief_dirty: line('prospect_debrief_dirty', CHARACTER_IDS.PROSPECT,
+    'First one. I did what Snow said until I did not. The rest is mine.',
+    P.OBJECTIVE, ['DEBRIEF']),
 });
+
+const CLEAN_DEBRIEF_CLOSING = Object.freeze(['snow_good', 'prospect_debrief']);
+const DIRTY_DEBRIEF_CLOSING = Object.freeze(['prospect_debrief_dirty']);
+
+/**
+ * A bad run already receives Lou and Snow's bad verdict. It must not quietly
+ * fall through to Snow's clean-job praise before Tony answers for his part.
+ */
+export function heistDebriefClosingLines(clean) {
+  return clean ? CLEAN_DEBRIEF_CLOSING : DIRTY_DEBRIEF_CLOSING;
+}
 
 /**
  * Which pooled line a hostage says, per outcome, in rotation.

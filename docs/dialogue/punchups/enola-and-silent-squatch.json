@@ -56,42 +56,6 @@
       "status": "open"
     },
     {
-      "cue": "vo.enolasquatch.lou.arrival-lou-1.1",
-      "character": "lou1",
-      "current": "Did they get the package?",
-      "why": "The euphemism is right in principle — Lou would absolutely call it a package — but it is said so mildly it reads as shipping and receiving instead of a man asking whether a town is still there.",
-      "house": "Did it land where I paid for it to land?",
-      "tarantino": "So. Did they take delivery? And I want the real answer, not the one you rehearsed in the car.",
-      "mcdonagh": "Did they get it? And don't be soft with me now. Did they get it.",
-      "houser": "Did the package arrive? And by arrive I mean is there anybody left down there to have received it.",
-      "coen": "They get the package all right? I only ask because I've heard two versions already and they don't agree.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.enolasquatch.prospect.arrival-lou-2.1",
-      "character": "player",
-      "current": "They signed for it.",
-      "why": "A delivery-driver gag on a mass-casualty report. It undercuts, and worse, the kid should not be joking yet — he has not landed emotionally.",
-      "house": "There's nothing down there to sign anything.",
-      "tarantino": "They got it. There's a hole where the road used to bend. I flew over the same ground twice looking for the bend.",
-      "mcdonagh": "They got it, aye. There's a hole in the ground the shape of a town and I'll be seein' it every time I close me eyes.",
-      "houser": "Delivered. Signed for by nobody, because signing requires hands.",
-      "coen": "They got it. There's — there's not a lot down there now. I don't know what else to tell you about it.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.enolasquatch.lou.arrival-lou-3.1",
-      "character": "lou1",
-      "current": "Good. Put the plane back where you found it.",
-      "why": "This one is actually close to great — the banality is the joke, and the doctrine likes that. It just needs to be said by somebody who has already moved on, which is what makes it obscene.",
-      "house": "Good. Put the plane back where you found it and wash the smell out of your coat before dinner.",
-      "tarantino": "Good. Now put the plane back exactly where you found it, and I mean exactly, because the man I borrowed it from counts things.",
-      "mcdonagh": "Grand. Put the plane back. And wipe your boots, you've the whole state on 'em.",
-      "houser": "Excellent. Return the aircraft to inventory, and I want it in the condition you took it, because that lease is in my sister's name.",
-      "coen": "Good. Well. Put the plane back where you got it. And, you know — take a shower. You look like something.",
-      "status": "open"
-    },
-    {
       "cue": "vo.silentsquatch.reaction.orlova.wehavefamilies",
       "character": "orlova",
       "current": "We have families!",
@@ -268,20 +232,6 @@
       "status": "ACCEPTED 2026-08-19",
       "picked": "Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.",
       "retiredText": "Back up."
-    },
-    {
-      "cue": "vo.silentsquatch.office.lou.soonenough",
-      "character": "lou1",
-      "current": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
-      "why": "Stock mysterious-boss filler, sitting next to genuinely great Lou writing ('It's a desk, kid, it's been there longer than you have').",
-      "house": "You'll find out. And then you'll wish you'd enjoyed not knowing more than you did.",
-      "tarantino": "You'll find out. And here's the part nobody warns you about — the not knowing was the good part. Right now, this, standing here annoyed at me. This is the good part.",
-      "mcdonagh": "You'll find out soon enough. And you'll wish to God you were back stood there botherin' me about it.",
-      "houser": "You'll be briefed. And when you are, you'll spend the rest of your life wishing you'd been slightly less curious in my office.",
-      "coen": "You'll find out. And then you'll have found out. That's how that goes.",
-      "status": "ACCEPTED 2026-08-19",
-      "picked": "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.",
-      "retiredText": "Eh. You'll find out soon enough."
     },
     {
       "cue": "vo.initiation.party.erican.190z6i5.1",

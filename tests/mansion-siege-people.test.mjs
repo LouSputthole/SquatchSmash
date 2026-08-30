@@ -57,7 +57,8 @@ const {
   COMBAT_BOUNDARY, ENCOUNTERS, ROLES, STAGING, WaveDirector,
 } = await import('../src/mansion/siege/waves.js');
 const {
-  ANCHORS, GROUND_Y, OPENINGS, ROOMS, anchorById, crossingFor, laneWaypoints, roomAt,
+  ANCHORS, GROUND_Y, OPENINGS, ROOMS, SiegeNavigator,
+  anchorById, crossingFor, laneWaypoints, roomAt,
 } = await import('../src/mansion/siege/nav.js');
 const {
   createAttackerPool, groundHeightAt, segmentBlocked, HIT_ZONES, HUNT_SPEED, ROLE_PLAN,
@@ -2190,7 +2191,7 @@ test('nobody who died before the mansion is standing in it', () => {
    *   Willy   executed in the cabin of a boat in NO WAKE, Day 3.
    *   Billy   Billy HotDog, victim of the closed-party incident.
    *   Aubbie  executed at the end of PROJECT SILENT SQUATCH, Day 5 8:10 PM --
-   *           "Eliminate Aubbie" is the objective -- eight hours before this
+   *           "Eliminate Aubbie" is the objective -- six hours before this
    *           siege starts. He handed out magazines in this file until
    *           2026-08-13, when the owner's playtest caught him alive.
    * The mansion arc is after all three. Each is asserted by name against the
@@ -2579,6 +2580,40 @@ test('the eight roles actually fire differently over a minute', () => {
   assert.ok(byRole.get('smg') > 0 && byRole.get('rifle') > 0);
 });
 
+test('a protected story line holds hostile reports without freezing the assault', () => {
+  const { colliders, pool } = harness();
+  const shooter = pool.spawn({
+    id: 'hero-line-rifle', role: ROLES.rifle, staging: STAGING.front_steps,
+  });
+  shooter.root.position.set(0, 1.2, 40);
+  shooter.floorY = 1.2;
+  shooter.path.length = 0;
+  shooter.goal.copy(shooter.root.position);
+  shooter.root.rotation.y = 0;
+  shooter.awareness = 1;
+  shooter.sinceThink = 1;
+  const player = makePlayer(0, 1.2, 48);
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    for (let frame = 0; frame < 240; frame++) {
+      pool.update(1 / 60, {
+        player, colliders, alive: [], holdFire: true, playerDamageScale: 0,
+      });
+    }
+    assert.equal(shooter.targetVisible, true, 'the protected line froze perception');
+    assert.equal(shooter.roundsFired, 0, 'a hostile gun talked over the protected line');
+    for (let frame = 0; frame < 360 && shooter.roundsFired === 0; frame++) {
+      pool.update(1 / 60, {
+        player, colliders, alive: [], holdFire: false, playerDamageScale: 0,
+      });
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+  assert.ok(shooter.roundsFired > 0, 'combat did not resume when the line released the floor');
+});
+
 /* ================================================================== */
 /* THE RAIL IS COVER, NOT IMMUNITY                                      */
 /* ================================================================== */
@@ -2899,14 +2934,19 @@ test('walls block target acquisition until the target is genuinely visible', () 
   const wall = new THREE.Box3(
     new THREE.Vector3(-3, 1.1, 46), new THREE.Vector3(3, 4, 46.5),
   );
+  /* This is a sight-line test, not a survival lottery. Once the wall comes
+   * down the live rifleman is allowed to shoot; without the zero damage scale
+   * a lucky two-second burst can kill the only candidate, correctly making
+   * targetVisible false again before the final assertion. */
+  const context = { player, colliders, alive: [], playerDamageScale: 0 };
   colliders.push(wall);
-  for (let i = 0; i < 120; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  for (let i = 0; i < 120; i++) pool.update(1 / 60, context);
   assert.equal(entry.targetVisible, false);
   assert.equal(entry.target, null, 'the target was acquired through the wall');
   assert.equal(entry.roundsFired, 0);
 
   colliders.length = 0;
-  for (let i = 0; i < 120; i++) pool.update(1 / 60, { player, colliders, alive: [] });
+  for (let i = 0; i < 120; i++) pool.update(1 / 60, context);
   assert.equal(entry.targetVisible, true);
   assert.equal(entry.target?.actor, player.actor);
 });
@@ -3023,6 +3063,48 @@ test('squadmate congestion queues at a tight waypoint without destroying either 
     'ordinary squad traffic was mistaken for a broken authored route');
   assert.ok(entries.some(({ path }) => path.length === 0), 'the head of the queue never arrived');
   assert.ok(entries.some(({ path }) => path.length === 1), 'the queue did not remain queued');
+});
+
+test('combat-only floor slabs do not stop a climber or trigger repeated route recovery', () => {
+  const { pool } = harness();
+  const entry = pool.spawn({ id: 'gallery-lip', role: ROLES.rifle, staging: STAGING.front_steps });
+  entry.root.position.set(7.84, 5.76, 47.69);
+  entry.floorY = 5.76;
+  entry.goal.set(7.84, 6, 49.33);
+  entry.path = [{
+    x: 7.84, y: 6, z: 49.33, anchor: 'gallery_head_east', kind: 'climb',
+  }];
+  /* This is the shape of a combat floor: it must stop vertical bullets, but
+   * its leading edge is not a wall a body walking onto the landing can see. */
+  const galleryFloor = new THREE.Box3(
+    new THREE.Vector3(-12, 5.7, 48), new THREE.Vector3(12, 6, 53),
+  );
+  entry.sinceThink = -1000;
+  for (let i = 0; i < 240 && entry.path.length; i++) {
+    pool.update(1 / 60, {
+      player: null,
+      colliders: [galleryFloor],
+      movementColliders: [],
+      alive: [],
+    });
+  }
+  assert.equal(entry.path.length, 0, `climber stopped at z ${entry.root.position.z}`);
+  assert.equal(entry.recovered, 0, 'a combat-only floor became a locomotion recovery');
+});
+
+test('siege blocked recovery starts at the reached anchor and is consumed once', () => {
+  const navigator = new SiegeNavigator();
+  navigator.enter('climber', 'steps_centre', 'east');
+  const plan = navigator.plan('climber', 'gallery', { role: 'east' });
+  assert.ok(plan?.destination?.startsWith('gallery'));
+
+  const first = navigator.blocked('climber', 2.5, 'stair_east_high');
+  assert.equal(first.recover, true);
+  const second = navigator.blocked('climber', 1 / 60, 'stair_east_high');
+  assert.deepEqual(second, { recover: false },
+    'one obstruction emitted recovery again on the next frame');
+  assert.ok((navigator.director.blockedFor.get('climber') ?? 0) < 0.02,
+    'the consumed obstruction kept its multi-second timer');
 });
 
 test('peer congestion may consume only a non-final transit waypoint', () => {
@@ -3679,6 +3761,13 @@ test('friendlies acquire through shared LOS and fire only from their rendered bo
     assert.equal(shooter.shotsFired, 0, 'a friendly fired through unseen cover');
 
     shooter.sinceThink = 1;
+    for (let frame = 0; frame < 240; frame++) {
+      ensemble.update(1 / 60, {
+        player: null, hostiles: [hostile], colliders: [], holdFire: true,
+      });
+    }
+    assert.equal(shooter.targetVisible, true, 'the protected line froze friendly perception');
+    assert.equal(shooter.shotsFired, 0, 'a friendly gun talked over the protected line');
     for (let frame = 0; frame < 360 && !shooter.lastShot; frame++) {
       ensemble.update(1 / 60, { player: null, hostiles: [hostile], colliders: [] });
     }
@@ -3897,13 +3986,37 @@ test('every beat from the mission model stages somebody', () => {
   const { scene, damage, matrix } = harness();
   const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
   for (const beat of [
-    'BRIEFING', 'LITTLE_FRIEND', 'WAVE_ONE', 'LULL', 'WAVE_TWO',
+    'ARM', 'TO_OFFICE', 'BRIEFING', 'LITTLE_FRIEND', 'WAVE_ONE', 'LULL', 'WAVE_TWO',
     'AFTERMATH', 'TO_SASOLE',
   ]) {
     ensemble.stage(beat);
     const standing = [...ensemble.members.values()].filter((m) => m.root.visible);
     assert.ok(standing.length >= 14, `${beat} staged only ${standing.length} people`);
   }
+});
+
+test('the armory checkpoint pre-stages the same hidden defence used after the first pickup', () => {
+  const { scene, damage, matrix } = harness();
+  const ensemble = buildSiegeEnsemble({ scene, damage, matrix });
+  ensemble.stage('ARM');
+  const armory = [...ensemble.members.values()]
+    .filter((member) => member.staged)
+    .map((member) => ({
+      id: member.id,
+      position: member.root.position.toArray(),
+      facing: member.root.rotation.y,
+    }));
+  ensemble.stage('TO_OFFICE');
+  const upstairs = [...ensemble.members.values()]
+    .filter((member) => member.staged)
+    .map((member) => ({
+      id: member.id,
+      position: member.root.position.toArray(),
+      facing: member.root.rotation.y,
+    }));
+  assert.ok(armory.length >= 14, `only ${armory.length} defenders were ready above the armory`);
+  assert.deepEqual(upstairs, armory,
+    'taking the first gun visibly restaged or refaced the already-hidden defence');
 });
 
 test('the aftermath is people working, not people at attention', () => {
@@ -4030,6 +4143,81 @@ test('all eight cartel roles wear readable silhouettes and keep the red headband
   }
   assert.equal(silhouettes.size, Object.keys(ROLES).length,
     `only ${silhouettes.size} built cartel outfit silhouettes for eight roles`);
+});
+
+test('every attacker wears the A-Team\'s colours, and the letter is an A', () => {
+  /* Owner, 2026-08-24: *"I also want to give them more identifiable A team
+   * outfits."* The role kits above answer what each man DOES. Nothing said
+   * whose he was, which is a problem for a crew whose whole bark pool is them
+   * naming themselves. They wear a pinnie now -- a scrimmage vest in the same
+   * red as the headband, letter front and back, over whatever the role gave
+   * him.
+   *
+   * The letter is three boxes, and the first pass of it rendered as an H:
+   * the legs were leaning OUT, so the crossbar closed a rectangle instead of
+   * a triangle. That is the assertion below with teeth in it -- the two legs
+   * have to be closer together at the top than at the bottom. */
+  const { scene, pool } = harness();
+  for (const role of Object.keys(ROLES)) {
+    pool.spawn({ id: `colours_${role}`, role, staging: 'front_steps' });
+  }
+  scene.updateMatrixWorld(true);
+
+  const counts = new Set();
+  for (const entry of pool.all()) {
+    const team = [];
+    let body = null;
+    entry.root.traverse((object) => {
+      if (!body && object.userData?.hitPart === 'chest') body = object;
+      if (object.isMesh && object.userData.ateamTeamPiece) team.push(object);
+    });
+    assert.ok(body, `${entry.role.id} has no torso to hang colours on`);
+    counts.add(team.length);
+    assert.ok(team.length >= 7, `${entry.role.id} is out of uniform`);
+
+    /* A team kit is not a role kit, and the silhouette test above measures
+     * role kits. Tagging the pinnie into that set would collapse eight
+     * distinct outfits into one. */
+    for (const mesh of team) {
+      assert.notEqual(mesh.userData.cartelOutfitPiece, true,
+        `${entry.role.id}'s colours are being counted as his role kit`);
+      assert.match(mesh.name, /^ateam\.colours\./);
+    }
+
+    const local = new THREE.Matrix4().copy(body.matrixWorld).invert();
+    const boxOf = (mesh) => {
+      mesh.geometry.computeBoundingBox();
+      return new THREE.Box3().copy(mesh.geometry.boundingBox)
+        .applyMatrix4(new THREE.Matrix4().multiplyMatrices(local, mesh.matrixWorld));
+    };
+    const panels = team.filter((mesh) => {
+      const size = boxOf(mesh).getSize(new THREE.Vector3());
+      return size.x > 0.2 && size.y > 0.3;
+    });
+    assert.equal(panels.length, 2,
+      `${entry.role.id} has ${panels.length} readable panel(s); a pinnie is front and back`);
+    const zs = panels.map((mesh) => boxOf(mesh).getCenter(new THREE.Vector3()).z);
+    assert.ok(Math.min(...zs) < -0.2 && Math.max(...zs) > 0.2,
+      `${entry.role.id}'s panels are on the same side of him`);
+
+    /* The letter. Two leaning bars per face; take the front pair. */
+    const bars = team
+      .filter((mesh) => !panels.includes(mesh))
+      .map((mesh) => ({ mesh, box: boxOf(mesh) }))
+      .filter(({ box }) => box.getCenter(new THREE.Vector3()).z > 0.2)
+      .filter(({ box }) => box.getSize(new THREE.Vector3()).y > 0.1);
+    assert.equal(bars.length, 2, `${entry.role.id}'s chest letter is not two legs`);
+    const [left, right] = bars.sort(
+      (a, b) => a.box.getCenter(new THREE.Vector3()).x - b.box.getCenter(new THREE.Vector3()).x,
+    );
+    const apexGap = right.box.min.x - left.box.max.x;
+    const footGap = (right.box.min.x + right.box.max.x) / 2
+      - (left.box.min.x + left.box.max.x) / 2;
+    assert.ok(apexGap < footGap,
+      `${entry.role.id} is wearing an H: the legs of the letter lean apart `
+      + `(${apexGap.toFixed(3)} m at the top, ${footGap.toFixed(3)} m between centres)`);
+  }
+  assert.equal(counts.size, 1, 'the crew are not all in the same kit');
 });
 
 test('every visible siege gun is held at its grip and long guns are supported', () => {

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 import { Actor, CAST, buildWeaponMesh } from '../src/motel/actors.js';
 import { makeMotelArrivalCar } from '../src/motel/vehicle.js';
+import { poseMotelSnowInDriverSeat, stageMotelActor } from '../src/motel/runtime-geometry.js';
 
 test('the normal Motel start cannot escape to the apartment', () => {
   const html = fs.readFileSync(new URL('../motel.html', import.meta.url), 'utf8');
@@ -14,8 +15,8 @@ test('the normal Motel start cannot escape to the apartment', () => {
   assert.match(start, /id="startBtn"[^>]*>START THE DEAL/);
   assert.doesNotMatch(start, /href="\.\/index\.html"/,
     'normal flow exposes an apartment escape before the mission starts');
-  assert.match(html, /id="continueBtn"[^>]*>RETURN TO APARTMENT/,
-    'mission completion lost its campaign return');
+  assert.match(html, /id="continueBtn"[^>]*>LET SNOW DROP YOU HOME/,
+    'mission completion lost Snow’s daylight return to the apartment');
   assert.match(bootFailure, /href="\.\/index\.html"[^>]*>APARTMENT/,
     'boot failure lost its recovery route');
 });
@@ -226,6 +227,41 @@ test('Snow can occupy a moving car seat without snapping to the lot floor, then 
   assert.ok(Math.abs(snow.rig.legL.rotation.x) < 0.8
       && Math.abs(snow.rig.legR.rotation.x) < 0.8,
   'Snow kept the seated leg pose after getting out');
+});
+
+test('the Motel driver is parented to a car-owned seat and inherits rotation, roll, and acceleration', () => {
+  const scene = new THREE.Scene();
+  const car = makeMotelArrivalCar(scene);
+  const loadTexture = THREE.TextureLoader.prototype.load;
+  THREE.TextureLoader.prototype.load = () => new THREE.Texture();
+  try {
+    const snow = new Actor(scene, { ...CAST.snow(), state: 'idle' });
+    poseMotelSnowInDriverSeat(snow, car);
+    assert.equal(snow.group.parent, car.occupants.anchor('driverActor'));
+    assert.equal(car.occupants.object('driverActor'), snow.group);
+
+    car.group.position.set(18, 2.1, -7);
+    car.group.rotation.set(0.14, 0.73, -0.09);
+    car.group.updateMatrixWorld(true);
+    const first = snow.group.getWorldPosition(new THREE.Vector3());
+    assert.ok(first.distanceTo(car.driverActorPosition()) < 1e-8);
+
+    car.group.position.add(new THREE.Vector3(9, -0.4, 12));
+    car.group.rotation.y += 0.5;
+    car.group.rotation.z += 0.18;
+    car.group.updateMatrixWorld(true);
+    const moved = snow.group.getWorldPosition(new THREE.Vector3());
+    assert.ok(moved.distanceTo(first) > 10, 'Snow chased rather than inherited the moved car');
+    assert.ok(moved.distanceTo(car.driverActorPosition()) < 1e-8,
+      'Snow drifted away from his seat under compound car motion');
+
+    stageMotelActor(snow, 'snow-exterior', { arrivalCar: car, floorAt: () => 0 });
+    assert.equal(car.occupants.object('driverActor'), null);
+    assert.equal(snow.group.parent, scene);
+    assert.equal(snow.state, 'idle');
+  } finally {
+    THREE.TextureLoader.prototype.load = loadTexture;
+  }
 });
 
 test('the passenger pull-in composition contains Snow, his shoulders, hands, wheel, and dashboard', () => {

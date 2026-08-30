@@ -56,7 +56,7 @@
 import * as THREE from 'three';
 import {
   cruiseSpeedAt, driveSeconds, minimumLegSeparation, roadAt, roadLength,
-  ROAD_EVENTS, roadNodes, stageAt, STAGES,
+  ROAD_EVENTS, roadNodes, stageAt, STAGES, TURN_OFF_S,
 } from './road.js';
 import { groundAt, heightAt, surfaceAt, surfaceProps } from './field.js';
 import { buildNightSedan, SEATS } from './car.js';
@@ -138,23 +138,44 @@ export function createNightForestRoad({
 
   const drive = new ForestDrive(car, {
     onNode: (id) => {
-      /* Two things the geography itself is responsible for, done before the
-       * caller hears about the beat: full beams when the tarmac ends, because
-       * the driver would, and the phone going away at the arrival, because
-       * SM-400 says Lag puts it away and that reads as worse than anything he
-       * has said. Everything else is the scene's business, not the road's. */
-      if (id === 'turn_off') car.setMainBeam(true);
-      if (id === 'arrival') car.setPhone(false);
-      /* AND THE SHOT LIST FOR THE SPUR, at the one moment the car is where it
-       * is going to be. `src/specialmeeting/shots.js` says what a beat here
-       * may honestly claim; this is why they are published HERE and not at
-       * construction. Both spur beats are cameras derived from the parked car
-       * -- the ground beside the front passenger door he steps out onto, and
-       * the heading `PassengerRig.leave()` turns him to -- and the car spends
-       * the preceding kilometre nowhere near either. Published at build time
-       * they would describe a shot taken at the start of the road. */
-      if (id === 'arrival') publishSpurShots();
+      /* THE CALLER FIRST, AND EVERYTHING ELSE BEHIND A CATCH.
+       *
+       * The scene above gates its dialogue on these ids -- `../main.js` holds
+       * `SM-220`, `SM-260` and `SM-330` until the matching node arrives -- and
+       * `../../forest/driver.js` marks an event `fired` BEFORE it dispatches,
+       * so a node is announced exactly once and never retried. That makes any
+       * throw in here permanent: the scene's `onNode` never runs, its gate
+       * never clears, and the ride stops for good with the car driving on. At
+       * `turn_off` that is a screen that stays black; at `arrival` it is the
+       * player parked on the spur unable to get out. Both are exactly what
+       * the owner reported, and neither needed anything to actually be wrong
+       * with the road -- only with a lamp method or a shot list.
+       *
+       * So the gate clears first and the dressing cannot strand it. The
+       * dressing is still worth having and a failure is still worth seeing,
+       * which is what the console.error is for. */
       onNode?.(id, api);
+      try {
+        /* Two things the geography itself is responsible for: full beams when
+         * the tarmac ends, because the driver would, and the phone going away
+         * at the arrival, because SM-400 says Lag puts it away and that reads
+         * as worse than anything he has said. Everything else is the scene's
+         * business, not the road's. */
+        if (id === 'turn_off') car.setMainBeam(true);
+        if (id === 'arrival') car.setPhone(false);
+        /* AND THE SHOT LIST FOR THE SPUR, at the one moment the car is where
+         * it is going to be. `src/specialmeeting/shots.js` says what a beat
+         * here may honestly claim; this is why they are published HERE and not
+         * at construction. Both spur beats are cameras derived from the parked
+         * car -- the ground beside the front passenger door he steps out onto,
+         * and the heading `PassengerRig.leave()` turns him to -- and the car
+         * spends the preceding kilometre nowhere near either. Published at
+         * build time they would describe a shot taken at the start of the
+         * road. */
+        if (id === 'arrival') publishSpurShots();
+      } catch (error) {
+        console.error(`the forest road could not dress the '${id}' node`, error);
+      }
     },
     onJolt,
     timeScale,
@@ -248,7 +269,29 @@ export function createNightForestRoad({
 
     /** Pull away. */
     start() {
+      /* The block car is borrowed through an adapter whose long-throw forest
+       * lamps start dark. Taking ownership of the drive includes taking
+       * ownership of those lamps; relying on the street-light state leaves
+       * an injected car dark for the entire road. */
+      car.setHeadlights(true);
       drive.start();
+      return api;
+    },
+
+    /**
+     * Reconstruct a persisted forest checkpoint without replaying road beats.
+     * Lamp/phone state is derived from the named place, then the surrounding
+     * terrain is primed at the restored transform before the first frame.
+     */
+    restoreAtNode(id) {
+      drive.restoreAtEvent(id);
+      car.setHeadlights(true);
+      car.setMainBeam(drive.distance >= TURN_OFF_S);
+      if (id === 'arrival') {
+        car.setPhone(false);
+        publishSpurShots();
+      }
+      terrain.prime(car.group.position);
       return api;
     },
 
@@ -298,6 +341,12 @@ export function createNightForestRoad({
       elapsed += dt;
       drive.update(dt);
       passenger?.update(dt);
+      /* The cabin, against the rail's own speed rather than a clock -- so the
+       * light stops changing exactly when the car stops. `./car.js` has no
+       * such hook, hence the optional call: this is the adapted block sedan's
+       * rig (`./sedan-adapter.js`), which is the car this scene actually
+       * ships. */
+      car.updateCabin?.(dt, { speed: drive.speed, distance: drive.distance });
 
       const focus = passenger?.seated
         ? player.position

@@ -25,18 +25,25 @@ import { MirrorReflection } from './effects/MirrorReflection.js';
 import {
   ITEM_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
 } from '../core/campaign.js';
 import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { writeGameplayPromptKey } from '../core/gameplay-key-adapter.js';
-import { lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
+import { lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { buildSquatchfatherRuntimeGeometry } from './runtime-geometry.js';
+import {
+  SquatchfatherCombatAdapter,
+  squatchfatherBodyAnchor,
+} from './combat.js';
+import { createSquatchfatherInputPolicy } from './controls.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -102,8 +109,25 @@ let campaignMissionStarted = false;
 // ---------------------------------------------------------------- systems
 
 const {
-  sceneState, impacts, blood, prospect, sal, mcclawsky,
+  sceneState, impacts, bloodImpacts, deathBloodPools, prospect, sal, mcclawsky,
 } = buildSquatchfatherRuntimeGeometry(scene, camera, { renderer });
+
+const combat = new SquatchfatherCombatAdapter({
+  camera,
+  hitTargets: () => scene.children,
+  surfaceImpacts: impacts,
+  bloodImpacts,
+  deathBloodPools,
+  floorY: () => 0,
+});
+for (const [id, controller] of [['sal', sal], ['mcclawsky', mcclawsky]]) {
+  combat.registerTarget(id, {
+    actor: controller,
+    root: controller.group,
+    anchorOf: (object) => squatchfatherBodyAnchor(controller, object),
+    spatterAnchorOf: () => controller.fig.torso,
+  });
+}
 
 const director = new CameraDirector(camera, ui);
 const seated = new SeatedCameraController(director);
@@ -137,31 +161,8 @@ let ePressed = false;
 let firePressed = false;
 let paused = false;
 let running = false;
-let pointerLocked = false;
 let sharedPauseMenu = null;
-
-const KEYMAP = {
-  KeyW: 'forward', ArrowUp: 'forward',
-  KeyS: 'back', ArrowDown: 'back',
-  KeyA: 'left', ArrowLeft: 'left',
-  KeyD: 'right', ArrowRight: 'right',
-};
-
-window.addEventListener('keydown', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) { keys[bound] = true; e.preventDefault(); }
-  if (e.code === 'KeyE') { if (!keys.e) ePressed = true; keys.e = true; }
-  if (e.code === 'Escape') togglePause();
-  if (e.code === 'KeyM') { audio.setMuted(!audio.isMuted()); }
-});
-window.addEventListener('keyup', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) keys[bound] = false;
-  if (e.code === 'KeyE') keys.e = false;
-});
-window.addEventListener('blur', () => {
-  for (const k of Object.keys(keys)) keys[k] = false;
-});
+let browserInput = null;
 /* A hidden tab must not keep simulating the restaurant and playing its audio
  * at nobody: route through the pause menu, whose onPause already clears the
  * keys and suspends the audio. pause() refuses politely before the scene is
@@ -170,21 +171,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) sharedPauseMenu?.pause();
 });
 
-const SENS = 0.0022; // × the player's sensitivity setting, read per move
-document.addEventListener('mousemove', (e) => {
-  if (!pointerLocked || paused || !running) return;
-  const dx = e.movementX * lookSensitivity(SENS);
-  const dy = e.movementY * lookSensitivity(SENS);
-  if (Math.abs(dx) + Math.abs(dy) > 0.001) seated.playerMoved();
-  prospect.look(dx, dy, seated.clamp);
-});
-
-// Chrome rejects the request during its post-Escape cooldown and returns a
-// promise; swallow it so a denied lock isn't reported as a page error. The
-// player can always click the canvas to try again.
 function lockPointer() {
-  const p = renderer.domElement.requestPointerLock();
-  if (p && typeof p.catch === 'function') p.catch(() => {});
+  return browserInput?.requestPointerLock() ?? false;
 }
 
 sharedPauseMenu = createPauseMenu({
@@ -201,13 +189,14 @@ sharedPauseMenu = createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    for (const key of Object.keys(keys)) keys[key] = false;
+    browserInput?.clear('pause');
     audio.suspend();
   },
   onResume: () => {
     paused = false;
     audio.resume();
     clock.getDelta();
+    browserInput?.refresh('pause-resume');
     lockPointer();
   },
   recovery: createCampaignSceneRecovery({
@@ -217,15 +206,42 @@ sharedPauseMenu = createPauseMenu({
   }),
 });
 
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (!pointerLocked) { lockPointer(); return; }
-  if (e.button === 0) firePressed = true;
+const primaryControl = Object.freeze({
+  press() {
+    if (!keys.e) ePressed = true;
+    keys.e = true;
+  },
+  release() {
+    keys.e = false;
+  },
+  cancel() {
+    keys.e = false;
+  },
 });
 
-document.addEventListener('pointerlockchange', () => {
-  pointerLocked = document.pointerLockElement === renderer.domElement;
-  if (!pointerLocked && running && !paused) togglePause();
+const SENS = 0.0022; // × the player's sensitivity setting, read per move
+const squatchfatherInputPolicy = createSquatchfatherInputPolicy({
+  keys,
+  isGameplayEnabled: () => running && !paused,
+  look(dx, dy) {
+    const scaledX = dx * lookSensitivity(SENS);
+    const scaledY = dy * lookSensitivity(SENS);
+    if (Math.abs(scaledX) + Math.abs(scaledY) > 0.001) seated.playerMoved();
+    prospect.look(scaledX, scaledY, seated.clamp);
+  },
+  primaryControl,
+  fire: () => { firePressed = true; },
+  togglePause,
+  toggleMute: () => audio.setMuted(!audio.isMuted()),
+});
+browserInput = createFirstPersonInput({
+  player: squatchfatherInputPolicy.player,
+  canvas: renderer.domElement,
+  interaction: primaryControl,
+  ...squatchfatherInputPolicy.adapterOptions,
+  onCaptureChange: (_event, controls) => {
+    if (!controls.locked && running && !paused) togglePause();
+  },
 });
 
 // ---------------------------------------------------------------- ui helpers
@@ -429,7 +445,7 @@ function resetRoomReactions() {
   waiterPanic = null;
   waiterPanicStepClock = 0;
   impacts.reset();
-  blood.reset();
+  combat.reset();
   const { cook } = sceneState.bystanders;
   const { waiter, diner1, diner2 } = sceneState.figures;
   waiter.stopCower();
@@ -458,20 +474,6 @@ function fire() {
   const flashAt = new THREE.Vector3();
   prospect.weapon.getWorldPosition(flashAt);
   impacts.muzzle(flashAt);
-}
-
-/** Blood at the wound and a second spatter thrown low, facing the shooter. */
-function bloodHit(target) {
-  const at = target.eyePoint;
-  const toShooter = camera.position.clone().sub(at).normalize();
-  // These are wounds on people, not decals on the restaurant wall. Attach
-  // them to the moving figure so Sal's forward collapse and McClawsky's fall
-  // carry the impact with them instead of leaving it hanging in the air.
-  blood.punchAttached(target.fig.neck, at, toShooter);
-  blood.punchAttached(target.fig.torso,
-    at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.25, -0.38, (Math.random() - 0.5) * 0.25)),
-    toShooter,
-  );
 }
 
 function failScene(title) {
@@ -761,10 +763,13 @@ function buildStates() {
         }
         if (!firePressed) return;
         firePressed = false;
+        const shot = combat.resolve('sal');
         fire();
         prospect.fireKick();
+        combat.present(shot, { fatal: shot.outcome === 'intended' });
+        if (shot.outcome !== 'intended') return;
+        // Attach exact-contact blood before the authored fall moves the rig.
         sal.kill();
-        bloodHit(sal);
         knockGlassOver(glasswareFor(sceneState.props.salGlass));
         roomReacts();
         fsm.go(S.SHOOT_MCCLAWSKY);
@@ -782,10 +787,13 @@ function buildStates() {
       update() {
         if (!firePressed) return;
         firePressed = false;
+        const shot = combat.resolve('mcclawsky');
         fire();
         prospect.fireKick();
+        combat.present(shot, { fatal: shot.outcome === 'intended' });
+        if (shot.outcome !== 'intended') return;
+        // Attach exact-contact blood before the authored fall moves the rig.
         mcclawsky.kill();
-        bloodHit(mcclawsky);
         Foley.chairKnock();
         fsm.go(S.DROP_WEAPON);
       },
@@ -848,13 +856,22 @@ function buildStates() {
 
     [S.ENTER_CAR]: {
       enter() {
-        setObjective('Get in the car');
-        interactions.allow('car');
+        setObjective('Listen to the driver');
+        interactions.allow();
         sceneState.lights.carGlow.intensity = 1.2;
         train.setIntensity(0.08);
         vibration.set(0);
         director.setFov(FOV.base);
         director.vignette(false);
+        /* The route already went north, but the player only learned that from
+         * the completion button. The same driver who brought Tony here now
+         * gives Lou's order before the car can be entered, making the cabin a
+         * motivated extraction rather than a destination revealed by UI. */
+        dialogue.play('extraction', () => {
+          if (!fsm.is(S.ENTER_CAR)) return;
+          setObjective('Get in the car');
+          interactions.allow('car');
+        });
       },
     },
 
@@ -912,7 +929,7 @@ function buildStates() {
 /** Everything hidden now that the shooting beats put on screen later. */
 function firstShotObjects() {
   return [
-    blood.pool,            // the two spatters thrown at each hit
+    ...combat.prewarmObjects, // exact wounds, secondary spatters and floor pools
     impacts.pool,          // bullet holes, same material family
     prospect.weapon,       // the first-person revolver, out at DRAW_WEAPON
     mcclawsky.gun,         // his, if he gets that far
@@ -955,9 +972,9 @@ async function prewarmFirstShot() {
           'cloth.suit.movement', 'car.door.close.heavy',
         ],
       },
-      /* No pools to fill: BulletHoles builds all eight quads and its light in
-       * its constructor, so the first shot already allocates nothing. The
-       * passes above are what its pool was still missing. */
+      /* No pools to fill: the bullet and shared-blood systems build every
+       * bounded quad in their constructors, so a first shot allocates
+       * nothing. The passes above are what their materials were missing. */
     });
   } finally {
     impacts.flash.intensity = flashIntensity;
@@ -1030,7 +1047,12 @@ async function loadDialogue() {
 // so the beats are matched to their recordings by speaker + line text rather
 // than by a table that could drift from either side.
 
-const SPEAKER_VOICE = { PROSPECT: 'player', SAL: 'sal', MCCLAWSKY: 'mcclawsky' };
+const SPEAKER_VOICE = {
+  PROSPECT: 'player',
+  SAL: 'sal',
+  MCCLAWSKY: 'mcclawsky',
+  DRIVER: 'doorman',
+};
 
 function normLine(text) {
   return String(text)
@@ -1160,9 +1182,11 @@ function wire(data, voCues) {
     ambience, train,
     campaign, campaignStory,
     chairInteraction, toiletInteraction, dropInteraction,
-    // The renderer and the two decal pools are on the handle so the frame-cost
-    // verifier can read renderer.info.programs across a shot.
-    renderer, scene, camera, impacts, blood, ringing,
+    // The renderer and bounded impact systems stay on the handle so the
+    // verifier can inspect shader cost and canonical blood metadata.
+    renderer, scene, camera, impacts, bloodImpacts, deathBloodPools, combat, ringing,
+    input: browserInput,
+    get heldInput() { return { ...keys }; },
     go: (name) => fsm.go(name),
     pressE: () => { ePressed = true; },
     pressFire: () => { firePressed = true; },
@@ -1206,6 +1230,7 @@ function updateGame(dt) {
   vibration.update(dt);
   ringing.update(dt);
   impacts.update(dt);
+  combat.update(dt);
   waiterRounds(dt);
   updateCowering(dt);
   director.update(dt, prospect, seatedNow ? seated.clamp : null);
@@ -1313,14 +1338,39 @@ $('retryBtn').addEventListener('click', () => {
   restoreCheckpoint();
   lockPointer();
 });
-function returnToApartment() {
-  navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
-    spawn: 'front_door',
+/**
+ * THE DRIVER DOES NOT TAKE HIM HOME.
+ *
+ * The bible: *"The first kill. The driver takes him OUT OF TOWN."* The man who
+ * brought him to the restaurant is still at the kerb when it is done, and Lou
+ * has already decided where the Prospect is sleeping tonight -- which is a
+ * cabin up north, not a flat with his name on the buzzer.
+ *
+ * The apartment branch stays for saves made before the cabin was wired,
+ * because `Campaign.transition()` throws on an edge nobody declared and a
+ * finished end card with no forward route is a stranded player.
+ */
+function leaveTheRestaurant() {
+  /* The cabin is a scene, not a mission -- there is no `missions.cabin` to
+   * ask -- so its chapter is read off the clock ledger, which is where that
+   * chapter actually keeps its state. The Billy call is its last marker. */
+  const cabinDone = campaign.state.story.timeEvents
+    .includes(TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL);
+  if (cabinDone) {
+    navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
+      spawn: 'front_door',
+      location: window.location,
+    });
+    return;
+  }
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW);
+  navigateCampaign(campaign, SCENE_IDS.COUNTRYSIDE_CABIN, {
+    spawn: 'arrival',
     location: window.location,
   });
 }
 
-$('againBtn').addEventListener('click', returnToApartment);
+$('againBtn').addEventListener('click', leaveTheRestaurant);
 
 // Build the audio graph while the menu is still up: the context sits
 // suspended until the start click, but the recordings fetch and decode now,

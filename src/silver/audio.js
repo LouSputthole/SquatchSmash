@@ -103,6 +103,51 @@ const SILVER_SHARED_CUES = new Set([
 
 export { SILVER_STREET_CUES };
 
+/* The voices required before the player can physically reach the cellar.
+ * Everything else begins decoding once the title card is gone. This keeps a
+ * 350-line dinner from holding the first gameplay frame hostage while still
+ * guaranteeing that the taxi, Margo and the service-door greeting speak. */
+export const SILVER_START_VOICE_PREFIXES = Object.freeze([
+  'vo.silver.driver.',
+  'vo.silver.margo.arrival.',
+  'vo.silver.margo.bark.street.',
+  'vo.silver.margo.bark.alley.',
+  'vo.silver.vinny.',
+]);
+
+/* Only sounds reachable on the pavement or at the first service door belong
+ * on the title-card path. Broad `footstep.*`, `ambience.*` and `band.*`
+ * families still belong to this scene, but decoding the kitchen and dining
+ * room before the player can get out of the taxi recreated the five-minute
+ * start stall with a smaller number (112 instead of 446). */
+export const SILVER_START_EFFECTS = new Set([
+  'ambience.alley',
+  'ambience.city.night',
+  'ambience.crowd',
+  'car.door',
+  'car.door.close.heavy',
+  'car.engine.rev',
+  'car.engine.start',
+  'car.horn',
+  'door.creak',
+  'door.knob',
+  'footstep.concrete',
+  'footstep.puddle',
+  'footstep.street.wet',
+  'street.car.pass.wet',
+  'street.horn.distant',
+  'street.wet.night',
+  'tip.fold',
+  'traffic.pass',
+  'train.elevated.rumble',
+  'train.elevated.roar',
+  'train.elevated.sub',
+  'train.horn.far',
+  'train.rail.clatter',
+  'woo.down',
+  'woo.up',
+]);
+
 /** Recorded cues that this page can actually request. */
 export function isSilverPreloadCue(cue) {
   const name = typeof cue === 'string' ? cue : cue?.name;
@@ -130,18 +175,38 @@ export class SilverAudioEngine extends AudioEngine {
     } else {
       const index = await loadJson(SFX_DIR, 'index.json');
       const available = index ? new Set(index.files || []) : null;
+      this._availableFiles = available;
       this._fileVersions = index?.versions || {};
       availableCues = available
         ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
         : cues;
     }
 
-    const wanted = availableCues.filter(isSilverPreloadCue);
+    const scoped = availableCues.filter(isSilverPreloadCue);
+    const wanted = scoped.filter((cue) => (
+      SILVER_START_EFFECTS.has(cue.name)
+      || SILVER_START_VOICE_PREFIXES.some((prefix) => cue.name.startsWith(prefix))
+    ));
+    this._deferredSilverCues = scoped.filter((cue) => !wanted.includes(cue));
     this.preloadStats = {
       manifestTotal: cues.length,
       selected: wanted.length,
+      scoped: scoped.length,
+      deferred: this._deferredSilverCues.length,
     };
-    await this._loadWanted(wanted);
+    /* A modest worker pool avoids asking Edge to decode thirty-two MP3s at
+     * once. That overload was the current verifier's five-minute start stall. */
+    await this._loadWanted(wanted, 8);
     return { total: wanted.length, loaded: this.loadedCount };
+  }
+
+  /** Decode the rest of the evening after gameplay is already responsive. */
+  loadDeferredVo() {
+    return loadOnceRetriable(this, '_silverDeferredPromise', async () => {
+      const wanted = this._deferredSilverCues ?? [];
+      await this._loadWanted(wanted, 8);
+      this.deferredReady = true;
+      return { total: wanted.length, loaded: this.loadedCount };
+    });
   }
 }

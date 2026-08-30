@@ -32,6 +32,47 @@
 
 const STYLE_ID = 'objective-panel-style';
 
+/** Normal objective changes get one readable window, then leave the playfield. */
+export const OBJECTIVE_DISPLAY_MS = 12_000;
+
+/**
+ * Shared visibility clock for both the stand-alone panel and the apartment Hud.
+ * Frame-loop callers can submit the same objective forever without extending
+ * its life; only a changed signature calls `changed()`.
+ */
+export function createObjectiveDisplayController({
+  show = () => {},
+  collapse = () => {},
+  durationMs = OBJECTIVE_DISPLAY_MS,
+  scheduler = globalThis,
+  autoCollapse = true,
+} = {}) {
+  let timer = null;
+  const cancel = () => {
+    if (timer !== null && typeof scheduler?.clearTimeout === 'function') {
+      scheduler.clearTimeout(timer);
+    }
+    timer = null;
+  };
+  const reveal = () => {
+    cancel();
+    show();
+    if (autoCollapse && Number.isFinite(durationMs) && durationMs > 0
+      && typeof scheduler?.setTimeout === 'function') {
+      timer = scheduler.setTimeout(() => {
+        timer = null;
+        collapse();
+      }, durationMs);
+    }
+  };
+  return {
+    changed: reveal,
+    reveal,
+    clear() { cancel(); collapse(); },
+    dispose() { cancel(); },
+  };
+}
+
 /**
  * Upper left, quiet, and out of the way of a crosshair.
  *
@@ -88,8 +129,8 @@ const STYLE = `
   left: 0;
   color: #ffd08a;
 }
-/* Struck through and faded rather than removed: a list that deletes what you
- * have achieved gives you no credit for the evening. */
+/* Kept as a defensive style for adopted/static markup. The renderer projects
+ * completed work out of the live list before it reaches this stylesheet. */
 #objectives.op-panel .olist li.done {
   color: #6f6a5f;
   text-decoration: line-through;
@@ -119,16 +160,102 @@ function ensureStyle(doc) {
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = STYLE;
-  /* FIRST in head, not last. This sheet is injected at runtime, after every
-   * page's own <link> stylesheets, and `#objectives.op-panel { top; left }`
-   * ties their specificity -- so appending silently beat golf's "under the
-   * scorecard", the Palace's "under the mission card", and every other
-   * placement a scene wrote for this panel, and the card landed on top of
-   * the furniture it was told to sit beside. These rules are defaults; the
-   * page gets the last word. (The append fallback is for the headless test
-   * doc, whose head knows nothing of prepend; order is moot with no CSSOM.) */
+  /* FIRST in the head, not last, and that is the whole reason a scene can
+   * place this panel at all.
+   *
+   * Every rule above is written `#objectives.op-panel`, and so is every scene
+   * override of it -- `src/cartel-palace/cartel-palace.css:123`,
+   * `src/golf/golf.css:65`, `src/heist/heist.css:23`. Equal specificity, so
+   * the cascade decides on source order, and a stylesheet the page LINKS is
+   * parsed long before a module gets to run. Appending put this block last and
+   * it silently beat all three: the Palace asked for `top: 70px` to clear its
+   * evidence strip, golf for `top: 106px`, the heist for `top: 84px`, and all
+   * three panels sat at this file's own `top: 18px` -- in the Palace's case
+   * directly on top of the evidence count, which is what the owner reported as
+   * "Rescue ... covers Evidence 3/3".
+   *
+   * Prepending makes these the defaults they are documented to be. Nothing is
+   * lost against `src/style.css`'s bare `#objectives`: that selector is one id
+   * to this one's id-plus-class, so specificity keeps this winning wherever no
+   * scene has an opinion. */
+  /* (The append fallback is for the headless test doc, whose head knows
+   * nothing of prepend; order is moot with no CSSOM.) */
   if (typeof doc.head.prepend === 'function') doc.head.prepend(style);
   else doc.head.append(style);
+}
+
+/**
+ * Project an authored objective ledger onto what is actionable right now.
+ * Completed work leaves the HUD immediately; section rules remain only when
+ * they still introduce at least one active line. The underlying story can
+ * retain its complete ledger for save logic, pause recaps and QA without
+ * turning the live panel into a spoiler-filled checklist.
+ */
+export function activeObjectiveItems(items = []) {
+  const projected = [];
+  let activeSinceRule = false;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (!item) continue;
+    if (item.rule) {
+      if (activeSinceRule) projected.unshift(item);
+      activeSinceRule = false;
+      continue;
+    }
+    /* `pending` has to be part of the exported projection, not merely the DOM
+     * adapter below. The apartment HUD consumes this helper directly; keeping
+     * the check in createObjectivePanel meant the same authored plan hid a
+     * future call in every adopted panel except the starter apartment.
+     *
+     * Completed work retires by default. A deliberately persistent tally opts
+     * out with `retire: false`: this is the narrow exception for a meaningful
+     * result such as 7/7, not permission for old errands to accumulate. */
+    if (item.pending || (item.done && item.retire !== false) || !item.label) continue;
+    projected.unshift(item);
+    activeSinceRule = true;
+  }
+  return projected;
+}
+
+/**
+ * Project a durable ledger onto one honest next action.
+ *
+ * Story and recovery systems are allowed to retain the whole ledger. The live
+ * HUD is not: it names the explicitly-current row when one exists, otherwise
+ * the first unfinished required row, plus at most the requested number of
+ * soft opportunities. Deliberately persistent completed tallies remain.
+ * Section headings survive only when one of their selected children does.
+ */
+export function conciseObjectiveItems(items = [], { optionalLimit = 0 } = {}) {
+  const active = activeObjectiveItems(items);
+  const rows = active.filter((item) => !item.rule);
+  const persistent = rows.filter((item) => item.done && item.retire === false);
+  const unfinished = rows.filter((item) => !item.done);
+  const primary = unfinished.find((item) => item.current)
+    ?? unfinished.find((item) => item.required !== false)
+    ?? unfinished[0]
+    ?? null;
+  const soft = unfinished
+    .filter((item) => item !== primary && item.required === false)
+    .slice(0, Math.max(0, Math.trunc(optionalLimit)));
+  const selected = new Set([...persistent, ...(primary ? [primary] : []), ...soft]);
+  if (!selected.size) return [];
+
+  const projected = [];
+  let rule = null;
+  for (const item of active) {
+    if (item.rule) {
+      rule = item;
+      continue;
+    }
+    if (!selected.has(item)) continue;
+    if (rule) projected.push(rule);
+    rule = null;
+    projected.push(item);
+  }
+  return projected.map((item) => (item === primary && !item.current
+    ? { ...item, current: true }
+    : item));
 }
 
 /**
@@ -140,7 +267,13 @@ function ensureStyle(doc) {
  * @returns {{element: HTMLElement, set: Function, setLine: Function,
  *   clear: Function, dispose: Function, adopted: boolean}}
  */
-export function createObjectivePanel({ parent = null, doc = null } = {}) {
+export function createObjectivePanel({
+  parent = null,
+  doc = null,
+  displayDurationMs = OBJECTIVE_DISPLAY_MS,
+  autoCollapse = true,
+  scheduler = undefined,
+} = {}) {
   const document_ = doc ?? globalThis.document ?? null;
   if (!document_) return nullPanel();
   const host = parent ?? document_.body;
@@ -178,18 +311,52 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
    * rebuilt every frame is a panel that cannot be selected, animated, or
    * profiled, and this one is rebuilt from a getter on every tick. */
   let signature = null;
+  const visibility = createObjectiveDisplayController({
+    show: () => element.classList.remove('hidden'),
+    collapse: () => element.classList.add('hidden'),
+    durationMs: displayDurationMs,
+    autoCollapse,
+    /* A supplied fake owns deterministic tests. A real Document's window owns
+     * browser timers. A headless fake with no window deliberately schedules
+     * nothing instead of keeping Node alive for twelve seconds per test. */
+    scheduler: scheduler ?? document_.defaultView ?? null,
+  });
 
+  /**
+   * WHAT A PANEL IS ALLOWED TO SAY, WHICH IS LESS THAN IT USED TO.
+   *
+   * Owner, 2026-08-26, on the Cabin: *"Also hide the objective that is answer
+   * lous call and display it only as he calls. Remove the finish the Cabin
+   * chapter from objectives what does that even mean. Keep the objectives
+   * concise and relevant to whats next and then once complete remove and
+   * replace with the new objectives we need to implement that across the
+   * board."*
+   *
+   * Two rules, and they live here rather than in one scene because "across
+   * the board" is the whole point of this module existing.
+   *
+   * `pending: true` -- the item is real but not yet the player's problem, so
+   * it is not drawn at all. Lou's call is the case: listing "answer Lou's
+   * call" before the phone rings tells the player about a thing he cannot do
+   * and then leaves it sitting there, unticked, looking like a failure.
+   *
+   * Completed work retires by default. `retire: false` is the deliberate,
+   * narrow exception for a meaningful result such as 7/7; it remains while
+   * the next actionable row replaces the work that produced it. Empty section
+   * headings still leave with their children.
+   */
   function set(plan) {
-    if (!plan || !plan.items?.length) {
-      if (signature === null) return;
+    const items = activeObjectiveItems(plan?.items ?? []);
+    if (!plan || !items.length) {
+      if (signature === null && element.classList.contains('hidden')) return;
       signature = null;
-      element.classList.add('hidden');
+      visibility.clear();
       return;
     }
     const key = [
       plan.title ?? '',
       plan.hint ?? '',
-      ...plan.items.map((item) => (item.rule
+      ...items.map((item) => (item.rule
         ? `rule:${item.rule}`
         : `${item.label}|${item.done ? 1 : 0}|${item.required === false ? 0 : 1}`
           + `|${item.current ? 1 : 0}|${item.tally ? `${item.tally.count ?? 0}/${item.tally.total}` : ''}`)),
@@ -197,7 +364,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     if (key === signature) return;
     signature = key;
     title.textContent = plan.title ?? 'Objective';
-    list.replaceChildren(...plan.items.map((item) => {
+    list.replaceChildren(...items.map((item) => {
       const li = document_.createElement('li');
       /* A HEADING INSIDE THE LIST, because two scenes had one before this
        * panel existed and neither should have to keep a whole renderer alive
@@ -235,7 +402,7 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     }));
     hint.textContent = plan.hint ?? '';
     hint.classList.toggle('hidden', !plan.hint);
-    element.classList.remove('hidden');
+    visibility.changed();
   }
 
   /** The common case: one standing order, optionally with a direction. */
@@ -249,9 +416,15 @@ export function createObjectivePanel({ parent = null, doc = null } = {}) {
     adopted,
     set,
     setLine,
+    reveal() { visibility.reveal(); },
     clear() { set(null); },
     dispose() {
+      visibility.dispose();
       if (!adopted) element.remove();
+      else {
+        signature = null;
+        element.classList.add('hidden');
+      }
     },
   };
 }
@@ -263,6 +436,7 @@ function nullPanel() {
     adopted: false,
     set() {},
     setLine() {},
+    reveal() {},
     clear() {},
     dispose() {},
   };

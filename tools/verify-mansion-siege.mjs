@@ -34,6 +34,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchChromium } from './launch-chromium.mjs';
 import { inspectRequiredAudioBank } from './required-audio-bank.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -57,14 +58,6 @@ const GROUND_Y = 1.2;
 const UPPER_Y = 6.0;
 const BASEMENT_Y = -2.8;
 
-let chromium;
-try {
-  ({ chromium } = await import('playwright'));
-} catch {
-  console.error('playwright is not installed; cannot verify the siege.');
-  process.exit(1);
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const file = path.join(ROOT, decodeURIComponent(url.pathname));
@@ -77,7 +70,7 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((resolve) => server.listen(PORT, resolve));
 
-const browser = await chromium.launch({
+const browser = await launchChromium({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
@@ -505,7 +498,7 @@ try {
     },
   }));
   check('reaching the armory completes the first objective',
-    reachedArmory.beat === 'ARM' && reachedArmory.objective === 'Arm yourself',
+    reachedArmory.beat === 'ARM' && reachedArmory.objective === 'Take a weapon',
     JSON.stringify(reachedArmory));
 
   /* Placed while he is in the armory -- two rooms and a storey away -- so he
@@ -578,7 +571,7 @@ try {
     };
   });
   check('one real weapon pickup advances to the office and takes the armed checkpoint',
-    armed.beat === 'TO_OFFICE' && armed.objective === "Reach Lou's office"
+    armed.beat === 'TO_OFFICE' && armed.objective === 'Take more weapons or get upstairs'
       && armed.checkpoint === 'armed' && armed.equipped === 'pistol9',
     JSON.stringify(armed));
   check('the same pickup gives the player visible mechanical armor',
@@ -1107,12 +1100,71 @@ try {
       && briefingTalks.subtitle === briefingTalks.speaking,
     JSON.stringify(briefingTalks));
 
+  /* The office conversation owns a gameplay permission, not a wall-clock
+   * delay. Exercise the same left-button route the player does and inspect
+   * the two observable consequences of a shot: ammunition and the public
+   * weapon-event ledger. Movement and look remain live throughout. */
+  const briefingFireBefore = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.equip('pistol9');
+    s.tick(0.15);
+    return {
+      beat: s.beat,
+      fireEnabled: s.mission.playerFireEnabled,
+      rounds: s.hud().ammo?.mag ?? null,
+      shots: s.weaponStats().shots,
+      x: s.player.position.x,
+      yaw: s.player.yaw,
+    };
+  });
+  await page.mouse.move(240, 80);
+  await page.mouse.down({ button: 'left' });
+  await settle(0.35);
+  await page.mouse.up({ button: 'left' });
+  await settle(0.1);
+  const briefingFireAfter = await evaluate(() => {
+    const s = window.mansionSiege;
+    return {
+      beat: s.beat,
+      fireEnabled: s.mission.playerFireEnabled,
+      rounds: s.hud().ammo?.mag ?? null,
+      shots: s.weaponStats().shots,
+      x: s.player.position.x,
+      yaw: s.player.yaw,
+    };
+  });
+  check('real fire input is inert for the essential office briefing',
+    briefingFireBefore.beat === 'BRIEFING'
+      && briefingFireBefore.fireEnabled === false
+      && briefingFireAfter.beat === 'BRIEFING'
+      && briefingFireAfter.rounds === briefingFireBefore.rounds
+      && briefingFireAfter.shots === briefingFireBefore.shots,
+    JSON.stringify({ before: briefingFireBefore, after: briefingFireAfter }));
+
   const briefingEnds = await evaluate(() => {
     const s = window.mansionSiege;
+    /* AudioEngine keeps a bounded 256-request evidence ring. Ninety seconds
+     * of alarm and distant-battle traffic can rotate an early briefing line
+     * out before the beat ends, even though the recording played correctly.
+     * Copy only this sequence's receipts after every simulation step so the
+     * verifier observes the complete conversation without enlarging runtime
+     * telemetry or freezing the actual combat mix. */
+    const capturedBriefingReceipts = new Map();
+    const captureBriefingReceipts = () => {
+      for (const receipt of s.audio.playbackReceipts) {
+        if (receipt.requested.startsWith('vo.siege.briefing.')) {
+          capturedBriefingReceipts.set(receipt.id, receipt);
+        }
+      }
+    };
+    captureBriefingReceipts();
     /* Nothing pressed. Ninety simulated seconds is far longer than the seven
      * authored lines need and far shorter than forever, which is what the
      * beat used to take. */
-    for (let t = 0; t < 90 && s.beat === 'BRIEFING'; t += 0.5) s.tick(0.5);
+    for (let t = 0; t < 90 && s.beat === 'BRIEFING'; t += 0.5) {
+      s.tick(0.5);
+      captureBriefingReceipts();
+    }
     /* Combat barks now share the subtitle bar after authored dialogue. Hold
      * both combat Adapters still for one maximum bark lifetime so this older
      * check continues to ask its literal question: does the bar clear when
@@ -1134,8 +1186,11 @@ try {
     return {
       beat: s.beat, objective: s.objective, hint: s.hint,
       subtitle: s.hud().subtitle,
+      speechReceipts: [...capturedBriefingReceipts.values()],
     };
   });
+  const briefingReceiptRows = briefingEnds.speechReceipts ?? [];
+  delete briefingEnds.speechReceipts;
   check('the briefing ends on its own and puts him on the stairs',
     briefingEnds.beat === 'LITTLE_FRIEND' && briefingEnds.objective === 'Hold the house',
     JSON.stringify(briefingEnds));
@@ -1144,6 +1199,75 @@ try {
     briefingEnds.hint ?? 'no hint');
   check('the subtitle bar clears when nobody is talking',
     briefingEnds.subtitle === null, String(briefingEnds.subtitle));
+
+  /* Receipts come from the live AudioEngine, not from SiegeDialogue state.
+   * This is deliberately non-vacuous: it needs the whole six-line non-SAW
+   * briefing, multiple world speakers, and both world/close policies. A raw
+   * audio.play() fork cannot manufacture these speaker/subtitle/follow facts. */
+  const physicalBriefingReceipts = briefingReceiptRows
+    .filter((receipt) => ['lou', 'booski'].includes(receipt.speakerId));
+  const playerBriefingReceipts = briefingReceiptRows
+    .filter((receipt) => receipt.speakerId === 'prospect');
+  const briefingSpeechReceipts = {
+    count: briefingReceiptRows.length,
+    cues: briefingReceiptRows.map((receipt) => receipt.requested),
+    physical: physicalBriefingReceipts.length,
+    player: playerBriefingReceipts.length,
+    routed: briefingReceiptRows.every((receipt) => receipt.started
+      && receipt.source === 'buffer'
+      && receipt.actual === receipt.requested
+      && receipt.voice === true
+      && typeof receipt.subtitle === 'string'
+      && receipt.subtitle.length > 0),
+    worldSpeech: physicalBriefingReceipts.every((receipt) => receipt.positional.enabled
+      && receipt.positional.follows
+      && receipt.positional.ref === 1.8
+      && receipt.positional.maxDist === 16
+      && receipt.positional.rolloff === 1),
+    playerSpeech: playerBriefingReceipts.every((receipt) => !receipt.positional.enabled
+      && !receipt.positional.follows),
+  };
+  check('the complete briefing crosses the canonical receipt-aware speech seam',
+    briefingSpeechReceipts.count === 6
+      && briefingSpeechReceipts.routed,
+    JSON.stringify(briefingSpeechReceipts));
+  check('physical briefing voices follow their indoor world sources',
+    briefingSpeechReceipts.physical >= 3
+      && briefingSpeechReceipts.worldSpeech,
+    JSON.stringify(briefingSpeechReceipts));
+  check('the Prospect briefing replies stay close-mix instead of inventing a world emitter',
+    briefingSpeechReceipts.player >= 2
+      && briefingSpeechReceipts.playerSpeech,
+    JSON.stringify(briefingSpeechReceipts));
+
+  const unlockedFireBefore = await evaluate(() => {
+    const s = window.mansionSiege;
+    return {
+      beat: s.beat,
+      fireEnabled: s.mission.playerFireEnabled,
+      rounds: s.hud().ammo?.mag ?? null,
+      shots: s.weaponStats().shots,
+    };
+  });
+  await page.mouse.down({ button: 'left' });
+  await settle(0.18);
+  await page.mouse.up({ button: 'left' });
+  await settle(0.1);
+  const unlockedFireAfter = await evaluate(() => {
+    const s = window.mansionSiege;
+    return {
+      beat: s.beat,
+      fireEnabled: s.mission.playerFireEnabled,
+      rounds: s.hud().ammo?.mag ?? null,
+      shots: s.weaponStats().shots,
+    };
+  });
+  check('the same real fire input works immediately after the briefing beat ends',
+    unlockedFireBefore.beat === 'LITTLE_FRIEND'
+      && unlockedFireBefore.fireEnabled === true
+      && unlockedFireAfter.rounds < unlockedFireBefore.rounds
+      && unlockedFireAfter.shots > unlockedFireBefore.shots,
+    JSON.stringify({ before: unlockedFireBefore, after: unlockedFireAfter }));
 
   /* ---------------------------------------------------------------- */
   /* 5b. THE FIRING STEP IS FINDABLE                                    */
@@ -1667,7 +1791,11 @@ try {
       && downedCast.bloodRoughness <= 0.3
       && downedCast.bloodEmissiveRed >= 0.55
       && downedCast.bloodOverlapsBody
-      && downedCast.bloodExposedArea >= 0.75
+      /* The authored 1.8 m pool changes axis-aligned exposed area as the live
+       * body writhes. Require a meaningful fraction, then prove readability
+       * independently with two exposed screen sides below; the old fixed
+       * 0.75 m2 rejected a fully framed 0.425 m2 perimeter. */
+      && downedCast.bloodExposedArea >= downedCast.bloodPoolArea * 0.12
       && downedCast.exposedScreenSides >= 2
       && downedCast.equipped === null
       && downedCast.crouching
@@ -1704,9 +1832,22 @@ try {
   const incoming = await evaluate(() => {
     const s = window.mansionSiege;
     const snapshot = s.attackers.snapshot();
+    const ensembleSnapshot = s.ensemble.snapshot();
     const originalRandom = Math.random;
     const shooterId = [...s.mission.waves.one.standing][0];
     const shooter = s.attackers.entry(shooterId);
+    const beforeSetup = {
+      active: shooter.active,
+      incapacitated: shooter.actor.incapacitated,
+      suppression: shooter.suppression.value,
+      impairments: shooter.impairments.snapshot(),
+      burst: {
+        remaining: shooter.burst.remaining,
+        wait: shooter.burst.wait,
+        sequence: shooter.burst.sequence,
+      },
+      holdReleased: shooter.holdReleased,
+    };
     s.playerActor.health = s.playerActor.maxHealth;
     /* Leave only the last sliver of the armed checkpoint's vest. The round
      * still has to damage health, but now its result also has enough work to
@@ -1723,6 +1864,21 @@ try {
         entry.active = entry === shooter;
         entry.root.visible = entry === shooter;
       }
+      /* This probe owns one hostile round. Earlier live-scene checks leave
+       * defenders and wounds exactly where combat put them; allowing those
+       * defenders to shoot the fixture while it settles its aim makes this a
+       * race between two AIs rather than a certification of incoming damage.
+       * Stage the ensemble out and reset only the shooter's transient combat
+       * penalties, then restore both complete snapshots in `finally`. */
+      for (const member of s.ensemble.members.values()) {
+        member.staged = false;
+        member.weapon?.setTrigger?.(false);
+      }
+      shooter.suppression.value = 0;
+      shooter.impairments.reset();
+      shooter.burst.remaining = 0;
+      shooter.burst.wait = 0;
+      shooter.holdReleased = true;
       s.teleport(0, 6, 46.3, 0);
       /* A rendered long-gun muzzle sits roughly a metre ahead of the actor.
        * The former 47.3 fixture put that muzzle on top of the player at 46.3,
@@ -1760,6 +1916,7 @@ try {
       const directionRect = direction?.getBoundingClientRect();
       return {
         shooterId,
+        beforeSetup,
         before,
         after: s.playerHealth,
         armorBefore,
@@ -1789,6 +1946,7 @@ try {
     } finally {
       Math.random = originalRandom;
       s.attackers.restore(snapshot);
+      s.ensemble.restore(ensembleSnapshot);
     }
   });
   check('a real attacker round on the occupied landing damages the player through shared ballistics',
@@ -2673,12 +2831,15 @@ try {
     const s = window.mansionSiege;
     const target = s.attackers.entry(targetId);
     const reticle = document.getElementById('reticle');
+    const loadout = s.loadout.checkpoint();
+    const equipped = loadout.equipped;
     return {
       id: targetId,
       health: target.actor.health,
       pitch: s.player.pitch,
       yaw: s.player.yaw,
-      rounds: s.loadout.checkpoint().ammo.carbine.rounds,
+      equipped,
+      rounds: loadout.ammo?.[equipped]?.rounds ?? null,
       hits: s.playerHits,
       shots: s.weaponStats().shots,
       impacts: s.weaponStats().impacts,
@@ -2694,6 +2855,56 @@ try {
       locked: document.pointerLockElement === s.renderer.domElement,
     };
   }, id);
+  /* Sample the short confirmation window on the exact simulation step where
+   * a held-trigger round lands. The page's real RAF remains alive around
+   * verifier calls, so reading only after mouse-up plus another settle can
+   * legitimately miss a 0.18 s HUD pulse even though the hit and its visible
+   * confirmation both occurred. This keeps the input real and makes the
+   * assertion stricter: every newly observed applied hit in this window must
+   * have a painted reticle confirmation on its arrival frame. */
+  const sampleHeldHits = (id, seconds) => evaluate(([targetId, duration]) => {
+    const s = window.mansionSiege;
+    const target = s.attackers.entry(targetId);
+    const reticle = document.getElementById('reticle');
+    const step = 1 / 240;
+    const receipts = [];
+    let previousHits = s.playerHits;
+    let previousHealth = target.actor.health;
+    let elapsed = 0;
+    while (elapsed < duration) {
+      const dt = Math.min(step, duration - elapsed);
+      s.tick(dt, dt);
+      elapsed += dt;
+      const hits = s.playerHits;
+      const health = target.actor.health;
+      if (hits > previousHits || health < previousHealth) {
+        const confirmed = reticle?.dataset.confirmed ?? null;
+        const filter = reticle ? getComputedStyle(reticle).filter : null;
+        receipts.push({
+          elapsed: +elapsed.toFixed(4),
+          hitsBefore: previousHits,
+          hitsAfter: hits,
+          healthBefore: previousHealth,
+          healthAfter: health,
+          confirmed,
+          feedbackConfirm: s.combatFeedback().confirm,
+          filter,
+          visible: ['hit', 'armor', 'headshot', 'kill'].includes(confirmed)
+            && filter !== 'none',
+        });
+      }
+      previousHits = hits;
+      previousHealth = health;
+    }
+    return {
+      receipts,
+      rounds: s.loadout.checkpoint().ammo.carbine.rounds,
+      health: target.actor.health,
+      hits: s.playerHits,
+      shots: s.weaponStats().shots,
+      impacts: s.weaponStats().impacts,
+    };
+  }, [id, seconds]);
   const restoreShootingPose = (id) => evaluate((targetId) => {
     const s = window.mansionSiege;
     const poses = window.__siegeShootingPoses;
@@ -2716,9 +2927,44 @@ try {
    * crosshair before the verifier has a chance to isolate and restore it. */
   const fallbackId = combatIds[1];
   const automaticId = combatIds[3];
+  /* The LITTLE_FRIEND line deliberately protects its own hero moment by
+   * holding every weapon report until the delivered take ends. The combat
+   * probe below is meant to prove the public trigger after that authored
+   * protection, so advance the shipping dialogue clock and pin the release
+   * instead of racing a variable-length recording. */
+  const heroLineReleased = await evaluate(() => {
+    const s = window.mansionSiege;
+    const startedProtected = s.dialogue.line?.protected === true;
+    const attackerUpdate = s.attackers.update;
+    const ensembleUpdate = s.ensemble.update;
+    const missionUpdate = s.mission.update;
+    try {
+      s.attackers.update = () => {};
+      s.ensemble.update = () => {};
+      s.mission.update = () => {};
+      for (let elapsed = 0; elapsed < 30 && s.dialogue.line?.protected === true; elapsed += 0.1) {
+        s.tick(0.1);
+      }
+    } finally {
+      s.attackers.update = attackerUpdate;
+      s.ensemble.update = ensembleUpdate;
+      s.mission.update = missionUpdate;
+    }
+    return {
+      startedProtected,
+      protected: s.dialogue.line?.protected === true,
+      fireEnabled: s.mission.playerFireEnabled,
+      sequence: s.speakingSequence,
+      beat: s.beat,
+    };
+  });
+  check('the little-friend protection is released before the real trigger proof',
+    heroLineReleased.protected === false
+      && heroLineReleased.fireEnabled === true
+      && heroLineReleased.beat === 'WAVE_ONE',
+    JSON.stringify(heroLineReleased));
   await evaluate(() => {
     window.mansionSiege.blood.reset();
-    window.mansionSiege.equip('carbine');
     window.mansionSiege.player.pitch = 1.2;
     window.mansionSiege.player.update(1 / 60);
     document.exitPointerLock?.();
@@ -2734,6 +2980,12 @@ try {
   ), null, { timeout: 10000 });
   await evaluate(() => document.exitPointerLock?.());
   await page.waitForFunction(() => document.pointerLockElement === null, null, { timeout: 10000 });
+  /* The successful normalization click above is also a real public fire
+   * gesture. Equip the pistol only after it, then give the existing firearm
+   * instance its authored settle window. Otherwise this probe itself creates
+   * the recoil that makes its next shot an ordinary follow-up. */
+  await evaluate(() => window.mansionSiege.equip('pistol9'));
+  await settle(0.4);
 
   /* First prove recovery from the browser's pointerlockerror event. The first
    * click reports the rejection; the next deliberate unlocked click both
@@ -2759,15 +3011,16 @@ try {
     rejected.pointerRejected && /blocked/i.test(rejected.nudge ?? '')
       && rejected.rounds === fallbackBefore.rounds,
     JSON.stringify({ before: fallbackBefore, rejected }));
-  check('the next unlocked canvas click retries capture and still lands a fallback shot',
+  check('the next unlocked canvas click retries capture and lands the deliberate first 9mm shot',
     fallbackAim.aimed === fallbackId
+      && fallbackBefore.equipped === 'pistol9'
       && fallbackAfter.rounds === fallbackBefore.rounds - 1
       && fallbackAfter.health < fallbackBefore.health
       && fallbackAfter.hits === fallbackBefore.hits + 1,
     JSON.stringify({ aim: fallbackAim, before: fallbackBefore, after: fallbackAfter }));
-  check('that public carbine shot plays the delivered canonical weapon recording, not its legacy stand-in',
-    fallbackAfter.weaponPlayback.includes('weapon.carbine.fire')
-      && !fallbackAfter.weaponPlayback.includes('heist.weapon.carbine.indoor'),
+  check('that public 9mm shot plays the delivered canonical weapon recording',
+    fallbackAfter.weaponPlayback.includes('weapon.pistol9.fire')
+      && !fallbackAfter.weaponPlayback.includes('heist.weapon.pistol.indoor'),
     JSON.stringify(fallbackAfter.weaponPlayback));
   await restoreShootingPose(fallbackId);
 
@@ -2778,6 +3031,7 @@ try {
     } else {
       delete canvas.requestPointerLock;
     }
+    window.mansionSiege.equip('carbine');
     window.mansionSiege.player.pitch = 1.2;
     window.mansionSiege.player.update(1 / 60);
   });
@@ -2806,6 +3060,12 @@ try {
   await evaluate(() => window.mansionSiege.audio.clearPlaybackLog());
   const shotBefore = await combatSnapshot(automaticId);
   await page.mouse.down({ button: 'left' });
+  /* The admitted pointer event is the public path under test. Freeze the
+   * ambient RAF immediately afterwards so SwiftShader/browser wall time
+   * cannot squeeze an arbitrary number of automatic rounds between the
+   * snapshots below; explicit production ticks still advance every weapon,
+   * tracer and HUD clock. */
+  await evaluate(() => window.mansionSiege.setAmbientSimulation(false));
   /* Retain the first production frame separately. The carbine's small recoil
    * impulse is intentionally able to settle inside one 60 Hz update, while a
    * nearby tracer may need longer to reach the actor. A 1 ms scene step paints
@@ -2816,11 +3076,12 @@ try {
   const openingShot = await combatSnapshot(automaticId);
   await aimAtAttacker(automaticId);
   /* Cross a full carbine cadence while the same real pointer trigger remains
-   * held, then give a possible tracer its fixed 0.05 s arrival window. */
-  await settle(0.12);
+   * held. Observe the short HUD pulse on the same fixed simulation step as the
+   * applied hit instead of racing its expiry through unrelated browser work. */
+  const heldWindow = await sampleHeldHits(automaticId, 0.12);
   await page.mouse.up({ button: 'left' });
   await settle(0.06);
-  const heldShot = await combatSnapshot(automaticId);
+  const heldShot = heldWindow;
   check('a real pointer-locked canvas press damages the attacker under the crosshair',
     automaticAim.aimed === automaticId
       && openingShot.rounds < shotBefore.rounds
@@ -2851,13 +3112,16 @@ try {
       && heldShot.hits > openingShot.hits,
     JSON.stringify({ opening: openingShot, held: heldShot }));
   check('player-visible hit confirmation activates for landed rounds',
-    openingShot.hitConfirm && heldShot.hitConfirm,
-    JSON.stringify({ opening: openingShot.hitConfirm, held: heldShot.hitConfirm }));
+    openingShot.hitConfirm
+      && heldWindow.receipts.length >= 1
+      && heldWindow.receipts.every((receipt) => receipt.visible),
+    JSON.stringify({ opening: openingShot.hitConfirm, held: heldWindow.receipts }));
   await settle(0.25);
   const confirmCleared = await combatSnapshot(automaticId);
   check('and the hit confirmation clears after its brief feedback window',
     confirmCleared.hitConfirm === false,
     JSON.stringify(confirmCleared));
+  await evaluate(() => window.mansionSiege.setAmbientSimulation(true));
 
   /* ---------------------------------------------------------------- */
   /* RELOAD CLARITY. The line under the count used to print the Firearm's  */
@@ -2932,6 +3196,16 @@ try {
     const { CombatProjectilePattern } = await import('/src/core/combat/projectile-pattern.js');
     const s = window.mansionSiege;
     const target = s.attackers.entry(targetId);
+    /* The scene's requestAnimationFrame remains live until the admitted
+     * canvas click. Without isolating the two AI clocks, an armed Family
+     * member can shoot this intentionally ten-health target between setup and
+     * the click, leaving the real player blast with no death transition to
+     * prove. WeaponSystem, the public click, projectiles, hit resolution,
+     * blood and the pump clock remain live; only unrelated combatants wait. */
+    const originalAttackersUpdate = s.attackers.update;
+    const originalEnsembleUpdate = s.ensemble.update;
+    s.attackers.update = () => {};
+    s.ensemble.update = () => {};
     s.equip('shotgun');
     /* One weakest-zone pellet (18 * 0.58 = 10.44) must be enough to make the
      * transition deterministic; spread is still free to prove seven paths. */
@@ -2961,6 +3235,7 @@ try {
     const originalEmit = WeaponSystem.prototype._emit;
     window.__siegeShotgunProbe = {
       log, originalRegisterHit, originalPlay, originalEmit,
+      originalAttackersUpdate, originalEnsembleUpdate,
       WeaponSystem, CombatProjectilePattern,
     };
     WeaponSystem.prototype._emit = function emitShotgunProbe(event) {
@@ -3111,6 +3386,8 @@ try {
       if (!probe) return;
       s.attackers.registerHit = probe.originalRegisterHit;
       s.audio.play = probe.originalPlay;
+      s.attackers.update = probe.originalAttackersUpdate;
+      s.ensemble.update = probe.originalEnsembleUpdate;
       probe.WeaponSystem.prototype._emit = probe.originalEmit;
       delete window.__siegeShotgunProbe;
     });
@@ -4405,12 +4682,14 @@ try {
   /* authored in the brief, staged in `ensemble.js` (he has three postings */
   /* in this house) and unreachable.                                       */
   /*                                                                       */
-  /* So this walks it: clear wave two, let Lou talk on the clock, WALK to  */
+  /* So this walks it: clear wave two, hear the phone ring and the A-Team  */
+  /* caller answer Lou, let the whole aftermath run on the clock, WALK to */
   /* Sasole, and require the card. Nothing is pressed and nothing is       */
   /* called on the mission object.                                         */
   /* ---------------------------------------------------------------- */
   const aftermath = await evaluate(() => {
     const s = window.mansionSiege;
+    s.audio.clearPlaybackLog();
     /* Fight wave two out. Release everything, then put it all down. */
     for (let t = 0; t < 200 && s.beat === 'WAVE_TWO'; t += 0.5) {
       for (const id of [...s.mission.waves.two.standing]) s.mission.noteDown(id);
@@ -4419,6 +4698,8 @@ try {
     return {
       beat: s.beat, state: s.state, objective: s.objective,
       hud: s.hud(), sequence: s.speakingSequence,
+      leadIn: s.dialogue.leadIn?.cue ?? null,
+      phoneLoopActive: s.audio.loops.has('phone.ring'),
     };
   });
   check('clearing wave two drops into the aftermath with the fires still burning',
@@ -4428,9 +4709,79 @@ try {
   check('and the objective reads as HELD rather than going blank',
     aftermath.objective === 'The house is held' && aftermath.hud.objective === 'The house is held',
     JSON.stringify(aftermath.hud));
-  check('Lou comes to the landing and talks, unprompted',
-    aftermath.sequence === 'aftermath' && !!aftermath.hud.subtitle,
-    JSON.stringify({ sequence: aftermath.sequence, said: aftermath.hud.subtitle }));
+  check('Lou comes to the landing and the shared telephone rings, unprompted',
+    aftermath.sequence === 'aftermath' && aftermath.leadIn === 'phone.ring'
+      && aftermath.phoneLoopActive === true && aftermath.hud.subtitle === null,
+    JSON.stringify({
+      sequence: aftermath.sequence,
+      leadIn: aftermath.leadIn,
+      ringing: aftermath.phoneLoopActive,
+      said: aftermath.hud.subtitle,
+    }));
+
+  const ateamCall = await evaluate(() => {
+    const s = window.mansionSiege;
+    for (let t = 0; t < 30 && s.dialogue.line?.speaker !== 'ateam_caller'; t += 0.2) {
+      s.tick(0.2);
+    }
+    const line = s.dialogue.line;
+    const receipt = [...s.audio.playbackReceipts].reverse()
+      .find((entry) => entry.requested === line?.name) ?? null;
+    return {
+      beat: s.beat,
+      sequence: s.speakingSequence,
+      speaker: line?.speaker ?? null,
+      remote: line?.remote === true,
+      speaking: s.speaking,
+      subtitle: s.hud().subtitle,
+      phoneLoopActive: s.audio.loops.has('phone.ring'),
+      pickupRequests: s.audio.playbackReceipts
+        .filter((entry) => entry.requested === 'phone.pickup').length,
+      receipt: receipt ? {
+        requested: receipt.requested,
+        speakerId: receipt.speakerId,
+        positional: receipt.positional,
+      } : null,
+    };
+  });
+  check('the A-Team answers through a close non-positional call before Sasole',
+    ateamCall.beat === 'AFTERMATH'
+      && ateamCall.sequence === 'aftermath'
+      && ateamCall.speaker === 'ateam_caller'
+      && ateamCall.remote === true
+      && ateamCall.subtitle === ateamCall.speaking
+      && ateamCall.phoneLoopActive === false
+      && ateamCall.pickupRequests === 1
+      && ateamCall.receipt?.speakerId === 'ateam_caller'
+      && ateamCall.receipt?.positional?.enabled === false
+      && ateamCall.receipt?.positional?.follows === false,
+    JSON.stringify(ateamCall));
+
+  /* Keep one active-play frame of the actual caller line. Rendering stays
+   * disabled for the simulation-heavy verifier except around deliberate
+   * evidence captures, so turn it on for two frames and put it straight back. */
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const phoneFrame = await evaluate(() => {
+    const s = window.mansionSiege;
+    s.setRendering(true);
+    s.tick(0.05);
+    return { frame: s.framesRendered, subtitle: s.hud().subtitle };
+  });
+  await page.waitForFunction(
+    (before) => window.mansionSiege.framesRendered >= before + 2,
+    phoneFrame.frame,
+    { timeout: 180000 },
+  );
+  const phoneCallPath = path.join(
+    ROOT, 'docs', 'validation', '2026-08-27-siege-phone-call', 'a-team-phone-call.png',
+  );
+  fs.mkdirSync(path.dirname(phoneCallPath), { recursive: true });
+  await page.screenshot({ path: phoneCallPath, animations: 'disabled', timeout: 300000 });
+  await evaluate(() => window.mansionSiege.setRendering(false));
+  await page.setViewportSize({ width: 480, height: 300 });
+  check('the post-siege A-Team call has an active-play rendered frame',
+    fs.statSync(phoneCallPath).size > 10_000 && phoneFrame.subtitle === ateamCall.subtitle,
+    `${phoneCallPath} ${JSON.stringify(phoneFrame)}`);
 
   const cartelLooks = await evaluate(() => {
     const s = window.mansionSiege;
@@ -4593,10 +4944,10 @@ try {
       replay: !!document.getElementById('replayBtn'),
     };
   });
-  check('the card offers the direct Enola Squatch handoff and keeps replay available',
+  check('the card offers the direct SQUATCHOLA GAY handoff and keeps replay available',
     card.links.includes('./enolasquatch.html') && card.replay === true, card.links.join(' '));
-  check('and says out loud that the Enola Squatch handoff is wired',
-    /handoff now carries directly into\s+the enola squatch/i.test(card.note),
+  check('and says out loud that the SQUATCHOLA GAY handoff is wired',
+    /handoff now carries directly into\s+squatchola gay/i.test(card.note),
     card.note.slice(0, 90));
   /* ## THIS CHECK IS AGAINST THE LEDGER, NOT AGAINST "MORE THAN NOUGHT"
    *
@@ -4788,6 +5139,14 @@ try {
   const hall = route.cellarHall;
   const hallMid = (hall.z0 + hall.z1) / 2;
   await teleport(hall.x0 + 1.5, BASEMENT_Y, hallMid, 270);
+  /* The completion card correctly handed the mouse back. A verifier-only
+   * teleport restarts the simulation, but it must not bypass the Adapter by
+   * setting Player.enabled directly; earn browser capture again exactly as a
+   * player would before using real W input. */
+  await page.locator('canvas').click({ position: { x: 240, y: 150 } });
+  await page.waitForFunction(() => window.mansionSiege.input.snapshot().captured, null, {
+    timeout: 10000,
+  });
   await settle(0.3);
   const navStart = await at();
   await walk(10);
@@ -5048,7 +5407,7 @@ try {
   await evaluate(() => window.mansionSiege.setRendering(false));
 
   /* ---------------------------------------------------------------- */
-  /* 11. ?checkpoint= -- the four phases, each on its own fresh page     */
+  /* 11. ?checkpoint= -- the five phases, each on its own fresh page     */
   /*                                                                     */
   /* The siege is reachable only by URL, so the owner's first look at it  */
   /* is four separate sittings unless he can jump. Each of these opens a  */
@@ -5062,10 +5421,20 @@ try {
   /* it and no wave-one roster. The chain has to be walked.                */
   /* ---------------------------------------------------------------- */
   const CHECKPOINT_EXPECTATIONS = [
-    { id: 'wake', beat: 'WAKE', label: null },
-    { id: 'armed', beat: 'TO_OFFICE', label: 'ARMED', weapon: 'carbine' },
-    { id: 'briefed', beat: 'LITTLE_FRIEND', label: 'BRIEFED', weapon: 'saw' },
-    { id: 'wave_one', beat: 'LULL', label: 'WAVE ONE HELD', weapon: 'saw' },
+    { id: 'wake', beat: 'WAKE', label: null, history: 'WAKE' },
+    { id: 'armory', beat: 'ARM', label: 'ARMORY', history: 'WAKE>TO_ARMORY>ARM' },
+    {
+      id: 'armed', beat: 'TO_OFFICE', label: 'ARMED', weapon: 'carbine',
+      history: 'WAKE>TO_ARMORY>ARM>TO_OFFICE',
+    },
+    {
+      id: 'briefed', beat: 'LITTLE_FRIEND', label: 'BRIEFED', weapon: 'saw',
+      history: 'WAKE>TO_ARMORY>ARM>TO_OFFICE',
+    },
+    {
+      id: 'wave_one', beat: 'LULL', label: 'WAVE ONE HELD', weapon: 'saw',
+      history: 'WAKE>TO_ARMORY>ARM>TO_OFFICE',
+    },
   ];
   for (const want of CHECKPOINT_EXPECTATIONS) {
     const jump = await browser.newPage({ viewport: { width: 400, height: 260 } });
@@ -5111,6 +5480,10 @@ try {
         dialogueActive: s.dialogue.active,
         at: { x: +s.player.position.x.toFixed(1), z: +s.player.position.z.toFixed(1) },
         objective: s.objective,
+        armoryState: { ...s.mission.armory },
+        rack: s.armory.report(),
+        damageState: s.state,
+        squadStaged: [...s.ensemble.members.values()].filter((member) => member.staged).length,
         armor: s.playerActor.armor,
         maxArmor: s.playerActor.maxArmor,
         armorPercent: s.hud().health.armorPercent,
@@ -5131,12 +5504,39 @@ try {
     if (want.label) {
       check(`  and says so on the menu before you press start`,
         tag.tag === true && tag.button.includes(want.label), `"${tag.button}"`);
-      check(`  and puts the right gun in his hands`,
+      if (want.weapon) check(`  and puts the right gun in his hands`,
         landed.equipped === want.weapon, String(landed.equipped));
       check(`  and it got there by walking the beat chain, not by assignment`,
-        landed.history.startsWith('WAKE>TO_ARMORY>ARM>TO_OFFICE')
+        landed.history.startsWith(want.history)
           && landed.placed.includes('corridor') && landed.placed.includes('foyer'),
         `${landed.history} | placed ${landed.placed.join('+')}`);
+    }
+    if (want.id === 'armory') {
+      const rackAvailable = Object.values(landed.rack)
+        .filter((entry) => entry && typeof entry === 'object' && 'onWall' in entry)
+        .some((entry) => entry.onWall > 0);
+      const inArmory = landed.at.x >= -16 && landed.at.x <= 16
+        && landed.at.z >= 50 && landed.at.z <= 64;
+      const outsideShaft = !(landed.at.x >= 5.4 && landed.at.x <= 9
+        && landed.at.z >= 51 && landed.at.z <= 58);
+      check('  and uses the canonical armory marker outside the stair shaft',
+        inArmory && outsideShaft && landed.at.x === -2 && landed.at.z === 55.5,
+        JSON.stringify(landed.at));
+      check('  and initializes the untouched armory, squads, enemies, and damage state',
+        landed.objective === 'Take a weapon'
+          && landed.armoryState.reached === true
+          && landed.armoryState.firstWeapon === null
+          && landed.armoryState.upstairsActive === false
+          && rackAvailable
+          && landed.damageState === 'under_attack'
+          && landed.squadStaged > 0,
+        JSON.stringify({
+          objective: landed.objective,
+          armory: landed.armoryState,
+          rackAvailable,
+          damage: landed.damageState,
+          squadStaged: landed.squadStaged,
+        }));
     }
     if (want.id === 'armed') {
       check('  and restores the vest captured before the armed checkpoint',

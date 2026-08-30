@@ -21,6 +21,18 @@ let musicTimer = null;
 let musicStep = 0;
 let musicMode = 'none';  // 'none' | 'tense' | 'fight' | 'chase'
 
+/** Non-diegetic score for the Motel drive; never attached to a world source. */
+export const DRIVE_MUSIC_URL = 'assets/music/driving-jerky-hotel.mp3';
+export const DRIVE_MUSIC_VOLUME = 0.16;
+let driveMusic = null;
+
+/** A short, bounded receipt used by the live Motel verifier. */
+export const audioEvents = [];
+function recordAudioEvent(type, detail = {}) {
+  audioEvents.push({ type, at: ctx?.currentTime ?? 0, ...detail });
+  if (audioEvents.length > 160) audioEvents.shift();
+}
+
 /**
  * @param {{ priorityVoice?: string[] }} [options] cues whose takes are decoded
  * before the rest of the voice library is fetched. The scene's opening line is
@@ -69,7 +81,26 @@ const SAMPLE_CUES = [...new Set([
   'car.tire.skid', 'car.horn', 'car.impact.metal', 'gun.shot',
   // The motel was synthesising all of these while the recordings sat on disk.
   'door.locked', 'car.door', 'ice.drop', 'pipe.knock.cistern',
-  'footstep.tile', 'footstep.wood', 'footstep.rug', 'footstep.street.wet',
+  /* Owner playtest: the old shared samples sounded like forks scraping
+   * plates. Motel movement owns a recorded two-take bank per surface now;
+   * the shared footsteps remain untouched for scenes already mixed to them. */
+  'motel.footstep.concrete.a', 'motel.footstep.concrete.b',
+  'motel.footstep.asphalt.a', 'motel.footstep.asphalt.b',
+  'motel.footstep.carpet.a', 'motel.footstep.carpet.b',
+  'motel.footstep.tile.a', 'motel.footstep.tile.b',
+  'motel.footstep.stairs.a', 'motel.footstep.stairs.b',
+  'motel.footstep.pool.a', 'motel.footstep.pool.b',
+  // Promoted from assets/audio/sound-queue.json — see tools/legacy-sfx.
+  'alarm.counter', 'body.fall.carpet', 'door.knock.motel', 'door.open.motel',
+  'door.slam', 'door.splinter', 'fan.sparks',
+  'glass.settle', 'grapple.struggle', 'gun.dry',
+  'jerky.bite', 'jerky.chew', 'knife.tap', 'land.heavy',
+  'neon.short', 'punch.heavy', 'punch.light', 'shipment.burn',
+  'siege.glass.shatter', 'silent.case.latches', 'siren.close', 'siren.distant',
+  'slicer.spin', 'spice.throw', 'sting.scene.end', 'stunprod.arc',
+  'swing.whiff', 'tunnel.crawl', 'tv.implode', 'tv.static',
+  'ui.achievement', 'ui.objective', 'vacuum.pack.handle', 'window.slide',
+  'wood.break',
   ...WEAPON_CUES,
 ])];
 
@@ -435,12 +466,14 @@ export function resume() {
 export function setMuted(m) {
   muted = m;
   if (master) master.gain.value = m ? 0 : userVolume;
+  syncDriveMusicVolume();
 }
 
 /** Same shape as `AudioEngine.setUserVolume`, so `bindAudioVolume` drives it. */
 export function setUserVolume(v) {
   userVolume = Math.min(1, Math.max(0, Number(v) || 0));
   if (master && !muted) master.gain.setTargetAtTime(userVolume, ctx.currentTime, 0.05);
+  syncDriveMusicVolume();
 }
 
 export function isMuted() {
@@ -582,6 +615,7 @@ export function setTension(k) {
 
 export function knock() {
   if (!ctx) return;
+  if (playSample('door.knock.motel', { volume: 0.85 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     tone(t + i * 0.19, { type: 'sine', from: 150, to: 60, dur: 0.09, peak: 0.32 });
@@ -591,6 +625,7 @@ export function knock() {
 
 export function doorOpen() {
   if (!ctx) return;
+  if (playSample('door.open.motel', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.1, attack: 0.03, decay: 0.35, freq: 700, type: 'bandpass', q: 1.2 });
   tone(t, { type: 'triangle', from: 210, to: 160, dur: 0.3, peak: 0.05 });
@@ -598,6 +633,7 @@ export function doorOpen() {
 
 export function doorSlam() {
   if (!ctx) return;
+  if (playSample('door.slam', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 130, to: 38, dur: 0.24, peak: 0.5 });
   noise(t, { peak: 0.32, attack: 0.002, decay: 0.2, freq: 500, type: 'lowpass' });
@@ -613,6 +649,7 @@ export function lockClick() {
 
 export function punch(heavy = false) {
   if (!ctx) return;
+  if (playSample(heavy ? 'punch.heavy' : 'punch.light', { volume: heavy ? 0.9 : 0.7 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: heavy ? 150 : 120, to: 40, dur: 0.16, peak: heavy ? 0.5 : 0.34 });
   noise(t, { peak: heavy ? 0.32 : 0.2, attack: 0.002, decay: 0.14, freq: 420, type: 'lowpass' });
@@ -621,11 +658,13 @@ export function punch(heavy = false) {
 
 export function whiff() {
   if (!ctx) return;
+  if (playSample('swing.whiff', { volume: 0.5 })) return;
   noise(ctx.currentTime, { peak: 0.1, attack: 0.02, decay: 0.12, freq: 1100, type: 'bandpass', q: 2 });
 }
 
 export function bodyFall() {
   if (!ctx) return;
+  if (playSample('body.fall.carpet', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 95, to: 30, dur: 0.3, peak: 0.34 });
   noise(t, { peak: 0.22, attack: 0.004, decay: 0.26, freq: 340, type: 'lowpass' });
@@ -633,6 +672,7 @@ export function bodyFall() {
 
 export function glassSmash() {
   if (!ctx) return;
+  if (playSample('siege.glass.shatter', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.3, attack: 0.001, decay: 0.35, freq: 5200, type: 'highpass' });
   for (let i = 0; i < 6; i++) {
@@ -642,6 +682,7 @@ export function glassSmash() {
 
 export function woodBreak() {
   if (!ctx) return;
+  if (playSample('wood.break', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.28, attack: 0.002, decay: 0.16, freq: 1500, type: 'bandpass', q: 0.8 });
   tone(t, { type: 'triangle', from: 240, to: 70, dur: 0.12, peak: 0.16 });
@@ -658,6 +699,7 @@ export function gunshot() {
 
 export function sliceWhir() {
   if (!ctx) return;
+  if (playSample('slicer.spin', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
@@ -676,11 +718,13 @@ export function sliceWhir() {
 
 export function tvStatic() {
   if (!ctx) return;
+  if (playSample('tv.static', { volume: 0.6 })) return;
   noise(ctx.currentTime, { peak: 0.09, attack: 0.02, decay: 0.6, freq: 3000, type: 'highpass' });
 }
 
 export function packaging() {
   if (!ctx) return;
+  if (playSample('vacuum.pack.handle', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
     noise(t + i * 0.04 + Math.random() * 0.02, {
@@ -691,6 +735,7 @@ export function packaging() {
 
 export function chew() {
   if (!ctx) return;
+  if (playSample('jerky.chew', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     noise(t + i * 0.16, { peak: 0.05, attack: 0.01, decay: 0.1, freq: 700, type: 'lowpass' });
@@ -718,6 +763,7 @@ export function plumbing() {
 
 export function knifeTap() {
   if (!ctx) return;
+  if (playSample('knife.tap', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     tone(t + i * 0.22, { type: 'square', from: 1500, to: 1400, dur: 0.03, peak: 0.05 });
@@ -726,6 +772,7 @@ export function knifeTap() {
 
 export function siren(far = true) {
   if (!ctx) return;
+  if (playSample(far ? 'siren.distant' : 'siren.close', { volume: far ? 0.35 : 0.8 })) return;
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   osc.type = 'sine';
@@ -772,38 +819,82 @@ export function crash() {
   noise(t + 0.03, { peak: 0.2, attack: 0.002, decay: 0.3, freq: 5000, type: 'highpass' });
 }
 
-// Heavy sasquatch footfall. The surface changes the filter, not the weight.
+// Heavy feet. The surface changes the texture; a quiet low thump carries the
+// weight so the bright recorded transient never has to be turned up to do it.
 const STEP_SURFACES = {
-  concrete: { freq: 520, peak: 0.13, tone: 72 },
-  carpet: { freq: 260, peak: 0.09, tone: 62 },
-  tile: { freq: 1400, peak: 0.12, tone: 88 },
-  asphalt: { freq: 700, peak: 0.12, tone: 68 },
-  pool: { freq: 1000, peak: 0.14, tone: 80 },
-  stairs: { freq: 900, peak: 0.15, tone: 96 },
+  concrete: { freq: 440, peak: 0.060, tone: 64 },
+  carpet: { freq: 220, peak: 0.052, tone: 58 },
+  tile: { freq: 720, peak: 0.055, tone: 68 },
+  asphalt: { freq: 520, peak: 0.058, tone: 61 },
+  pool: { freq: 680, peak: 0.062, tone: 64 },
+  stairs: { freq: 600, peak: 0.060, tone: 70 },
 };
 
-/* The recorded step that best matches each motel surface. Anything without a
- * recording keeps the filtered thump below. */
+/* Small banks keep consecutive steps from repeating the same bright edge.
+ * The old mapping ran a single tile/rug/wood file at 0.5 gain every time;
+ * those full-volume transients are the fork-on-a-plate sound from the
+ * playtest. These are surface texture at 0.14-0.2, not the whole foot. */
 const STEP_SAMPLES = {
-  carpet: 'footstep.rug',
-  tile: 'footstep.tile',
-  stairs: 'footstep.wood',
-  pool: 'footstep.street.wet',
+  concrete: ['motel.footstep.concrete.a', 'motel.footstep.concrete.b'],
+  asphalt: ['motel.footstep.asphalt.a', 'motel.footstep.asphalt.b'],
+  carpet: ['motel.footstep.carpet.a', 'motel.footstep.carpet.b'],
+  tile: ['motel.footstep.tile.a', 'motel.footstep.tile.b'],
+  stairs: ['motel.footstep.stairs.a', 'motel.footstep.stairs.b'],
+  pool: ['motel.footstep.pool.a', 'motel.footstep.pool.b'],
 };
 
-export function step(surface = 'concrete') {
-  if (!ctx) return;
-  const recorded = STEP_SAMPLES[surface];
-  if (recorded && playSample(recorded, { volume: 0.5, rate: 0.82 + Math.random() * 0.1 })) return;
+const lastStepAt = new Map();
+const lastStepSample = new Map();
+
+export function step(surface = 'concrete', {
+  sourceId = 'player', position = null, running = false, volume = 1,
+} = {}) {
+  if (!ctx) return false;
+  const now = ctx.currentTime;
+  const minGap = running ? 0.245 : 0.31;
+  if (now - (lastStepAt.get(sourceId) ?? -Infinity) < minGap) {
+    recordAudioEvent('step-suppressed', { sourceId, surface });
+    return false;
+  }
+  lastStepAt.set(sourceId, now);
+
+  const bank = STEP_SAMPLES[surface] || STEP_SAMPLES.concrete;
+  let recorded = bank[(Math.random() * bank.length) | 0];
+  if (bank.length > 1 && recorded === lastStepSample.get(sourceId)) {
+    recorded = bank[(bank.indexOf(recorded) + 1) % bank.length];
+  }
+  lastStepSample.set(sourceId, recorded);
+  const actorMix = sourceId === 'player' ? 1 : 0.72;
+  const sampleVolume = (running ? 0.20 : 0.16) * actorMix * volume;
+  const played = playSample(recorded, {
+    volume: sampleVolume,
+    rate: (running ? 0.91 : 0.84) + (Math.random() - 0.5) * 0.08,
+    position,
+    ref: 2.4,
+    maxDist: 24,
+  });
   const s = STEP_SURFACES[surface] || STEP_SURFACES.concrete;
-  const t = ctx.currentTime;
-  tone(t, { type: 'sine', from: s.tone, to: s.tone * 0.5, dur: 0.1, peak: s.peak });
-  noise(t, { peak: s.peak * 0.6, attack: 0.002, decay: 0.08, freq: s.freq, type: 'lowpass' });
+  /* The synthetic weight stays intentionally soft and low. Positional texture
+   * supplies location for NPCs; this layer is felt more than located. */
+  tone(now, {
+    type: 'sine', from: s.tone, to: s.tone * 0.48,
+    dur: running ? 0.12 : 0.15, peak: s.peak * actorMix * volume,
+  });
+  noise(now, {
+    peak: s.peak * 0.26 * actorMix * volume,
+    attack: 0.004, decay: 0.065, freq: s.freq, type: 'lowpass',
+  });
+  recordAudioEvent('step', {
+    sourceId, surface, running, sample: played ? recorded : null,
+    volume: Number(sampleVolume.toFixed(3)), positional: !!position,
+  });
+  return true;
 }
 
 // Take-off and landing. `hard` is a big drop from the balcony or into the pool.
 export function land(hard = false) {
   if (!ctx) return;
+  if (hard && playSample('land.heavy', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: hard ? 110 : 80, to: 26, dur: hard ? 0.34 : 0.16, peak: hard ? 0.5 : 0.2 });
   noise(t, { peak: hard ? 0.3 : 0.12, attack: 0.002, decay: hard ? 0.3 : 0.12, freq: 420, type: 'lowpass' });
@@ -812,6 +903,7 @@ export function land(hard = false) {
 // Two large bodies wrestling over a suitcase.
 export function grapple() {
   if (!ctx) return;
+  if (playSample('grapple.struggle', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.16, attack: 0.02, decay: 0.22, freq: 900, type: 'bandpass', q: 0.8 });
   tone(t, { type: 'sine', from: 130, to: 90, dur: 0.2, peak: 0.16 });
@@ -820,6 +912,7 @@ export function grapple() {
 // A jar of classified seasoning going into somebody's eyes.
 export function spice() {
   if (!ctx) return;
+  if (playSample('spice.throw', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.22, attack: 0.004, decay: 0.4, freq: 3400, type: 'highpass' });
   tone(t, { type: 'triangle', from: 620, to: 240, dur: 0.2, peak: 0.08 });
@@ -828,6 +921,7 @@ export function spice() {
 // A television taking a man and dying.
 export function tvBreak() {
   if (!ctx) return;
+  if (playSample('tv.implode', { volume: 0.85 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 900, to: 90, dur: 0.24, peak: 0.22 });
   noise(t, { peak: 0.34, attack: 0.001, decay: 0.5, freq: 4200, type: 'highpass' });
@@ -837,6 +931,7 @@ export function tvBreak() {
 // Ceiling fan overspeeding, then throwing sparks.
 export function sparks() {
   if (!ctx) return;
+  if (playSample('fan.sparks', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 7; i++) {
     noise(t + i * 0.09 + Math.random() * 0.05, {
@@ -849,6 +944,7 @@ export function sparks() {
 // The motel sign going off its wiring.
 export function neonShort() {
   if (!ctx) return;
+  if (playSample('neon.short', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 120, to: 30, dur: 0.3, peak: 0.35 });
   noise(t, { peak: 0.3, attack: 0.001, decay: 0.4, freq: 3000, type: 'highpass' });
@@ -858,6 +954,7 @@ export function neonShort() {
 // The Reserve meeting an open flame.
 export function fire() {
   if (!ctx) return;
+  if (playSample('shipment.burn', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.3, attack: 0.08, decay: 1.6, freq: 900, type: 'lowpass' });
   noise(t + 0.1, { peak: 0.12, attack: 0.1, decay: 1.4, freq: 2600, type: 'highpass' });
@@ -867,6 +964,7 @@ export function fire() {
 // Stun prod arcing.
 export function prod() {
   if (!ctx) return;
+  if (playSample('stunprod.arc', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
     noise(t + i * 0.03, { peak: 0.14, attack: 0.001, decay: 0.04, freq: 6000, type: 'highpass' });
@@ -877,6 +975,7 @@ export function prod() {
 // Suitcase latches.
 export function caseLatch() {
   if (!ctx) return;
+  if (playSample('silent.case.latches', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (const d of [0, 0.11]) {
     tone(t + d, { type: 'square', from: 1400, to: 900, dur: 0.04, peak: 0.09 });
@@ -887,24 +986,37 @@ export function caseLatch() {
 // One deliberate bite of eleven-year cure.
 export function bite() {
   if (!ctx) return;
+  if (playSample('jerky.bite', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.22, attack: 0.002, decay: 0.14, freq: 2200, type: 'bandpass', q: 0.7 });
   noise(t + 0.18, { peak: 0.1, attack: 0.01, decay: 0.3, freq: 800, type: 'lowpass' });
   tone(t, { type: 'triangle', from: 180, to: 90, dur: 0.12, peak: 0.08 });
 }
 
-// Heavy car door.
+// Heavy car door. One door voice at a time: arrival and exit can happen less
+// than a frame of input apart, and stacking the same metallic transient makes
+// a flanged scrape that sounds like collision geometry.
+let lastCarDoorAt = -Infinity;
 export function carDoor() {
-  if (!ctx) return;
-  if (playSample('car.door', { volume: 0.7 })) return;
+  if (!ctx) return false;
+  const now = ctx.currentTime;
+  if (now - lastCarDoorAt < 0.48) {
+    recordAudioEvent('car-door-suppressed');
+    return false;
+  }
+  lastCarDoorAt = now;
+  recordAudioEvent('car-door');
+  if (playSample('car.door', { volume: 0.52 })) return true;
   const t = ctx.currentTime;
-  noise(t, { peak: 0.14, attack: 0.01, decay: 0.16, freq: 1200, type: 'bandpass', q: 1.2 });
-  tone(t + 0.16, { type: 'sine', from: 120, to: 45, dur: 0.2, peak: 0.32 });
+  noise(t, { peak: 0.10, attack: 0.01, decay: 0.16, freq: 1000, type: 'bandpass', q: 1.0 });
+  tone(t + 0.16, { type: 'sine', from: 110, to: 45, dur: 0.2, peak: 0.24 });
+  return true;
 }
 
 // Crawling through the pool drain.
 export function tunnel() {
   if (!ctx) return;
+  if (playSample('tunnel.crawl', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.16, attack: 0.15, decay: 1.4, freq: 600, type: 'lowpass' });
   for (let i = 0; i < 4; i++) {
@@ -915,6 +1027,7 @@ export function tunnel() {
 // Hammer on an empty chamber.
 export function dryFire() {
   if (!ctx) return;
+  if (playSample('gun.dry', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.12, attack: 0.001, decay: 0.03, freq: 3600, type: 'bandpass', q: 3 });
   tone(t, { type: 'square', from: 520, to: 380, dur: 0.04, peak: 0.05 });
@@ -923,6 +1036,7 @@ export function dryFire() {
 // Shards settling a second after the window goes.
 export function glassSettle() {
   if (!ctx) return;
+  if (playSample('glass.settle', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 5; i++) {
     tone(t + 0.15 + i * 0.14 + Math.random() * 0.1, {
@@ -934,6 +1048,7 @@ export function glassSettle() {
 // A door leaving its frame with somebody attached.
 export function doorSplinter() {
   if (!ctx) return;
+  if (playSample('door.splinter', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 140, to: 34, dur: 0.35, peak: 0.5 });
   noise(t, { peak: 0.34, attack: 0.002, decay: 0.3, freq: 1400, type: 'bandpass', q: 0.7 });
@@ -943,6 +1058,7 @@ export function doorSplinter() {
 // A window sliding open an inch, and stopping.
 export function windowSlide() {
   if (!ctx) return;
+  if (playSample('window.slide', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.09, attack: 0.03, decay: 0.34, freq: 1800, type: 'bandpass', q: 1.6 });
   tone(t + 0.3, { type: 'square', from: 900, to: 700, dur: 0.03, peak: 0.04 });
@@ -962,12 +1078,14 @@ export function select() {
 
 export function objective() {
   if (!ctx) return;
+  if (playSample('ui.objective', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   [523, 784].forEach((f, i) => tone(t + i * 0.1, { type: 'sine', from: f, to: f, dur: 0.2, peak: 0.09 }));
 }
 
 export function achievement() {
   if (!ctx) return;
+  if (playSample('ui.achievement', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   [659, 784, 988, 1319].forEach((f, i) => {
     tone(t + i * 0.08, { type: 'triangle', from: f, to: f, dur: 0.24, peak: 0.08 });
@@ -976,6 +1094,7 @@ export function achievement() {
 
 export function alarm() {
   if (!ctx) return;
+  if (playSample('alarm.counter', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 4; i++) {
     tone(t + i * 0.26, { type: 'square', from: 980, to: 980, dur: 0.16, peak: 0.09 });
@@ -984,6 +1103,7 @@ export function alarm() {
 
 export function sting() {
   if (!ctx) return;
+  if (playSample('sting.scene.end', { volume: 0.8 })) return;
   const t = ctx.currentTime;
   [110, 138.6, 164.8, 220].forEach((f, i) => {
     tone(t + i * 0.13, { type: 'sawtooth', from: f, to: f, dur: 0.4, peak: 0.12 });
@@ -1058,8 +1178,55 @@ const FIGHT_BASS = [
 ];
 const FIGHT_BRASS = { 0: NOTE.E4, 3: NOTE.D3 * 2, 6: NOTE.C4, 10: NOTE.B3, 12: NOTE.E4 };
 
+function syncDriveMusicVolume() {
+  if (!driveMusic) return;
+  driveMusic.volume = muted ? 0 : DRIVE_MUSIC_VOLUME * userVolume;
+}
+
+function ensureDriveMusic() {
+  if (driveMusic || typeof Audio === 'undefined') return driveMusic;
+  driveMusic = new Audio(DRIVE_MUSIC_URL);
+  driveMusic.preload = 'auto';
+  driveMusic.loop = true;
+  driveMusic.dataset.role = 'non-diegetic-score';
+  syncDriveMusicVolume();
+  return driveMusic;
+}
+
+export function startDriveMusic() {
+  const track = ensureDriveMusic();
+  if (!track) return false;
+  syncDriveMusicVolume();
+  const started = track.play();
+  if (started?.catch) started.catch(() => {});
+  recordAudioEvent('music-start', {
+    url: DRIVE_MUSIC_URL, volume: DRIVE_MUSIC_VOLUME, diegetic: false,
+  });
+  return true;
+}
+
+export function stopDriveMusic({ rewind = true } = {}) {
+  if (!driveMusic) return;
+  driveMusic.pause();
+  if (rewind) {
+    try { driveMusic.currentTime = 0; } catch { /* metadata not ready */ }
+  }
+  recordAudioEvent('music-stop', { url: DRIVE_MUSIC_URL });
+}
+
+export function driveMusicStatus() {
+  return {
+    url: DRIVE_MUSIC_URL,
+    volume: driveMusic?.volume ?? (muted ? 0 : DRIVE_MUSIC_VOLUME * userVolume),
+    playing: !!driveMusic && !driveMusic.paused,
+    loop: driveMusic?.loop ?? true,
+    diegetic: false,
+  };
+}
+
 export function setMusic(mode) {
   if (musicMode === mode) return;
+  if (musicMode === 'chase') stopDriveMusic();
   musicMode = mode;
   if (musicTimer) {
     clearInterval(musicTimer);
@@ -1067,7 +1234,15 @@ export function setMusic(mode) {
   }
   if (!ctx || mode === 'none') return;
 
-  const bpm = mode === 'tense' ? 84 : mode === 'chase' ? 148 : 138;
+  /* The authored track replaces the procedural chase loop. It is score, not
+   * a car radio: no panner, no vehicle source, and a deliberately low 0.16
+   * scene gain under engine noise and dialogue. */
+  if (mode === 'chase') {
+    startDriveMusic();
+    return;
+  }
+
+  const bpm = mode === 'tense' ? 84 : 138;
   const STEP = 60 / bpm / 2;
   let next = ctx.currentTime + 0.1;
   musicStep = 0;
@@ -1105,5 +1280,7 @@ export function stopMusic() {
 
 export function shutdown() {
   stopMusic();
+  stopDriveMusic();
+  stopEngine();
   stopAmbience();
 }

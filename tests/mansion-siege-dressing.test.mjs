@@ -362,12 +362,24 @@ test('the walk from the front door to either flight is never blocked', () => {
   }
 });
 
-test('the dead performer is clear of the foyer fight, not in the middle of it', () => {
+test('the dead woman is explicitly house staff, not Margo, and is clear of the foyer fight', () => {
   const { dressing, interior } = WORLD;
-  const b = dressing.props.bodies.performer.bounds;
+  const staff = dressing.props.bodies.staff;
+  assert.equal(staff, dressing.props.bodies.performer,
+    'the legacy evidence handle and authored staff identity drifted apart');
+  assert.deepEqual(staff.identity, {
+    role: 'mansion-service-staff', namedCharacter: null, isMargo: false,
+  });
+  assert.equal(staff.figure.parts.profile.outfit, 'waistcoat');
+  assert.equal(staff.figure.parts.profile.height, 1.64);
+  assert.equal(staff.figure.parts.profile.build, 0.88);
+  assert.equal(staff.figure.parts.profile.luxury, false);
+  assert.ok(staff.figure.root.getObjectByName('person.hair.bun'),
+    'the server lost the tied-hair silhouette that distinguishes her from the gown casualty');
+  const b = staff.bounds;
   assert.ok(b.min.y >= GROUND_Y - 0.001,
     `something in the tableau is ${(GROUND_Y - b.min.y).toFixed(3)} m under the marble`);
-  const figure = dressing.props.bodies.performer.figureBounds;
+  const figure = staff.figureBounds;
   const figureCentre = figure.getCenter(new THREE.Vector3());
   const supports = [];
   interior.root.updateMatrixWorld(true);

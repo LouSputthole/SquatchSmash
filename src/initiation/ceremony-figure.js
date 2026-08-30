@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { makePerson } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { beginDeathTransition, restoreDeathTransition } from '../core/death-transition.js';
 import { formalMeetingModel } from '../core/formal-appearance.js';
 import { wardrobeFor } from '../core/wardrobe.js';
 
@@ -365,6 +366,7 @@ const KNEEL = Object.freeze({
 /** Return a ceremony figure to a true standing pose at an optional mark. */
 export function poseStanding(figure, mark = null) {
   if (!(figure instanceof InitiationCeremonyFigure)) return figure;
+  restoreDeathTransition(figure.group.userData.deathTransitionReceipt);
   figure.resetArticulation();
   applyMark(figure, mark);
   figure.group.rotation.x = 0;
@@ -405,6 +407,22 @@ export function poseKneeling(figure, mark = null) {
   return figure;
 }
 
+/** One restrained recoil while already kneeling; the death pose resets it. */
+export function poseKneelingPanic(figure, mark = null, { retreat = 0.14 } = {}) {
+  if (!(figure instanceof InitiationCeremonyFigure)) return figure;
+  poseKneeling(figure, mark);
+  const heading = typeof mark?.heading === 'number' ? mark.heading : figure.heading;
+  figure.group.position.x -= Math.sin(heading) * retreat;
+  figure.group.position.z -= Math.cos(heading) * retreat;
+  figure.head.rotation.set(-0.18, 0.22, -0.08);
+  figure.armL.rotation.set(-0.76, 0, -0.48);
+  figure.armR.rotation.set(-0.70, 0, 0.48);
+  figure.foreL.rotation.set(-1.02, 0, 0);
+  figure.foreR.rotation.set(-1.02, 0, 0);
+  figure.group.userData.executionReaction = 'panic';
+  return figure;
+}
+
 /**
  * Fold a kneeling figure forward. The articulated rig is grounded after the
  * local fall, so a slow interpolation cannot sweep a torso through the mud.
@@ -413,6 +431,7 @@ export function poseFallen(figure, mark = null, k = 1) {
   if (!(figure instanceof InitiationCeremonyFigure)) return figure;
   const t = THREE.MathUtils.clamp(Number(k) || 0, 0, 1);
   poseKneeling(figure, mark);
+  beginDeathTransition(figure.group, { mode: 'scripted_execution' });
   figure.rig.rotation.x = 1.30 * t;
   figure.body.rotation.x = THREE.MathUtils.lerp(KNEEL.bodyPitch, 0.04, t);
   figure.armL.rotation.x = THREE.MathUtils.lerp(-0.14, -0.58, t);
@@ -423,6 +442,28 @@ export function poseFallen(figure, mark = null, k = 1) {
   figure.group.userData.ceremonyPose = figure._pose;
   figure.group.userData.cabinPose = figure._pose;
   figure.alignRigToFloor(figure.group.position.y);
+  return figure;
+}
+
+/** Ground a standing fall from rendered bounds instead of a guessed root. */
+export function poseStandingFallen(figure, mark = null, k = 1, { floorY = 0 } = {}) {
+  if (!(figure instanceof InitiationCeremonyFigure)) return figure;
+  const t = THREE.MathUtils.clamp(Number(k) || 0, 0, 1);
+  figure.resetArticulation();
+  applyMark(figure, { ...mark, y: floorY });
+  beginDeathTransition(figure.group, { mode: 'scripted_execution' });
+  /* Keep the world root upright. alignRigToFloor corrects along rig-local Y;
+   * rotating the parent first made that axis diagonal and let intermediate
+   * poses penetrate the floor. The rig is the single connected anatomy root,
+   * so rotating it still topples torso, pelvis and both legs together. */
+  figure.group.rotation.x = 0;
+  figure.group.rotation.z = 0;
+  figure.rig.rotation.x = -Math.PI * 0.5 * t;
+  figure._pose = t >= 1 ? 'fallen' : 'falling';
+  figure.group.userData.ceremonyPose = figure._pose;
+  figure.group.userData.cabinPose = figure._pose;
+  delete figure.group.userData.executionReaction;
+  figure.alignRigToFloor(floorY);
   return figure;
 }
 

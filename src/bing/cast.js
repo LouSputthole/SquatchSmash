@@ -29,6 +29,11 @@ import { CHARACTER_IDS } from '../core/campaign.js';
 import { BADA_BING_BARTENDER, BIG_UNCLE_LOU_BING } from '../core/wardrobe.js';
 import { mat, box, sphere, cylinder, group } from '../world/build.js';
 import { rand, pick } from './kit.js';
+import {
+  BADA_BING_CORE_STAGE_COUNT, BADA_BING_PERFORMERS,
+} from './performers.js';
+
+export { BADA_BING_CORE_STAGE_COUNT, BADA_BING_PERFORMERS } from './performers.js';
 
 /* Photo faces, the way the Initiation does them: one image on the front of a
  * box skull, the other five faces plain. Cached because Lou turns up in more
@@ -80,8 +85,13 @@ export const STOOL_SIT = 0.315;
 // The dress-shoe sole extends 2.2 cm below the old 0.90 leg root. Folding the
 // same rig onto a chair needs another 3.8 cm of lower-leg lift to keep both
 // soles on the floor without moving the hips off the authored cushion height.
-const STANDING_LEG_ROOT_Y = 0.922;
-const SEATED_LEG_ROOT_Y = 0.960;
+/* Exported because a fixture pose that moves the leg root has to be able to
+ * put it back: `sit()` raises it 38 mm so the thigh stays in the hip through a
+ * seated rotation, and a pose that writes `STANDING` and then hands the figure
+ * back leaves her sitting 38 mm wrong with nothing in the shared rig to
+ * correct it -- `_neutralPose()` does not touch the leg root. */
+export const STANDING_LEG_ROOT_Y = 0.922;
+export const SEATED_LEG_ROOT_Y = 0.960;
 
 /**
  * One person.
@@ -353,7 +363,7 @@ export function makePerson(o = {}) {
      * Rippinflow wears a thin silver line and nothing hanging off it, which
      * is a different man saying a different thing with his neck. */
     pendant = true, chainStyle = 'single', pendantStyle = 'disc',
-    neckline = false, luxury = false, shirtAccent = null, tieColour = 0x6a1a24,
+    neckline = false, luxury = false, shirtAccent = null, tie = true, tieColour = 0x6a1a24,
     pocketSquare = 0xb8a05a, watch = false,
     bracelet = false,
     /* Dinner-jacket details, all of them small and all of them the whole read
@@ -367,6 +377,8 @@ export function makePerson(o = {}) {
      *             buttons, a pocket square and a real knotted tie on a suit
      *   belt      false | 'leather' | 'gold' -- a waistband and a buckle
      *   trouserFit 'plain' | 'creased' -- a front crease and turn-ups
+     *   tie       false removes the business tie while retaining a tailored
+     *             shirt front and collar (an open-collar dinner jacket)
      *   tieColour straight business-tie colour; pocketSquare may be a colour
      *              or false when the scene calls for plain, severe tailoring
      *   jacketColour override the garment colour independently of `shirt`,
@@ -398,6 +410,10 @@ export function makePerson(o = {}) {
     hat = false, hatColour = null, pinstripe = false, threePiece = false,
     argyle = null, knickers = false, pattern = false, shoeStyle = 'plain',
     trouserColour = null, gownStrapWidth = 0.03,
+    /* Adult performer resort/stage presentation. `curveScale` is deliberately
+     * bounded below; it changes costume-covered curves only, never joints,
+     * collision roots or the generic heavy-body path. */
+    curveScale = 1, swimStyle = 'classic', swimAccent = null,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -504,6 +520,18 @@ export function makePerson(o = {}) {
    * -- keep their own proportions. The character bible is explicit that this
    * presentation belongs to the stage roles and must not leak. */
   const showgirl = female && curvy && performanceWear && adult;
+  const requestedCurveScale = Number(curveScale);
+  const performerCurveScale = showgirl
+    ? THREE.MathUtils.clamp(Number.isFinite(requestedCurveScale) ? requestedCurveScale : 1, 1, 1.18)
+    : 1;
+  const normalizedSwimStyle = ['classic', 'halter', 'highwaist', 'onepiece'].includes(swimStyle)
+    ? swimStyle
+    : 'classic';
+  const swimTrim = mat({
+    color: swimAccent ?? shirt,
+    roughness: 0.48,
+    metalness: swimAccent === null ? 0.18 : 0.12,
+  });
   /* Every structural slab on a stage figure gets its edges chamfered. It is
    * the same shape, the same size and the same style -- the owner's note was
    * "less blocky", not "not blocky" -- but nothing on the runway ends in a
@@ -538,6 +566,41 @@ export function makePerson(o = {}) {
    * by a couple of centimetres survives that reset because nothing there is
    * ever touched again after this function returns. */
   const gutOn = Math.max(0, gut);
+  /* HOW FAR OUT THE SHOULDER SOCKET SITS, AND IT IS ONE NUMBER FOR A REASON.
+   *
+   * A real belly widens the whole resting silhouette, so a gutted figure's arm
+   * socket moves outboard or his upper arm begins inside his own side. That is
+   * right and it stays. What was wrong is that only the ARM knew about it: this
+   * spread was computed down inside `arm()`, while the deltoid -- the shoulder
+   * cap whose entire job is to close the seam between torso and arm -- was
+   * placed at the bare `SH` a thousand lines earlier, under a comment saying
+   * deltoids "remain at the fixed arm sockets". True when it was written, and
+   * false from the moment the spread was added.
+   *
+   * Owner, 2026-08-24: *"Willys arms are detached from his body."* They were.
+   * Willy carries the maximum gut on a comparatively narrow frame, which buys
+   * the largest spread in the cast -- measured at 0.157 -- so his upper arms
+   * hung that far outboard of the cap that was supposed to meet them, with
+   * daylight between. Measured across the roster, his arms were the only ones
+   * with a POSITIVE gap from the body: +0.051 a side, where Lou is -0.132 and
+   * Booski -0.009. Lou has the same defect and hides it behind a wider frame.
+   *
+   * So it is derived once, here, and both the cap and the socket use it. */
+  /* AND IT IS NOT CLAMPED DOWN TO THE BELLY, WHICH WAS THE FIRST ATTEMPT.
+   *
+   * The first fix capped the spread so the arm's inner face overlapped the
+   * belly by a centimetre, on the theory that a socket outboard of the widest
+   * body surface is a socket reaching for nothing. That is wrong twice over.
+   * It is wrong about anatomy -- an arm hangs BESIDE a belly, it does not
+   * embed in one, and `tests/gut-presentation.test.mjs` has required exactly
+   * that separation since the belly was authored. And it is wrong about what
+   * was broken: the arm was never attached to the belly. It attaches at the
+   * shoulder, to the deltoid and the shoulders slab, and both of those now
+   * read `armSocketX` too. Move the socket and the whole joint moves with it.
+   *
+   * So the original curve stands, and the seam is closed where the seam
+   * actually is. */
+  const armSocketX = SH + (gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0);
   const lean = gutOn > 0 ? -(0.014 + gutOn * 0.02) * t : 0;
   const gownOcclusion = dress === 'gown'
     ? { always: [], seated: [], visibleBelowHem: [] }
@@ -955,7 +1018,12 @@ export function makePerson(o = {}) {
     name: 'ribcage',
     size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
     pos: [0, 0, 0],
-    mat: performanceWear ? skinMat : cloth,
+    /* The ribcage is also the side/back surface visible inside the shoulder
+     * socket. A suit used to leave it in `cloth` (the white dress-shirt
+     * material) while the deltoids and sleeves used the jacket, producing
+     * bright white wedges under both raised arms. Outerwear owns the shell;
+     * its deliberately exposed shirt is built separately on the front. */
+    mat: performanceWear ? skinMat : (outerwear ? jacket : cloth),
   });
   const torsoWrap = group('torso-wrap', torso);
   torsoWrap.position.set(0, 1.365, lean);
@@ -985,14 +1053,15 @@ export function makePerson(o = {}) {
     torsoGarmentRig.add(part);
     return part;
   };
-  // Shoulders: the central slab is a fitted trunk surface; deltoids remain at
-  // the fixed arm sockets so breathing cannot pull the shoulder/arm seam.
-  torsoStructureRig.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
+  /* Shoulders: the central slab is a fitted trunk surface; deltoids sit on the
+   * arm sockets -- `armSocketX`, not `SH` -- so breathing cannot pull the
+   * shoulder/arm seam and a belly cannot open one. See `armSocketX`. */
+  torsoStructureRig.add(slab({ name: 'shoulders', size: [armSocketX * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(slab({
       name: 'deltoid',
       size: [0.118 * t, 0.11, 0.128 * t],
-      pos: [sx * SH, 1.45, lean],
+      pos: [sx * armSocketX, 1.45, lean],
       mat: sleeve === skinMat ? skinMat : (outerwear ? jacket : cloth),
     }));
   }
@@ -1293,7 +1362,9 @@ export function makePerson(o = {}) {
        * one, which is what the first pass looked like. Sat close together so
        * they meet in the middle and make a single shape. */
       const cup = sphere({
-        r: 0.112 * t, ry: 0.108, rz: 0.098,
+        r: 0.112 * t * performerCurveScale,
+        ry: 0.108 * performerCurveScale,
+        rz: 0.098 * performerCurveScale,
         pos: [sx * 0.078 * t, 1.383, D * 0.98],
         mat: cloth,
       });
@@ -1304,7 +1375,9 @@ export function makePerson(o = {}) {
       // Behind her, not beside her: pushed out at the hip these read as
       // saddlebags from the front instead of as a rear from the side.
       const rear = sphere({
-        r: 0.132 * t, ry: 0.128, rz: 0.122,
+        r: 0.132 * t * performerCurveScale,
+        ry: 0.128 * performerCurveScale,
+        rz: 0.122 * performerCurveScale,
         pos: [sx * 0.086 * t, 1.008, -D * 1.16],
         mat: cloth,
       });
@@ -1314,7 +1387,9 @@ export function makePerson(o = {}) {
 
       // A hip flare, so the waist has something to be narrow against
       const flare = sphere({
-        r: 0.088 * t, ry: 0.115, rz: 0.10,
+        r: 0.088 * t * performerCurveScale,
+        ry: 0.115 * performerCurveScale,
+        rz: 0.10 * performerCurveScale,
         pos: [sx * hipHalf * 0.94, 1.03, 0],
         mat: cloth,
       });
@@ -1324,13 +1399,15 @@ export function makePerson(o = {}) {
 
       // Over the shoulder, not past it: a strap that overshoots the shoulder
       // slab stands up beside the neck like an aerial.
+      const halter = normalizedSwimStyle === 'halter';
       const strap = box({
         name: `performer.bikini-top.strap.${sx < 0 ? 'left' : 'right'}`,
         size: [0.026, 0.17, 0.02],
-        pos: [sx * 0.112, 1.445, D * 1.02],
+        pos: [sx * (halter ? 0.082 : 0.112), 1.445, D * 1.02],
         mat: cloth,
       });
-      strap.rotation.z = sx * -0.16;
+      strap.rotation.z = sx * (halter ? -0.43 : -0.16);
+      strap.userData.swimStyle = normalizedSwimStyle;
       wearOnTorso(strap);
     }
     const topBand = box({
@@ -1344,14 +1421,53 @@ export function makePerson(o = {}) {
      * pelvis block on a wide-hipped figure and vanished inside her, which is
      * a costume failure and a canon one. Derive it from the hips instead so
      * it can never be swallowed again. */
+    const highWaist = normalizedSwimStyle === 'highwaist';
     const bottomBand = box({
       name: 'performer.bikini-bottom.band',
-      size: [hipHalf * 2.08, 0.19, D * 2.27],
-      pos: [0, 1.02, 0],
+      size: [hipHalf * 2.08, highWaist ? 0.29 : 0.19, D * 2.27],
+      pos: [0, highWaist ? 1.07 : 1.02, 0],
       mat: cloth,
     });
     wearOnTorso(topBand);
     body.add(bottomBand);
+    if (normalizedSwimStyle === 'onepiece') {
+      const front = box({
+        name: 'performer.swimwear.onepiece.front',
+        size: [0.255 * t, 0.315, 0.034],
+        pos: [0, 1.17, D * 1.105],
+        mat: cloth,
+      });
+      wearOnTorso(front);
+      for (const sx of [-1, 1]) {
+        const sidePanel = box({
+          name: `performer.swimwear.onepiece.side.${sx < 0 ? 'left' : 'right'}`,
+          size: [0.026, 0.27, 0.008],
+          pos: [sx * 0.116 * t, 1.17, D * 1.13],
+          mat: swimTrim,
+        });
+        sidePanel.rotation.z = sx * -0.08;
+        wearOnTorso(sidePanel);
+      }
+      curves.onePieceFront = front;
+    }
+    if (swimAccent !== null) {
+      const topPiping = box({
+        name: 'performer.swimwear.trim.top',
+        size: [0.345 * t, 0.014, 0.034],
+        pos: [0, 1.326, D * 1.095],
+        mat: swimTrim,
+      });
+      const waistPiping = box({
+        name: 'performer.swimwear.trim.waist',
+        size: [hipHalf * 2.09, 0.018, D * 2.29],
+        pos: [0, highWaist ? 1.205 : 1.11, 0],
+        mat: swimTrim,
+      });
+      wearOnTorso(topPiping);
+      body.add(waistPiping);
+      curves.topPiping = topPiping;
+      curves.waistPiping = waistPiping;
+    }
     curves.topBand = topBand;
     curves.bottomBand = bottomBand;
   }
@@ -1485,33 +1601,37 @@ export function makePerson(o = {}) {
           });
         if (!threePiece) wearOnTorso(lap);
       }
-      wearOnTorso(box({
-        name: 'suit.tie',
-        /* Stops AT the waistcoat rather than in front of it: on a three-piece
-         * the tie disappears at the top button and everything below that is
-         * waistcoat. This is also what leaves the sternum free for the chain. */
-        size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
-        pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
-        mat: mat({ color: tieColour, roughness: 0.7 }),
-      }));
+      if (tie) {
+        wearOnTorso(box({
+          name: 'suit.tie',
+          /* Stops AT the waistcoat rather than in front of it: on a three-piece
+           * the tie disappears at the top button and everything below that is
+           * waistcoat. This is also what leaves the sternum free for the chain. */
+          size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
+          pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
+          mat: mat({ color: tieColour, roughness: 0.7 }),
+        }));
+      }
       if (trim) {
         /* What separates a suit from a dark rectangle: a knot at the top of the
          * tie, two buttons where a jacket actually closes, an optional pocket
          * square, and a collar with points. All of it in front of the chest,
          * none of it cutting into the figure. */
-        const tieMat = mat({ color: tieColour, roughness: 0.7 });
-        const knot = box({
-          name: 'suit.tie.knot',
-          size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
-        });
-        wearOnTorso(knot);
-        // The tip, wider than the neck of the tie, hanging below the last
-        // button -- unless a waistcoat has already swallowed it.
-        if (!threePiece) {
-          wearOnTorso(box({
-            name: 'suit.tie.tip',
-            size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
-          }));
+        if (tie) {
+          const tieMat = mat({ color: tieColour, roughness: 0.7 });
+          const knot = box({
+            name: 'suit.tie.knot',
+            size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
+          });
+          wearOnTorso(knot);
+          // The tip, wider than the neck of the tie, hanging below the last
+          // button -- unless a waistcoat has already swallowed it.
+          if (!threePiece) {
+            wearOnTorso(box({
+              name: 'suit.tie.tip',
+              size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
+            }));
+          }
         }
         const shirtMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
         for (const side of [-1, 1]) {
@@ -2552,11 +2672,9 @@ export function makePerson(o = {}) {
    */
   function arm(side) {
     const pivot = group('arm');
-    // A real belly widens the whole resting silhouette. Move the shoulder
-    // socket out with it so a gutted figure's upper arm does not begin inside
-    // his side before the seated/folded pose has a chance to splay it.
-    const gutArmSpread = gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0;
-    pivot.position.set(side * (SH + gutArmSpread), 1.44, lean);
+    /* The socket is `armSocketX`, derived once beside `SH` so the deltoid that
+     * caps this joint is placed from the same number. See the note there. */
+    pivot.position.set(side * armSocketX, 1.44, lean);
     pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
     if (shortSleeve) {
       /* A short sleeve is not a shorter arm. The upper arm keeps the shirt and
@@ -2868,8 +2986,13 @@ export function makePerson(o = {}) {
     bodyShape,
     outfit: dress,
     height,
+    build,
     gut: gutOn,
+    curveScale: performerCurveScale,
+    swimStyle: showgirl ? normalizedSwimStyle : false,
+    swimAccent: showgirl ? swimAccent : null,
     neckline: neckline || 'crew',
+    tie: !!tie,
     tuxedo: !!tuxedo,
     bowtie: !!bowtie,
     barefoot: !!barefoot,
@@ -2929,7 +3052,7 @@ const CURVY_REST_ARM_SPLAY = 0.18;
 const CURVY_DANCE_ARM_SPLAY = 0.32;
 
 /**
- * THE BADA BING'S FOUR PERFORMERS, AS FIGURES.
+ * THE BADA BING'S ADULT PERFORMER ROSTER.
  *
  * Authored rather than rolled -- "four random dancers" gave the stage four of
  * the same woman in different colours. Three are fair and the fourth is not;
@@ -2937,23 +3060,11 @@ const CURVY_DANCE_ARM_SPLAY = 0.32;
  * same from the floor. The blonde holds the last slot because the last slot is
  * the runway, and the owner's ruling is that the blonde works the front.
  *
- * EXPORTED because these four are cast members rather than set dressing, and
- * two of them are in Lou's hot tub on the third floor of the mansion (see
- * `src/mansion/cast.js`). Spreading this list is what makes the woman in the
- * tub the same woman who was on the pole -- the alternative is a second set of
- * literals in a second file, which is how a character quietly becomes two
- * characters. The GARMENT is not in here: `dress: 'bikini'` is passed at each
- * call site, because a stage costume and a swimsuit are the same cut on this
- * rig and the room decides which one it is.
+ * The renderer-free identities live in `performers.js`. The first four work
+ * this story night's three poles and runway; the remaining roster is off shift
+ * here and can still appear at the Mansion without turning one woman into two
+ * simultaneous bodies. The garment remains a scene decision.
  */
-export const BADA_BING_PERFORMERS = Object.freeze([
-  Object.freeze({ skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f }),  // platinum
-  // The middle of the back line. She wore the tied style, which from the
-  // floor is a crown and a bun and reads as cropped; hers falls.
-  Object.freeze({ skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'long', shirt: 0x9a4fd9 }),  // brunette
-  Object.freeze({ skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 }),  // black
-  Object.freeze({ skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a }),  // blonde
-]);
 
 /** A `job` says what somebody is doing; the marker wants to know who they are. */
 const ACTOR_ROLE_FOR_JOB = Object.freeze({
@@ -2989,11 +3100,13 @@ export class Npc {
       name = 'somebody', tier = 'ambient', x = 0, z = 0, yaw = 0, y = 0,
       job = 'stand', look = true, route = null, model = {}, colliders = null,
       navBlockers = null, routine = 0, pole = false, speed = 1.1,
+      voiceProfile = null,
     } = o;
     this.name = name;
     this.tier = tier;
     this.job = job;
     this.look = look;
+    this.voiceProfile = voiceProfile;
     this.route = route;
     this.routeAt = 0;
     this.colliders = colliders;
@@ -3009,6 +3122,7 @@ export class Npc {
       name,
       tier,
       role: model.role ?? null,
+      voiceProfile,
       ...this.parts.profile,
     };
     /* And the shared actor marker, so the staging gate can ask which way this
@@ -3135,9 +3249,26 @@ export class Npc {
   _syncGownOcclusion(seated) {
     const occlusion = this.parts.gownOcclusion;
     if (!occlusion) return;
+    /* A dining chair drops the skirt to the floor: the hem below picks
+     * `diningHem` whenever the figure is seated at floor level, which is the
+     * same condition that hides the shin. The shoes have to go with it.
+     *
+     * Owner, 2026-08-24: *"on the mansion playthrough, the girls sitting in
+     * the chairs their legs were detached."* They were, and this is how: the
+     * thigh and knee are always hidden under a gown, the shin is hidden when
+     * seated so it cannot poke through a floor-length skirt -- and the shoes
+     * were pinned visible in every pose. Seated, that leaves a pair of shoes
+     * under the hem with nothing above them and nothing joining them to her.
+     * Standing, the shin is back and the leg reads skirt to shin to shoe, so
+     * the fault only ever appeared in a chair.
+     *
+     * A raised stool keeps its shoes, because there the skirt breaks over the
+     * knees and the feet are genuinely below the hem on a brass rail -- which
+     * is the case `visibleBelowHem` was named for. */
+    const perched = seated && this.baseY > 0.1;
     for (const mesh of occlusion.always) mesh.visible = false;
     for (const mesh of occlusion.seated) mesh.visible = !seated;
-    for (const mesh of occlusion.visibleBelowHem) mesh.visible = true;
+    for (const mesh of occlusion.visibleBelowHem) mesh.visible = !seated || perched;
     /* Sitting lowers the entire figure by 0.42 model metres. A standing
      * skirt left at its 0.23 local hem therefore entered a dining-room floor
      * by roughly 18cm even while both shoes remained correctly planted. On a
@@ -3652,8 +3783,14 @@ export class Npc {
      * passing through the wearer's own hip or shirt. This is a pose limit,
      * not a body-shape change: the skeleton, socket and limb dimensions stay
      * exactly where the wardrobe authored them. */
-    if (this.job === 'dance') this._splayCurvyArms(CURVY_DANCE_ARM_SPLAY);
-    else if (this.job === 'stand' || this.job === 'sit' || this.job === 'drink'
+    if (this.job === 'dance') {
+      /* The costume-covered forms can grow by at most eighteen percent. Add
+       * only the clearance that identity needs: baseline choreography stays
+       * exactly where it was, while the fullest roster body gets roughly six
+       * extra degrees between forearm and costume. */
+      const curveExtra = Math.max(0, (this.parts.profile.curveScale ?? 1) - 1) * 0.56;
+      this._splayCurvyArms(CURVY_DANCE_ARM_SPLAY + curveExtra);
+    } else if (this.job === 'stand' || this.job === 'sit' || this.job === 'drink'
       || this.job === 'lean' || this.job === 'work') {
       this._splayCurvyArms();
     }
@@ -3850,7 +3987,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * Order matters: the list is dealt poles-first and the RUNWAY -- the front
    * of the house, the one the whole room faces -- comes last. The owner's
    * ruling is that the blonde works the front, so she holds the last slot. */
-  const PERFORMERS = BADA_BING_PERFORMERS;
+  const PERFORMERS = BADA_BING_PERFORMERS.slice(0, BADA_BING_CORE_STAGE_COUNT);
   /* Which way each woman is squared up before her routine starts.
    *
    * They were all on yaw 0, and three women on three poles pointed at the
@@ -3869,8 +4006,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
       routine: i, pole: i < a.poles.length,
       model: {
         role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-        height: rand(1.70, 1.76), build: rand(1.04, 1.12), dress: 'bikini',
-        ...look,
+        ...look, dress: 'bikini', swimStyle: 'classic',
       },
     }));
   });
@@ -3879,11 +4015,13 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   const seats = a.blackjackSeats;
   add('contractor', new Npc(scene, {
     name: 'the contractor', tier: 'ambient', job: 'sit',
+    voiceProfile: 'npc-reserve-2',
     x: seats[0].x, z: seats[0].z, yaw: seats[0].faceYaw,
     model: { height: 1.79, build: 1.12, dress: 'shirt', shirt: 0x3a3320, hair: 'short', beard: true },
   }));
   add('regular', new Npc(scene, {
     name: 'the regular', tier: 'ambient', job: 'sit',
+    voiceProfile: 'npc-reserve-2',
     x: seats[4].x, z: seats[4].z, yaw: seats[4].faceYaw,
     model: { height: 1.72, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'receding', glasses: true },
   }));
@@ -3913,6 +4051,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     const eastRun = spot.x > 0;
     add(`patron${i}`, new Npc(scene, {
       name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',
+      voiceProfile: i === 1 ? 'npc-reserve-1' : 'npc-male',
       /* The booth's collider assembly id, read back out of the club rather
        * than spelled out here, for the same reason the z is read off the
        * anchor: the run has been renumbered once already. The staging gate
@@ -3976,6 +4115,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
 
   add('waiter1', new Npc(scene, {
     name: 'a waitress', tier: 'ambient', job: 'patrol',
+    voiceProfile: 'performer',
     x: -10, z: 5, yaw: 0,
     route: [{ x: -10, z: 5 }, { x: -17, z: 2 }, { x: -17.9, z: 6.5 }, { x: -8, z: 8 }],
     model: { height: 1.68, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
@@ -4033,11 +4173,13 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   // Two by the coat check with opinions about the butcher union
   add('gossip1', new Npc(scene, {
     name: 'a regular', tier: 'ambient', job: 'stand',
+    voiceProfile: 'npc-male',
     x: -1.2, z: 9.4, yaw: 1.9,
     model: { height: 1.81, build: 1.15, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'crop', bandana: true },
   }));
   add('gossip2', new Npc(scene, {
     name: 'a regular', tier: 'ambient', job: 'stand',
+    voiceProfile: 'npc-reserve-1',
     x: -0.2, z: 8.6, yaw: -1.2,
     model: { height: 1.74, dress: 'shirt', hair: 'receding', beard: true },
   }));

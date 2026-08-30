@@ -20,8 +20,9 @@
  * claim about the world maintained by good intentions. This file replaces the
  * intention with a measurement.
  *
- * A take entry is `<cue name>: { text: <hash of the words rendered>, source }`.
- * `source` is the honest part:
+ * A take entry is `<cue name>: { text: <hash of the words rendered>, source }`,
+ * plus `voice` and `voiceId` on the entries that have them (see VOICE
+ * PROVENANCE below). `source` is the honest part:
  *
  *   rendered  the generator wrote this take and stamped the words it sent.
  *             Exact. Drift here is proof.
@@ -35,6 +36,38 @@
  * The queued lines in `rerecord.json` are the exception: those carry
  * `retiredText`, an actual record of the retired wording, so they seed from
  * that and correctly read as stale until a new take is rendered.
+ *
+ * VOICE PROVENANCE (added 2026-08-24)
+ * ----------------------------------
+ * This file recorded the WORDS and threw away the PERFORMER, and the voice id
+ * was in scope four lines from the `recordTake` call that dropped it. The cost
+ * showed up the day the owner asked whether the man in the Jerky Motel was
+ * using Captain Lou Sasole's voice: nothing in the repo could say which voice
+ * had rendered any mp3 that ships. Recasting a profile in the manifest changes
+ * what FUTURE runs sound like and leaves every existing take on disk in the
+ * old performer's voice, silently, with every gate green -- the same shape as
+ * the rewritten-line bug this ledger was built for, one column over.
+ *
+ * So a `rendered` entry now also carries:
+ *
+ *   voice     the profile name the cue was spoken in (`lou1`, `motel-rico`).
+ *   voiceId   the ElevenLabs id that profile resolved to AT RENDER TIME.
+ *
+ * and `--check` reports a STALE VOICE when that id no longer matches what the
+ * manifest says for the cue's current profile. That catches both halves of the
+ * problem: the profile was recast and the takes were never regenerated, or the
+ * cue was reassigned to a different character and its old take is still on
+ * disk in the old man's voice.
+ *
+ * `assumed` entries carry no voice, and that is not an oversight -- there is
+ * no record of who spoke them, and inventing one from today's manifest would
+ * be exactly the false confidence this file was written to stop. They are
+ * silent on the question until something re-renders them, at which point they
+ * become `rendered` and start answering it.
+ *
+ * What this still cannot tell you: whether two DIFFERENT ids sound like the
+ * same performer. tests/voice-casting-distinctness.test.mjs catches the ids
+ * that are literally equal; nothing but a person listening catches the rest.
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -111,6 +144,56 @@ export function takeDrift(manifest, ledger, queue, onDisk) {
 }
 
 /**
+ * Which takes on disk were spoken by a voice the manifest has since replaced.
+ *
+ * Deliberately a SEPARATE function from `takeDrift` rather than another field
+ * on its result: the two ask different questions (what does this file say vs.
+ * who says it), they fail for different reasons, and `takeDrift`'s shape is
+ * asserted whole in tests/take-ledger.test.mjs. Bolting a fifth key onto that
+ * return would have made an unrelated test go red for no reason a reader could
+ * follow.
+ *
+ * Only entries that record a performer can be judged -- an `assumed` entry has
+ * none, so it is not evidence of agreement OR of drift, and counting it either
+ * way would be a guess wearing a check's clothes. `rendered` (this tool made
+ * it) and `inferred` (git says what the manifest cast at the commit that wrote
+ * the mp3) both qualify; the entry carries which, so a report can say how it
+ * knows. An entry whose profile has vanished from the manifest entirely is
+ * reported too, with `now: null`: the take is real and nothing today claims to
+ * have made it.
+ */
+export function voiceDrift(manifest, ledger, onDisk) {
+  const takes = ledger?.takes ?? {};
+  const present = new Set(onDisk);
+  const voices = manifest.voices ?? {};
+  const stale = [];
+  for (const cue of manifest.sfx ?? []) {
+    if (!isSpoken(cue) || !present.has(fileOf(cue))) continue;
+    const take = takes[cue.name];
+    /* `inferred` counts as evidence here, `assumed` still does not. An assumed
+     * entry records no performer at all, so there is nothing to disagree with;
+     * an inferred one was read out of the manifest at the commit that wrote the
+     * mp3 (tools/infer-takes.mjs), which is weaker than a stamp this tool wrote
+     * itself but is not a guess about the past -- it IS the past. Judging only
+     * `rendered` is what left 3,926 takes, nearly the whole game, outside this
+     * check while Rico shipped in the wrong voice. */
+    if (!take?.voiceId || (take.source !== 'rendered' && take.source !== 'inferred')) continue;
+    const profile = cue.voice || 'player';
+    const now = voices[profile]?.id ?? null;
+    if (now === take.voiceId) continue;
+    stale.push({
+      cue: cue.name,
+      profile,
+      was: take.voiceId,
+      wasProfile: take.voice ?? profile,
+      now,
+      source: take.source,
+    });
+  }
+  return stale;
+}
+
+/**
  * Build the ledger the manifest and the queue imply.
  *
  * Existing `rendered` entries are never overwritten -- they are the only exact
@@ -139,13 +222,22 @@ export function seedLedger(manifest, queue, onDisk, previous = {}) {
 
 /**
  * Stamp one freshly rendered take. Called by tools/generate-sfx.mjs the moment
- * after the bytes hit the disk, with the exact text that was sent -- which is
- * the whole point: this is the one place the words and the file are known to
- * agree.
+ * after the bytes hit the disk, with the exact text that was sent AND the
+ * voice it was sent to -- which is the whole point: this is the one place the
+ * words, the performer and the file are all known to agree. Anywhere else is
+ * reconstruction.
+ *
+ * `voice` is `{ name, id }` and is optional only so an older caller (or a test
+ * that only cares about words) still records something true rather than
+ * throwing. A take stamped without it is indistinguishable from a pre-ledger
+ * take on the voice question, so pass it.
  */
-export function recordTake(ledgerPath, cueName, say) {
+export function recordTake(ledgerPath, cueName, say, voice = null) {
   const ledger = readLedger(ledgerPath);
-  ledger.takes[cueName] = { text: textHash(say), source: 'rendered' };
+  const entry = { text: textHash(say), source: 'rendered' };
+  if (voice?.name) entry.voice = voice.name;
+  if (voice?.id) entry.voiceId = voice.id;
+  ledger.takes[cueName] = entry;
   writeLedger(ledgerPath, ledger);
 }
 
@@ -161,11 +253,19 @@ const COMMENT = Object.freeze([
   'manifest at its word -- see the header of tools/take-ledger.mjs for what',
   'that does and does not prove.',
   '',
+  'A "rendered" entry also carries "voice" and "voiceId": the profile it was',
+  'spoken in and the ElevenLabs id that profile resolved to AT RENDER TIME.',
+  'Recasting a profile in assets/sfx/manifest.json does not touch the mp3s',
+  'already on disk, so without that stamp the game keeps shipping the old',
+  'performer with every check green. "assumed" entries carry no voice on',
+  'purpose: nothing recorded who spoke them, and guessing from today\'s',
+  'manifest would be the same false confidence in a different column.',
+  '',
   'Run `npm run check:takes` to report drift; `npm run vo:takes` to reseed.',
 ]);
 
 function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  return retryLedgerIo(() => JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
 function readLedger(file) {
@@ -175,9 +275,32 @@ function readLedger(file) {
 }
 
 function writeLedger(file, ledger) {
-  fs.writeFileSync(file, `${JSON.stringify(
+  const body = `${JSON.stringify(
     { _comment: COMMENT, takes: ledger.takes }, null, 2,
-  )}\n`);
+  )}\n`;
+  retryLedgerIo(() => fs.writeFileSync(file, body));
+}
+
+/* OneDrive can briefly deny `open` on a file immediately after it changes.
+ * The voice generator is deliberately sequential, but each completed take
+ * rewrites this bounded ledger and the sync client occasionally catches that
+ * exact seam. Without a retry the MP3 is already on disk while its provenance
+ * stamp is missing, so the next normal generation pass skips it. Keep the
+ * retry here, at the shared ledger boundary, and never pretend the unstamped
+ * file was verified. */
+const TRANSIENT_LEDGER_IO = new Set(['EACCES', 'EBUSY', 'EPERM', 'UNKNOWN']);
+const RETRY_DELAYS_MS = Object.freeze([15, 30, 60, 120, 240, 480]);
+const LEDGER_WAIT = new Int32Array(new SharedArrayBuffer(4));
+
+function retryLedgerIo(operation) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      if (!TRANSIENT_LEDGER_IO.has(error?.code) || attempt >= RETRY_DELAYS_MS.length) throw error;
+      Atomics.wait(LEDGER_WAIT, 0, 0, RETRY_DELAYS_MS[attempt]);
+    }
+  }
 }
 
 function main() {
@@ -191,27 +314,46 @@ function main() {
     const takes = seedLedger(manifest, queue, onDisk, previous);
     writeLedger(LEDGER, { takes });
     const rendered = Object.values(takes).filter((t) => t.source === 'rendered').length;
+    const voiced = Object.values(takes).filter((t) => t.voiceId).length;
     console.log(`assets/sfx/takes.json: ${Object.keys(takes).length} take(s) `
-      + `(${rendered} rendered, ${Object.keys(takes).length - rendered} assumed).`);
+      + `(${rendered} rendered, ${Object.keys(takes).length - rendered} assumed; `
+      + `${voiced} know which voice spoke them).`);
     return;
   }
 
-  const drift = takeDrift(manifest, readLedger(LEDGER), queue, onDisk);
+  const ledger = readLedger(LEDGER);
+  const drift = takeDrift(manifest, ledger, queue, onDisk);
+  const voiceStale = voiceDrift(manifest, ledger, onDisk);
   for (const entry of drift.stale) {
     console.error(`STALE TAKE  ${entry.cue}  (${entry.source})`);
     console.error(`            script now says: "${entry.say}"`);
   }
+  for (const entry of voiceStale) {
+    console.error(`STALE VOICE ${entry.cue}  (${entry.profile})`);
+    console.error(`            rendered with ${entry.was} as \`${entry.wasProfile}\`; `
+      + `the manifest now casts \`${entry.profile}\` as ${entry.now ?? '(no such profile)'}`);
+  }
   for (const name of drift.orphaned) {
     console.error(`ORPHAN LEDGER ENTRY  ${name} — no such cue; run npm run vo:takes`);
   }
-  const bad = drift.stale.length + drift.orphaned.length;
+  const bad = drift.stale.length + voiceStale.length + drift.orphaned.length;
   console.log(`takes: ${drift.stale.length} stale, ${drift.queued.length} already queued, `
+    + `${voiceStale.length} stale voice, `
     + `${drift.unledgered.length} unledgered (pre-ledger), ${drift.orphaned.length} orphaned.`);
-  if (bad) {
+  if (drift.stale.length || drift.orphaned.length) {
     console.error('\nAdd each stale line to assets/sfx/rerecord.json with its retiredText, '
       + 'then `npm run vo:sync`. The take on disk says the old words.');
-    process.exitCode = 1;
   }
+  /* A stale voice has no queue to go through -- there is nothing to re-word,
+   * only a file to re-render in the voice the manifest now names. It fails for
+   * the same reason a stale take does: the mp3 that ships is not the
+   * performance the project currently claims to have cast. */
+  if (voiceStale.length) {
+    const casts = [...new Set(voiceStale.map((e) => e.profile))].join(',');
+    console.error('\nThe take on disk is the previous performer. Regenerate with '
+      + `\`npm run sfx -- --force --cast ${casts}\`, then \`npm run sfx:listen\`.`);
+  }
+  if (bad) process.exitCode = 1;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

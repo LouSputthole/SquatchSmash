@@ -37,9 +37,16 @@ export const HEIST_ESCAPE_VEHICLE_CONFIG = Object.freeze({
   acceleration: 12.5,
   reverseAcceleration: 6.5,
   brakeForce: 16,
-  drag: 0.014,
+  /* THE TOP END.
+   *
+   * Owner: *"I would like the car to be able to go a little bit faster, so
+   * like at least 90."* `maxForwardSpeed` is a clamp, not a target, and drag
+   * is what the car actually settles against -- raising the clamp alone got
+   * it to about 65 mph and no further. Both move together.
+   * 41 m/s * 2.23694 = 91.7 mph. */
+  drag: 0.0070,
   rollingResistance: 0.55,
-  maxForwardSpeed: 26,
+  maxForwardSpeed: 41,
   maxReverseSpeed: 8,
   maxSteer: 0.62,
   steerRate: 3.4,
@@ -53,6 +60,7 @@ export const HEIST_CHECKPOINT_STATE = Object.freeze({
   street_withdrawal: 'STREET_BLOCK_ONE',
   mercer_garage: 'GARAGE_HOLD',
   vehicle_swap: 'SAFEHOUSE_RETURN',
+  safehouse_debrief: 'DEBRIEF',
 });
 
 export const PREVIEW_START_STATE = Object.freeze({
@@ -90,6 +98,26 @@ export const PHASE_FOR_STATE = Object.freeze(Object.fromEntries(HEIST_STATES.map
     'INDUSTRIAL_ROUTE', 'VEHICLE_SWAP'].includes(state)) return [state, 'driving'];
   return [state, 'none'];
 })));
+
+/**
+ * Where the player is allowed to stand, per phase: [minX, maxX, minZ, maxZ].
+ *
+ * `constrainPlayerToPhase` in `main.js` clamps to these every frame, so they
+ * are also the only positions a reachability probe is entitled to sample from
+ * — a prompt that can only be acquired from inside a wall is not reachable.
+ * They live here rather than in `main.js` because the Node reachability tests
+ * cannot import a page module, and the alternative is a second copy of the
+ * clamp in `tests/` that drifts the first time a room changes size.
+ */
+export const HEIST_PHASE_PLAYER_BOUNDS = Object.freeze({
+  safehouse: Object.freeze([-8.7, 8.7, -6.7, 6.7]),
+  van: Object.freeze([-1.45, 1.45, -2.65, 2.65]),
+  // The z floor reaches into the vault corridor, which is where the cash is.
+  bank: Object.freeze([-10.6, 10.6, -12.9, 10.4]),
+  street: Object.freeze([-8.8, 8.8, -35.2, 35.2]),
+  garage: Object.freeze([-11.6, 11.6, -14.6, 14.6]),
+  driving: Object.freeze([14, 26, -659, -645]),
+});
 
 export const PERFORMANCE_BUDGET = Object.freeze({
   maxCrew: 6,

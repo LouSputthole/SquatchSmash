@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Luxury Apartment · Squatch Life</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127963;</text></svg>" />
+  <link rel="stylesheet" href="src/style.css" />
+  <link rel="stylesheet" href="src/luxury-apartment/luxury-apartment.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="luxury-apartment">
+  <canvas id="scene"></canvas>
+  <div id="fx-high" aria-hidden="true"></div>
+  <div id="fx-trip" aria-hidden="true"></div>
+  <svg id="fx-defs" width="0" height="0" aria-hidden="true">
+    <defs>
+      <filter id="chroma" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+        <feOffset in="SourceGraphic" dx="0" dy="0" result="r" />
+        <feColorMatrix in="r" type="matrix" result="rc" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
+        <feOffset in="SourceGraphic" dx="0" dy="0" result="b" />
+        <feColorMatrix in="b" type="matrix" result="bc" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" />
+        <feColorMatrix in="SourceGraphic" type="matrix" result="gc" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" />
+        <feBlend in="rc" in2="gc" mode="screen" result="rg" />
+        <feBlend in="rg" in2="bc" mode="screen" />
+      </filter>
+    </defs>
+  </svg>
+  <div id="luxury-grade" aria-hidden="true"></div>
+  <div id="luxury-vignette" aria-hidden="true"></div>
+  <div id="luxury-rest" aria-hidden="true"><span>ANOTHER NIGHT ABOVE THE CITY</span></div>
+  <div id="luxury-elevator-exit" aria-hidden="true"><span>PRIVATE ELEVATOR · RETURNING TO SCENE SELECT</span></div>
+
+  <div id="hud" aria-hidden="true">
+    <div id="crosshair"><span></span></div>
+    <div id="prompt" class="hidden"><kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div></div>
+    <div id="subtitle" class="hidden"></div>
+    <div id="hands"><div id="hotbar" class="hidden"></div><div id="hand-item" class="hidden"><div class="icon"></div><div class="meta"><span class="name"></span><span class="hint"></span></div></div></div>
+    <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
+    <div id="clock"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
+    <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
+    <div id="toast-stack"></div>
+    <div id="posture" class="hidden"><kbd class="key">Q</kbd><span>stand up</span></div>
+    <div id="pushes" class="hidden"></div>
+    <div id="timing" class="hidden">
+      <div class="track"><i class="win"></i><i class="mark"></i></div>
+      <div class="pips"></div>
+    </div>
+
+    <!-- The standing order, in the same place and the same idiom the starter
+         flat puts it: under the clock, top right. Present in the markup so
+         src/core/objective-panel.js ADOPTS it rather than injecting its own
+         upper-left default over the top of src/style.css's #objectives rules.
+         See the note at the head of that module. -->
+    <div id="objectives" class="hidden">
+      <div class="otitle"></div>
+      <ul class="olist"></ul>
+    </div>
+  </div>
+
+  <section id="luxury-game-panel" class="hidden" aria-live="polite" aria-atomic="true">
+    <span class="game-kicker" data-game-title>PRIVATE GAME</span>
+    <strong data-game-primary>READY</strong>
+    <span data-game-secondary></span>
+    <small data-game-hint></small>
+  </section>
+
+  <div id="overlay">
+    <div class="panel">
+      <p class="eyebrow">SQUATCH LIFE · LATE-GAME HUB STUDY</p>
+      <h1>THE <span>HIGH LIFE</span></h1>
+      <p class="tag">Tony's two-storey home above the city — private lift, upstairs bedroom, and the next chapter waiting inside.</p>
+      <button id="start-btn" data-scene-start>Enter the apartment</button>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · mouse look</li>
+        <li><kbd>E</kbd> use / play · <kbd>F</kbd> consume · <kbd>Q</kbd> stand / pocket · mouse wheel inventory</li>
+        <li><kbd>R</kbd> reload / radio / reset darts · <kbd>1</kbd>–<kbd>5</kbd> inventory · <kbd>Esc</kbd> pause</li>
+        <li>The PC runs the full Squatch OS. The cabinet launches Squatch Smash. The poker table is waiting on company; darts is playable now.</li>
+        <li>Tap the toilet to sit for the W A S D rhythm; hold it to stand and aim. Time <kbd>E</kbd> to straighten the crooked photograph.</li>
+      </ul>
+      <p class="fine">Phone, television, radio, kitchen, shower, wardrobe, lights, doors, seating and sleep all use the campaign's shared home systems.</p>
+    </div>
+  </div>
+
+  <div id="loading"><div class="bar"><i></i></div><span>Calling the private elevator…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./preview.html">SCENE PREVIEW</a></div>
+  </div>
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="LUXURY_APARTMENT" data-scene="THE HIGH LIFE"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
+  <script type="module" src="src/luxury-apartment/main.js" onerror="window.__squatchSceneFail('Could not load the luxury apartment','src/luxury-apartment/main.js failed to load.')"></script>
+</body>
+</html>

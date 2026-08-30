@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify the package-gated apartment -> Squatchfather -> apartment round trip
+ * Verify the package-gated apartment -> Squatchfather -> cabin handoff
  * in a real browser, including the restaurant's critical state-machine beats,
  * the recorded audio (VO, footsteps, ambience and train beds), and that every
  * seated man faces the way his beat was authored.
@@ -156,15 +156,44 @@ async function openingSnapshot(target) {
 }
 
 async function verifyOpeningMovement(target, label) {
-  const before = await openingSnapshot(target);
+  const initial = await openingSnapshot(target);
   check(`${label} starts Tony outside every active collider`,
-    before.beat === 'START_EXTERIOR'
-      && before.canMove
-      && before.canLook
-      && !before.seated
-      && !before.scripted
-      && !before.blocked,
-    JSON.stringify(before));
+    initial.beat === 'START_EXTERIOR'
+      && initial.canMove
+      && initial.canLook
+      && !initial.seated
+      && !initial.scripted
+      && !initial.blocked,
+    JSON.stringify(initial));
+
+  await target.waitForFunction(
+    () => window.squatchfather.input.snapshot().locked,
+    null,
+    { timeout: 10000 },
+  ).catch(() => {});
+  const beforeLook = await target.evaluate(() => ({
+    yaw: window.squatchfather.prospect.yaw,
+    pitch: window.squatchfather.prospect.pitch,
+    input: window.squatchfather.input.snapshot(),
+  }));
+  await target.mouse.move(240, 150);
+  await target.mouse.move(306, 116, { steps: 2 });
+  await target.waitForTimeout(80);
+  const afterLook = await target.evaluate(() => ({
+    yaw: window.squatchfather.prospect.yaw,
+    pitch: window.squatchfather.prospect.pitch,
+    input: window.squatchfather.input.snapshot(),
+  }));
+  check(`${label} captures the canonical first-person input Adapter`,
+    afterLook.input.locked && afterLook.input.pointerLockChanges > 0,
+    JSON.stringify(afterLook.input));
+  check(`${label} accepts real mouse-look through the canonical Adapter`,
+    afterLook.input.lookEvents > beforeLook.input.lookEvents
+      && (Math.abs(afterLook.yaw - beforeLook.yaw) > 0.01
+        || Math.abs(afterLook.pitch - beforeLook.pitch) > 0.01),
+    JSON.stringify({ before: beforeLook, after: afterLook }));
+
+  const before = await openingSnapshot(target);
 
   // Real keyboard input drives the real listeners, but the simulation time
   // comes from the scene's own tick so the distance is deterministic even
@@ -176,12 +205,17 @@ async function verifyOpeningMovement(target, label) {
   await target.waitForTimeout(80);
 
   const after = await openingSnapshot(target);
+  const released = await target.evaluate(() => ({
+    input: window.squatchfather.input.snapshot(),
+    held: window.squatchfather.heldInput,
+  }));
   const dx = after.position.x - before.position.x;
   const dz = after.position.z - before.position.z;
   const distance = Math.hypot(dx, dz);
   const forwardProgress = dx * before.forward.x + dz * before.forward.z;
   check(`${label} accepts W movement in the camera-facing direction`,
-    distance > 0.35 && forwardProgress > 0.3 && !after.blocked,
+    distance > 0.35 && forwardProgress > 0.3 && !after.blocked
+      && !released.held.forward,
     JSON.stringify({
       before: before.position,
       after: after.position,
@@ -189,6 +223,7 @@ async function verifyOpeningMovement(target, label) {
       forwardProgress: Number(forwardProgress.toFixed(3)),
       beat: after.beat,
       blocked: after.blocked,
+      input: released,
     }));
 }
 
@@ -617,7 +652,10 @@ try {
       renderer.render(gl, camera);
       return +(performance.now() - t0).toFixed(2);
     };
-    const shoot = () => {
+    const shoot = (target) => {
+      const bodyPoint = target.fig.chest.getWorldPosition(target.eyePoint.clone());
+      camera.lookAt(bodyPoint);
+      camera.updateMatrixWorld(true);
       sf.pressFire();
       sf.tick(0.001); // fire() runs; the flash is lit and not yet decayed
       const window6 = [draw()];
@@ -629,10 +667,15 @@ try {
     for (let i = 0; i < 6; i++) quiet.push(draw());
 
     const programsBefore = renderer.info.programs.length;
-    const first = shoot();
+    const first = shoot(sf.sal);
     const programsAfterFirst = renderer.info.programs.length;
     const salBeat = sf.state();
-    const second = shoot();
+    const second = shoot(sf.mcclawsky);
+    const bodyMarks = [
+      ...sf.bloodImpacts.wounds.pool,
+      ...sf.bloodImpacts.spatter.pool,
+    ].filter((mark) => mark.visible);
+    const pools = sf.deathBloodPools.meshes.filter((pool) => pool.visible);
     return {
       quiet,
       first,
@@ -642,14 +685,23 @@ try {
       programsAfterSecond: renderer.info.programs.length,
       salBeat,
       mcBeat: sf.state(),
-      woundsFollowBodies: sf.blood.pool.filter((m) => m.visible).every((m) => (
-        m.parent === sf.sal.fig.neck || m.parent === sf.sal.fig.torso
-          || m.parent === sf.mcclawsky.fig.neck || m.parent === sf.mcclawsky.fig.torso
+      woundsFollowBodies: bodyMarks.every((m) => (
+        m.parent === sf.sal.fig.head || m.parent === sf.sal.fig.torso
+          || m.parent === sf.mcclawsky.fig.head || m.parent === sf.mcclawsky.fig.torso
       )),
-      woundVisuals: sf.blood.pool.filter((m) => m.visible).map((m) => ({
+      woundVisuals: bodyMarks.map((m) => ({
+        name: m.name,
+        system: m.userData.reusableSystem,
+        effect: m.userData.bloodEffect,
         size: m.geometry.parameters.width,
         side: m.material.side,
         renderOrder: m.renderOrder,
+      })),
+      pools: pools.map((pool) => ({
+        name: pool.name,
+        system: pool.userData.reusableSystem,
+        effect: pool.userData.bloodEffect,
+        y: pool.position.y,
       })),
     };
   });
@@ -687,10 +739,26 @@ try {
   check('shooting McClawsky requires the weapon drop', current.beat === 'DROP_WEAPON', current.beat);
   check('the wounds stay attached to the men as they fall',
     shotCost.woundsFollowBodies === true, JSON.stringify(shotCost.woundsFollowBodies));
-  check('four large red wounds remain visible from either side after both men fall',
+  check('four canonical body marks remain visible from either side after both men fall',
     shotCost.woundVisuals.length === 4
-      && shotCost.woundVisuals.every((w) => w.size >= 0.3 && w.side === 2 && w.renderOrder >= 4),
+      && shotCost.woundVisuals.every((w) => (
+        (w.name === 'blood.impact' || w.name === 'blood.spatter')
+          && w.system === 'blood'
+          && (w.effect === 'impact' || w.effect === 'spatter')
+          && w.size >= 0.3
+          && w.side === 2
+          && w.renderOrder >= 4
+      )),
     JSON.stringify(shotCost.woundVisuals));
+  check('each accepted fatal hit creates one canonical floor pool',
+    shotCost.pools.length === 2
+      && shotCost.pools.every((pool) => (
+        pool.name.startsWith('blood.death-pool.')
+          && pool.system === 'blood'
+          && pool.effect === 'death-pool'
+          && Math.abs(pool.y - 0.006) < 0.001
+      )),
+    JSON.stringify(shotCost.pools));
   if (process.env.CAPTURE) {
     await page.waitForTimeout(300);
     await page.evaluate(() => {
@@ -758,11 +826,90 @@ try {
     JSON.stringify(current.mission));
   check('the chapter card appears after the car exit', current.endVisible);
 
+  // Re-stage only the two shooting beats after the completed run. This keeps
+  // the first-shot timing proof above honest while exercising the rejection
+  // paths through the real FSM and real shared blood systems.
+  const rejectedShots = await page.evaluate(() => {
+    const sf = window.squatchfather;
+    sf.sal.revive();
+    sf.mcclawsky.revive();
+    sf.combat.reset();
+    sf.impacts.reset();
+    sf.prospect.sit();
+    sf.director.clearSteer();
+    sf.director.update(0, sf.prospect, null);
+    sf.go('SHOOT_SAL');
+    sf.tick(0.7);
+
+    const mcBodyPoint = sf.mcclawsky.fig.chest.getWorldPosition(sf.mcclawsky.eyePoint.clone());
+    sf.camera.lookAt(mcBodyPoint);
+    sf.camera.updateMatrixWorld(true);
+    sf.pressFire();
+    sf.tick(0.001);
+    const wrongTarget = {
+      beat: sf.state(),
+      salDead: sf.sal.dead,
+      mcDead: sf.mcclawsky.dead,
+      salMarks: sf.bloodImpacts.marksOn(sf.sal),
+      mcMarks: sf.bloodImpacts.marksOn(sf.mcclawsky),
+      pools: sf.deathBloodPools.visibleCount,
+    };
+
+    sf.combat.reset();
+    sf.impacts.reset();
+    sf.go('SHOOT_MCCLAWSKY');
+    sf.tick(0.55);
+    const drawBefore = sf.mcclawsky.drawT;
+    const floorPoint = sf.prospect.eye.clone();
+    floorPoint.y = 0;
+    floorPoint.z -= 0.4;
+    sf.camera.lookAt(floorPoint);
+    sf.camera.updateMatrixWorld(true);
+    sf.pressFire();
+    sf.tick(0.001);
+    const blocker = {
+      beat: sf.state(),
+      drawBefore,
+      drawAfter: sf.mcclawsky.drawT,
+      surfaceMarks: sf.impacts.visibleCount,
+      bodyMarks: sf.bloodImpacts.marksOn(sf.sal) + sf.bloodImpacts.marksOn(sf.mcclawsky),
+      pools: sf.deathBloodPools.visibleCount,
+    };
+    return { wrongTarget, blocker };
+  });
+  check('shooting the wrong wiseguy wounds him nonfatally and preserves Sal’s order',
+    rejectedShots.wrongTarget.beat === 'SHOOT_SAL'
+      && !rejectedShots.wrongTarget.salDead
+      && !rejectedShots.wrongTarget.mcDead
+      && rejectedShots.wrongTarget.salMarks === 0
+      && rejectedShots.wrongTarget.mcMarks === 2
+      && rejectedShots.wrongTarget.pools === 0,
+    JSON.stringify(rejectedShots.wrongTarget));
+  check('a blocker leaves only a surface mark without resetting McClawsky’s draw clock',
+    rejectedShots.blocker.beat === 'SHOOT_MCCLAWSKY'
+      && rejectedShots.blocker.drawAfter > rejectedShots.blocker.drawBefore
+      && rejectedShots.blocker.surfaceMarks === 1
+      && rejectedShots.blocker.bodyMarks === 0
+      && rejectedShots.blocker.pools === 0,
+    JSON.stringify(rejectedShots.blocker));
+
+  /* THE DRIVER TAKES HIM OUT OF TOWN. This waited on index.html because the
+   * first kill used to end at his own front door; beat 3 hands off to the
+   * Cabin now (`leaveTheRestaurant` spends DEPART_CABIN_LAY_LOW and routes to
+   * COUNTRYSIDE_CABIN unless the cabin chapter is already behind him), so the
+   * old wait could only ever time out. The campaign marathon has been walking
+   * squatchfather -> countryside_cabin the whole time this said otherwise.
+   *
+   * The landing is asserted by scene and spawn rather than by coordinates:
+   * the apartment's 2.55/3.72 was measured at its front door and there is no
+   * honest cabin equivalent to swap in without measuring one, so the position
+   * rides along in the detail string for a reader instead of being asserted
+   * against a number nobody took. */
   await page.click('#againBtn');
-  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 45000 });
-  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
+  await page.waitForURL(`http://localhost:${PORT}/cabin.html`, { timeout: 45000 });
+  await page.waitForFunction(() => window.CABIN?.campaign, null, { timeout: 60000 });
   const home = await page.evaluate(() => {
-    const game = window.__squatch;
+    const game = window.CABIN;
     const mission = game.campaign.state.missions.squatchfather;
     return {
       scene: game.campaign.state.scene,
@@ -775,12 +922,10 @@ try {
       },
     };
   });
-  check('Squatchfather returns to the apartment’s front door',
-    home.scene.id === 'apartment'
-      && home.scene.spawn === 'front_door'
-      && home.player.mode === 'walk'
-      && home.player.x === 2.55
-      && home.player.z === 3.72,
+  check('Squatchfather hands off to the cabin, and he arrives on his feet',
+    home.scene.id === 'countryside_cabin'
+      && home.scene.spawn === 'arrival'
+      && home.player.mode === 'walk',
     JSON.stringify(home));
   check('the package does not return after the weapon was dropped',
     !home.hasPackage && home.mission.status === 'complete',

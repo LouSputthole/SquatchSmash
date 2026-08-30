@@ -65,10 +65,24 @@ follow-up look rather than asserting either way.
 
 ### Objective panel — `src/core/objective-panel.js`
 The one on-screen `#objectives` panel, replacing three scene-local
-stylesheets per `REUSE-FIRST.md`. **Consumers:** Mansion, Heist, Graveyard,
-Golf, Cartel Palace. **Deliberate non-consumer:** Apartment, which runs its
-own `core/goals.js` (endings/objectives are hub-specific, not a mission
-objective list).
+stylesheets per `REUSE-FIRST.md`. `activeObjectiveItems()` is the canonical
+live-HUD projection: it removes completed rows and orphan headings while the
+story controller retains its full state. `clear()` is lifecycle-safe even for
+an adopted panel and a later `show()` of the same objective. **Direct and
+indirect consumers include:** Mansion, Heist, Graveyard, Golf, Cartel Palace,
+Silver, Silver Case, Special Meeting, Initiation, Squatchfather, Bing, Cabin
+and Luxury Apartment. **Deliberate non-consumer:** Apartment's hub story still
+uses `core/goals.js`; its `Hud` nevertheless uses the same active projection
+for any mission-style rows presented there.
+
+### Reflected first-person body — `src/core/first-person-body.js`
+One reflection-layer player figure with durable outfit identity and stable
+standing, seated, bed and scripted pose synchronization. It owns walk gait,
+reflected weapon attachment/visibility, safe persistence, figure replacement
+and disposal. Scenes provide a visual factory/palette Adapter; they do not
+create a second mirror-body lifecycle. **Consumers:** Apartment, Luxury
+Apartment and Cabin. Squatchfather retains its older authored layer-1 Prospect
+body pending a future migration.
 
 ---
 
@@ -189,8 +203,13 @@ it's a real TV set and not a naming collision before counting it.
 
 ### Radio — `src/core/radio.js`
 The apartment's AM receiver, reused as sourced diegetic music/chatter.
-**Consumers:** Apartment, NO WAKE, Mansion (multiple cabinets), Golf, Bing,
-Beef Run.
+`hudVisible()` is the shared ownership seam for a physical receiver: the OSD
+appears only while the player is in that receiver's presentation range and is
+cleared immediately on leaving, pause, or power-off. Positional receivers use
+`radioHudWithinRange()` so that boundary agrees with the shared panner's useful
+range; vehicle receivers may instead supply their actual seated/camera mode.
+**Consumers:** Apartment, Luxury Apartment, NO WAKE, Mansion (multiple
+cabinets), Golf, Bing, Beef Run and Cabin.
 
 ### Smoke / cigarette exhale — `src/world/smoke.js`
 See REUSE-FIRST.md and REUSABLE-GAMEPLAY-SYSTEMS.md. **Consumers:**

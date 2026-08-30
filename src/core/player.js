@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { bindLookSensitivity, motionDuration } from './settings.js';
 import { ColliderGrid } from './collider-broadphase.js';
+import { readSpatialPrimitive } from './spatial-contract.js';
 
 const EYE_STAND = 1.66;
 const EYE_CROUCH = 1.02;
@@ -463,6 +464,7 @@ export class Player {
         const i = list[k];
         if (i < start) continue;
         const box = colliders[i];
+        if (readSpatialPrimitive(box)?.blocks.collision === false) continue;
         if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
         /* Low enough to step over from the floor he is on: not a wall.
          *
@@ -566,6 +568,7 @@ export class Player {
     let best = -Infinity;
     for (let k = 0; k < list.length; k++) {
       const box = colliders[list[k]];
+      if (readSpatialPrimitive(box)?.blocks.collision === false) continue;
       const top = box.max.y;
       if (top <= worldGround || top > limit || top <= best) continue;
       const dx = p.x - clamp(p.x, box.min.x, box.max.x);

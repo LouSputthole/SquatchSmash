@@ -262,6 +262,11 @@ export function buildRoom(scene, { renderer } = {}) {
   scene.add(root);
 
   const colliders = [];
+  /* Runtime-only furniture blockers. The front table and its two chairs do
+   * not exist in the room until staff carry them out, and one chair moves
+   * again when Margo sits. Keeping this list separate lets waiters see the
+   * current furniture without making the cinematic table collide mid-carry. */
+  const navBlockers = [];
   const floorZones = [];
   const platforms = [];   // raised or lowered floors: { box, y }
   const doors = {};
@@ -1341,6 +1346,92 @@ export function buildRoom(scene, { renderer } = {}) {
       const hd = rot ? 0.42 : 1.8;
       solid(rx - hw, rz - hd, rx + hw, rz + hd, CELLAR_Y, CELLAR_Y + 2.3);
     }
+
+    /* ---- the working old cellar, not an empty brick connector ----
+     *
+     * These pieces stay tight to the walls and below the shelving, so they
+     * dress the route without narrowing it: old utilities, evidence of stock
+     * being counted, and the wet/cleaning infrastructure a restaurant cellar
+     * has whether anybody is looking at it or not. */
+    const details = group('cellar-working-details');
+    const pipeMat = mat({ color: 0x5f6260, roughness: 0.48, metalness: 0.68 });
+    const copper = mat({ color: 0x8a5131, roughness: 0.38, metalness: 0.58 });
+    const paper = mat({ color: 0xc7b993, roughness: 0.96 });
+    const frameMat = mat({ color: 0x2d2118, roughness: 0.88 });
+    const stainMat = mat({ color: 0x30382f, roughness: 1, transparent: true, opacity: 0.5 });
+
+    // Steam/water runs and their clamps on the east brick. They are one fitted
+    // service assembly: the risers are meant to tee into both horizontal runs,
+    // and each clamp is meant to bite its riser.
+    const utilities = fitted(group('cellar-utilities'), 'silver-cellar-utilities');
+    for (const [pz, material] of [[5.4, pipeMat], [4.95, copper]]) {
+      const run = cylinder({ r: 0.032, h: 5.2, pos: [28.49, CELLAR_Y + 1.78, pz], rotX: Math.PI / 2, mat: material });
+      run.name = 'cellar-utility-pipe-run';
+      utilities.add(run);
+    }
+    for (const z of [2.8, 5.1, 7.4]) {
+      const riser = cylinder({ r: 0.035, h: 1.85, pos: [28.48, CELLAR_Y + 0.93, z], mat: pipeMat });
+      riser.name = 'cellar-utility-pipe-riser';
+      utilities.add(riser);
+      utilities.add(box({ name: 'cellar-pipe-clamp', size: [0.08, 0.035, 0.18], pos: [28.44, CELLAR_Y + 1.35, z], mat: M_STEEL_D }));
+    }
+    details.add(utilities);
+
+    // Electrical conduit, pull boxes and an old labelled disconnect. This is
+    // wall-mounted hardware, not three unsupported props occupying one spot.
+    const electrical = fitted(group('cellar-electrical'), 'silver-cellar-electrical');
+    electrical.add(box({ name: 'cellar-electrical-conduit', size: [0.035, 1.55, 0.035], pos: [15.19, CELLAR_Y + 1.34, 3.25], mat: M_STEEL_D }));
+    electrical.add(box({ name: 'cellar-electrical-box', size: [0.13, 0.34, 0.42], pos: [15.20, CELLAR_Y + 1.38, 3.25], mat: M_STEEL }));
+    electrical.add(box({ name: 'cellar-electrical-label', size: [0.012, 0.10, 0.25], pos: [15.125, CELLAR_Y + 1.40, 3.25], mat: paper }));
+    details.add(electrical);
+
+    // Faded dining-room photographs and a current inventory clipboard.
+    for (const [z, tint] of [[0.1, 0x615445], [-0.75, 0x51463d], [-1.55, 0x71604b]]) {
+      details.add(box({ name: 'cellar-photo-frame', size: [0.055, 0.54, 0.68], pos: [28.49, CELLAR_Y + 1.45, z], mat: frameMat }));
+      details.add(box({ name: 'cellar-old-photograph', size: [0.03, 0.43, 0.56], pos: [28.45, CELLAR_Y + 1.45, z], mat: mat({ color: tint, roughness: 1 }) }));
+    }
+    details.add(box({ name: 'cellar-inventory-clipboard', size: [0.035, 0.48, 0.34], pos: [28.48, CELLAR_Y + 1.28, -4.6], mat: M_WOOD }));
+    for (let i = 0; i < 5; i++) {
+      details.add(box({ name: 'cellar-inventory-note', size: [0.018, 0.018, 0.25], pos: [28.455, CELLAR_Y + 1.42 - i * 0.065, -4.6], mat: paper }));
+    }
+
+    // Drain, damp bloom, mop bucket and cleaning bottles at the far corner.
+    const drain = cylinder({ r: 0.18, h: 0.012, pos: [25.8, CELLAR_Y + 0.008, 7.55], mat: M_STEEL_D });
+    drain.name = 'cellar-floor-drain';
+    details.add(drain);
+    for (let i = 0; i < 6; i++) {
+      details.add(box({
+        name: 'cellar-floor-drain-slot', size: [0.025, 0.014, 0.25],
+        pos: [25.8 - 0.10 + i * 0.04, CELLAR_Y + 0.016, 7.55], mat: frameMat,
+      }));
+    }
+    const damp = cylinder({ r: 0.48, h: 0.008, pos: [25.8, CELLAR_Y + 0.006, 7.55], mat: stainMat });
+    damp.name = 'cellar-damp-stain';
+    details.add(damp);
+    const bucket = cylinder({ rTop: 0.20, rBottom: 0.16, h: 0.32, pos: [27.9, CELLAR_Y + 0.16, 7.45], mat: mat({ color: 0x7a2e28, roughness: 0.72 }) });
+    bucket.name = 'cellar-mop-bucket';
+    details.add(bucket);
+    const mop = cylinder({ r: 0.025, h: 1.65, pos: [28.2, CELLAR_Y + 0.825, 7.75], mat: M_WOOD, rotZ: -0.12 });
+    mop.name = 'cellar-mop-handle';
+    details.add(mop);
+    for (let i = 0; i < 3; i++) {
+      const bottle = cylinder({ r: 0.055, h: 0.23, pos: [27.55 + i * 0.14, CELLAR_Y + 0.12, 7.75], mat: mat({ color: [0xc9c277, 0x547d65, 0xb8c3c9][i], roughness: 0.5 }) });
+      bottle.name = 'cellar-cleaning-bottle';
+      details.add(bottle);
+    }
+
+    // Two wood barrels and paper stock labels, tucked behind the north rack.
+    // Keep them clear of the authored 17.6,7.6 -> 20,4 service route: this is
+    // dressing, not a silent obstacle the date can walk through.
+    for (const [i, x] of [24.1, 24.9].entries()) {
+      const barrelAssembly = fitted(group(`cellar-barrel-${i}`), `silver-cellar-barrel-${i}`);
+      const barrel = cylinder({ r: 0.31, h: 0.72, pos: [x, CELLAR_Y + 0.36, 7.72], mat: M_WOOD, rotZ: Math.PI / 2 });
+      barrel.name = 'cellar-wine-barrel';
+      barrelAssembly.add(barrel);
+      barrelAssembly.add(box({ name: 'cellar-storage-label', size: [0.24, 0.14, 0.018], pos: [x, CELLAR_Y + 0.40, 7.39], mat: paper }));
+      details.add(barrelAssembly);
+    }
+    add(details);
 
     // The crate that is spoken for, on its own, with a chalk mark on it
     const crate = box({ size: [1.1, 0.75, 0.9], pos: [27.4, CELLAR_Y + 0.38, -4.4], mat: M_WOOD });
@@ -2832,6 +2923,7 @@ export function buildRoom(scene, { renderer } = {}) {
    * best moment in the mission look like a trick, so it is not done.
    */
   const front = group('front-table');
+  let frontService = null;
   {
     const cloth = mat({ color: 0xf2ede2, roughness: 0.95 });
     const pedestal = cylinder({ r: 0.09, h: 0.72, pos: [0, 0.36, 0], mat: M_DARKWOOD });
@@ -2860,6 +2952,9 @@ export function buildRoom(scene, { renderer } = {}) {
     lampG.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
     lampG.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: M_SHADE }));
     lampG.visible = false;
+    /* A hand's-width off the player-to-Margo sightline. Still centred to the
+     * cloth as a composition, no longer centred on her face. */
+    lampG.position.z = 0.18;
     front.add(lampG);
     /* Above the shade, same as every other lamp in the room: this is the one
      * fitting the player spends twenty minutes eighty centimetres from, and
@@ -2868,7 +2963,7 @@ export function buildRoom(scene, { renderer } = {}) {
      * from his chair and the white pool under the lamp is counted in pixels. */
     const frontLight = pointLight(0xffb45e, 0.55, 4.8);
     frontLight.intensity = 0;               // lit last, which is what makes it a table
-    frontLight.position.set(0, 1.55, 0);
+    frontLight.position.set(0, 1.55, 0.18);
     front.add(frontLight);
 
     // Two settings, hidden until a waiter lays them
@@ -2888,6 +2983,73 @@ export function buildRoom(scene, { renderer } = {}) {
       settings.push(s);
       front.add(s);
     }
+
+    /* Physical table service, authored once and revealed by the service
+     * beats. Liquid is a separate named mesh so full/partial/empty is a real
+     * state, not a subtitle claiming somebody drank from an unchanged glass. */
+    const service = group('front-service');
+    const amber = mat({ color: 0xb86d24, roughness: 0.18, transparent: true, opacity: 0.78 });
+    const pale = mat({ color: 0xe4c26a, roughness: 0.16, transparent: true, opacity: 0.68 });
+    const iceMat = mat({ color: 0xd7ecf3, roughness: 0.12, transparent: true, opacity: 0.54 });
+    const foil = mat({ color: 0xd3ba64, roughness: 0.22, metalness: 0.86 });
+    const label = mat({ color: 0xe6dfc7, roughness: 0.88 });
+    const champagneGlass = mat({ color: 0x163025, roughness: 0.24, metalness: 0.08 });
+
+    const makeTableGlass = (name, x, z, liquidMat = amber) => {
+      const glass = group(name);
+      const shell = cylinder({ rTop: 0.052, rBottom: 0.045, h: 0.13, pos: [0, 0.065, 0], mat: M_GLASS });
+      shell.name = `${name}-glass`;
+      const liquid = cylinder({ rTop: 0.044, rBottom: 0.039, h: 0.085, pos: [0, 0.045, 0], mat: liquidMat, cast: false });
+      liquid.name = `${name}-liquid`;
+      glass.add(shell, liquid);
+      glass.position.set(x, 0.785, z);
+      glass.visible = false;
+      glass.userData.liquid = liquid;
+      glass.userData.level = 1;
+      return glass;
+    };
+    const makeShot = (name, x) => {
+      const shot = group(name);
+      const shell = cylinder({ rTop: 0.038, rBottom: 0.029, h: 0.072, pos: [0, 0.036, 0], mat: M_GLASS });
+      shell.name = `${name}-glass`;
+      const liquid = cylinder({ rTop: 0.032, rBottom: 0.026, h: 0.046, pos: [0, 0.024, 0], mat: pale, cast: false });
+      liquid.name = `${name}-liquid`;
+      shot.add(shell, liquid);
+      shot.position.set(x, 0.785, 0.15);
+      shot.visible = false;
+      shot.userData.liquid = liquid;
+      shot.userData.level = 1;
+      return shot;
+    };
+
+    const hisDrink = makeTableGlass('front-drink-player', 0.36, -0.17);
+    const herDrink = makeTableGlass('front-drink-margo', -0.36, -0.17);
+    const playerShot = makeShot('front-shot-player', 0.20);
+    const margoShot = makeShot('front-shot-margo', -0.20);
+
+    const champagne = group('front-champagne-service');
+    const bucket = cylinder({ rTop: 0.17, rBottom: 0.13, h: 0.32, pos: [0, 0.16, 0], mat: M_STEEL });
+    bucket.name = 'front-champagne-bucket';
+    const bottle = cylinder({ r: 0.055, h: 0.58, pos: [0, 0.38, 0], mat: champagneGlass });
+    bottle.name = 'front-champagne-bottle';
+    const bottleLabel = cylinder({ r: 0.058, h: 0.16, pos: [0, 0.30, 0], mat: label });
+    bottleLabel.name = 'front-champagne-label';
+    const bottleFoil = cylinder({ rTop: 0.025, rBottom: 0.04, h: 0.16, pos: [0, 0.72, 0], mat: foil });
+    bottleFoil.name = 'front-champagne-foil';
+    const cork = cylinder({ r: 0.022, h: 0.055, pos: [0, 0.825, 0], mat: M_WOOD });
+    cork.name = 'front-champagne-cork';
+    champagne.add(bucket, bottle, bottleLabel, bottleFoil, cork);
+    for (const [ix, iz] of [[-0.09, 0.06], [0.08, 0.04], [-0.04, -0.07], [0.10, -0.08]]) {
+      const ice = box({ name: 'front-champagne-ice', size: [0.07, 0.06, 0.06], pos: [ix, 0.29, iz], mat: iceMat, cast: false });
+      ice.rotation.y = ix * 5;
+      champagne.add(ice);
+    }
+    champagne.position.set(0, 0.785, 0.34);
+    champagne.visible = false;
+
+    service.add(hisDrink, herDrink, playerShot, margoShot, champagne);
+    front.add(service);
+    frontService = { group: service, hisDrink, herDrink, playerShot, margoShot, champagne };
 
     front.visible = false;
     add(front);
@@ -2932,6 +3094,20 @@ export function buildRoom(scene, { renderer } = {}) {
     { x: -14.98, z: -5.2, yaw: -Math.PI / 2, faceYaw: Math.PI / 2 },   // his: looking at her, stage a quarter-turn right
     { x: -17.02, z: -5.2, yaw: Math.PI / 2, faceYaw: -Math.PI / 2 },   // hers: looking at him
   ];
+  function syncFrontTableNav(active = true) {
+    navBlockers.length = 0;
+    if (!active || !front.visible) return navBlockers;
+    const addNav = (name, x, z, hx, hz, height = 1.15) => {
+      const blocker = collider([x - hx, 0, z - hz], [x + hx, height, z + hz]);
+      blocker.name = name;
+      navBlockers.push(blocker);
+    };
+    addNav('silver-front-table-nav', front.position.x, front.position.z, 0.72, 0.72, 1.05);
+    frontChairs.forEach((chair, i) => {
+      addNav(`silver-front-chair-${i}-nav`, chair.position.x, chair.position.z, 0.38, 0.38, 1.2);
+    });
+    return navBlockers;
+  }
   /** Where the seated view has to be able to reach: the middle of the stage. */
   anchors.frontSeatStageYaw = Math.atan2(
     -(anchors.stageCentre.x - anchors.frontSeats[0].x),
@@ -3117,9 +3293,10 @@ export function buildRoom(scene, { renderer } = {}) {
   }
 
   return {
-    root, colliders, floorZones, platforms, doors, anchors,
+    root, colliders, navBlockers, floorZones, platforms, doors, anchors,
     groundAt, update, roomAt, zoneAt, ROOMS, ROUTE,
-    frontTable: { group: front, chairs: frontChairs },
+    frontTable: { group: front, chairs: frontChairs, service: frontService },
+    syncFrontTableNav,
     setHouse, openStageCurtain, lighting,
     lamps, houseLights, stageLights,
     M,

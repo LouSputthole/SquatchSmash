@@ -7,6 +7,8 @@
  */
 import * as THREE from 'three';
 import { mat, box, group, collider } from '../world/build.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
+import { VehicleOccupants } from '../core/vehicles/occupants.js';
 import { lit, rand, pick } from './kit.js';
 
 const BODY_COLOURS = [0x16161c, 0x24242e, 0x4a1418, 0x2e2e36, 0x5a4a2a, 0x18242e, 0x7a7a82, 0x3a2a1e];
@@ -23,7 +25,7 @@ const SHAPES = {
  * One car. Returns the group plus the bits that light up, because half of
  * these have somebody sitting in them with the engine running.
  */
-export function makeCar(kind = 'sedan', colour = null, { dented = false } = {}) {
+export function makeCar(kind = 'sedan', colour = null, { dented = false, spatialId = null } = {}) {
   const s = SHAPES[kind] ?? SHAPES.sedan;
   const paint = mat({ color: colour ?? pick(BODY_COLOURS), roughness: dented ? 0.72 : 0.36, metalness: 0.55 });
   const glass = mat({ color: 0x0d141c, roughness: 0.12, metalness: 0.3, transparent: true, opacity: 0.82 });
@@ -31,6 +33,12 @@ export function makeCar(kind = 'sedan', colour = null, { dented = false } = {}) 
   const chrome = mat({ color: 0xb9c0cc, roughness: 0.2, metalness: 0.95 });
 
   const g = group(`car.${kind}`);
+  if (spatialId !== null) {
+    if (typeof spatialId !== 'string' || !spatialId.trim()) {
+      throw new TypeError('makeCar spatialId must be a non-empty string when provided');
+    }
+    g.userData.spatialId = spatialId.trim();
+  }
   const bodyY = s.wheelR + s.bodyH / 2;
   const bodyBox = box({ name: 'car.body', size: [s.L, s.bodyH, s.W], pos: [0, bodyY, 0], mat: paint });
   g.add(bodyBox);
@@ -201,6 +209,10 @@ export function openCabin(car, { from, to } = {}) {
  * tyres sit proud of the nominal body width.
  */
 export function makeVehicleCollider(vehicle, pad = 0.08) {
+  const spatialId = vehicle?.group?.userData?.spatialId;
+  if (typeof spatialId !== 'string' || !spatialId.trim()) {
+    throw new TypeError('makeVehicleCollider requires an authored vehicle.group.userData.spatialId');
+  }
   const yaw = vehicle.group.rotation.y;
   const halfLength = vehicle.length / 2 + pad;
   const halfWidth = vehicle.width / 2 + 0.12 + pad;
@@ -209,11 +221,15 @@ export function makeVehicleCollider(vehicle, pad = 0.08) {
   const halfX = c * halfLength + s * halfWidth;
   const halfZ = s * halfLength + c * halfWidth;
   const { x, z } = vehicle.group.position;
-  return collider(
+  const volume = collider(
     [x - halfX, 0, z - halfZ],
     [x + halfX, Math.max(1.6, vehicle.height), z + halfZ],
     0,
   );
+  return markSpatialPrimitive(volume, {
+    id: spatialId.trim(),
+    kind: 'vehicle',
+  });
 }
 
 /** Two silhouettes in a car with the engine off. They do not get out. */
@@ -233,8 +249,8 @@ export function makeWatchers() {
  * The mission starts here: engine running, wipers going, radio on, and a
  * message on the dash telling you Lou has something for you.
  */
-export function makePlayerCar(scene, { x, z, yaw = 0 }) {
-  const car = makeCar('sedan', 0x1d1f28);
+export function makePlayerCar(scene, { x, z, yaw = 0, spatialId = 'bing.player-car' }) {
+  const car = makeCar('sedan', 0x1d1f28, { spatialId });
   car.group.position.set(x, 0, z);
   car.group.rotation.y = yaw;
   car.group.userData.role = 'player-car';
@@ -532,6 +548,9 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   // Tony or the interaction pad through the neighbouring vehicle.
   const driverLocal = new THREE.Vector3(-0.18, 1.55, -0.43);
   const exitLocal = new THREE.Vector3(-0.35, 0, -1.55);
+  const occupants = new VehicleOccupants(car.group, {
+    driverEye: driverLocal,
+  });
   const worldPoint = (local) => {
     car.group.updateMatrixWorld(true);
     return local.clone().applyMatrix4(car.group.matrixWorld);
@@ -546,10 +565,11 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
     seats,
     rearBench,
     gauges,
+    occupants,
     driverLocal,
     exitLocal,
     /** Where the camera sits when you are behind the wheel. */
-    driverPosition: () => worldPoint(driverLocal),
+    driverPosition: (out = new THREE.Vector3()) => occupants.worldPoint('driverEye', null, out),
     /** Clear ground beside the driver's door. */
     exitPosition: () => worldPoint(exitLocal),
     /** Player yaw matching the car's local +X forward direction. */
@@ -571,16 +591,25 @@ function cylinderMesh(radius, height, material, segments = 14) {
 /** Fill the lot: Lincolns, Cadillacs, two SUVs, a van, and one dented compact. */
 export function populateLot(scene, colliders, anchors) {
   const spots = [
-    [-23.7, 25, 'lincoln', null, {}], [-19.1, 25, 'sedan', null, {}], [-14.5, 25, 'suv', 0x2a2a34, {}],
-    [-9.9, 25, 'sedan', null, {}], [-5.3, 25, 'lincoln', 0x1a1a22, {}],
-    [3.9, 25, 'compact', 0x6a4a2a, { dented: true }], [8.5, 25, 'sedan', null, {}],
-    [13.1, 25, 'suv', null, {}], [17.7, 25, 'lincoln', null, {}],
-    [-23.7, 35, 'sedan', null, {}], [-19.1, 35, 'sedan', null, {}], [-9.9, 35, 'van', 0xd8d4c8, {}],
-    [-0.7, 35, 'lincoln', null, {}], [8.5, 35, 'sedan', null, {}], [17.7, 35, 'sedan', null, {}],
+    ['bing.lot.north-01', -23.7, 25, 'lincoln', null, {}],
+    ['bing.lot.north-02', -19.1, 25, 'sedan', null, {}],
+    ['bing.lot.north-03', -14.5, 25, 'suv', 0x2a2a34, {}],
+    ['bing.lot.north-04', -9.9, 25, 'sedan', null, {}],
+    ['bing.lot.north-05', -5.3, 25, 'lincoln', 0x1a1a22, {}],
+    ['bing.lot.north-06', 3.9, 25, 'compact', 0x6a4a2a, { dented: true }],
+    ['bing.lot.north-07', 8.5, 25, 'sedan', null, {}],
+    ['bing.lot.north-08', 13.1, 25, 'suv', null, {}],
+    ['bing.lot.north-09', 17.7, 25, 'lincoln', null, {}],
+    ['bing.lot.south-01', -23.7, 35, 'sedan', null, {}],
+    ['bing.lot.south-02', -19.1, 35, 'sedan', null, {}],
+    ['bing.lot.south-03', -9.9, 35, 'van', 0xd8d4c8, {}],
+    ['bing.lot.south-04', -0.7, 35, 'lincoln', null, {}],
+    ['bing.lot.south-05', 8.5, 35, 'sedan', null, {}],
+    ['bing.lot.south-06', 17.7, 35, 'sedan', null, {}],
   ];
   const cars = [];
-  for (const [cx, cz, kind, colour, opts] of spots) {
-    const c = makeCar(kind, colour, opts);
+  for (const [spatialId, cx, cz, kind, colour, opts] of spots) {
+    const c = makeCar(kind, colour, { ...opts, spatialId });
     c.group.position.set(cx, 0, cz);
     c.group.rotation.y = Math.PI / 2 + rand(-0.03, 0.03);
     scene.add(c.group);
@@ -590,7 +619,7 @@ export function populateLot(scene, colliders, anchors) {
   }
 
   // Lou's dark sedan, in the space with his name painted under it
-  const lou = makeCar('lincoln', 0x101016);
+  const lou = makeCar('lincoln', 0x101016, { spatialId: 'bing.lou-car' });
   lou.group.position.copy(anchors.louCar);
   lou.group.rotation.y = Math.PI / 2;
   scene.add(lou.group);
@@ -598,7 +627,7 @@ export function populateLot(scene, colliders, anchors) {
   colliders.push(lou.worldCollider);
 
   // And the suspiciously clean one, parked where it can see the back office
-  const watchers = makeCar('sedan', 0x2e3038);
+  const watchers = makeCar('sedan', 0x2e3038, { spatialId: 'bing.watcher-car' });
   watchers.group.position.copy(anchors.suspiciousCar);
   watchers.group.rotation.y = Math.PI;
   const inside = makeWatchers();

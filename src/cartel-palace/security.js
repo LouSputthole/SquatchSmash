@@ -230,6 +230,10 @@ export class PalaceSecurity {
     cast,
     colliders = [],
     combatPosts = PALACE_COMBAT_POSTS,
+    /* Optional Palace-only physical path adapter. It receives destinations
+     * already chosen here; perception, suppression, firing, tactical scores
+     * and boss phases never move into the navigation package. */
+    navigation = null,
     playerActor = null,
     /* Optional shared CombatAudio. The scene root already presents the
      * physical impact through its own instance, and the shared vocal throttle
@@ -261,6 +265,7 @@ export class PalaceSecurity {
     this.cast = cast;
     this.colliders = colliders;
     this.combatPosts = Array.isArray(combatPosts) ? combatPosts : PALACE_COMBAT_POSTS;
+    this.navigation = navigation;
     this.playerActor = playerActor;
     this.audio = audio ?? null;
     this.gunshotHearingRadius = Number.isFinite(Number(gunshotHearingRadius))
@@ -656,6 +661,7 @@ export class PalaceSecurity {
     if (located.fatal || entry.actor.incapacitated) {
       this.cast.markDown(entry, { reaction });
       this._releaseTacticalPost(entry);
+      this.navigation?.forget?.(entry.id);
       if (entry.role === 'boss') {
         entry.phase = 'down';
         this.onBossPhase('down', entry);
@@ -768,6 +774,33 @@ export class PalaceSecurity {
     return result;
   }
 
+  /**
+   * Walk toward an already-authored/selected goal.
+   *
+   * Recast may supply the next short leg. AabbCombatSpace still sweeps that
+   * leg against live doors, furniture and bodies; if the optional adapter is
+   * unavailable or cannot make a path, the established direct/detour policy
+   * remains the exact fallback.
+   */
+  _moveToward(entry, goal, maxDistance, runtime, dt) {
+    const direct = _goalStep.copy(goal).sub(entry.root.position).setY(0);
+    const distance = direct.length();
+    if (distance <= 1e-8) return { result: this._move(entry, direct), displacement: direct.clone() };
+    direct.multiplyScalar(Math.min(distance, Math.max(0, maxDistance)) / distance);
+    const navigated = this.navigation?.step?.(
+      entry.id,
+      entry.root.position,
+      goal,
+      Math.min(distance, Math.max(0, maxDistance)),
+    );
+    const displacement = navigated?.isVector3 && navigated.lengthSq() > 1e-10
+      ? navigated : direct;
+    return {
+      result: this._moveWithDetour(entry, displacement, runtime, dt),
+      displacement,
+    };
+  }
+
   _tactics(entry) {
     return ROLE_TACTICS[entry?.role] ?? ROLE_TACTICS.guard;
   }
@@ -782,10 +815,11 @@ export class PalaceSecurity {
       return;
     }
     const speed = this._tactics(entry).patrol;
-    direction.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
     const runtime = this._runtime(entry);
-    this._moveWithDetour(entry, direction, runtime, dt);
-    if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(direction.x, direction.z);
+    const movement = this._moveToward(entry, goal, dt * speed * speedScale, runtime, dt);
+    if (!entry.aimAligned && movement.displacement.lengthSq() > 1e-8) {
+      entry.root.rotation.y = Math.atan2(movement.displacement.x, movement.displacement.z);
+    }
   }
 
   /**
@@ -808,9 +842,25 @@ export class PalaceSecurity {
       return;
     }
     const speed = this._tactics(entry).patrol * 1.3;
-    toward.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
-    this._moveWithDetour(entry, toward, runtime, dt);
-    if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
+    const movement = this._moveToward(entry, point, dt * speed * speedScale, runtime, dt);
+    if (!entry.aimAligned && movement.displacement.lengthSq() > 1e-8) {
+      entry.root.rotation.y = Math.atan2(movement.displacement.x, movement.displacement.z);
+    }
+  }
+
+  /** The documented stale-contact fallback: go back to the authored post. */
+  _returnToPost(entry, dt, speedScale = 1) {
+    const runtime = this._runtime(entry);
+    const goal = runtime?.authoredPosition;
+    if (!goal?.isVector3) return;
+    const distance = goal.distanceTo(entry.root.position);
+    if (distance <= 0.55) return;
+    this._releaseTacticalPost(entry);
+    const speed = this._tactics(entry).patrol * 1.12;
+    const movement = this._moveToward(entry, goal, dt * speed * speedScale, runtime, dt);
+    if (!entry.aimAligned && movement.displacement.lengthSq() > 1e-8) {
+      entry.root.rotation.y = Math.atan2(movement.displacement.x, movement.displacement.z);
+    }
   }
 
   /**
@@ -833,9 +883,10 @@ export class PalaceSecurity {
     if (distance > IDLE_ARRIVAL) {
       task.arrived = false;
       const speed = this._tactics(entry).patrol;
-      toward.multiplyScalar(Math.min(distance, dt * speed * speedScale) / distance);
-      this._moveWithDetour(entry, toward, runtime, dt);
-      if (!entry.aimAligned) entry.root.rotation.y = Math.atan2(toward.x, toward.z);
+      const movement = this._moveToward(entry, task.goal, dt * speed * speedScale, runtime, dt);
+      if (!entry.aimAligned && movement.displacement.lengthSq() > 1e-8) {
+        entry.root.rotation.y = Math.atan2(movement.displacement.x, movement.displacement.z);
+      }
       return false;
     }
     task.arrived = true;
@@ -907,12 +958,12 @@ export class PalaceSecurity {
         speed = tactics.strafe;
       }
     }
-    this._moveWithDetour(
-      entry,
-      direction.multiplyScalar(dt * speed * speedScale),
-      runtime,
-      dt,
-    );
+    const stepDistance = dt * speed * speedScale;
+    if (direction === toward) {
+      this._moveToward(entry, movementTarget, stepDistance, runtime, dt);
+    } else {
+      this._moveWithDetour(entry, direction.multiplyScalar(stepDistance), runtime, dt);
+    }
   }
 
   _pose(entry, runtime, frame) {
@@ -1113,6 +1164,12 @@ export class PalaceSecurity {
         }
       } else if ((this.alarm || finalEncounter) && remembered) {
         this._combatMove(entry, step, remembered, runtime.impairments.speedScale);
+      } else if (this.alarm && entry.role === 'guard') {
+        /* The shared contact has gone stale. The design comment above has
+         * always promised that a man who finds nothing returns to his post;
+         * the old branch stopped selecting any destination once the alarm's
+         * 14-second memory expired, so he froze wherever it ran out. */
+        this._returnToPost(entry, step, runtime.impairments.speedScale);
       }
       this.space.separate(entry, this.cast.all, {
         boxes: this.colliders,

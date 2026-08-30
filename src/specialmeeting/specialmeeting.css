@@ -1,12 +1,10 @@
 /**
  * THE SPECIAL MEETING — the two pieces of screen this scene owns.
  *
- * `#blackout` already exists in `src/style.css` as a 1.4-second dissolve, which
- * is the right thing for going home and the wrong thing here: SM-196 is a CUT,
- * hard, on a car that has been driving for five seconds in total silence, and
- * the road noise carries on underneath it. `.cut` takes the transition off so
- * the picture stops rather than fades. SM-197 puts a duration back on, long, so
- * the dirt road arrives slowly.
+ * `#blackout` already exists in `src/style.css` as a dissolve. The drive now
+ * uses it only after the final exchange, with the duration supplied by the
+ * authored beat. `.cut` remains the recovery/handoff escape hatch for a caller
+ * that explicitly requests an immediate cut.
  */
 #blackout.cut { transition-duration: 0s; }
 

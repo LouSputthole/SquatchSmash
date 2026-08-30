@@ -2,19 +2,24 @@
 
 The Copacabana-entrance date mission, built on what is already here.
 
-> **Status, 2026-07-30: integrated.** This document is the original design map
+> **Status, 2026-08-28: integrated on the current spine.** This document is the original design map
 > and is kept for the reasoning behind the mission, not as a description of
-> where it sits. The mission is now in the campaign at **Day 3 evening** —
-> `SCENE_IDS.SILVER_ROOM`, gated by `src/core/silver-story.js`, reached from the
-> apartment door after Margo rings, and returning home before the Day 4 big
-> night. `docs/CONSOLIDATION-HANDOFF.md` is authoritative for the wiring.
+> where it sits. The mission is now Beat 15 on **Day 6 evening**:
+> Tony schedules it during the Act-One cabin call, receives the luxury-apartment
+> keys at Silver Pines, completes the new flat's three get-ready chores, and
+> takes its elevator directly to `SCENE_IDS.SILVER_ROOM`. Completion returns
+> him and Margo to the luxury apartment for the stayover. The story authority
+> is `docs/CAMPAIGN-STORY-BIBLE.md`; the live route is
+> `src/core/campaign-spine.js`.
 >
-> Two things in the sections below describe the pre-integration build and are no
-> longer true: the mission no longer writes its ending to a private
+> Four things in the sections below describe the pre-integration build and are
+> no longer true: the mission no longer writes its ending to a private
 > `squatch.frontAndCenter` localStorage key (it folds into campaign state), and
-> `core/phone.js`'s `CALLS` array is not where her call lives — the campaign
-> owns scheduled calls, so she is `DATE_MARGO_CALL` in
-> `src/core/apartment-story.js`.
+> the phone-system notes describe a later incoming Margo call that has been
+> retired. The cabin owns the only player-facing scheduling conversation;
+> `margo_date_call` survives only as an exact-once compatibility key. Woo now
+> changes only Margo's affirmative delivery: `perfect` and `strong` are the two
+> live endings, while older negative outcome values remain readable for saves.
 
 ## What the audit found
 
@@ -46,13 +51,13 @@ character, not the code.
 | Doors | `bing/club.js` `Door` | Service door, walk-in, kitchen swing doors, curtain. Collider leaves the array while the leaf is open. |
 | Procedural texture kit | `bing/kit.js` | Brick, asphalt, panelling, tile, neon, printed signage. |
 | Prop makers | `world/props.js` | Chairs, bottles, glasses, ashtrays, frames, clock, plants. |
-| Phone | `core/phone.js` | Margo's call. It is already built around *being rung*, which is the requirement. |
+| Phone | `core/phone.js` | The cabin's short outgoing scheduling beat; the apartments do not ring Margo again. |
 | Post FX, materials, build helpers | `core/postfx.js`, `world/materials.js`, `world/build.js` | Unchanged. |
 
 ## Systems extended (additively)
 
-- **`core/phone.js`** — one new entry in `CALLS`. No structural change; the call
-  format already carries `vo`, `lines` and a `meeting` hook.
+- **`core/phone.js`** — reused by the cabin-owned scheduling beat. No
+  apartment-specific incoming Margo entry is part of the current route.
 - **`bing/cast.js`** — `makePerson` gains `dress: 'chef' | 'porter' | 'gown'`
   and an apron/whites path. Everything existing keeps its current appearance.
 - **`bing/club.js`** — nothing. The Silver Room is its own builder in

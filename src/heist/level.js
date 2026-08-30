@@ -6,6 +6,7 @@ import {
 import {
   makeCashBag, makeHeistCarbine, makeHeistSidearm, makeBalaclava, makePlateCarrier, makeZipTies,
 } from './weapons.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
 
 const MAT = {
   concrete: new THREE.MeshStandardMaterial({ color: 0x5a5b58, roughness: 0.92 }),
@@ -80,6 +81,34 @@ function bounds(size, position) {
 
 function floorZone(width, depth, surface, x = 0, z = 0) {
   return { box: bounds([width, 0.1, depth], [x, 0, z]), surface };
+}
+
+/**
+ * A collision volume that carries WHAT IT IS beside where it is.
+ *
+ * `bounds` answers only the second question, and the certification ratchet
+ * counts a solid that cannot answer the first: `heist:street-withdrawal` was
+ * 21 of 21 untyped and `heist:mercer-garage` 35 of 35, which is what
+ * `spatial:heist:*:coverage:untyped-solids` had been counting since the debt
+ * baseline was first taken. `src/core/spatial-contract.js` is the contract;
+ * `src/luxury-apartment/world.js` is the pattern this follows.
+ *
+ * NO KIND USED IN THIS FILE CHANGES WHAT A SOLID BLOCKS, and that is on
+ * purpose. `world`, `prop` and `vehicle` all default to blocking all four
+ * channels -- collision, vision, navigation, ballistics -- which is exactly
+ * what an untyped collider already did in every place that reads them:
+ * `Player._resolve` and `_stepSupport` skip a box only for
+ * `blocks.collision === false`, and the staging sightline ray skips one only
+ * for `blocks.vision === false`. So this street keeps its firefight and this
+ * garage keeps its cover, unchanged, down to the metre. An explicit `blocks`
+ * here WOULD move them, and none of these solids wants that.
+ *
+ * The kinds are the truth about each solid, not the cheapest route to a lower
+ * number. A parked saloon is a `vehicle` because it is one -- not because
+ * `vehicle` and `world` happen to block the same four channels today.
+ */
+function solid(id, kind, size, position) {
+  return markSpatialPrimitive(bounds(size, position), { id, kind });
 }
 
 function roomColliders(width, depth, height) {
@@ -201,20 +230,93 @@ export function makeCargoVan(group, position, color = 0x151719, name = 'cargo-va
   }
 
   const rearZ = -2.59;
+  /* ------------------------------------------------------------------ *
+   * THE REAR DOORS, ON HINGES THAT ARE WHERE HINGES GO
+   *
+   * Owner, playtest: the rear doors read wrong on the exit. Measured on the
+   * shipped van, in van-local metres:
+   *
+   *   leaf, either side   |x| 0.020 .. 1.250      (1.23 wide, 0.04 seam gap)
+   *   hinge barrels       |x| 1.090 .. 1.170      (centre 1.13)
+   *   cargo box side      |x| 1.290
+   *
+   * The barrels stood 0.12 m INBOARD of the edge they were supposed to be the
+   * pivot for — a hinge in the middle of a door panel — and there was no
+   * pivot at all: both leaves were meshes parented straight to the van root,
+   * so nothing in the mission could open them. Swung about the barrels as
+   * they were modelled, the 0.12 m strip of leaf outboard of them sweeps
+   * forward into the body: at 90 degrees it stands at x 1.13, z −2.47, which
+   * is 0.08 m in through the cargo box's rear face and 0.16 m inside its
+   * side. A door that cannot open without going through the van is a door
+   * that never opens.
+   *
+   * So each leaf hangs in its own hinge group ON the hinge line at its outer
+   * edge, and everything bolted to a door travels with it: the barrels, the
+   * tail light, the handle and the overlapping centre seam. Shut, every part
+   * is where it has always been to the millimetre except the two that were
+   * the bug: the barrels move out from |x| 1.09-1.17 onto the hinge line at
+   * 1.17-1.25, and the plate comes off the seam. Open, the leaf sweeps out
+   * behind the van — its free edge reaches (±1.565, −3.779) and the whole
+   * leaf clears the cargo box, at an AABB overlap of 0.000.
+   * ------------------------------------------------------------------ */
+  /** The hinge line: the outer edge of each leaf, which is where a barn door
+   * is hinged. The leaf hangs inboard of it to the centre seam. */
+  const REAR_DOOR_HINGE_X = 1.25;
+  /** Leaf width, hinge line to seam, leaving 0.04 m of gap down the middle. */
+  const REAR_DOOR_W = 1.23;
+  /** 105 degrees: past square, which is how a loading door is left standing
+   * open. The swung leaf spans z −3.792 to −2.577, so it stops 0.45 m short
+   * of the rear end of the cargo rail it is folding back towards. */
+  const REAR_DOOR_OPEN = 1.83;
+  const rearDoorHinges = [];
   for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
-    box(root, [1.23, 2.08, 0.1], [side * 0.635, 1.53, rearZ], bodyMat,
+    const hinge = new THREE.Group();
+    hinge.name = `${name}-rear-door-hinge-${label}`;
+    hinge.position.set(side * REAR_DOOR_HINGE_X, 0, rearZ);
+    root.add(hinge);
+    rearDoorHinges.push([side, hinge]);
+    // Leaf-local X runs inboard from the hinge, so `-side` is toward the seam.
+    box(hinge, [REAR_DOOR_W, 2.08, 0.1], [-side * REAR_DOOR_W / 2, 1.53, 0], bodyMat,
       `${name}-rear-door-${label}`);
     for (const y of [0.78, 2.2]) {
-      box(root, [0.08, 0.2, 0.06], [side * 1.13, y, rearZ - 0.075], trim,
+      box(hinge, [0.08, 0.2, 0.06], [-side * 0.04, y, -0.075], trim,
         `${name}-rear-hinge-${label}-${y < 1 ? 'low' : 'high'}`);
     }
-    flat(root, [0.18, 0.38, 0.04], [side * 1.05, 0.9, rearZ - 0.085], lamp,
+    flat(hinge, [0.18, 0.38, 0.04], [-side * 0.2, 0.9, -0.085], lamp,
       `${name}-tail-light-${label}`);
   }
-  box(root, [0.06, 1.96, 0.06], [0, 1.53, rearZ - 0.07], trim, `${name}-rear-seam`);
-  box(root, [0.3, 0.1, 0.06], [0.2, 1.46, rearZ - 0.09], trim, `${name}-rear-handle`);
+  const [, rightLeaf] = rearDoorHinges[1];
+  /* The weather strip stands on the right leaf and laps over the left, which
+   * is the door that has to shut second — and is why the handle is on it. */
+  box(rightLeaf, [0.06, 1.96, 0.06], [-1.25, 1.53, -0.07], trim, `${name}-rear-seam`);
+  box(rightLeaf, [0.3, 0.1, 0.06], [-1.05, 1.46, -0.09], trim, `${name}-rear-handle`);
   box(root, [2.82, 0.22, 0.3], [0, 0.43, -2.7], trim, `${name}-rear-bumper`);
-  flat(root, [0.52, 0.22, 0.035], [0, 0.69, -2.655], MAT.paper, `${name}-rear-plate`);
+  /* The plate is on the BUMPER, not across the seam. It used to be a 0.52 m
+   * board centred on x 0 at door height, which belongs to both leaves and
+   * therefore to neither: opening the doors left it hanging in mid-air in the
+   * doorway. On the bumper face it stays with the van. */
+  flat(root, [0.52, 0.17, 0.035], [0, 0.43, -2.867], MAT.paper, `${name}-rear-plate`);
+
+  /**
+   * Swing both leaves, or shut them.
+   *
+   * The same shape as the vault door's `setOpen` a thousand lines below, and
+   * for the same reason: everything that moves when the door opens is a child
+   * of the hinge and nothing else is.
+   *
+   * @param {boolean} open
+   * @returns {boolean} what the doors now are
+   */
+  root.userData.setRearDoorsOpen = (open) => {
+    const isOpen = open === true;
+    root.userData.rearDoorsOpen = isOpen;
+    for (const [side, hinge] of rearDoorHinges) {
+      hinge.rotation.y = isOpen ? -side * REAR_DOOR_OPEN : 0;
+    }
+    return isOpen;
+  };
+  root.userData.rearDoorSwing = REAR_DOOR_OPEN;
+  root.userData.setRearDoorsOpen(false);
 
   // Two axles, four visible wheels. Their axis is X because this van is long Z.
   for (const z of [-1.72, 2.18]) {
@@ -808,6 +910,11 @@ function buildSafehouse() {
    * instead of parked sideways across the work floor. */
   const van = makeCargoVan(group, [0, 0, 6.45], 0x151719, 'primary-van');
   const vanDoor = van.userData.rearDoorTarget;
+  /* AND THE DOORS ARE OPEN, because the order on screen is "Board the primary
+   * van" and the beat `HEIST_CAMERA_MARKS.safehouse_van` frames is the two
+   * rear leaves. A crew loading a van through a sealed box is the whole of
+   * the owner's note. `main.js` shuts them behind him when he boards. */
+  van.userData.setRearDoorsOpen(true);
 
   return {
     group,
@@ -938,13 +1045,43 @@ function buildVan() {
     flat(group, [1.14, 0.012, 0.035], [0, 0.036, z], MAT.steel, `van-aisle-rib-${z}`);
   }
 
-  const door = box(group, [2.4, 2.5, 0.14], [0, 1.25, -3.13], vanDoor, 'van-interior-door');
+  /* ------------------------------------------------------------------ *
+   * THE DOORS THE CREW GOES OUT THROUGH, AND THE HOLE THEY WERE IN
+   *
+   * The rear opening of this box is the gap between the two side walls and
+   * between the floor and the ceiling. Measured on the built van:
+   *
+   *   side walls, inner faces   x ±1.660          -> opening 3.32 m wide
+   *   floor top / ceiling under y 0.000 / 2.700   -> opening 2.70 m tall
+   *   `van-interior-door`       x ±1.200, y 0-2.5 -> 2.40 x 2.50
+   *
+   * So the back of the van was a 2.4 m panel hung in a 3.32 m hole: 0.46 m of
+   * daylight down BOTH rear corners, floor to roof, and another 0.20 m across
+   * the top. Nearly three square metres of nothing, in the wall the exit beat
+   * is about, in the direction the man opposite you is facing for the whole
+   * ride. The doors did not read wrong because of what was drawn on them;
+   * they read wrong because two thirds of them were missing.
+   *
+   * The panel now fills its opening, and the detail says pair-of-doors: a
+   * seam down the middle where the leaves meet, the latch rods ON that seam
+   * rather than stranded 0.45 m out in the middle of a leaf, and a lining
+   * panel and reflector centred on each leaf at ±0.84.
+   * ------------------------------------------------------------------ */
+  const VAN_REAR_OPENING_W = 3.32;
+  const VAN_REAR_OPENING_H = 2.7;
+  /** Half the width of one leaf: the seam is at x 0, the hinge line at ±1.66. */
+  const VAN_LEAF_CENTRE_X = VAN_REAR_OPENING_W / 4;
+  const door = box(group, [VAN_REAR_OPENING_W, VAN_REAR_OPENING_H, 0.14],
+    [0, VAN_REAR_OPENING_H / 2, -3.13], vanDoor, 'van-interior-door');
+  box(group, [0.05, VAN_REAR_OPENING_H - 0.12, 0.05], [0, VAN_REAR_OPENING_H / 2, -3.03],
+    MAT.steel, 'van-rear-door-seam');
   for (const [side, label] of [[-1, 'left'], [1, 'right']]) {
-    box(group, [1.02, 0.88, 0.035], [side * 0.58, 1.55, -3.04], vanCeiling,
+    box(group, [1.4, 1.1, 0.035], [side * VAN_LEAF_CENTRE_X, 1.5, -3.04], vanCeiling,
       `van-rear-door-panel-${label}`);
-    flat(group, [0.34, 0.12, 0.025], [side * 0.84, 0.46, -3.015], GLOW.alarm,
+    flat(group, [0.34, 0.12, 0.025], [side * VAN_LEAF_CENTRE_X, 0.46, -3.015], GLOW.alarm,
       `van-rear-door-reflector-${label}`);
-    box(group, [0.1, 0.5, 0.06], [side * 0.5, 1.3, -3.0], MAT.brass,
+    // The latch rod stands on the leaf's own edge, at the seam it shuts on.
+    box(group, [0.1, 0.5, 0.06], [side * 0.16, 1.3, -2.985], MAT.brass,
       `van-rear-door-latch-${label}`);
   }
 
@@ -1001,6 +1138,27 @@ function buildVan() {
  * duffles somebody is standing in.
  */
 export const STAGING_POINT = Object.freeze({ x: -1.6, z: 9.2 });
+
+/**
+ * Where the crew come through the doors, and the only place they ever do.
+ *
+ * `buildBank` spawns the player here, `activatePhase` faces him down the hall
+ * from it, and the lobby guard is turned to watch it. It was three separate
+ * numbers — a spawn of (0, 8.6), a camera mark at (0, 8.5), and a guard yaw
+ * of −2.79 that answered to neither — and the third of them had the man on
+ * the door looking 114.86 degrees away from the door. One point, used by
+ * everything that is about the entrance, so they cannot drift apart again.
+ */
+export const BANK_ENTRY_POINT = Object.freeze({ x: 0, z: 8.6 });
+
+/**
+ * The guard's post: four metres inside the doors, on the east side.
+ *
+ * Beside `BANK_ENTRY_POINT` rather than derived from it — where he stands is
+ * a staging decision and where he looks is arithmetic off the entrance. See
+ * the block above `makeBankGuardFigure` below for both.
+ */
+const GUARD_POST = Object.freeze({ x: 2.2, z: 6.4 });
 
 /** Where the twenty-two lobby civilians stand when the doors come in. */
 export const LOBBY_ANCHORS = Object.freeze([
@@ -1162,7 +1320,44 @@ function buildBank() {
   ownGeometry(doors, 'heist.phase-bank.shell', { structural: true, fixedSupportAnchor: true });
   doors.position.set(0, 0, 10.6);
   box(doors, [22, 6.4, 0.4], [0, 3.2, 0.3], MAT.marbleDark);
-  const exit = box(doors, [3.2, 3.8, 0.12], [0, 1.9, 0.2], MAT.glass, 'bank-exit');
+  const exitPane = box(doors, [3.2, 3.8, 0.12], [0, 1.9, 0.2], MAT.glass, 'bank-exit');
+  /* THE WAY OUT, and why it is a proxy rather than the glass.
+   *
+   * Owner, playtest 2026-08-26: *"after you have the cash pile, there's no way
+   * to get outside. You stand by the door, you can't really leave."*
+   *
+   * The state machine was never the problem. The entrance wall on the line
+   * above is a solid 22 x 6.4 x 0.4 m slab with no doorway cut in it, running
+   * world z 10.70-11.10, and the glass pane sits at z 10.74-10.86 -- entirely
+   * INSIDE that slab, four centimetres behind its lobby face. The whole phase
+   * group is registered as an interaction occluder, and InteractionSystem's
+   * hit loop BREAKS on the first hit that owns no descriptor (see the loop in
+   * src/core/interaction.js) rather than skipping past it, so the marble takes
+   * the ray every time and the pane four centimetres further along is never
+   * examined. Driven headlessly over the shipped geometry, `bank-exit` became
+   * the crosshair target in 0 of 1127 lobby viewpoints, and 0 of 420 samples
+   * at the closest position the player clamp allows.
+   *
+   * So the descriptor moves onto an invisible volume standing proud of the
+   * slab on the lobby side, which is what this module's own header prescribes
+   * and what `cash-staging-volume` two hundred lines below already does.
+   * Invisible is the correct flag on both counts: three.js still raycasts a
+   * mesh with `visible = false`, so the crosshair finds it, while
+   * `hiddenOrIgnored` in src/core/combat/aim-proxy.js walks the parents for
+   * exactly that flag, so it will never stop a bullet.
+   *
+   * It is thin because it has to fit the gap exactly. The player clamp for
+   * this phase stops him at z 10.40 and the slab face is at z 10.70, so the
+   * volume lives at 10.45-10.66: proud of the marble, and never containing
+   * the camera. A deeper box would be easier to hit and useless, because a
+   * box is invisible to a ray that starts inside it -- every triangle faces
+   * away -- which this very file warns about a couple of hundred lines up. */
+  const exit = box(doors, [3.4, 2.3, 0.21], [0, 1.45, -0.045], MAT.invisible,
+    'bank-exit-volume');
+  exit.visible = false;
+  exit.castShadow = false;
+  exit.receiveShadow = false;
+  ownGeometry(exit, 'heist.bank.exit-volume', { overlap: false, checkSupport: false });
   box(doors, [0.16, 3.9, 0.2], [-1.7, 1.95, 0.16], MAT.brass);
   box(doors, [0.16, 3.9, 0.2], [1.7, 1.95, 0.16], MAT.brass);
   for (const x of [-5.4, 5.4]) {
@@ -1231,17 +1426,44 @@ function buildBank() {
    * the one man in the room who was going to shoot somebody was a figure in
    * the middle distance. A guard stands where the public comes in.
    *
-   * This is four metres inside the doors, three metres from where the crew
-   * come through, turned to look down the hall at the teller line — which is
-   * what he is watching until the doors go.
+   * This is four metres inside the doors and three metres from where the crew
+   * come through. (It used to end "turned to look down the hall at the teller
+   * line — which is what he is watching until the doors go", and that half of
+   * it was the next bug. See below.)
    *
    * IN FRONT of the entry point rather than beside it, on purpose: the whole
    * beat is 2.75 seconds long, and a guard the player has to turn round to
    * find is a guard who shoots a teller while he is being looked for. East
    * side rather than west because the west door area is already four bodies
    * and a column — the geometry gate found him standing inside `bank-column-2`
-   * on the first attempt. */
-  const guardFigure = makeBankGuardFigure({ name: 'bank-guard', x: 2.2, z: 6.4, yaw: -2.79 });
+   * on the first attempt.
+   *
+   * AND HE FACES THE DOOR HE IS STANDING ON.
+   *
+   * Owner, playtest: *"the guard is facing the wrong way"*. He was, by
+   * 114.86 degrees. His yaw was the literal −2.79, which is `atan2` from his
+   * post to the middle of the teller counter (−2.7928 — sixteen thousandths
+   * of a radian off it), so the comment above was accurate and the staging
+   * was still wrong: it put his back to the entrance for the one beat he
+   * exists for. The crew come through the doors at BANK_ENTRY_POINT, he says
+   * `guard_warning` — *"Stop right there"* — while he is on screen for 2.75
+   * seconds, and `HEIST_CAMERA_MARKS.bank_guard` films him from 0.1 m short
+   * of it: the frame the mission is built around was the back of his head and
+   * the SECURITY legend across his shoulder blades.
+   *
+   * Derived from the entry point rather than written down, so a spawn that
+   * moves takes his eyeline with it. Measured after: yaw −0.7854, which is
+   * 0.00 degrees off the point the crew walk in on, 17.35 off the doorway
+   * itself four metres beyond it, and 8.62 off the cash staging circle. The
+   * teller line he used to be staring at is now 115.02 behind his shoulder,
+   * which is the right way round: a guard watches the way in, and the tellers
+   * are the thing he is standing between it and. */
+  const guardFigure = makeBankGuardFigure({
+    name: 'bank-guard',
+    x: GUARD_POST.x,
+    z: GUARD_POST.z,
+    yaw: Math.atan2(BANK_ENTRY_POINT.x - GUARD_POST.x, BANK_ENTRY_POINT.z - GUARD_POST.z),
+  });
   group.add(guardFigure.root);
   const rearGuardFigure = makeBankGuardFigure({
     name: 'bank-rear-guard', x: 6.8, z: -0.2, yaw: Math.PI, height: 1.79,
@@ -1640,7 +1862,7 @@ function buildBank() {
 
   return {
     group,
-    spawn: new THREE.Vector3(0, 1.66, 8.6),
+    spawn: new THREE.Vector3(BANK_ENTRY_POINT.x, 1.66, BANK_ENTRY_POINT.z),
     interactables: {
       guard: guardFigure.root,
       rearGuard: rearGuardFigure.root,
@@ -1648,6 +1870,7 @@ function buildBank() {
       manager,
       vault,
       exit,
+      exitPane,
       staging: stagingVolume,
     },
     staging,
@@ -1679,6 +1902,442 @@ function buildBank() {
       vault.userData.doorCollider,
     ],
     floorZones: [floorZone(22, 22, 'marble'), floorZone(8.4, 6.4, 'concrete', 0, -10.1)],
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* The Mercer garage, from the street                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Owner playtest #58: *"the garage exterior is a gray dev block."*
+ *
+ * It was, exactly. The whole thing was
+ *
+ *     box([7, 4.5, 0.2], [0, 2.25, -35], MAT.concrete, 'garage-entry')
+ *
+ * with a 4.4 m amber bar over it, and nothing else. That matters more than a
+ * backdrop usually would: `buildStreet` spawns the player at z 31 and
+ * `player.yaw = 0` looks down -Z, so the garage is 66 m dead ahead of him from
+ * the first frame of the withdrawal to the last. It is on screen longer than
+ * anything else in the phase, and it was a grey rectangle.
+ *
+ * WHAT IT IS NOW: a four-level precast city garage — ground floor plus decks
+ * 2, 3 and the open roof — capping the south end of Mercer Street.
+ *
+ *   - open decks with 0.95 m spandrel upstands, and parked cars behind them
+ *     whose glasshouses stand 0.71 m over a 0.95 m upstand — measured — which is
+ *     the one thing that makes a stack of concrete bands read as a car park;
+ *   - the ramp entrance: a 7.0 m mouth, a clearance bar at 3.20 m with a
+ *     height plate on it, and a throat that drops away on the SAME -0.22 rad
+ *     tilt as the ramp you walk down inside (`buildGarage`), so the two are
+ *     one ramp seen from two ends;
+ *   - level numbering, backlit: 2, 3 and 4, stacked on the pier line four
+ *     metres west of the mouth so the whole column is in frame with it;
+ *   - a stair and lift core at the west end — a lit slot broken by the floor
+ *     lines, a steel door, a green exit sign, and the lift overrun standing
+ *     proud of the parapet, which is the silhouette that says "garage" at
+ *     sixty metres before any of the detail resolves;
+ *   - signage: the illuminated fascia band over the mouth (this is
+ *     `garage-sign`, kept by name and moved onto the building), a green
+ *     vacancy lozenge, and a 9 m pylon with a lit P on it;
+ *   - kerbed islands either side of the entry lane, a cashier's booth on the
+ *     east one, and a barrier arm — raised, because the crew's people opened
+ *     it and because an arm across the lane is an arm across the escape;
+ *   - lighting matched to what the street already does. The street phase
+ *     carries NO point lights at all — its twelve lamp posts are emissive
+ *     heads and nothing else — so this is emissive material plus exactly one
+ *     real light, in the mouth, because the way in is the one thing that has
+ *     to pool light on the asphalt for the player to read it as a way in.
+ *
+ * PALETTE: no new materials. MAT.concrete for the frame, MAT.darkConcrete for
+ * the recesses, MAT.tactical for the unlit interior, MAT.marbleDark for the
+ * coping and the kerbs, MAT.steel, MAT.warning, MAT.paper, MAT.glass, and the
+ * four GLOW emissives the rest of the phase already uses.
+ *
+ * BUDGET: 117 meshes — 116 drawn plus the invisible interaction proxy — on
+ * ONE shared unit box. `src/heist/city.js` settled that technique for the
+ * escape route ("one shared unit box for the entire city") and the reason
+ * holds here: this is backdrop geometry in a phase that also runs a firefight. Nothing here casts a shadow either, for the reason the
+ * storefronts next door already say in `buildStreet` — the key light has one
+ * 1536 shadow map for the whole scene and a 31 m building would eat it.
+ *
+ * WHERE IT SITS: the north face is at z = -36.0, which is exactly where the
+ * street ground, the two pavements and the two kerbs end. That is not
+ * decoration — it is the whole reason this build produces no geometry-gate
+ * findings. Every previous attempt to sit a building at z = -35 put its ground
+ * storey 0.9 m into the 35 cm pavement slab, which is a 35 cm interpenetration
+ * on the thin axis. Nothing here crosses z = -36.0 except over the road
+ * (|x| < 8.55), where there is nothing at that height to cross into.
+ */
+const MERCER = Object.freeze({
+  /** North elevation. The street ground and both pavements stop here. */
+  faceZ: -36.0,
+  /** Half width: a 31 m frontage, wider than the 18 m road it closes. */
+  halfWidth: 15.5,
+  /** Half the ramp mouth. `buildGarage`'s ramp slab is 7 m wide; so is this. */
+  mouthHalf: 3.5,
+  /** Head of the opening. */
+  mouthHead: 4.5,
+  /** Underside of the clearance bar, and of the interior portal lintel. */
+  clearance: 3.2,
+  /** Deck floor levels: ground storey, deck 2, deck 3, roof. */
+  deck2: 5.0,
+  deck3: 7.9,
+  roof: 10.8,
+  parapetTop: 11.7,
+  /** The lit band of deck you can see into, in front of the solid mass. */
+  bandZ: -40.0,
+});
+
+/** One shared unit cube for the whole exterior; size lives in each scale. */
+const MERCER_BOX = new THREE.BoxGeometry(1, 1, 1);
+
+/**
+ * A scaled instance of the shared cube. Never casts: see the note above.
+ */
+function slab(group, size, position, material, name = '') {
+  const item = new THREE.Mesh(MERCER_BOX, material);
+  item.scale.set(size[0], size[1], size[2]);
+  item.position.set(...position);
+  item.name = name;
+  item.castShadow = false;
+  item.receiveShadow = true;
+  group.add(item);
+  return item;
+}
+
+/**
+ * Seven-segment glyphs, in boxes.
+ *
+ * Level numbers and a clearance height are the two things a garage exterior
+ * cannot do without, and this scene has no textures anywhere in it — every
+ * surface in `src/heist/` is a flat-shaded material. Rather than introduce a
+ * canvas texture pipeline for four numerals and a letter, the glyphs are
+ * drawn the way everything else in this file is drawn: as boxes. Five to
+ * seven of them each, on the shared cube, which is cheaper than the texture
+ * would have been and matches the phase exactly.
+ */
+const MERCER_SEGMENTS = Object.freeze({
+  1: ['b', 'c'],
+  2: ['a', 'b', 'g', 'e', 'd'],
+  3: ['a', 'b', 'g', 'c', 'd'],
+  4: ['f', 'g', 'b', 'c'],
+  P: ['a', 'b', 'g', 'f', 'e'],
+});
+
+function glyph(group, character, [x, y, z], height, material, depth = 0.08) {
+  const segments = MERCER_SEGMENTS[character];
+  if (!segments) throw new Error(`no seven-segment layout for ${character}`);
+  const width = height * 0.62;
+  const stroke = height * 0.18;
+  const arm = height / 2 - stroke / 2;
+  const place = {
+    a: [[width, stroke, depth], [0, height / 2 - stroke / 2]],
+    g: [[width, stroke, depth], [0, 0]],
+    d: [[width, stroke, depth], [0, -height / 2 + stroke / 2]],
+    f: [[stroke, arm, depth], [-width / 2 + stroke / 2, height / 4]],
+    b: [[stroke, arm, depth], [width / 2 - stroke / 2, height / 4]],
+    e: [[stroke, arm, depth], [-width / 2 + stroke / 2, -height / 4]],
+    c: [[stroke, arm, depth], [width / 2 - stroke / 2, -height / 4]],
+  };
+  for (const segment of segments) {
+    const [size, [dx, dy]] = place[segment];
+    slab(group, size, [x + dx, y + dy, z], material);
+  }
+  return width;
+}
+
+/**
+ * Build the garage into the street group, and hand back the two named meshes
+ * the rest of the scene addresses it by plus the solids it needs.
+ *
+ * `garage-entry` is an INVISIBLE PROXY, and that is deliberate. It used to be
+ * the visible concrete slab, which meant the thing the player aimed at and the
+ * thing he was looking at were the same box — fine while the box was the whole
+ * building, useless once the building has an opening in it. The proxy now
+ * stands in the mouth at z -35.9 .. -35.4, and `PHASE_PLAYER_BOUNDS.street`
+ * stops the player at z -35.2, so the ray always starts 0.2 m OUTSIDE it: a
+ * box a ray starts inside is a box the ray misses. It is reachable across the
+ * whole 6.8 m of the mouth from anywhere in z -35.2 .. -32.7, and
+ * `tests/heist-garage-exterior.test.mjs` casts the real ray to prove it rather
+ * than calling the handler, which is the check that let the bank exit ship
+ * unreachable.
+ */
+function buildMercerGarageExterior(street) {
+  const root = new THREE.Group();
+  root.name = 'mercer-garage';
+  street.add(root);
+
+  const M = MERCER;
+  const face = M.faceZ;
+  /* The elevation is two planes: piers at the face, spandrels 0.30 m behind
+   * them. That reveal is all the relief a precast frame has. */
+  const pierZ = face - 0.3;
+  /* The deck band: the 3.6 m of floor behind the elevation that you can see
+   * cars standing on, and the face of the solid mass behind it. */
+  const bandFront = face - 0.4;
+  const bandCentre = (bandFront + M.bandZ) / 2;
+  const bandDepth = bandFront - M.bandZ;
+
+  /* --- 1. The frame ------------------------------------------------ */
+  const fabric = new THREE.Group();
+  fabric.name = 'mercer-fabric';
+  ownGeometry(fabric, 'heist.street.mercer-garage', {
+    structural: true, fixedSupportAnchor: true, wall: false,
+  });
+  root.add(fabric);
+
+  const width = M.halfWidth * 2;
+
+  // The unlit inside of the building, 4 m back: what every opening looks into.
+  slab(fabric, [width, 12.5, 6.0], [0, 4.25, M.bandZ - 3.0], MAT.tactical, 'mercer-interior');
+  // Deck plates. Only the visible band is built: nothing behind it is ever seen.
+  for (const [level, y] of [[2, M.deck2], [3, M.deck3]]) {
+    slab(fabric, [width, 0.3, bandDepth], [0, y - 0.15, bandCentre], MAT.darkConcrete,
+      `mercer-deck-${level}-plate`);
+  }
+  /* The roof runs the full depth of the band and the mass together: it is the
+   * one deck you see across rather than into. */
+  slab(fabric, [width, 0.3, bandDepth + 6.0], [0, M.roof - 0.15, bandCentre - 3.0],
+    MAT.darkConcrete, 'mercer-roof-plate');
+
+  // Ground storey: two blank precast panels either side of the ramp mouth.
+  const panelWidth = M.halfWidth - M.mouthHalf;
+  for (const [side, label] of [[-1, 'west'], [1, 'east']]) {
+    slab(fabric, [panelWidth, M.deck2, 0.6],
+      [side * (M.halfWidth + M.mouthHalf) / 2, M.deck2 / 2, pierZ],
+      MAT.concrete, `mercer-base-panel-${label}`);
+  }
+  slab(fabric, [M.mouthHalf * 2, M.deck2 - M.mouthHead, 0.6],
+    [0, (M.deck2 + M.mouthHead) / 2, pierZ], MAT.concrete, 'mercer-mouth-head');
+
+  /* Piers, full height. The inner pair are the mouth's jambs and stand exactly
+   * on the opening, so the 7.0 m between them is the 7.0 m of ramp behind. */
+  const jambX = M.mouthHalf + 0.225;
+  for (const x of [-15.25, -11.5, -7.5, -jambX, jambX, 7.5, 11.5, 15.25]) {
+    slab(fabric, [Math.abs(x) === jambX ? 0.45 : 0.5, M.parapetTop, 0.6],
+      [x, M.parapetTop / 2, pierZ], MAT.concrete);
+  }
+
+  // Spandrel upstands, the parapet, and a lighter coping line along the top.
+  for (const [level, y] of [[2, M.deck2], [3, M.deck3]]) {
+    slab(fabric, [width, 0.95, 0.7], [0, y + 0.475, face - 0.65], MAT.concrete,
+      `mercer-spandrel-${level}`);
+  }
+  slab(fabric, [width, 0.9, 0.7], [0, M.roof + 0.45, face - 0.65], MAT.concrete, 'mercer-parapet');
+  slab(fabric, [width + 0.3, 0.14, 0.88], [0, M.parapetTop + 0.07, face - 0.65],
+    MAT.marbleDark, 'mercer-coping');
+
+  /* The strip lights along each deck soffit. Three emissive lines set 2.6 m
+   * back from the face: at sixty metres and 0.018 exponential fog these are
+   * the whole read, and the concrete behind them is a silhouette. */
+  for (const [level, y] of [['throat', 4.3], [2, M.deck3 - 0.4], [3, M.roof - 0.4]]) {
+    slab(fabric, [level === 'throat' ? 6.4 : width - 4, 0.1, 0.3], [0, y, bandCentre - 0.4],
+      GLOW.amber, `mercer-deck-light-${level}`);
+  }
+
+  /* --- 2. The ramp entrance ---------------------------------------- */
+  /*
+   * The throat drops away on the interior ramp's own tilt. `buildGarage`'s
+   * slab is -0.22 rad about X with its street end 1.74 m above the garage
+   * floor; this is the top of that same climb, so the two line up instead of
+   * being two unrelated ramps that happen to share a doorway.
+   *
+   * 4.4 m long, so the head of it lands ON the road edge at z -36.0 rather
+   * than 20 cm short of it — with the slab tilted its highest corner is
+   * halfDepth*cos(0.22) + halfThickness*sin(0.22) forward of its centre, and a
+   * throat that stops short leaves a strip of nothing in the mouth. Pivot
+   * -0.626 puts that corner at y -0.000, which is grade; measured.
+   */
+  const throatDepth = bandDepth + 0.8;
+  const throat = slab(fabric, [M.mouthHalf * 2, 0.3, throatDepth], [0, -0.626, bandCentre],
+    MAT.concrete, 'mercer-throat-ramp');
+  /* Negative is the way DOWN from the street: positive x-rotation lowers the
+   * +Z end, and +Z is the street. `buildGarage` learned that the hard way. */
+  throat.rotation.x = -0.22;
+  for (const side of [-1, 1]) {
+    slab(fabric, [0.35, M.mouthHead, throatDepth],
+      [side * (M.mouthHalf + 0.175), M.mouthHead / 2 - 0.6, bandCentre],
+      MAT.darkConcrete, `mercer-throat-cheek-${side < 0 ? 'west' : 'east'}`);
+  }
+  slab(fabric, [M.mouthHalf * 2 + 0.7, 0.3, throatDepth],
+    [0, M.mouthHead + 0.15, bandCentre], MAT.darkConcrete, 'mercer-throat-soffit');
+
+  // The clearance bar, hung on two drops, with the height plate bolted to it.
+  for (const x of [-2.6, 2.6]) {
+    slab(fabric, [0.07, M.mouthHead - M.clearance - 0.18, 0.07],
+      [x, (M.mouthHead + M.clearance + 0.18) / 2, face - 0.06], MAT.steel);
+  }
+  slab(fabric, [M.mouthHalf * 2, 0.18, 0.12], [0, M.clearance + 0.09, face - 0.06],
+    MAT.warning, 'mercer-clearance-bar');
+  slab(fabric, [1.74, 0.6, 0.07], [0, M.clearance + 0.09, face + 0.01],
+    MAT.warning, 'mercer-clearance-plate');
+  slab(fabric, [1.5, 0.44, 0.06], [0, M.clearance + 0.09, face + 0.02], MAT.paper);
+  {
+    // "3.2" — the clear height under the bar, and under the interior lintel.
+    const y = M.clearance + 0.09;
+    const z = face + 0.06;
+    glyph(fabric, 3, [-0.44, y, z], 0.3, MAT.warning, 0.05);
+    slab(fabric, [0.07, 0.07, 0.05], [-0.16, y - 0.12, z], MAT.warning);
+    glyph(fabric, 2, [0.12, y, z], 0.3, MAT.warning, 0.05);
+    slab(fabric, [0.3, 0.07, 0.05], [0.46, y, z], MAT.warning);
+  }
+
+  /* --- 3. Signage --------------------------------------------------- */
+  slab(fabric, [8.2, 1.0, 0.2], [0, M.deck2 + 0.47, face - 0.2], MAT.darkConcrete,
+    'mercer-fascia-board');
+  /* Kept by name: `garage-sign` was the amber bar over the dev block, and it
+   * is now the illuminated fascia band on the deck-2 spandrel. */
+  const garageSign = slab(fabric, [7.6, 0.66, 0.14], [0, M.deck2 + 0.47, face - 0.05],
+    GLOW.amber, 'garage-sign');
+  slab(fabric, [1.1, 0.34, 0.1], [-4.9, M.deck2 + 0.47, face - 0.03], GLOW.exit,
+    'mercer-vacancy-lamp');
+
+  /* Level numbering, backlit, stacked in the bay west of the mouth so the
+   * whole column of it — 2, 3, 4 — is in frame with the entrance. */
+  for (const [character, y] of [[2, M.deck2 + 0.47], [3, M.deck3 + 0.47], [4, M.roof + 0.45]]) {
+    glyph(fabric, character, [-6.4, y, face - 0.26], 0.62, GLOW.amber, 0.1);
+  }
+
+  /* --- 4. Stair and lift core -------------------------------------- */
+  /*
+   * In the bay next to the mouth, not out at the west end where it was first
+   * drawn. MEASURED, from the spawn at (0, 1.66, 31): the storefront row runs
+   * x 10.4 to 16.4 over z -34.5 to -27.5, and the sightline it leaves down the
+   * street only reaches x +/-10.69 by the time it gets to the elevation. A
+   * core at x -13.5 is behind the shops for the whole approach and only comes
+   * into view at z -33, which is a headline silhouette nobody ever sees. At
+   * -9.5 it sits inside the canyon and is on screen from the bank steps —
+   * and stairs beside the vehicle entrance is where a garage puts them.
+   */
+  const coreX = -9.5;
+  slab(fabric, [3.5, M.parapetTop, 0.7], [coreX, M.parapetTop / 2, face - 0.65],
+    MAT.darkConcrete, 'mercer-core-shaft');
+  slab(fabric, [1.3, 9.6, 0.12], [coreX, 5.9, face - 0.24], GLOW.screen, 'mercer-core-slot');
+  // The floor lines crossing the slot: three landings, so it reads as stairs.
+  for (const y of [M.deck2, M.deck3, M.roof]) {
+    slab(fabric, [1.5, 0.34, 0.16], [coreX, y, face - 0.22], MAT.darkConcrete);
+  }
+  slab(fabric, [1.6, 2.3, 0.16], [coreX, 1.15, face - 0.22], MAT.steel, 'mercer-core-door');
+  slab(fabric, [0.9, 0.26, 0.08], [coreX, 2.62, face - 0.16], GLOW.exit, 'mercer-core-exit-sign');
+  slab(fabric, [3.6, 2.4, 3.4], [coreX, M.roof + 1.2, bandCentre - 0.4], MAT.darkConcrete,
+    'mercer-lift-overrun');
+
+  // Two roof masts. Silhouette, and the only thing above the parapet line.
+  for (const x of [-4.0, 4.0]) {
+    slab(fabric, [0.14, 2.4, 0.14], [x, M.roof + 1.2, -38.5], MAT.steel);
+    slab(fabric, [0.7, 0.16, 0.4], [x, M.roof + 2.3, -38.7], GLOW.amber);
+  }
+
+  /* --- 5. The decks you can see cars on ----------------------------- */
+  /*
+   * NOT `makeVehicleBody`, and this is the fork the reuse rule asks to be
+   * named. That builder is twenty-one meshes with glazing, trim, lamps and
+   * wheels, and it is the right thing everywhere the player can walk up to a
+   * car. Up here a 0.95 m spandrel hides everything below the waistline, so
+   * what is actually on screen is a roof and a glasshouse, forty metres away,
+   * three quarters lost in fog. `makeVehicleBody` is 23 meshes; three boxes
+   * buy the entire visible silhouette, and the other twenty would be 140 more
+   * draws for parts that are behind an upstand.
+   */
+  const decked = new THREE.Group();
+  decked.name = 'mercer-parked';
+  ownGeometry(decked, 'heist.street.mercer-garage.decks');
+  root.add(decked);
+  const deckPaints = [0x2b3035, 0x4a2222, 0x223528, 0x36363c, 0x2d3a48, 0x3a3026, 0x1f2a33]
+    .map((color) => new THREE.MeshStandardMaterial({ color, metalness: 0.5, roughness: 0.5 }));
+  /* Bays, skipping the one the stair core stands in. */
+  const deckSlots = [
+    [M.deck2, -14.0], [M.deck2, -5.6], [M.deck2, 7.0], [M.deck2, 12.5],
+    [M.deck3, -13.4], [M.deck3, -2.6], [M.deck3, 9.4],
+  ];
+  deckSlots.forEach(([y, x], index) => {
+    const paint = deckPaints[index % deckPaints.length];
+    slab(decked, [4.2, 1.1, 1.85], [x, y + 0.55, -38.1], paint, `mercer-parked-${index}`);
+    slab(decked, [2.2, 0.62, 1.7], [x - 0.2, y + 1.35, -38.1], paint);
+    slab(decked, [1.6, 0.42, 1.74], [x - 0.2, y + 1.37, -38.1], MAT.glass);
+  });
+
+  /* --- 6. The forecourt --------------------------------------------- */
+  const forecourt = new THREE.Group();
+  forecourt.name = 'mercer-forecourt';
+  ownGeometry(forecourt, 'heist.street.mercer-garage.forecourt');
+  root.add(forecourt);
+
+  // Dropped kerb across the mouth, and the two kerbed islands that lane it.
+  slab(forecourt, [7.0, 0.02, 1.0], [0, 0.015, -35.5], MAT.marbleDark, 'mercer-apron');
+  slab(forecourt, [1.6, 0.18, 3.4], [-4.8, 0.09, -33.3], MAT.marbleDark, 'mercer-island-west');
+  slab(forecourt, [4.55, 0.18, 3.4], [6.275, 0.09, -33.3], MAT.marbleDark, 'mercer-island-east');
+
+  /* The barrier, RAISED. An arm down across the lane is an arm across the
+   * escape; the crew's people opened this one hours ago. */
+  slab(forecourt, [0.34, 1.12, 0.34], [-4.8, 0.74, -33.9], MAT.steel, 'mercer-gate-cabinet');
+  slab(forecourt, [0.14, 3.4, 0.14], [-4.62, 3.0, -33.9], MAT.warning, 'mercer-gate-arm');
+  for (const y of [1.9, 2.9, 3.9]) {
+    slab(forecourt, [0.16, 0.34, 0.16], [-4.62, y, -33.9], MAT.paper);
+  }
+
+  // The cashier's booth, on the east island, shut and lit.
+  slab(forecourt, [2.4, 2.7, 2.4], [6.6, 1.53, -33.3], MAT.darkConcrete, 'mercer-booth');
+  slab(forecourt, [2.0, 1.0, 0.06], [6.6, 2.28, -34.53], MAT.glass, 'mercer-booth-glass');
+  slab(forecourt, [2.8, 0.14, 2.6], [6.6, 2.95, -33.3], MAT.steel, 'mercer-booth-roof');
+  slab(forecourt, [2.0, 0.24, 0.06], [6.6, 2.74, -34.52], GLOW.amber, 'mercer-booth-lamp');
+
+  // The pylon. Nine metres, so it clears the parked cars from the bank steps.
+  slab(forecourt, [0.36, 6.22, 0.36], [6.6, 3.29, -34.8], MAT.steel, 'mercer-pylon-post');
+  slab(forecourt, [2.2, 2.6, 0.28], [6.6, 7.7, -34.8], MAT.darkConcrete, 'mercer-pylon-board');
+  glyph(forecourt, 'P', [6.6, 7.7, -34.63], 1.9, GLOW.amber, 0.1);
+
+  // Two chevrons on the asphalt, pointing at the mouth.
+  for (const z of [-30.5, -32.5]) {
+    for (const side of [-1, 1]) {
+      const bar = slab(forecourt, [1.8, 0.02, 0.24], [side * 0.62, 0.015, z],
+        MAT.warning, `mercer-chevron-${side < 0 ? 'west' : 'east'}-${Math.abs(z)}`);
+      bar.rotation.y = side * 0.62;
+    }
+  }
+
+  /* --- 7. The one real light ---------------------------------------- */
+  const mouthLight = new THREE.PointLight(0xffd7a0, 3.4, 26, 2);
+  mouthLight.name = 'mercer-mouth-light';
+  mouthLight.position.set(0, 3.0, -36.9);
+  root.add(mouthLight);
+
+  /* --- 8. The interaction proxy ------------------------------------- */
+  const entry = slab(root, [6.8, 2.85, 0.5], [0, 1.575, -35.65], MAT.invisible, 'garage-entry');
+  entry.visible = false;
+  entry.receiveShadow = false;
+
+  return {
+    root,
+    entry,
+    sign: garageSign,
+    colliders: [
+      /* The elevation, either side of the mouth. The 7.0 m between them is
+       * the drivable corridor and nothing else in this build enters it: the
+       * islands stand off it by 0.5 m, the booth by 1.9 m and the pylon by
+       * 2.9 m. Measured in tests/heist-garage-exterior.test.mjs. */
+      /* `world`: this is the building. Twelve metres of precast elevation
+       * either side of the mouth, and nothing about it is furniture. */
+      ...[-1, 1].map((side, index) => solid(
+        `heist.street.mercer.elevation.${index === 0 ? 'west' : 'east'}`, 'world',
+        [panelWidth, 12.0, 0.5],
+        [side * (M.halfWidth + M.mouthHalf) / 2, 6.0, face - 0.25],
+      )),
+      // The booth and the pylon, which are the two solids standing on the road.
+      /* `world` for the booth: it is a built kiosk on the east island with a
+       * roof and a glazed front, not something anybody moves. */
+      solid('heist.street.mercer.booth', 'world', [2.4, 2.88, 2.4], [6.6, 1.44, -33.3]),
+      /* `prop` for the nine-metre pylon: signage bolted to the forecourt. */
+      solid('heist.street.mercer.pylon', 'prop', [0.36, 9.0, 0.36], [6.6, 4.5, -34.8]),
+      /* The barrier cabinet and the arm standing straight up out of it.
+       * `prop`, NOT `door`: the arm is raised and stays raised — the crew's
+       * people opened it hours ago — so it gates nothing and this volume is
+       * only the cabinet plus the vertical arm above it. A `door` would claim
+       * a passage that this build never closes. */
+      solid('heist.street.mercer.gate-barrier', 'prop', [0.45, 4.7, 0.4], [-4.72, 2.35, -33.9]),
+    ],
   };
 }
 
@@ -1747,7 +2406,9 @@ function buildStreet() {
   for (let i = 0; i < 8; i++) {
     const position = [i % 2 ? -5.5 : 5.5, 0, -25 + i * 7];
     makeVehicleBody(group, position, i % 3 ? 0x31363a : 0x5a1f22, `cover-car-${i}`);
-    coverCars.push(bounds([4.1, 1.9, 2.2], [position[0], 0.95, position[2]]));
+    // `vehicle`: eight parked saloons, and the cover the whole block is fought from.
+    coverCars.push(solid(`heist.street.cover-car.${i}`, 'vehicle',
+      [4.1, 1.9, 2.2], [position[0], 0.95, position[2]]));
     /* Either end of the car, clear of its 2.2 m hull: a man tucked in at the
      * bumper with two tonnes of parked saloon between him and the muzzle. */
     firePositions.push({ id: `car-${i}-near`, x: position[0], z: position[2] - 2.9 });
@@ -1762,7 +2423,11 @@ function buildStreet() {
     planter.userData.kind = 'street-cover';
     box(group, [1.9, 0.4, 0.85], [x, 1.0, 31.5], new THREE.MeshStandardMaterial({ color: 0x2f3a27, roughness: 1 }));
     ownAddedChildren(group, planterStart, 'heist.street.bank-entry');
-    coverCars.push(bounds([2.2, 1.1, 1.1], [x, 0.55, 31.5]));
+    /* `prop`: a stone planter with a shrub in it. It is street furniture that
+     * happens to be the cover Snow's line names, which is not the same thing
+     * as being the building. */
+    coverCars.push(solid(`heist.street.bank-planter.${x}`, 'prop',
+      [2.2, 1.1, 1.1], [x, 0.55, 31.5]));
   }
   const bankFacadeStart = group.children.length;
   box(group, [7, 6.5, 1], [-5.5, 3.25, 35], MAT.marble, 'bank-facade-left');
@@ -1784,10 +2449,12 @@ function buildStreet() {
   droppedBag.rotation.set(0.2, 0.7, 0.35);
   droppedBag.scale.setScalar(1.5);
   group.add(droppedBag);
-  const garage = box(group, [7, 4.5, 0.2], [0, 2.25, -35], MAT.concrete, 'garage-entry');
-  const garageSign = flat(group, [4.4, 0.5, 0.1], [0, 4.65, -35], GLOW.amber, 'garage-sign');
-  ownGeometry(garage, 'heist.street.garage-entry');
-  ownGeometry(garageSign, 'heist.street.garage-entry');
+  /* The Mercer garage itself, and the forecourt in front of it. Everything it
+   * adds goes on the END of the street group's children, which is what keeps
+   * the geometry gate's `type=Mesh#n` traversal paths — and therefore this
+   * scene's checked-in suppression policy — exactly where they were. */
+  const mercer = buildMercerGarageExterior(group);
+  const garage = mercer.entry;
 
   /* The dead van is cover too — it is the biggest solid on the street and it
    * is exactly where the first block is fought. */
@@ -1801,12 +2468,20 @@ function buildStreet() {
     firePositions: Object.freeze(firePositions.map((slot) => Object.freeze(slot))),
     interactables: { bankDoor, van, droppedBag, garage },
     colliders: [
-      bounds([3.4, 10, 72], [-10.3, 5, 0]),
-      bounds([3.4, 10, 72], [10.3, 5, 0]),
+      /* `world`: the two building lines. One solid apiece for the whole
+       * seventy-two metres of storefront row, kerb and pavement — this is
+       * where the street stops being a street. */
+      solid('heist.street.building-line.west', 'world', [3.4, 10, 72], [-10.3, 5, 0]),
+      solid('heist.street.building-line.east', 'world', [3.4, 10, 72], [10.3, 5, 0]),
       ...coverCars,
-      bounds([4.9, 2.0, 2.2], [0, 1, 14]),
-      bounds([6.6, 6.5, 1], [-5.3, 3.25, 35]),
-      bounds([6.6, 6.5, 1], [5.3, 3.25, 35]),
+      /* `vehicle`: the dead van at z 14, scaled up from the same body. It is
+       * the biggest solid on the road and the first block is fought behind
+       * it — see the `van-west`/`van-east` fire positions below. */
+      solid('heist.street.disabled-van', 'vehicle', [4.9, 2.0, 2.2], [0, 1, 14]),
+      // `world`: the bank's marble frontage either side of its doors.
+      solid('heist.street.bank-facade.west', 'world', [6.6, 6.5, 1], [-5.3, 3.25, 35]),
+      solid('heist.street.bank-facade.east', 'world', [6.6, 6.5, 1], [5.3, 3.25, 35]),
+      ...mercer.colliders,
     ],
     floorZones: [floorZone(18, 72, 'asphalt')],
   };
@@ -1870,11 +2545,28 @@ function buildGarage() {
    *
    * The ramp keeps its place — it is where the crew came in from — and is a
    * solid now. The spawn moved to the clear floor in front of it. */
+  /* AND THEN IT WAS ROTATED THE WRONG WAY.
+   *
+   * Owner, playtest 2026-08-26: *"the on-ramp that you came in on is inverted
+   * the wrong way."*
+   *
+   * `rotation.x = 0.22` drives the +Z end DOWN and the -Z end UP, and +Z is
+   * the street: the slab stood 2.07 m high where the garage floor is and 0.32
+   * m high at the mouth it is supposed to come in through. It climbed into the
+   * room. Negative is the way down from the street, and the pivot drops from
+   * 1.05 to 0.72 so the foot lands flush with the floor instead of on a 32 cm
+   * lip: interior end 0.00, portal line 1.30, street end 1.74. */
   const rampStart = group.children.length;
-  const ramp = box(group, [7, 0.3, 8], [0, 1.05, 13], MAT.concrete, 'garage-ramp');
-  ramp.rotation.x = 0.22;
+  const RAMP_TILT = -0.22;
+  const RAMP_PIVOT_Y = 0.72;
+  const ramp = box(group, [7, 0.3, 8], [0, RAMP_PIVOT_Y, 13], MAT.concrete, 'garage-ramp');
+  ramp.rotation.x = RAMP_TILT;
   for (const side of [-1, 1]) {
-    box(group, [0.3, 1.6, 8], [side * 3.5, 1.5, 13], MAT.darkConcrete, `garage-ramp-wall-${side}`);
+    const wall = box(group, [0.3, 1.6, 8], [side * 3.5, RAMP_PIVOT_Y + 0.83, 13],
+      MAT.darkConcrete, `garage-ramp-wall-${side}`);
+    /* The kerbs were axis-aligned while the slab between them sloped, so they
+     * sank into it at one end and floated off it at the other. */
+    wall.rotation.x = RAMP_TILT;
   }
   ownAddedChildren(group, rampStart, 'heist.garage.ramp');
   const hold = box(group, [8, 0.1, 3], [0, 0.05, 8], MAT.invisible, 'garage-hold');
@@ -1971,23 +2663,58 @@ function buildGarage() {
     interactables: { hold, load, drive },
     sedan,
     colliders: [
-      ...roomColliders(24, 30, 4.4).filter((_, index) => index !== 1),
-      bounds([8.075, 4.4, 0.25], [-7.8375, 2.2, 15]),
-      bounds([8.075, 4.4, 0.25], [7.8375, 2.2, 15]),
-      bounds([7.6, 1.2, 0.25], [0, 3.8, 15]),
+      /* `world`: the shell. `roomColliders` hands back front, back, west,
+       * east and index 1 is the back wall, which the ramp portal below
+       * replaces — the wing/lintel trio IS that wall with a hole in it. */
+      ...roomColliders(24, 30, 4.4)
+        .filter((_, index) => index !== 1)
+        .map((box, index) => markSpatialPrimitive(box, {
+          id: `heist.garage.shell.${['front', 'west', 'east'][index]}`,
+          kind: 'world',
+        })),
+      solid('heist.garage.ramp-portal.wing-west', 'world', [8.075, 4.4, 0.25], [-7.8375, 2.2, 15]),
+      solid('heist.garage.ramp-portal.wing-east', 'world', [8.075, 4.4, 0.25], [7.8375, 2.2, 15]),
+      solid('heist.garage.ramp-portal.lintel', 'world', [7.6, 1.2, 0.25], [0, 3.8, 15]),
+      // `world`: ten structural pillars, floor to soffit. They hold the deck up.
       ...[-8, -3, 3, 8].flatMap((x) => [-10, 0, 10]
         .filter((z) => !(z === 10 && Math.abs(x) === 3))
-        .map((z) => bounds([0.8, 4.4, 0.8], [x, 2.2, z]))),
-      bounds([4.1, 1.9, 2.2], [0, 0.95, -8]),
-      // The ramp and its side walls, which were drawn but not solid.
-      bounds([6.7, 2.6, 8], [0, 1.3, 13]),
-      ...[-1, 1].map((side) => bounds([0.3, 1.6, 8], [side * 3.5, 1.5, 13])),
-      // The stacked crates in the two corners.
-      ...[[-6.8, -13], [9.6, 4]].map(([x, z]) => bounds([0.9, 3.6, 0.9], [x, 1.8, z])),
-      bounds([1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
-      // The five parked cars down the side walls.
-      ...Array.from({ length: 5 }, (_, i) => bounds([2.2, 1.9, 4.1],
-        [i % 2 ? -10.2 : 10.2, 0.95, -11 + i * 5.5])),
+        .map((z) => solid(`heist.garage.pillar.${x}.${z}`, 'world',
+          [0.8, 4.4, 0.8], [x, 2.2, z]))),
+      // `vehicle`: the escape sedan, which is the whole point of the room.
+      solid('heist.garage.escape-sedan', 'vehicle', [4.1, 1.9, 2.2], [0, 0.95, -8]),
+      /* THE RAMP, AS SOMETHING YOU CAN WALK ON.
+       *
+       * It used to be one axis-aligned 6.7 x 2.6 x 8 box over the whole
+       * footprint -- a solid wall two and a half metres tall, in both
+       * directions, standing exactly where the way in is. The slab above it
+       * slopes, so the solid has to as well, and this engine's colliders are
+       * AABBs: approximate the slope with eight one-metre treads, each as
+       * tall as the ramp surface at its own midpoint. That is a 21.8 cm rise
+       * per tread, which is an ordinary stair step. */
+      /* `world` for all eight treads: this is the floor of the way in, the
+       * same as the ramp slab they approximate. A `prop` would be a lie about
+       * a surface the player and every man coming down it walks on. */
+      ...Array.from({ length: 8 }, (_, i) => {
+        const z = 9.5 + i;
+        const top = 0.866 + (z - 13) * 0.2182;
+        return solid(`heist.garage.ramp.tread.${i}`, 'world', [6.7, top, 1], [0, top / 2, z]);
+      }),
+      // `world`: the two kerbed cheeks holding the ramp in.
+      ...[-1, 1].map((side) => solid(
+        `heist.garage.ramp.kerb.${side < 0 ? 'west' : 'east'}`, 'world',
+        [0.3, 2.4, 8], [side * 3.5, 1.2, 13],
+      )),
+      // The stacked crates in the two corners. `prop`: four boxes on a floor.
+      ...[[-6.8, -13], [9.6, 4]].map(([x, z]) => solid(
+        `heist.garage.crate-stack.${x}.${z}`, 'prop', [0.9, 3.6, 0.9], [x, 1.8, z],
+      )),
+      // `prop`: the tool cart beside the sedan.
+      solid('heist.garage.tool-cart', 'prop', [1.4, 1.2, 0.8], [5.5, 0.6, -5.5]),
+      // The five parked cars down the side walls. `vehicle`, like the sedan.
+      ...Array.from({ length: 5 }, (_, i) => solid(
+        `heist.garage.parked.${i}`, 'vehicle',
+        [2.2, 1.9, 4.1], [i % 2 ? -10.2 : 10.2, 0.95, -11 + i * 5.5],
+      )),
     ],
     floorZones: [floorZone(24, 30, 'concrete')],
   };
@@ -2134,7 +2861,19 @@ function buildDriving() {
 
   const cleanCar = makeVehicleBody(group, [23.8, 0, -656], 0x18231f, 'clean-swap-car');
   cleanCar.rotation.y = Math.PI / 2;
-  const trunk = box(group, [1.4, 0.7, 0.2], [22.9, 0.82, -656], MAT.steel, 'swap-trunk');
+  /* AND THE TRUNK IS AT THE BACK OF THE CAR.
+   *
+   * The car is authored nose-first (`rotation.y = π/2` puts local +X on world
+   * -Z), so its body measures z -658.03 at the nose to -653.97 at the tailgate.
+   * The trunk panel was at [22.9, -656] — the middle of the driver's flank, and
+   * 0.9 m of its 1.4 m width inside the body. It worked, at 63 of 66 legal
+   * standing positions, but only because the sliver poking out of the flank was
+   * the first thing on the ray; the moment the door proxy below took its proper
+   * place on that flank the two started eating each other's rays and the trunk
+   * fell to 37 of 66. It is on the tailgate now, standing 17 cm proud of the
+   * body, which is where a trunk is and where the ray to it is clear.
+   * Measured after: 66 of 66. */
+  const trunk = box(group, [1.4, 0.7, 0.2], [23.8, 0.82, -653.88], MAT.steel, 'swap-trunk');
   ownGeometry(trunk, 'heist.vehicle.clean-swap-car');
   const bagsProp = box(group, [1.6, 0.7, 0.8], [17.7, 0.36, -652], MAT.darkConcrete, 'swap-bags');
   const aid = box(group, [0.62, 0.18, 0.42], [15.8, 0.89, -654], MAT.marble, 'swap-aid');
@@ -2142,7 +2881,29 @@ function buildDriving() {
   const jackets = box(group, [1.1, 0.28, 0.6], [18.5, 0.15, -657], MAT.wood, 'swap-jackets');
   const weapons = box(group, [1.7, 0.24, 0.62], [20.2, 0.16, -657], MAT.steel, 'swap-weapons');
   const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.84, -654], MAT.marble, 'swap-wipe');
-  const depart = box(group, [1.2, 1.4, 0.2], [24.1, 1.0, -655.2], swapMat, 'swap-depart');
+  /* THE DRIVER'S DOOR OF THE CLEAN CAR, WHICH USED TO BE INSIDE THE CLEAN CAR.
+   *
+   * Owner, playtest 2026-08-26: *"the final car has no usable E zone"*. The
+   * proxy that carries "Leave in the clean car" was a 1.2 m panel centred at
+   * x 24.1 — and the car body measures x 22.72 to 24.88, so the whole box sat
+   * buried in the cabin. Every ray from the yard hit `clean-swap-car-cabin`
+   * first (measured: 1.02 m to the cabin, 1.57 m to the proxy). The prompt was
+   * acquired from 6 of 178 legal standing positions, and all six of them were
+   * in the 1.1 m gap between the car's far flank and the yard fence.
+   *
+   * It is the driver's door now: a 24 cm slab standing in the 16 cm of clear
+   * air outside the car's own collider (x 22.44 to 22.68; the collider face is
+   * x 22.70). `Player.RADIUS` is 0.30, so the closest the camera can ever get
+   * is x 22.40 — outside the box, which is the whole point, because a box is
+   * invisible to a ray that starts inside it. Kept clear in z of the trunk
+   * panel at z -656.1 so the two prompts do not fight over the same flank.
+   * Measured after: 106 of 178 legal positions, 100 % of the yard-side arc.
+   *
+   * `castShadow` off for the same reason `swap` has it off: an invisible box
+   * outside the car body still darkens the ground under the task lights. */
+  const depart = box(group, [0.24, 1.5, 1.1], [22.56, 0.95, -656.75], swapMat, 'swap-depart');
+  depart.castShadow = false;
+  depart.receiveShadow = false;
   ownGeometry(aid, 'heist.driving.workbench');
   ownGeometry(masks, 'heist.driving.workbench');
   ownGeometry(wipe, 'heist.driving.workbench');

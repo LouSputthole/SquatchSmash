@@ -61,7 +61,7 @@ export function applyForestNight(scene, { renderer = null } = {}) {
      * and ACES has to have somewhere to roll them off to, so the exposure is
      * set for the road forty metres out rather than for the road four metres
      * out, which is blown and should be. */
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.22;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   }
@@ -69,7 +69,7 @@ export function applyForestNight(scene, { renderer = null } = {}) {
   /* The moon. No shadow: the only shadow map in this scene belongs to the
    * nearside headlamp, where it is spent on trunks thrown across the road at
    * ten metres rather than on a canopy at forty. */
-  const moon = new THREE.DirectionalLight(0x93a9c9, 0.34);
+  const moon = new THREE.DirectionalLight(0x93a9c9, 0.85);
   moon.position.set(-46, 68, 30);
   moon.castShadow = false;
   scene.add(moon);
@@ -77,7 +77,7 @@ export function applyForestNight(scene, { renderer = null } = {}) {
 
   /* Sky and ground bounce, and it is nearly nothing. Raise this and the wood
    * becomes visible without the car, which is the one thing it must not be. */
-  const hemi = new THREE.HemisphereLight(0x1d2537, 0x06080a, 0.34);
+  const hemi = new THREE.HemisphereLight(0xa7b8d0, 0x06080a, 0.8);
   scene.add(hemi);
 
   const group = new THREE.Group();

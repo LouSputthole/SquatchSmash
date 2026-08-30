@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { BIG_UNCLE_LOU } from '../core/wardrobe.js';
+/* Lou wears the MANSION outfit here, not the default suit -- owner, 2026-08-24.
+ * The wardrobe pass that added Booski's and Irish's NO WAKE looks reached for
+ * `BIG_UNCLE_LOU` for him; that is the one this scene was told to stop using. */
+import { BIG_UNCLE_LOU_MANSION, BOOSKI_NO_WAKE, IRISH_NO_WAKE } from '../core/wardrobe.js';
 import { Npc } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
@@ -1492,11 +1495,25 @@ function buildBoat(scene, marina) {
        * `tools/verify-no-wake.mjs` measures both clearances. */
       // Lou is west of the now-clear centre hatch and stands on the sole.
       name: 'Big Uncle Lou', tier: 'hero', x: -1.30, y: DECK.height, z: 1.60, yaw: 1.767,
-      job: 'stand', model: { ...BIG_UNCLE_LOU, face: 'assets/faces/lou.png' },
+      /* THE CAMP SHIRT, NOT THE SUIT.
+       *
+       * Owner, 2026-08-24: *"On the wake, Lou should be in his chill outfit,
+       * the one from the mansion, not a suit."* `BIG_UNCLE_LOU_MANSION` is
+       * that outfit and it is already frozen in `core/wardrobe.js` -- open
+       * short-sleeve camp shirt over a white tee, slacks, the corno on show
+       * because there is no jacket in the way of it, same watch, same
+       * bracelet, none of the armour. It changes flags on the shared person
+       * builder and nothing else, so there is no mansion asset behind it and
+       * nothing here has to be dressed twice.
+       *
+       * It is also the right read for the scene. He is on a boat at dawn with
+       * three men he has known for thirty years, and one of them is not coming
+       * back. The suit is what he wears to be seen in. */
+      job: 'stand', model: { ...BIG_UNCLE_LOU_MANSION, face: 'assets/faces/lou.png' },
     }),
     booski: new Npc(root, {
       name: 'Booskibro', tier: 'hero', x: -1.10, y: DECK.height, z: 3.30, yaw: Math.PI,
-      job: 'stand', model: { ...source[CHARACTER_IDS.BOOSKI].model, face: 'assets/faces/booski.png' },
+      job: 'stand', model: { ...BOOSKI_NO_WAKE, face: 'assets/faces/booski.png' },
     }),
     willy: new Npc(root, {
       name: 'Willy', tier: 'hero', x: -.20, y: DECK.height + .045, z: 2.20, yaw: Math.PI,
@@ -1509,9 +1526,7 @@ function buildBoat(scene, marina) {
       // Stand in the clear starboard strip, not across the anchor and ballast
       // locker lids in the centre of the foredeck.
       name: 'Irish', tier: 'hero', x: 1.75, y: DECK.foredeckHeight, z: -4.55, yaw: Math.PI,
-      job: 'stand', model: {
-        ...source[CHARACTER_IDS.IRISH].model, face: 'assets/faces/irish.png',
-      },
+      job: 'stand', model: { ...IRISH_NO_WAKE, face: 'assets/faces/irish.png' },
     }),
   };
   markCrew(cast);

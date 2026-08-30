@@ -8,6 +8,7 @@ ensureDomShim();
 
 const [
   {
+    GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS,
     GEOMETRY_FROZEN_WAIVERS,
     GEOMETRY_SCENE_STATES,
     buildGeometrySceneState,
@@ -17,7 +18,7 @@ const [
   { SCENE_AUDIT_SCENES },
   { APARTMENT_PREVIEW_VARIANTS },
   { DAMAGE_STATES },
-  { PALACE_GUARD_POSTS },
+  { PALACE_GUARD_POSTS, PALACE_WAVE_POSTS },
 ] = await Promise.all([
   import('../tools/geometry-scenes.mjs'),
   import('../tools/scene-audit-scenes.mjs'),
@@ -31,12 +32,14 @@ const EXPECTED_ADAPTERS = Object.freeze([
   'beefrun',
   'bing',
   'bing-party',
+  'cabin',
   'cartel-palace',
   'enolasquatch',
   'golf',
   'graveyard',
   'heist',
   'initiation',
+  'luxury-apartment',
   'mansion',
   'mansion-siege',
   'motel',
@@ -88,6 +91,57 @@ test('geometry scene registry has unique, resolvable IDs and plain metadata', ()
   for (const waiver of GEOMETRY_FROZEN_WAIVERS) {
     assertPlainData(waiver, `waiver:${waiver.launcherId}`);
   }
+});
+
+test('every geometry state declares whether visible cast is required or intentionally absent', () => {
+  const dispositions = new Set(Object.values(GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS));
+  for (const descriptor of GEOMETRY_SCENE_STATES) {
+    const expectation = descriptor.actorExpectation;
+    assert.ok(expectation && typeof expectation === 'object', `${descriptor.id} has no actor contract`);
+    assert.ok(
+      dispositions.has(expectation.disposition),
+      `${descriptor.id} has unknown actor disposition ${expectation.disposition}`,
+    );
+    assert.ok(
+      typeof expectation.reason === 'string' && expectation.reason.trim(),
+      `${descriptor.id} actor contract needs a reason`,
+    );
+    if (expectation.disposition === GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.REQUIRED) {
+      assert.ok(Number.isInteger(expectation.minimum) && expectation.minimum > 0);
+    } else {
+      assert.equal(expectation.minimum, 0);
+    }
+  }
+
+  assert.deepEqual(
+    GEOMETRY_SCENE_STATES
+      .filter(({ actorExpectation }) => (
+        actorExpectation.disposition === GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.INTENTIONAL_NA
+      ))
+      .map(({ id }) => id)
+      .toSorted(),
+    [
+      'apartment:after-beef-run',
+      'apartment:after-bing-one',
+      'apartment:after-golf',
+      'apartment:after-heist',
+      'apartment:after-motel',
+      'apartment:after-no-wake',
+      'apartment:after-squatchfather',
+      'apartment:day-one-wake',
+      'apartment:day-three-wake',
+      'apartment:day-two-wake',
+      /* The cabin left this list when Lag became a visible resident at the
+       * woodpile. The luxury flat has no visible cast in its initial property
+       * snapshot; Margo is mounted hidden until her later entrance. */
+      'luxury-apartment:property',
+      'mansion-siege:alert',
+      'mansion-siege:clean',
+      'mansion-siege:repaired',
+      'motel:drive',
+    ],
+    'no-cast certification must be a reviewed state list, not the default',
+  );
 });
 
 test('geometry registry contains every canonical apartment preview variant', () => {
@@ -246,6 +300,19 @@ test('every registered Adapter name is known', () => {
   assert.deepEqual(adapters, [...EXPECTED_ADAPTERS]);
 });
 
+test('luxury apartment Adapter publishes the complete property and authored metrics', async () => {
+  const built = await buildGeometrySceneState('luxury-apartment:property');
+  assert.equal(built.roots.length, 1);
+  assert.equal(built.roots[0].label, 'luxury-apartment-property');
+  assert.equal(built.roots[0].root.name, 'luxury-apartment');
+  assert.ok(built.colliders.length > 0, 'luxury apartment Adapter publishes no collision layer');
+  assert.equal(built.metadata.metrics.floors, 2);
+  assert.equal(built.metadata.metrics.stairSteps, 18);
+  assert.ok(built.metadata.metrics.panoramicWindowArea > 0);
+  assert.ok(built.metadata.metrics.artSlots > built.metadata.metrics.originalArtSlots);
+  assertPlainData(built.metadata, 'luxury-apartment:property.metadata');
+});
+
 
 test('every Mansion Adapter state mounts the complete cast and Snow cart collider', async () => {
   for (const state of ['tour', 'return', 'silent-closed', 'silent-open']) {
@@ -395,12 +462,18 @@ test('Cartel Palace approach smoke-build produces the world, cast, and colliders
    * facing the front door -- and both numbers went stale at once, failing a
    * palace that had gained a man rather than lost one.
    *
-   * Pinned to the authored roster instead of to a number: every post in
+   * Pinned to the authored rosters instead of to a number: every post in
    * PALACE_GUARD_POSTS must have become a body, and the combat cast is that
-   * roster plus the two named targets, Mark and Sauce. A post added or
-   * removed in cast.js moves both sides together; a post that silently fails
-   * to build, or a target that goes missing, still fails here. */
+   * roster, plus the two named targets, plus the reprisal wave Mark calls when
+   * his plates come off (PALACE_WAVE_POSTS, added 2026-08-25 -- built at boot
+   * and parked inactive, because everything that makes a Combatant work is
+   * constructed once from `all`). A post added or removed in cast.js moves
+   * both sides together; a post that silently fails to build, or a target that
+   * goes missing, still fails here. */
   assert.equal(built.metadata.guardCount, PALACE_GUARD_POSTS.length);
-  assert.equal(built.metadata.castCount, PALACE_GUARD_POSTS.length + 2);
+  assert.equal(
+    built.metadata.castCount,
+    PALACE_GUARD_POSTS.length + 2 + PALACE_WAVE_POSTS.length,
+  );
   assertPlainData(built.metadata, 'cartel-palace:approach.metadata');
 });

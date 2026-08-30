@@ -14,7 +14,7 @@ import { withoutRerecord } from './rerecord-queue.mjs';
 import { CUES } from '../src/golf/script.js';
 import {
   CHAPTER_MESSAGES,
-  DAY_FOUR_LOU_GOLF_CALL,
+  NEW_SPACE_LOU_CALL,
 } from '../src/core/apartment-story.js';
 import { voiceProfileFor } from '../src/core/characters.js';
 import { callScript } from '../src/core/phone.js';
@@ -48,7 +48,14 @@ export const GOLF_EFFECT_MANIFEST = Object.freeze([
 
 function isOwned(name) {
   return name?.startsWith('vo.golf.')
+    /* `vo.call.lou.golf.*` was the invitation this scene used to own and it
+     * is deliberately still claimed here: beats 12-19 retired those four
+     * takes (they set up a bank job that now happens the day before), and a
+     * prefix this file stopped claiming would leave the stale rows in the
+     * manifest for `check:golf-vo` to keep passing over. Claiming it is what
+     * makes `npm run vo:golf` sweep them out. */
     || name?.startsWith('vo.call.lou.golf.')
+    || name?.startsWith('vo.call.lou.new_space.')
     || name?.startsWith('vo.machine.lou.golf_morning.')
     || name?.startsWith('vo.machine.lou.heist_day.')
     || GOLF_EFFECT_MANIFEST.some((cue) => cue.name === name);
@@ -86,9 +93,9 @@ export function collectGolfVoiceCues() {
       ...(cue.hold > 0 ? { postLineHold: cue.hold } : {}),
     };
   });
-  const call = callScript(DAY_FOUR_LOU_GOLF_CALL).map((turn) => ({
+  const call = callScript(NEW_SPACE_LOU_CALL).map((turn) => ({
     name: turn.cue,
-    voice: turn.who === 'me' ? 'player' : DAY_FOUR_LOU_GOLF_CALL.voiceProfile,
+    voice: turn.who === 'me' ? 'player' : NEW_SPACE_LOU_CALL.voiceProfile,
     say: turn.text,
   }));
   return [...course, ...call, ...collectDayFourMessageCues()]

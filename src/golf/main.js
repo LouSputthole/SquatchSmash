@@ -20,10 +20,11 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
-import { translateKey, lookSensitivity } from '../core/settings.js';
+import { lookSensitivity } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import {
-  SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
+  SCENE_IDS, createCampaign, createCampaignRadioAdapter, returnHomeFromMission,
 } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
 import { Radio } from '../core/radio.js';
@@ -32,9 +33,10 @@ import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { SmokeSystem, emitCigaretteExhale } from '../world/smoke.js';
+import { createGolfControlPolicy } from './controls.js';
 
 import { Course } from './terrain.js';
-import { Golfer, makeBag, makeBall, makeBallMarker } from './cast.js';
+import { Golfer, makeApartmentKeys, makeBag, makeBall, makeBallMarker } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
@@ -230,6 +232,41 @@ const carts = new CartPair(scene);
 carts.parkInLot(HOLE.lot.carts);
 
 const bag = makeBag(scene, HOLE.lot.bag.x, HOLE.lot.bag.z, 0.4);
+
+/* Beat 13 ends with an object changing hands, not an end-card claim. One key
+ * ring is reparented from Lou's free hand into the first-person view when the
+ * two semantic cue gestures fire. The route still changes only after the full
+ * round, so seeing the keys never bypasses golf or mutates campaign state. */
+const apartmentKeys = makeApartmentKeys();
+apartmentKeys.visible = false;
+golfers[CHARACTER_IDS.LOU]?.parts?.foreL?.add(apartmentKeys);
+apartmentKeys.position.set(-0.015, -0.38, 0.055);
+let apartmentKeyState = 'hidden';
+
+function presentApartmentKeys(gesture) {
+  if (gesture === 'offer_apartment_keys') {
+    const hand = golfers[CHARACTER_IDS.LOU]?.parts?.foreL;
+    if (!hand) return false;
+    hand.add(apartmentKeys);
+    apartmentKeys.position.set(-0.015, -0.38, 0.055);
+    apartmentKeys.rotation.set(-0.18, 0.18, 0.48);
+    apartmentKeys.scale.setScalar(1.35);
+    apartmentKeys.visible = true;
+    apartmentKeyState = 'offered';
+    return true;
+  }
+  if (gesture === 'receive_apartment_keys') {
+    camera.add(apartmentKeys);
+    apartmentKeys.position.set(0.285, -0.235, -0.52);
+    apartmentKeys.rotation.set(-0.38, 0.18, -0.48);
+    apartmentKeys.scale.setScalar(1.0);
+    apartmentKeys.visible = true;
+    apartmentKeyState = 'received';
+    return true;
+  }
+  return false;
+}
+
 const ballMeshes = new Map();
 for (const id of [CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW, CHARACTER_IDS.ERIC]) {
   ballMeshes.set(id, makeBall(scene, 0xeef0f4));
@@ -270,7 +307,7 @@ const SHAFT_PITCH = PLAYER_CLUB_SHAFT_PITCH;
 const hud = new Hud();
 const audio = new AudioEngine();
 const radioClock = new AuthoredClock(8);
-radioClock.setTime(4, 8 * 60);
+radioClock.setTime(6, 8 * 60);
 const cartRadio = new Radio(audio, hud, radioClock, {
   venue: 'silver_pines',
   fullSongs: true,
@@ -280,6 +317,9 @@ const cartRadio = new Radio(audio, hud, radioClock, {
   }),
   /* This quiet morning does not replay campaign meeting interruptions. */
   canPlayNotice: () => false,
+  /* A cart receiver can remain powered while the group plays a ball, but its
+   * station card must not follow the player across an entire golf hole. */
+  hudVisible: () => camMode === CAM.CART,
 });
 const cartRadioPosition = new THREE.Vector3();
 const cartRadioReady = cartRadio.loadManifest();
@@ -323,6 +363,10 @@ function speakerName(id) {
 
 const cues = new CueQueue({
   say: (cue, secs) => {
+    /* Story props follow the authored line, not a timer guessed alongside it.
+     * The offer starts with Lou's words; the transfer starts with the
+     * Prospect's response, so the visible object and subtitle cannot drift. */
+    if (cue.gesture) presentApartmentKeys(cue.gesture);
     const speaker = speakerFor(cue.speaker);
     hud.say(`<em>${speakerName(cue.speaker)}</em> ${cue.text}`, secs * 1000);
     activeVoice?.stop?.();
@@ -809,8 +853,8 @@ function enterAddress() {
     yaw: player.yaw, pitch: player.pitch,
   };
   camMode = CAM.ADDRESS;
-  player.enabled = false;
   player.mode = 'frozen';
+  syncGolfControls('address-enter');
   frozenMeter = null;
   selectClub(recommendedClubForShot());
   swing.reset();
@@ -831,8 +875,8 @@ function enterAddress() {
 
 function leaveAddress() {
   camMode = CAM.WALK;
-  player.enabled = true;
   player.mode = 'walk';
+  syncGolfControls('address-leave');
   swing.reset();
   frozenMeter = null;
   ui.shot.classList.add('hidden');
@@ -1581,6 +1625,11 @@ function updateFrozenMeter(dt) {
 /* ------------------------------------------------------------------ */
 
 player.yawOffset = 0;
+let input = null;
+
+function syncGolfControls(reason) {
+  input?.refresh(reason);
+}
 
 function fireSwing() {
   const result = swing.result;
@@ -1602,6 +1651,7 @@ function fireSwing() {
   frozenMeterTimer = STRIKE_FEEDBACK_TIME;
   paintMeterFrom(struck);
   camMode = CAM.FLIGHT;
+  syncGolfControls('ball-flight');
   flightTimer = 0;
   ui.shot.classList.add('hidden');
   ui.aim.classList.add('hidden');
@@ -1635,125 +1685,57 @@ function explainBlockedBall() {
   return 'It is not your turn to play this ball yet.';
 }
 
-window.addEventListener('mousedown', (e) => {
-  if (e.button !== 0) return;
-  if (camMode === CAM.ADDRESS) {
-    onClick();
-    if (document.pointerLockElement !== canvas) requestMouseCapture();
-    return;
-  }
-  if (document.pointerLockElement !== canvas) return;
-  interaction.press();
-});
-window.addEventListener('mouseup', () => interaction.release());
-
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== canvas) return;
-  if (camMode === CAM.ADDRESS) {
-    // Aim only. He does not move his feet while he is over the ball.
-    aimYaw -= e.movementX * lookSensitivity(0.0016);
-    return;
-  }
-  if (camMode === CAM.CART) {
-    player.yawOffset -= e.movementX * lookSensitivity(0.0022);
-    player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - e.movementY * lookSensitivity(0.0022)));
-    return;
-  }
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
-window.addEventListener('keydown', (e) => {
-  if (pendingHoleTransition && ['KeyR', 'Space', 'Enter'].includes(e.code)) {
-    advanceHoleTransition();
-    e.preventDefault();
-    return;
-  }
-  if (camMode === CAM.ADDRESS
-    && ['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(e.code)) {
-    const farther = e.code === 'ArrowUp' || e.code === 'KeyW';
-    adjustPlannedDistance(farther ? 1 : -1);
-    e.preventDefault();
-    return;
-  }
-  if (camMode === CAM.ADDRESS
-    && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) {
-    const left = e.code === 'ArrowLeft' || e.code === 'KeyA';
-    aimYaw += (left ? 1 : -1) * (e.shiftKey ? 0.07 : 0.022);
-    e.preventDefault();
-    return;
-  }
-  if (camMode === CAM.ADDRESS && (e.code === 'Space' || e.code === 'Enter')) {
-    if (!e.repeat) onClick();
-    e.preventDefault();
-    return;
-  }
-  if (e.repeat) return;
-
+function chooseGolfDigit(idx) {
   /* The one input rule that matters. Number keys pick a reply when replies are
    * on screen and pick a club when they are not — never both. */
-  if (/^Digit[1-9]$/.test(e.code)) {
-    if (numberKeyOwner(dialogue) === 'dialogue') {
-      dialogue.choose(Number(e.code.slice(5)) - 1);
-      e.preventDefault();
-      return;
-    }
-    /* A slot, not a club index. The bag puts three clubs in the first three
-     * slots so 1/2/3 still take out the driver, the iron and the putter — but
-     * a beer in slot four is now reachable by pressing 4, which is the whole
-     * of the playtest note. */
-    const idx = Number(e.code.slice(5)) - 1;
-    const inSlot = inventory.items[idx] ?? null;
-    if (inSlot) {
-      if (camMode === CAM.ADDRESS && swing.phase !== SWING_PHASE.IDLE) {
-        hud.toast('Club is locked once the swing starts. Press Q to reset.', 'hint');
-        return;
-      }
-      if (!CLUB_IDS.includes(inSlot)) {
-        inventory.select(idx);
-        hud.toast(`${GOLF_ITEMS[inSlot].name} — ${GOLF_ITEMS[inSlot].hint}`, 'hint', 2200);
-        return;
-      }
-      selectClub(inSlot, { sound: true });
-      /* Eric's "that is a lot of club" only means anything on a tee that does
-       * not want a driver. It used to fire on every tee, including the two
-       * that open on a driver by design — the same misfire as Lou's
-       * wrong-club line, from the other direction. */
-      if (club === 'driver' && round.beat === BEAT.PLAYER_TEE && !round.wantsDriver()) {
-        cues.playSequence('bark.driver_on_par_three');
-      }
-    }
+  if (numberKeyOwner(dialogue) === 'dialogue') {
+    dialogue.choose(idx);
     return;
   }
+  /* A slot, not a club index. The bag puts three clubs in the first three
+   * slots so 1/2/3 still take out the driver, the iron and the putter — but
+   * a beer in slot four is now reachable by pressing 4. */
+  const inSlot = inventory.items[idx] ?? null;
+  if (!inSlot) return;
+  if (camMode === CAM.ADDRESS && swing.phase !== SWING_PHASE.IDLE) {
+    hud.toast('Club is locked once the swing starts. Press Q to reset.', 'hint');
+    return;
+  }
+  if (!CLUB_IDS.includes(inSlot)) {
+    inventory.select(idx);
+    hud.toast(`${GOLF_ITEMS[inSlot].name} — ${GOLF_ITEMS[inSlot].hint}`, 'hint', 2200);
+    return;
+  }
+  selectClub(inSlot, { sound: true });
+  if (club === 'driver' && round.beat === BEAT.PLAYER_TEE && !round.wantsDriver()) {
+    cues.playSequence('bark.driver_on_par_three');
+  }
+}
 
-  /* Movement is registered whatever else this key also does. It used to sit
-   * in the `default:` arm, so a movement action rebound onto one of the keys
-   * the switch already names (F, M, R, T, N, G, Q, E, Escape) never got a
-   * key-down — while the keyup below cleared it unconditionally. */
-  player.setKey(translateKey(e.code), true);
-
-  switch (e.code) {
+function handleGolfCommand(code) {
+  switch (code) {
     case 'KeyE':
-      if (camMode === CAM.ADDRESS) return;
+      if (camMode === CAM.ADDRESS) return true;
       if (camMode === CAM.CART) {
         const exit = round.leaveCart();
         if (!exit.ok) hud.toast(exit.reason, 'hint', 2800);
         else hud.toast('Cart parked. Play your ball.', 'good', 2200);
-        return;
+        return true;
       }
       if (nearBall()) {
-        if (round.canAddress()) { enterAddress(); return; }
+        if (round.canAddress()) { enterAddress(); return true; }
         hud.toast(explainBlockedBall(), 'hint', 3800);
-        return;
+        return true;
       }
       interaction.press();
-      break;
+      return true;
     case 'Escape':
-      if (camMode === CAM.ADDRESS) { leaveAddress(); return; }
+      if (camMode === CAM.ADDRESS) { leaveAddress(); return true; }
       document.exitPointerLock?.();
-      break;
+      return true;
     case 'KeyQ':
       if (camMode === CAM.ADDRESS) leaveAddress();
-      break;
+      return true;
     case 'KeyR':
       if (camMode === CAM.CART) {
         cartRadio.toggle();
@@ -1766,24 +1748,24 @@ window.addEventListener('keydown', (e) => {
           round.playerBall.state === BALL_STATE.OUT_OF_BOUNDS ? 'oob' : 'water',
         );
       }
-      break;
+      return true;
     case 'KeyT':
       if (camMode === CAM.CART) {
         cartRadio.tune();
         carts.lead.setRadioOn(cartRadio.on);
         hud.toast(`${cartRadio.station.dial} · ${cartRadio.station.name}`);
       }
-      break;
+      return true;
     case 'KeyN':
       if (camMode === CAM.CART && cartRadio.on) {
         cartRadio.next();
         hud.toast('Next radio block', 'hint', 1500);
       }
-      break;
+      return true;
     case 'KeyG': {
       const result = round.takeGimme();
       if (!result.ok) hud.toast(result.reason, 'hint', 2200);
-      break;
+      return true;
     }
     case 'KeyF':
       /* Skipping an NPC tee shot is only a thing during the tee beat, and
@@ -1793,31 +1775,17 @@ window.addEventListener('keydown', (e) => {
       else if (!beginItemUse() && CONSUMABLES.includes(inventory.held)) {
         hud.toast('Not while you are over the ball.', 'hint', 1600);
       }
-      break;
+      return true;
     case 'KeyM':
       audio.setMasterVolume(audio.muted ? 1 : 0);
       audio.muted = !audio.muted;
       hud.toast(audio.muted ? 'Muted' : 'Sound on');
-      break;
+      return true;
     default:
-      break;
+      return false;
   }
-});
+}
 
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-  if (e.code === 'KeyF') cancelItemUse();
-});
-/* Alt-tab safety. A window that loses focus never gets the keyup, so without
- * this the last held key keeps walking (or driving the cart) for as long as
- * the window is away — the pattern in src/silver/main.js and
- * src/nowake/main.js. */
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-  cancelItemUse();
-});
 /* A hidden tab must not keep playing the round at nobody: route through the
  * pause menu, whose onPause clears keys and suspends the audio context. The
  * radio rides an HTML media element the context suspend does not touch, so it
@@ -2009,8 +1977,8 @@ function showHoleCard(summary, next) {
   card.querySelector('.actions').classList.add('hidden');
   card.classList.remove('hidden');
 
-  player.enabled = false;
   running = false;
+  syncGolfControls('hole-transition');
   const advance = () => {
     if (!pendingHoleTransition || pendingHoleTransition.next !== next) return;
     window.clearTimeout(pendingHoleTransition.timer);
@@ -2022,8 +1990,8 @@ function showHoleCard(summary, next) {
     selectClub('iron');
     camMode = CAM.WALK;
     player.mode = 'walk';
-    player.enabled = true;
     running = true;
+    syncGolfControls('next-hole');
     ended = false;
     card.classList.add('hidden');
     card.querySelector('.actions').classList.remove('hidden');
@@ -2065,6 +2033,11 @@ function holeStats(summary) {
 function showEndCard(summary) {
   if (ended) return;
   ended = true;
+  /* The receiver is allowed to remember the player's switch, but the round
+   * no longer owns audible media once its report card is up. `pause()` keeps
+   * the persisted preference/cursor intact while releasing the HTML record,
+   * static bed, and talk bed before the campaign handoff. */
+  cartRadio.pause();
   story.recordHole(round.persist());
   const closed = story.complete({ holes: summary.holes });
 
@@ -2086,19 +2059,26 @@ function showEndCard(summary) {
   card.querySelector('.next').innerHTML = built < HOLES.length
     ? `${HOLES.length - built} HOLE${HOLES.length - built === 1 ? '' : 'S'} STILL TO BUILD<br>`
       + `<span>${HOLES.filter((h) => !h.playable).map((h) => h.name.toUpperCase()).join(' · ')}</span>`
-    : 'THAT IS THE ROUND<br><span>SEVEN O\'CLOCK IS THE ROOM</span>';
+    : 'THAT IS THE ROUND<br><span>THE ADDRESS IS ON THE TAG</span>';
 
   card.querySelector('.actions').classList.remove('hidden');
   const replay = document.getElementById('endcard-again');
   if (replay) replay.hidden = completedRoundAction() !== 'replay';
   card.classList.remove('hidden');
   document.exitPointerLock?.();
-  player.enabled = false;
+  syncGolfControls('round-ended');
   audio.play('golf.cup', { volume: 0.5 });
 }
 
+/* BEAT 13'S EXIT IS THE KEYS, not the flat he drove here from.
+ *
+ * "Three holes, and the keys to somewhere better." The address is `SCENES`'
+ * business rather than this card's -- `returnHomeFromMission` reads the one
+ * table the Skip Scene adapter reads, so a developer's skip and a player's
+ * CONTINUE button cannot walk out of different doors -- and it books the
+ * cross-town drive on the way, exactly once. */
 const returnHome = () => {
-  navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  returnHomeFromMission(campaign, SCENE_IDS.SILVER_PINES);
 };
 /**
  * "Go home" read as an early exit -- a way to bail out of the round rather
@@ -2160,25 +2140,60 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    player.clearKeys();
-    player.enabled = false;
-    interaction.release();
     interaction.setPaused(true);
+    input?.suspend();
+    cartRadio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     paused = false;
     interaction.setPaused(false);
-    player.enabled = camMode === CAM.WALK;
     audio.ctx?.resume?.();
+    cartRadio.resume();
     clock.getDelta();
-    requestMouseCapture();
+    input?.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
     sceneId: SCENE_IDS.SILVER_PINES,
     location: window.location,
   }),
+});
+
+const golfControls = createGolfControlPolicy({
+  state: () => ({
+    running,
+    booting,
+    paused,
+    ended,
+    camMode,
+    pendingHoleTransition: Boolean(pendingHoleTransition),
+  }),
+  modes: CAM,
+  player,
+  interaction,
+  advanceHoleTransition,
+  adjustPlannedDistance,
+  adjustAim: (delta) => { aimYaw += delta; },
+  swingClick: onClick,
+  chooseDigit: chooseGolfDigit,
+  command: handleGolfCommand,
+  cancelItemUse,
+  aimMouse: (movementX) => {
+    // Aim only. He does not move his feet while he is over the ball.
+    aimYaw -= movementX * lookSensitivity(0.0016);
+  },
+  cartMouse: (movementX, movementY) => {
+    player.yawOffset -= movementX * lookSensitivity(0.0022);
+    player.pitch = Math.max(-1.2,
+      Math.min(1.2, player.pitch - movementY * lookSensitivity(0.0022)));
+  },
+});
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  ...golfControls,
 });
 
 function frame() {
@@ -2221,7 +2236,6 @@ function frame() {
     applyCartCamera();
     if (round.beat !== BEAT.CART) {
       camMode = CAM.WALK;
-      player.enabled = true;
       player.mode = 'walk';
       player.yaw = carts.lead.group.rotation.y + Math.PI + player.yawOffset;
       player.yawOffset = 0;
@@ -2229,17 +2243,18 @@ function frame() {
       player.position.x = exit.x;
       player.position.y = heightAt(exit.x, exit.z) + 1.66;
       player.position.z = exit.z;
+      syncGolfControls('cart-exit');
     }
   } else {
     player.update(dt);
     interaction.update(dt);
     if (round.beat === BEAT.CART) {
       camMode = CAM.CART;
-      player.enabled = false;
       player.mode = 'frozen';
       player.yawOffset = 0;
       if (cartRadio.preferredOn && !cartRadio.on) cartRadio.turnOn({ remember: false });
       carts.lead.setRadioOn(cartRadio.on);
+      syncGolfControls('cart-enter');
     }
   }
 
@@ -2280,22 +2295,10 @@ function frame() {
 /* Boot                                                                */
 /* ------------------------------------------------------------------ */
 
-function requestMouseCapture() {
-  try {
-    /* Embedded browsers may reject pointer lock even after a user gesture.
-     * That removes mouse-look, but it must not turn a successfully started
-     * round into a fatal boot error. */
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    /* Pointer lock is optional; clicking the course can try again later. */
-  }
-}
-
 const START_BLOCK_COPY = Object.freeze({
   already_complete: 'This morning is already on the card. Return to the apartment.',
   mission_locked: 'Lou has not invited you to Silver Pines yet. Return to the apartment and keep moving through the campaign.',
-  silver_incomplete: 'Finish the Silver Room before this morning becomes available.',
+  heist_incomplete: 'Finish THE TAKE before this morning at Silver Pines becomes available.',
   wrong_chapter: 'This is not the morning Lou invited you to Silver Pines.',
   lou_call_incomplete: 'Lou has not made the golf call yet. Return to the apartment.',
   travel_incomplete: 'Leave for Silver Pines through the apartment after Lou calls.',
@@ -2419,12 +2422,15 @@ async function boot() {
   sceneInventory.show();
   syncGolfInventory();
 
-  requestMouseCapture();
-  player.enabled = true;
+  input.requestPointerLock();
+  syncGolfControls('boot-ready');
   if (previewCheckpoint === 'grille') {
     // The full round, staged and closed out for real: `showEndCard()` is the
     // exact function `round`'s own `onRoundComplete` hook calls, and it
-    // banks the last hole and calls `story.complete()` itself.
+    // banks the last hole and calls `story.complete()` itself. The checkpoint
+    // skips the walk-off conversation, so stage the already-completed physical
+    // handover rather than showing a keyless completion card.
+    presentApartmentKeys('receive_apartment_keys');
     showEndCard(round.roundSummary());
   } else if ((begun.resumed || previewCheckpoint) && resumeHole > 1) {
     round.startHole(resumeHole);
@@ -2446,9 +2452,6 @@ async function boot() {
 }
 
 startBtn?.addEventListener('click', () => { boot(); });
-canvas.addEventListener('click', () => {
-  if (running && !pauseMenu.isPaused() && document.pointerLockElement !== canvas && !ended) requestMouseCapture();
-});
 
 frame();
 
@@ -2465,13 +2468,15 @@ frame();
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
   interaction, inventory, heldProps, smoke,
-  cartRadio, landingPreview, npcBallMarkers,
+  cartRadio, landingPreview, npcBallMarkers, apartmentKeys,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
-  player, camera, scene, audio,
+  player, camera, scene, audio, input,
   get beat() { return round.beat; },
   get camMode() { return camMode; },
   get club() { return club; },
+  get apartmentKeyState() { return apartmentKeyState; },
+  presentApartmentKeys,
   setClub: (c) => selectClub(c),
   get aimYaw() { return aimYaw; },
   setAim: (a) => { aimYaw = a; },
@@ -2530,7 +2535,7 @@ window.__golf = {
     selectClub('iron');
     camMode = CAM.WALK;
     player.mode = 'walk';
-    player.enabled = true;
+    syncGolfControls('verifier-next-hole');
     ended = false;
     paintCard();
     return HOLE.number;

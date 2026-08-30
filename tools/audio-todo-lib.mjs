@@ -1,5 +1,13 @@
 import { isFutureInitiationCue } from './audio-scope.mjs';
 
+const CABIN_CALL_PREFIXES = Object.freeze([
+  'vo.call.lou.cabin_lay_low.',
+  'vo.call.gratin.cabin_basement.',
+  'vo.call.ape.cabin_morning.',
+]);
+const isCabinVoiceCue = (name) => name.startsWith('vo.cabin.')
+  || CABIN_CALL_PREFIXES.some((prefix) => name.startsWith(prefix));
+
 /**
  * Build the human-facing audio production handoff from the two audio systems
  * that still exist in this repository.
@@ -16,7 +24,7 @@ const VOICE_SCENES = [
     || name.startsWith('vo.bj.') || name.startsWith('vo.slots.')],
   ['Squatchfather', (name) => name.startsWith('vo.sf.')],
   ['The Beef Run', (name) => name.startsWith('vo.beefrun.')],
-  ['The Enola Squatch', (name) => name.startsWith('vo.enolasquatch.')],
+  ['SQUATCHOLA GAY', (name) => name.startsWith('vo.enolasquatch.')],
   ['Jerky Motel', (name) => name.startsWith('vo.motel.')],
   ['NO WAKE', (name) => name.startsWith('vo.nowake.')],
   /* Order-independent, but only because both patterns keep their trailing
@@ -24,6 +32,7 @@ const VOICE_SCENES = [
    * and the whole Silver Case run disappears into the Silver Room's section. */
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
   ['The Silver Case', (name) => name.startsWith('vo.silvercase.')],
+  ['The Countryside Cabin', isCabinVoiceCue],
   ['Day Four apartment', (name) => name.startsWith('vo.call.lou.golf.')
     || name.startsWith('vo.call.lou.heist.')
     || name.startsWith('vo.machine.lou.golf_morning.')
@@ -90,7 +99,7 @@ const VOICE_DIRECTION = {
   player: 'Tony Squatchtana. Younger, competent, and aware he is the only person treating any of this as unusual. Flat and dry rather than nervous. During THE TAKE he is prepared but still the prospect, so confidence never becomes command.',
   'old-stove': 'Old Stove. Pleasant, unhurried, and completely immovable. Warm enough that every refusal lands as friendly.',
   cecilio: 'Don Cecilio Barriga. Courteous, slow, and never once says what is in the crates.',
-  'motel-rico': 'Rico, the Jerky Motel antagonist. PROVISIONAL audition casting from the owner\'s Boston side-character pool; voice lead must approve or recast this profile before locking the final cast.',
+  'motel-rico': 'Rico, the Jerky Motel antagonist. Owner-approved 2026-08-24 recast: distinct, sharp, and defensive; all thirty-nine active takes use this locked performer.',
   'motel-chino': 'Chino, Rico\'s Motel lieutenant. PROVISIONAL audition casting from the owner\'s Southern NPC pool; voice lead must approve or recast this profile before locking the final cast.',
   'npc-male': 'Scene-local male NPC pool. PROVISIONAL audition casting from the owner\'s old-man NPC row; voice lead must approve or recast this profile before locking the final cast.',
   'caib-radio': 'Bureau radio. Procedural, bored, and filtered, as if reading a checklist at somebody it cannot see.',
@@ -198,8 +207,8 @@ function renderVoice(out, voice, voices, recast = new Map()) {
    * to the end rather than off. */
   const preferred = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
-    'The Enola Squatch', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
-    'The Silver Case', 'Day Four apartment',
+    'SQUATCHOLA GAY', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
+    'The Countryside Cabin', 'The Silver Case', 'Day Four apartment',
     'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'PROJECT SILENT SQUATCH',
     'Squatch Graveyard', 'Initiation', 'Radio',
   ];

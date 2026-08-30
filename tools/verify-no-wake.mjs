@@ -41,6 +41,10 @@ const CABIN_BOW = CABIN.bow;
 const CABIN_STERN = CABIN.stern;
 const PORT = Number(process.env.PORT) || 5215;
 const WRITE_SCREENSHOTS = !process.argv.includes('--no-screenshots');
+const INPUT_ONLY = process.argv.includes('--input-only');
+const INPUT_ONLY_STAGE_TIMEOUT_MS = 90000;
+const INPUT_ONLY_WHOLE_TIMEOUT_MS = 240000;
+const INPUT_ONLY_COMPLETE = Symbol('NO_WAKE_INPUT_ONLY_COMPLETE');
 const SENTINEL = '{"version":999,"canonical":"NO WAKE preview must not touch this"}';
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -63,9 +67,34 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
   res.end(await fsp.readFile(file));
 });
+let browser = null;
+let inputOnlyPhase = 'server-listen';
+let inputOnlyDeadline = null;
+function markInputOnlyPhase(phase) {
+  if (!INPUT_ONLY) return;
+  inputOnlyPhase = phase;
+  console.log(`[NO WAKE input] ${phase}`);
+}
+if (INPUT_ONLY) {
+  inputOnlyDeadline = setTimeout(async () => {
+    console.error(
+      `[NO WAKE input] HARD TIMEOUT after ${INPUT_ONLY_WHOLE_TIMEOUT_MS}ms during ${inputOnlyPhase}`,
+    );
+    // The second timer is deliberately forceful: a wedged browser transport
+    // must not turn graceful cleanup into another unbounded wait.
+    const forceExit = setTimeout(() => process.exit(124), 5000);
+    forceExit.unref?.();
+    server.closeAllConnections?.();
+    server.close?.();
+    await browser?.close?.().catch(() => {});
+    process.exit(124);
+  }, INPUT_ONLY_WHOLE_TIMEOUT_MS);
+  inputOnlyDeadline.unref?.();
+}
 await new Promise((resolve) => server.listen(PORT, resolve));
+markInputOnlyPhase('browser-launch');
 
-const browser = await chromium.launch({
+browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
@@ -76,6 +105,7 @@ const browser = await chromium.launch({
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
+markInputOnlyPhase('page-create');
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
 /* Every wait in this file is wall clock waiting on SIMULATED time. The scene
  * clamps its step at 0.05 s and advances once per drawn frame, and this page on
@@ -85,7 +115,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, dev
  * real Player steps inside one evaluate, and the authored tweens are measured
  * in simulated seconds, so the ceiling is ten minutes: it is a guard against a
  * hang, not a performance assertion. */
-page.setDefaultTimeout(600000);
+page.setDefaultTimeout(INPUT_ONLY ? INPUT_ONLY_STAGE_TIMEOUT_MS : 600000);
 await page.addInitScript((sentinel) => localStorage.setItem('squatchlife.campaign', sentinel), SENTINEL);
 const problems = [];
 page.on('pageerror', (error) => problems.push(error.message));
@@ -109,7 +139,10 @@ const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', '
 const indexedFiles = new Set(soundIndex.files || []);
 const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
 const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
-const AUTHORED_LINE_COUNT = 37;
+/* The campaign continuity pass adds Lou's recorded-leak evidence and Willy's
+ * denial before the Negev question. Keep the explicit count so an accidental
+ * deletion cannot disappear behind manifest parity alone. */
+const AUTHORED_LINE_COUNT = 39;
 check(`all ${AUTHORED_LINE_COUNT} redesigned NO WAKE lines have stable cue ids, cast voices and exact manifest text`,
   authoredVoice.length === AUTHORED_LINE_COUNT
     && manifestVoice.length === authoredVoice.length
@@ -173,8 +206,12 @@ try {
    * ninety-second wait. It continues normally until the focused drive slice
    * below calls `runFor`, and is resumed immediately afterwards. */
   await page.clock.install({ time: Date.now() });
+  markInputOnlyPhase('page-load');
   await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
+  markInputOnlyPhase('runtime-ready');
+  await page.waitForFunction(() => window.NO_WAKE?.story, null, {
+    timeout: INPUT_ONLY ? INPUT_ONLY_STAGE_TIMEOUT_MS : 180000,
+  });
   /* One helper the whole file aims with: put the crosshair on a boat-local
    * point from where the player is really standing, step the real interaction
    * system, and report what it found. Every "the player uses X" check below
@@ -321,8 +358,12 @@ try {
     const r = document.getElementById('start-btn').getBoundingClientRect();
     return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
   });
+  markInputOnlyPhase('start-click');
   await page.mouse.click(startBox.x, startBox.y);
-  await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 300000 });
+  markInputOnlyPhase('gameplay-ready');
+  await page.waitForFunction(() => !document.getElementById('overlay'), null, {
+    timeout: INPUT_ONLY ? INPUT_ONLY_STAGE_TIMEOUT_MS : 300000,
+  });
   await page.waitForTimeout(250);
 
   const initialPointerLock = await page.evaluate(() => (
@@ -338,6 +379,64 @@ try {
     initialPointerLock && await page.evaluate(() => (
       document.pointerLockElement === document.querySelector('canvas')
     )));
+
+  /* Cross the browser-to-Player Seam rather than treating pointer lock itself
+   * as proof of control. These are trusted page mouse/key events; the check
+   * observes the real Player and canonical Adapter receipts, and never calls a
+   * debug movement method. */
+  const beforeRealInput = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    return {
+      x: game.player.position.x,
+      z: game.player.position.z,
+      yaw: game.player.yaw,
+      input: game.input.snapshot(),
+    };
+  });
+  markInputOnlyPhase('real-input');
+  await page.mouse.move(640, 360);
+  await page.mouse.move(710, 325, { steps: 2 });
+  await page.keyboard.down('w');
+  await page.waitForFunction(({ x, z }) => {
+    const game = window.NO_WAKE;
+    return Math.hypot(game.player.position.x - x, game.player.position.z - z) > .25;
+  }, beforeRealInput, { polling: 'raf', timeout: 30000 });
+  const heldRealInput = await page.evaluate(() => [...window.NO_WAKE.player.keys]);
+  await page.keyboard.up('w');
+  const afterRealInput = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    return {
+      x: game.player.position.x,
+      z: game.player.position.z,
+      yaw: game.player.yaw,
+      keys: [...game.player.keys],
+      input: game.input.snapshot(),
+    };
+  });
+  check('real click, mouse and W input capture, look, move and release before boarding',
+    afterRealInput.input.captured
+      && afterRealInput.input.lookEvents > beforeRealInput.input.lookEvents
+      && afterRealInput.input.movementPresses > beforeRealInput.input.movementPresses
+      && heldRealInput.includes('KeyW')
+      && !afterRealInput.keys.includes('KeyW')
+      && Math.hypot(
+        afterRealInput.x - beforeRealInput.x,
+        afterRealInput.z - beforeRealInput.z,
+      ) > .25
+      && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > .01,
+    JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
+
+  /* This is an intentionally narrow certification boundary, not a shortcut in
+   * the full mission verifier. It reaches the normal authored start button,
+   * waits for the real audio-backed startup to enable gameplay, and crosses
+   * the browser -> canonical Adapter -> Player seam above. The default command
+   * continues through every existing NO WAKE assertion exactly as before. */
+  if (INPUT_ONLY) {
+    check('the focused input receipt emitted no uncaught browser errors',
+      problems.length === 0, problems.join(' | '));
+    markInputOnlyPhase('complete');
+    throw INPUT_ONLY_COMPLETE;
+  }
 
   const residency = await page.evaluate((expected) => {
     const audio = window.NO_WAKE.audio;
@@ -400,11 +499,57 @@ try {
       waterline: game.boat.root.userData.waterline,
       detailMeshes: game.boat.root.userData.detailMeshes,
       cabinMeshes: game.cabin.group.userData.detailMeshes,
-      cast: Object.fromEntries(Object.entries(game.boat.cast).map(([id, npc]) => [id, {
-        characterId: npc.group.userData.characterId,
-        gut: npc.parts.profile.gut ?? 0,
-        local: game.world.toBoatLocal(npc.group.getWorldPosition(new game.player.position.constructor())).toArray(),
-      }])),
+      cast: Object.fromEntries(Object.entries(game.boat.cast).map(([id, npc]) => {
+        let luxuryRibs = 0;
+        let patternTiles = 0;
+        npc.group.traverse((object) => {
+          if (object.name === 'shirt.luxury.rib') luxuryRibs++;
+          if (object.name === 'camp.pattern.tile') patternTiles++;
+        });
+        const campParts = [
+          'camp.undershirt', 'camp.front.left', 'camp.front.right',
+          'camp.collar.left', 'camp.collar.right', 'camp.sleeve.hem',
+        ].filter((name) => npc.group.getObjectByName(name)).length;
+        const workVestParts = [
+          'workvest.front.left', 'workvest.front.right',
+          'workvest.strap.left', 'workvest.strap.right',
+          'workvest.pocket', 'workvest.pocket.flap',
+        ].filter((name) => npc.group.getObjectByName(name)).length;
+        const binoculars = npc.parts.foreR.getObjectByName('Irish binoculars');
+        return [id, {
+          characterId: npc.group.userData.characterId,
+          gut: npc.parts.profile.gut ?? 0,
+          outfit: npc.parts.profile.outfit,
+          height: npc.parts.profile.height,
+          build: npc.parts.profile.build,
+          neckline: npc.parts.profile.neckline,
+          luxury: npc.parts.profile.luxury,
+          watch: npc.parts.profile.watch,
+          chain: npc.parts.profile.chainStyle,
+          pendant: npc.parts.profile.pendantStyle,
+          photoFace: Boolean(npc.group.getObjectByName('person.face.photo-skull')),
+          campParts,
+          workVestParts,
+          shirtPlacket: Boolean(npc.group.getObjectByName('shirt.placket')),
+          vNeck: Boolean(npc.group.getObjectByName('shirt.neckline.v')),
+          luxuryRibs,
+          patternTiles,
+          shirtColour: npc.group.getObjectByName('camp.front.left.cloth')
+            ?.material?.color?.getHex?.()
+            ?? npc.group.getObjectByName('ribcage')?.material?.color?.getHex?.()
+            ?? null,
+          vestColour: npc.group.getObjectByName('workvest.front.left.cloth')
+            ?.material?.color?.getHex?.() ?? null,
+          trouserColour: npc.group.getObjectByName('thigh')?.material?.color?.getHex?.() ?? null,
+          binoculars: binoculars ? {
+            attachedToForearm: binoculars.parent === npc.parts.foreR,
+            local: binoculars.position.toArray(),
+          } : null,
+          local: game.world.toBoatLocal(
+            npc.group.getWorldPosition(new game.player.position.constructor()),
+          ).toArray(),
+        }];
+      })),
       controls: Object.fromEntries(Object.entries(game.boat.controls)
         .filter(([, value]) => value?.root)
         .map(([id, value]) => [id, value.root.name])),
@@ -605,13 +750,45 @@ try {
       && boot.cast.willy.characterId === 'willy' && boot.cast.irish.characterId === 'irish'
       && boot.cast.willy.gut >= 1,
     JSON.stringify(Object.fromEntries(Object.entries(boot.cast).map(([k, v]) => [k, v.characterId]))));
+  check('Booskibro wears his relaxed NO WAKE camp outfit without losing his face or founder jewellery',
+    boot.cast.booski.outfit === 'camp'
+      && boot.cast.booski.height === 1.8
+      && boot.cast.booski.neckline === 'crew'
+      && boot.cast.booski.luxury === false
+      && boot.cast.booski.watch === 'gold'
+      && boot.cast.booski.chain === 'layered'
+      && boot.cast.booski.pendant === 'crest'
+      && boot.cast.booski.photoFace
+      && boot.cast.booski.campParts === 6
+      && boot.cast.booski.vNeck === false
+      && boot.cast.booski.luxuryRibs === 0
+      && boot.cast.booski.patternTiles === 0
+      && boot.cast.booski.shirtColour === 0x315b63
+      && boot.cast.booski.trouserColour === 0x8b8068,
+    JSON.stringify(boot.cast.booski));
+  check('NO WAKE keeps canonical Irish in the navy open vest, green shirt, and dark trousers',
+    boot.cast.irish.characterId === 'irish'
+      && boot.cast.irish.outfit === 'shirt'
+      && boot.cast.irish.height === 1.78
+      && boot.cast.irish.build === 1.15
+      && boot.cast.irish.photoFace
+      && boot.cast.irish.workVestParts === 6
+      && boot.cast.irish.shirtPlacket
+      && boot.cast.irish.vestColour === 0x1b304c
+      && boot.cast.irish.shirtColour === 0x29402f
+      && boot.cast.irish.trouserColour === 0x20242a,
+    JSON.stringify(boot.cast.irish));
   /* "Irish already aboard with binoculars." He is on the bow at the dock and he
    * is still on the bow when the body goes over the side. */
   check('Irish is already on the bow with his binoculars before anybody boards',
-    boot.cast.irish.local[2] < -3 && boot.cast.irish.local[1] > DECK.height + .5
-      && await page.evaluate(() => Boolean(window.NO_WAKE.boat.cast.irish.parts.foreR
-        .getObjectByName('Irish binoculars'))),
-    JSON.stringify({ irish: boot.cast.irish.local }));
+    Math.abs(boot.cast.irish.local[0] - 1.75) < 1e-6
+      && Math.abs(boot.cast.irish.local[1] - DECK.foredeckHeight) < 1e-6
+      && Math.abs(boot.cast.irish.local[2] + 4.55) < 1e-6
+      && boot.cast.irish.binoculars?.attachedToForearm
+      && Math.abs(boot.cast.irish.binoculars.local[0]) < 1e-6
+      && Math.abs(boot.cast.irish.binoculars.local[1] + .30) < 1e-6
+      && Math.abs(boot.cast.irish.binoculars.local[2] + .10) < 1e-6,
+    JSON.stringify(boot.cast.irish));
   await capture('no-wake-gate-c.png');
 
   const marina = await page.evaluate(() => {
@@ -2280,6 +2457,12 @@ try {
           version: gl.getParameter(gl.VERSION),
           renderer: gl.getParameter(gl.RENDERER),
         },
+        radioTeardown: {
+          on: game.radio.on,
+          paused: game.radio._paused,
+          mediaPaused: game.radio.el?.paused ?? true,
+          beds: [...game.audio.loops.keys()].filter((key) => key.startsWith('radio.')).sort(),
+        },
       }));
     };
     requestAnimationFrame(observe);
@@ -2353,12 +2536,26 @@ try {
     await page.waitForLoadState('domcontentloaded');
     return readCompletion();
   });
-  check('completion records every irreversible beat and opens Front and Center',
+  /* THE DATE IS BEHIND HIM NOW, NOT AHEAD.
+   *
+   * This asserted the harbour hands off to the `date` chapter, which was true
+   * when NO WAKE was the first thing off the back of the Motel. The beats
+   * 12-19 reorder puts Front & Center at beat 15 and this at beat 18 -- the
+   * bible's trigger is "family call after Margo leaves", so the evening at the
+   * Silver Room has already happened, and `NoWakeStory.canBegin()` refuses
+   * with `silver_incomplete` if it has not. `date` is also one of the three
+   * chapters the schema-21 migration strands, so nothing on the live route
+   * can be standing in it.
+   *
+   * `complete()` says where it actually goes, and says why: *"the chapter
+   * this hands control to is the flat he now lives in."* Beat 19 is the
+   * luxury apartment, and Booski rings there about the case. */
+  check('completion records every irreversible beat and hands back to the luxury apartment',
     completed.mission.status === 'complete' && completed.mission.betrayalConfirmed
       && completed.mission.playerFired && completed.mission.bodyDisposed
-      && completed.chapter === 'date'
+      && completed.chapter === 'luxury_apartment'
       && /MISSION COMPLETE: NO WAKE/.test(completed.objective ?? ''),
-    JSON.stringify(completed.mission));
+    `${JSON.stringify(completed.mission)}; chapter ${completed.chapter}`);
   check('the complete browser playthrough leaves canonical storage byte-for-byte untouched',
     completed.canonical === SENTINEL);
   const { webglHealth } = completed;
@@ -2366,6 +2563,11 @@ try {
     webglHealth.contextLossEvents === 0 && !webglHealth.contextLost
       && /WebGL/.test(webglHealth.version ?? ''),
     JSON.stringify(webglHealth));
+  check('NO WAKE completion owns no radio media or stale radio beds',
+    !completed.radioTeardown.on
+      && completed.radioTeardown.mediaPaused
+      && completed.radioTeardown.beds.length === 0,
+    JSON.stringify(completed.radioTeardown));
   // ---- Preview checkpoint links (?preview=1&checkpoint=...) --------------
   // Each waypoint gets its own fresh page/preview campaign, the way an owner
   // clicking a preview.html link would load it. `dock`/`underway`/`inlet`/
@@ -2446,7 +2648,10 @@ try {
   }
 
   check('the browser emitted no uncaught errors', problems.length === 0, problems.join(' | '));
+} catch (error) {
+  if (error !== INPUT_ONLY_COMPLETE) throw error;
 } finally {
+  if (inputOnlyDeadline) clearTimeout(inputOnlyDeadline);
   await browser.close();
   server.close();
 }

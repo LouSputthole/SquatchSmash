@@ -32,10 +32,11 @@ import {
   FOUNTAIN_POS,
   POOL,
 } from './scenes/MansionGrounds.js';
-import { buildMansionInterior } from './scenes/MansionInterior.js';
+import { CHANDELIER_POS, buildMansionInterior } from './scenes/MansionInterior.js';
 import { buildSilentSquatch } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { shakeScale } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPromptHud } from '../core/hud.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -65,15 +66,17 @@ import { MANSION_NEXT_BEAT_ZONES, mansionAudioBanks } from './audio-banks.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from './perf.js';
 import {
   MANSION_EVENING_BEAT_IDS, MISSION_IDS, POOL_FRAME_RESPECT, SCENE_IDS,
-  awardPoolFrameRespect, createCampaign,
+  awardPoolFrameRespect, createCampaign, createCampaignRadioAdapter,
 } from '../core/campaign.js';
 import { createFinalArcRuntimeSession } from '../core/final-arc-runtime.js';
 import {
   createCampaignSceneRecovery, createCampaignSceneRestartAdapter,
 } from '../core/campaign-scene-skip.js';
 import { createMansionReturnCampaignStory } from '../core/final-arc-story.js';
+import { mountFoyerRepairs } from './repairs.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
+import { createMansionControlPolicy } from './controls.js';
 import {
   MANSION_RETURN_REPORT, mansionReturnObjective, mansionVisitMode,
 } from './campaign.js';
@@ -135,7 +138,7 @@ if (mansionVisit === 'return') {
   const kicker = menuEl?.querySelector?.('.kicker');
   const title = menuEl?.querySelector?.('.title');
   const sub = menuEl?.querySelector?.('.sub');
-  if (kicker) kicker.textContent = 'THE HOUSE · AFTER THE ENOLA SQUATCH';
+  if (kicker) kicker.textContent = 'THE HOUSE · AFTER SQUATCHOLA GAY';
   if (title) title.textContent = "LOU'S MANSION — RETURN";
   if (sub) sub.textContent = 'The house has been repaired. Big Uncle Lou is waiting in his office with the next location.';
   if (startBtn) startBtn.textContent = 'WALK UP TO THE HOUSE';
@@ -235,6 +238,41 @@ greySedan.setCampaignEnding(badaBingEnding);
 const colliders = [...grounds.colliders, ...interior.colliders];
 const doors = { ...grounds.doors, ...interior.doors };
 const anchors = { ...grounds.anchors, ...interior.anchors };
+
+/* ================================================================== */
+/* THE MORNING AFTER, THE HOUSE IS STILL A BUILDING SITE                 */
+/*                                                                        */
+/* Owner playtest: *"Repaired mansion is really just the same thing as     */
+/* the original mansion. [...] I want some things to be repaired. Like     */
+/* maybe the centerpiece in the foyer is clearly still half broken and     */
+/* being repaired."*                                                       */
+/*                                                                          */
+/* `./repairs.js` is the whole answer and it only runs on this visit: the   */
+/* chandelier loses its bottom tier to a pallet by the wall, a patch of the */
+/* compass inlay is lifted, and a scaffold stands over half a centre table  */
+/* under a dust sheet. Mounted here, off the finished interior, rather than */
+/* branched inside `buildMansionInterior` -- the SIEGE mounts that builder  */
+/* too, and a visit flag in it is a branch three scenes carry and every     */
+/* geometry allowlist has to be re-anchored around.                         */
+/* ================================================================== */
+const foyerRepairs = mansionVisit === 'return'
+  ? mountFoyerRepairs({
+    scene,
+    foyer: interior.props.foyer,
+    at: { x: 0, y: GROUND_Y, z: CHANDELIER_POS.z },
+  })
+  : null;
+/* A named contributor to the collider total, for the same reason Snow's
+ * cart is one: verify-mansion adds that total up from its contributors and
+ * an anonymous +3 makes the sum unverifiable rather than merely wrong. */
+let repairColliders = 0;
+for (const blocker of foyerRepairs?.blockers ?? []) {
+  colliders.push(blocker);
+  repairColliders += 1;
+}
+/* Where the man doing the work stands, published to the cast the same way
+ * every other post in this house is: through the anchor table. */
+if (foyerRepairs) anchors.foyerRepairSpot = foyerRepairs.workSpot;
 
 /* ================================================================== */
 /* Night lighting rig                                                    */
@@ -808,25 +846,36 @@ const HOUSE_RADIO_HOUR = 21;
 const houseRadio = new Radio(audio, {
   setRadio: () => {},
   toast: () => {},
-}, { hour: HOUSE_RADIO_HOUR }, { venue: 'mansion' });
+}, { hour: HOUSE_RADIO_HOUR }, {
+  venue: 'mansion',
+  state: createCampaignRadioAdapter(mansionRecoveryCampaign, {
+    /* The billiard-bay and pool-deck cabinets are two speaker sets on the
+     * same physical house tuner. The Silent Squatch and repaired-house visits
+     * therefore share this one receiver id without colliding with either of
+     * the Prospect's own apartments. */
+    receiverId: 'mansion_house',
+    defaultPower: false,
+  }),
+});
 let activeRadioSet = radioSets[0] ?? null;
 if (activeRadioSet) houseRadio.setPosition(activeRadioSet.speakerPos);
-houseRadio.on = false;
-houseRadio.preferredOn = false;
+
+function syncHouseRadioSets() {
+  for (const set of radioSets) set.setLit(houseRadio.on && activeRadioSet === set);
+}
 
 /** Use a set: move the sound to it, then toggle it. */
 function useRadioSet(set) {
   if (!set) return;
   if (houseRadio.on && activeRadioSet === set) {
     houseRadio.turnOff();
-    set.setLit(false);
+    syncHouseRadioSets();
     return;
   }
-  activeRadioSet?.setLit(false);
   activeRadioSet = set;
   houseRadio.setPosition(set.speakerPos);
   if (!houseRadio.on) houseRadio.turnOn();
-  set.setLit(true);
+  syncHouseRadioSets();
 }
 
 /**
@@ -1161,6 +1210,10 @@ function houseExplored() {
   return exploredRooms.size >= EXPLORE_ENOUGH;
 }
 
+/** Return-visit scene-local playback latch; campaign truth still lives in the
+ * existing Mansion Return mission and is written only when Lou finishes. */
+let returnBriefingPlaying = false;
+
 /**
  * The one standing order, for the shared upper-left panel.
  *
@@ -1170,7 +1223,9 @@ function houseExplored() {
  */
 function mansionObjectivePlan() {
   if (mansionVisit === 'return') {
-    const line = mansionReturnObjective(mansionCampaign.story?.mission?.status);
+    const line = returnBriefingPlaying
+      ? 'Listen to Lou'
+      : mansionReturnObjective(mansionCampaign.story?.mission?.status);
     return line ? { title: 'Objective', items: [{ label: line, done: false }] } : null;
   }
   const mission = mansionCampaign.story?.mission;
@@ -2291,6 +2346,7 @@ function returnLouLabel() {
     return 'Big Uncle Lou. He has been waiting for you and he is not going to say so.';
   }
   if (mansionPreview) return 'Leave for the Cartel Palace';
+  if (returnBriefingPlaying) return 'Listen to Lou';
   return mansionCampaign.story?.mission?.status === 'complete'
     ? 'Leave for the Cartel Palace'
     : "Receive Lou's briefing";
@@ -2309,12 +2365,31 @@ function useReturnBriefing() {
     mansionCampaign.navigate(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
     return true;
   }
-  if (status !== 'in_progress') return false;
-  const completed = mansionCampaign.complete(MANSION_RETURN_REPORT);
-  if (completed) {
-    announceCheckpoint('BRIEFING COMPLETE — WRONG CITY · SAUCE MISSING · PALACE LOCATED');
-  }
-  return completed;
+  if (status !== 'in_progress' || returnBriefingPlaying) return false;
+
+  /* Owner, 2026-08-26: "Lou reveals we accidentally bombed the wrong city"
+   * at the repaired mansion. The old handler committed all three facts on the
+   * same E frame and replaced the scene with a HUD toast. E now starts the
+   * existing cast DialogueController; the exact same three-fact report is
+   * persisted only after Lou has actually delivered every line. `play()` also
+   * deliberately replaces any driveway or foyer ambient bark still draining
+   * through the shared cast controller: Lou is the actionable objective, so
+   * a visible E prompt must never silently refuse him because somebody behind
+   * the player is finishing a one-liner. Reloading in
+   * the middle therefore repeats an unfinished briefing, while a completed
+   * save never repeats or double-credits it. */
+  returnBriefingPlaying = true;
+  cast.dialogue.play(SEQUENCES.returnBriefing, {
+    onDone: () => {
+      returnBriefingPlaying = false;
+      const completed = mansionCampaign.story?.mission?.status === 'in_progress'
+        && mansionCampaign.complete(MANSION_RETURN_REPORT);
+      if (completed) {
+        announceCheckpoint('BRIEFING COMPLETE — WRONG CITY · SAUCE MISSING · PALACE LOCATED');
+      }
+    },
+  });
+  return true;
 }
 
 /* ================================================================== */
@@ -2364,7 +2439,7 @@ const cast = mountMansionCast(scene, world, {
    * laboratory in it simply has a Booski you cannot hand anything to. */
   onDeliverCase: () => silentSquatch?.deliverCase?.() === true,
   louInteraction: mansionVisit === 'return' && !mansionPreview
-    ? { label: returnLouLabel, onUse: useReturnBriefing, enabled: () => true }
+    ? { label: returnLouLabel, onUse: useReturnBriefing, enabled: () => !returnBriefingPlaying }
     : {
       label: 'Report to Lou',
       enabled: () => silentSquatch?.debug?.state === 'BACK_TO_LOU',
@@ -2492,17 +2567,16 @@ const shadowCap = capShadowCasters({
 /* ================================================================== */
 const clock = new THREE.Clock();
 let running = false;
-
-function lockPointer() {
-  const pending = renderer.domElement.requestPointerLock?.();
-  if (pending && typeof pending.catch === 'function') pending.catch(() => {});
-}
+let tourBegun = false;
+let input = null;
 
 const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
   canPause: () => running,
   getObjective: () => mansionVisit === 'return' && !mansionPreview
-    ? mansionReturnObjective(mansionCampaign.story?.mission?.status)
+    ? (returnBriefingPlaying
+      ? 'Listen to Lou'
+      : mansionReturnObjective(mansionCampaign.story?.mission?.status))
     : silentSquatch?.mission.objective
       /* The quiet evening's own objective: the wind-down checklist, in the
        * same slot the mission's objectives used. Empty outside the evening. */
@@ -2547,15 +2621,7 @@ const sharedPauseMenu = createPauseMenu({
   }),
   onPause: () => {
     interaction.setPaused(true);
-    mansionPee.stop();
-    weaponSystem.setTrigger(false);
-    player.clearKeys();
-    /* A pool meter must not survive the pause mid-sweep. The click meter
-     * cannot run away behind the overlay the way the old hold-to-fill bar
-     * could -- `PoolFrame.update` stops being called -- but the [E] that was
-     * down when the menu came up will never deliver its keyup, so the held
-     * keys still have to go. */
-    poolKeys.clear();
+    input?.suspend();
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
@@ -2565,20 +2631,79 @@ const sharedPauseMenu = createPauseMenu({
     interaction.setPaused(atPool);
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
-    lockPointer();
+    input?.resume();
   },
+});
+
+function handleMansionCommand(code, event) {
+  if (code === 'KeyE') {
+    if (!event.repeat) interaction.press();
+    return true;
+  }
+  if (code === 'KeyR') {
+    if (!event.repeat) weaponSystem.reload();
+    return true;
+  }
+  if (code === 'KeyQ') {
+    if (!event.repeat) {
+      if (activeTheatreSeat) standFromTheatre();
+      else if (weaponSystem.equipped) loadout.stow();
+    }
+    return true;
+  }
+  if (/^Digit[1-5]$/.test(code)) {
+    if (!event.repeat) {
+      loadout.select(Number(code.slice(5)) - 1);
+      event.preventDefault?.();
+    }
+    return true;
+  }
+  if (code === 'KeyB') {
+    if (!event.repeat) postfx.toggle();
+    return true;
+  }
+  return false;
+}
+
+const mansionControls = createMansionControlPolicy({
+  state: () => ({
+    running,
+    tourBegun,
+    paused: sharedPauseMenu.isPaused(),
+    atPool,
+    weaponEquipped: Boolean(weaponSystem.equipped),
+  }),
+  player,
+  interaction,
+  poolKeys,
+  silentKeydown: (event) => silentSquatch?.keydown(event) === true,
+  dressHelpActive: () => cast?.dressHelpActive === true,
+  pressDressHelp: () => cast?.pressDressHelp(),
+  abandonDressHelp: () => cast?.abandonDressHelp(),
+  poolPressE,
+  poolPutCueBack,
+  command: handleMansionCommand,
+  peeStop: () => mansionPee.stop(),
+  setTrigger: (pressed) => weaponSystem.setTrigger(pressed),
+  fireMissionWeapon: () => silentSquatch?.fire(),
+  pause: () => sharedPauseMenu.pause(),
+});
+input = createFirstPersonInput({
+  player,
+  canvas: renderer.domElement,
+  interaction,
+  ...mansionControls,
 });
 
 /* ================================================================== */
 /* Boot gate: AudioContext and pointer lock both need a user gesture      */
 /* ================================================================== */
-let tourBegun = false;
 async function beginTour() {
   if (running || tourBegun) return;
   if (!mansionCampaignEntry.ok && mansionCampaignEntry.reason !== 'already_complete') {
     const sub = menuEl?.querySelector?.('.sub');
     if (sub) sub.textContent = mansionVisit === 'return'
-      ? 'This return visit is locked until The Enola Squatch is complete.'
+      ? 'This return visit is locked until SQUATCHOLA GAY is complete.'
       : "Lou's mansion is locked until The Silver Case is complete.";
     return;
   }
@@ -2589,14 +2714,14 @@ async function beginTour() {
    * rule (src/silvercase/main.js): a pointer lock asked for after an awaited
    * init plus an awaited three-hundred-cue decode is a pointer lock the
    * browser is free to refuse. */
-  lockPointer();
+  input.requestPointerLock();
   await audio.init();
   startAmbience();
-  /* The station's own record list. It is loaded but the set stays OFF: this
-   * is a tour of an empty house, and a radio that starts talking at you
-   * before you have touched it is not what "a radio in the pool table room"
-   * means. Either set switches it on. */
-  houseRadio.loadManifest().catch(() => {});
+  /* The station's record list can fetch behind the blocking start bank. The
+   * receiver itself remains physically off until this user gesture even when
+   * its saved switch is on; Radio's constructor separates `preferredOn` from
+   * live `on` precisely so a reload never attempts autoplay at module load. */
+  const houseRadioManifest = houseRadio.loadManifest().catch(() => []);
   /* The armory's sound. `weaponCueNames()` asks for both halves: the thirty
    * `weapon.*` cues this system wants recorded (which match nothing yet and
    * cost nothing to name) and the recordings standing in for them tonight,
@@ -2654,6 +2779,15 @@ async function beginTour() {
    * `startSuiteBeds` for why these two beds are the only ones that wait. */
   startSuiteBeds();
   mansionBanks.kickoff();
+  /* Restore only after the trusted start click has initialized audio. The
+   * first cabinet is the deterministic home for a restored house tuner; using
+   * either cabinet afterward moves the same single Radio instance, so no two
+   * `radio.talk` beds can overlap. */
+  if (houseRadio.preferredOn) {
+    await houseRadioManifest;
+    houseRadio.turnOn({ remember: false });
+    syncHouseRadioSets();
+  }
   /* PROJECT SILENT SQUATCH begins NOW, with its voice bank decoded -- the
    * mount no longer autostarts it at module load (see `autoStart: false`
    * below). `start()` is idempotent, so a `?checkpoint=` jump that outran
@@ -2662,7 +2796,7 @@ async function beginTour() {
    * before the first playable frame. */
   silentSquatch?.mission.start();
   running = true;
-  player.enabled = true;
+  input.refresh('tour-started');
   clock.getDelta();
   if (mansionVisit !== 'return'
     && mansionCampaignEntry.resumed
@@ -2681,90 +2815,10 @@ startBtn.addEventListener('click', beginTour);
 /* ================================================================== */
 /* Input                                                                 */
 /* ================================================================== */
-window.addEventListener('keydown', (e) => {
-  /* Tab never gets here — the pause menu's own capture-phase listener owns it
-   * (src/core/pause-menu.js). Everything below mutates the live tour, so it
-   * must go dark while the overlay is up. */
-  if (!running || sharedPauseMenu.isPaused()) return;
-  /* The laboratory keypad gets first refusal on a keystroke: while it is up,
-   * the digits he types are a code rather than a walk. */
-  if (silentSquatch?.keydown(e)) {
-    e.preventDefault();
-    return;
-  }
-  /* The other pool performer uses Margo's direct timing-bar controls while
-   * ordinary look-at interaction is intentionally paused. Keep E on the bar
-   * and let either Q or Escape abandon without leaking a movement key. */
-  if (cast?.dressHelpActive && !e.repeat) {
-    if (e.code === 'KeyE') {
-      cast.pressDressHelp();
-      e.preventDefault();
-      return;
-    }
-    if (e.code === 'KeyQ' || e.code === 'Escape') {
-      cast.abandonDressHelp();
-      e.preventDefault();
-      return;
-    }
-  }
-  if (e.code === 'Space') e.preventDefault();
-  /* At the table, [E] is the game's own button and [Q] is the way out --
-   * the same division src/bing/main.js draws at the blackjack seat. The
-   * look-prompt is paused while he is holding a cue, so nothing else is
-   * competing for either key. */
-  if (atPool) {
-    poolKeys.add(e.code);
-    if (e.code === 'KeyE' && !e.repeat) { poolPressE(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ' && !e.repeat) { poolPutCueBack(); e.preventDefault(); return; }
-  }
-  player.setKey(translateKey(e.code), true);
-  if (e.code === 'KeyE' && !e.repeat) interaction.press();
-  /* R and Q only mean anything with a gun in your hands, and neither is a
-   * browser accelerator on its own — the Beef Run's Ctrl lesson applies to
-   * modifiers, not to plain letters. */
-  if (e.code === 'KeyR' && !e.repeat) weaponSystem.reload();
-  if (e.code === 'KeyQ' && !e.repeat) {
-    if (activeTheatreSeat) standFromTheatre();
-    else if (weaponSystem.equipped) loadout.stow();
-  }
-  /* Slots, the same keys as the flat: Digit1..Digit5 pick one directly, the
-   * wheel cycles. Selecting the case's slot puts it back in his hands and
-   * selecting anything else puts it away -- that IS the stow, so there is no
-   * separate "holster the case" verb to learn. */
-  if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
-    loadout.select(Number(e.code.slice(5)) - 1);
-    e.preventDefault();
-  }
-  // B — the same bloom toggle every PostFX-mounted scene answers to.
-  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
-});
 window.addEventListener('wheel', (e) => {
   if (!running || sharedPauseMenu.isPaused()) return;
   loadout.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  poolKeys.delete(e.code);
-  /* [E] at the table is a click, not a hold, so the key coming back up is
-   * nothing -- and it must not fall through to `interaction.release()`, which
-   * belongs to a look-prompt that is paused while he has the cue. */
-  if (atPool && e.code === 'KeyE') return;
-  if (e.code === 'KeyE') {
-    interaction.release();
-    mansionPee.stop();
-  }
-});
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  /* A meter left sweeping when the window went away must not resolve itself
-   * against a marker nobody was watching. `PoolFrame.update` only advances
-   * the swing while the frame is being played, so clearing the held keys is
-   * enough here -- the bar simply sits where the last drawn frame left it. */
-  poolKeys.clear();
-  interaction.release();
-  mansionPee.stop();
-  weaponSystem.setTrigger(false);
-});
 /* A hidden tab must not keep simulating the house and playing its audio at
  * nobody: route through the pause menu, whose onPause already clears keys,
  * stows the trigger, and suspends the audio context. pause() refuses politely
@@ -2773,39 +2827,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) sharedPauseMenu.pause();
 });
 window.addEventListener('pagehide', () => captureMansionLoadout());
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    lockPointer();
-    return;
-  }
-  if (e.button !== 0) return;
-  /* Armed, the left button is the trigger; empty-handed it is the second
-   * interact key it has always been. E stays interact either way, so a man
-   * holding a SAW can still take it off and put it back without shooting the
-   * rack. */
-  if (weaponSystem.equipped) weaponSystem.setTrigger(true);
-  else interaction.press();
-  /* And at the execution beat it is the execution. The mission resolves the
-   * shot against what the crosshair is actually on -- it does not decide that
-   * a trigger pull found him. */
-  silentSquatch?.fire();
-});
-window.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  weaponSystem.setTrigger(false);
-  interaction.release();
-});
 window.addEventListener('contextmenu', (e) => e.preventDefault());
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === renderer.domElement;
-  player.enabled = running && locked;
-  if (!locked && running) sharedPauseMenu.pause();
-});
 
 /* ================================================================== */
 /* Render / update loop                                                  */
@@ -2948,8 +2970,9 @@ function teleport(x, y, z, yawDeg = 0) {
   player.yawCenter = null;
   player.yaw = THREE.MathUtils.degToRad(yawDeg);
   player.pitch = 0;
-  player.enabled = true;
+  tourBegun = true;
   running = true;
+  input.refresh('debug-teleport');
   menuEl.classList.add('hidden');
   player.update(1 / 60);
   /* A teleport is followed by whatever the caller does next -- often a
@@ -3208,6 +3231,7 @@ window.mansion = {
   postfx,
   player,
   interaction,
+  input,
   audio,
   /** Public evidence for the shared real-body hearing policy. */
   npcSpeech: {
@@ -3274,6 +3298,10 @@ window.mansion = {
    * as a SUM of named contributors -- an anonymous +1 makes that check
    * unverifiable rather than merely wrong. */
   castColliders,
+  /** The return visit's work site. 0 on the mission night, when it is absent. */
+  repairColliders,
+  /** How many chandelier parts came down for the repair. 0 on the mission night. */
+  foyerTierDown: foyerRepairs?.tierDown ?? 0,
   rooms: anchors,
   /** Every enterable room: its rect, its floor height and a stand-on anchor.
    * tools/verify-mansion.mjs walks this list, so a room added to the interior
@@ -3369,6 +3397,9 @@ window.mansion = {
     })),
     radioSets: radioSets.length,
     get radioOn() { return houseRadio.on; },
+    get radioPreferredOn() { return houseRadio.preferredOn; },
+    get radioSavedPower() { return houseRadio.state?.load?.().power ?? null; },
+    get activeRadioSet() { return radioSets.indexOf(activeRadioSet); },
     get radioTracks() { return houseRadio.playlist.length; },
     useRadio: (i = 0) => useRadioSet(radioSets[i]),
   },

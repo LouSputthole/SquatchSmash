@@ -107,6 +107,27 @@ const FALLBACKS = {
   'mansion.ballroom.backdrop': () => posterPlaceholder('Live', 'AND ONLY HERE', 214),
   'mansion.office.shield': () => posterPlaceholder('The House', 'SILVER SASQUATCHES', 40),
   'mansion.basement.shield': () => posterPlaceholder('Nothing Leaves', 'THIS ROOM', 8),
+  /* The Cartel Palace. Six owner drawings, none of them delivered yet -- the
+   * pieces were pasted into a chat and nothing was written to assets/art/, so
+   * every one of these slots is a manifest row with a title, a caption and no
+   * file. Which means the lettering below is what actually hangs on Mark's
+   * walls today, and it has a job: read as the cheap hand-lettered A-Team
+   * parody it stands in for, so the building looks intentional rather than
+   * unfinished. src/cartel-palace/world.js `A_TEAM_ART` says which wall each
+   * one is on and assets/art/README.md says which file replaces it. */
+  'cartel-palace.entry.the-a-team': () => posterPlaceholder('The A Team', 'OUT FRONT, ALL FIVE', 196),
+  'cartel-palace.entry.we-dont-miss': () => posterPlaceholder('A Team', 'WE DON\u2019T MISS', 8),
+  'cartel-palace.security.assault': () => posterPlaceholder('Assault', 'NO PLAN. NO MERCY.', 22),
+  'cartel-palace.dining.el-jefe': () => posterPlaceholder('El Jefe', 'A TEAM, ON THE THRONE', 48),
+  'cartel-palace.ops.champions': () => posterPlaceholder('Champions', '0-47. LAST PLACE.', 340),
+  'cartel-palace.ops.strat': () => posterPlaceholder('A Team Strat', 'OPERATION: DUMB LUCK', 108),
+  /* The gallery corridor's four, hung 2026-08-25. Portrait, so the drawn
+   * stand-ins are too -- a landscape placeholder in a portrait frame is a
+   * stretched rectangle in the one corridor every player walks end to end. */
+  'cartel-palace.gallery.respect-us': () => posterPlaceholder('Respect Us', 'THE A TEAM', 12),
+  'cartel-palace.gallery.master-plan': () => posterPlaceholder('Master Plan', '1 ??? 2 PROFIT', 202),
+  'cartel-palace.gallery.stealth-mission': () => posterPlaceholder('Stealth Mission', 'GRADE: F-', 288),
+  'cartel-palace.gallery.best-team': () => posterPlaceholder('Best Team', 'FOURTH OF FOUR', 42),
   'cereal.box': () => posterPlaceholder('Oops All', 'LOBBYS', 200),
   'crest.round': () => posterPlaceholder('Crest', 'EST. 2021', 270),
   'shelf.photo': () => posterPlaceholder('Someone', 'YOU KNOW', 200),

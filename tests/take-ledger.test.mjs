@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
-  normaliseSay, seedLedger, takeDrift, textHash,
+  normaliseSay, recordTake, seedLedger, takeDrift, textHash,
 } from '../tools/take-ledger.mjs';
 
 const read = (p) => JSON.parse(fs.readFileSync(new URL(p, import.meta.url), 'utf8'));
@@ -55,6 +57,24 @@ test('a take with no file on disk is not a finding, and a dead entry is', () => 
   const dead = takeDrift(manifest, { takes: { 'vo.gone': { text: 'x', source: 'assumed' } } },
     { lines: [] }, []);
   assert.deepEqual(dead.orphaned, ['vo.gone']);
+});
+
+test('fresh renders append exact text and voice provenance to one bounded ledger', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'squatch-takes-'));
+  const ledgerFile = path.join(directory, 'takes.json');
+  try {
+    recordTake(ledgerFile, 'vo.test.one', 'First line.', { name: 'lou', id: 'voice-lou' });
+    recordTake(ledgerFile, 'vo.test.two', 'Second line.', { name: 'tony', id: 'voice-tony' });
+    const ledger = JSON.parse(fs.readFileSync(ledgerFile, 'utf8'));
+    assert.deepEqual(ledger.takes['vo.test.one'], {
+      text: textHash('First line.'), source: 'rendered', voice: 'lou', voiceId: 'voice-lou',
+    });
+    assert.deepEqual(ledger.takes['vo.test.two'], {
+      text: textHash('Second line.'), source: 'rendered', voice: 'tony', voiceId: 'voice-tony',
+    });
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('the shipped ledger is in step with the shipped manifest', () => {

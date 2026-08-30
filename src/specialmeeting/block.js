@@ -716,7 +716,7 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
 
   for (const spot of PARKING.parked) {
     const bay = parkingBay(spot.bay);
-    const car = makeCar(spot.kind, spot.colour, { dented: !!spot.dented });
+    const car = makeCar(spot.kind, spot.colour, { dented: !!spot.dented, spatialId: spot.id });
     car.group.position.set(bay.x, ROAD.kerbHeight, bay.z);
     car.group.rotation.y = Math.PI / 2;
     own(car.group, 'parked-car', { checkSupport: false });
@@ -976,7 +976,8 @@ export function buildSpecialMeetingBlock(scene, { registerLight = null } = {}) {
   for (const spot of PARKED_AT_KERB) {
     const car = spot.featured
       ? buildFeaturedPickup({ colour: spot.colour })
-      : makeCar(spot.kind, spot.colour, { dented: !!spot.dented });
+      : makeCar(spot.kind, spot.colour, { dented: !!spot.dented, spatialId: spot.id });
+    if (spot.featured) car.group.userData.spatialId = spot.id;
     const z = spot.side === 'north' ? NORTH_PARKING_Z : SOUTH_PARKING_Z;
     car.group.position.set(spot.x, 0, z);
     car.group.rotation.y = (spot.side === 'north' ? 0 : Math.PI) + (kerbRnd() - 0.5) * 0.05;

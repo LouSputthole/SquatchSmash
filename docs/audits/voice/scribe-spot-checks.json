@@ -1,0 +1,128 @@
+{
+  "schema": "squatchsmash.voice-scribe-spot-checks.v1",
+  "model": "scribe_v2",
+  "languageHint": "eng",
+  "keyStoredInRepository": false,
+  "samples": [
+    {
+      "cue": "vo.silver.margo.bandleader.her-pick",
+      "voice": "margo",
+      "intended": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling.",
+      "transcript": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.silver.player.bandleader.open.1e0ys9u",
+      "voice": "player",
+      "intended": "Bananaphone. Straight. Like it’s Carnegie Hall.",
+      "transcript": "Banana phone. Straight like it's Carnegie Hall",
+      "languageProbability": 1,
+      "result": "MATCH — orthographic normalization"
+    },
+    {
+      "cue": "vo.cabin.dungeon.return.tony.2",
+      "voice": "player",
+      "intended": "\"Follow the Supreme Leader.\" Right. Helpful in the way a ransom note is helpful.",
+      "transcript": "Follow the Supreme Leader. Right. Helpful in the way a ransom note is helpful",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.cabin.dungeon.dungeon_door.gratin.1",
+      "voice": "gratin",
+      "intended": "Privacy is layers, Prospect. So is an onion. Only one makes people confess.",
+      "transcript": "Privacy is layers prospect, so is an onion. Only one makes people confess",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.cabin.dungeon.baiter_hit_two.baiter.1",
+      "voice": "npc-reserve-1",
+      "intended": "Please stop! I'll be First Alive Gamer next game!",
+      "transcript": "Please stop. I'll be first alive gamer next game",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.cabin.dungeon.mole_reveal.ateam.3",
+      "voice": "ateam1",
+      "intended": "I heard them say something about a Short Bus. That's it. Short Bus. That's all I know.",
+      "transcript": "I heard them say something about a short bus. That's it, short bus. That's all I know",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.cabin.dungeon.fire_talk_squatches.lag.2",
+      "voice": "lag",
+      "intended": "You hear one in the timber, don't chase it. You see one, don't run.",
+      "transcript": "You hear one in the timber, don't chase it. You see one, don't run",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.call.lou.cabin_lay_low.2",
+      "voice": "lou1",
+      "intended": "Now you're nowhere. No city, no visitors, no hero shit. A man who just did what you did does not get seen for a while.",
+      "transcript": "Now you're nowhere. No city, no visitors, no hero shit. A man who just did what you did does not get seen for a while",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.call.margo.cabin_first.4",
+      "voice": "margo",
+      "intended": "Then call me when you're back in the city and I'll let you buy me something.",
+      "transcript": "Then call me when you're back in the city, and I'll let you buy me something",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.call.booski.cabin_sasole.2",
+      "voice": "booski",
+      "intended": "Captain Sasole. He flies for us and he needs a second pair of hands today.",
+      "transcript": "Captain Sassoli. He flies for us, and he needs a second pair of hands today",
+      "languageProbability": 1,
+      "result": "MATCH — phonetic proper-name spelling"
+    },
+    {
+      "cue": "vo.call.ape.cabin_morning.2",
+      "voice": "ape",
+      "intended": "Car's out front. Lou says bring a clean shirt and don't ask me where we're going.",
+      "transcript": "Car's out front. Lou says bring a clean shirt and don't ask me where we're going",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.siege.aftermath.call.ateam.family",
+      "voice": "ateam3",
+      "intended": "You will learn what happens when the A-Team comes for your family.",
+      "transcript": "You will learn what happens when the A-Team comes for your family.",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.silentsquatch.return.briefing.lou.instrument",
+      "voice": "lou1",
+      "intended": "Sit down. The instrument was right. Our briefing wasn’t. We bombed the wrong fucking city.",
+      "transcript": "Sit down. The instrument was right. Our briefing wasn't. We bombed the wrong fucking city",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.silentsquatch.return.briefing.prospect.wholecity",
+      "voice": "player",
+      "intended": "The whole city?",
+      "transcript": "The whole city?",
+      "languageProbability": 1,
+      "result": "MATCH"
+    },
+    {
+      "cue": "vo.silvercase.prayer.ape.squatchiel6917",
+      "voice": "ape",
+      "intended": "Squatchiel. Sixty-nine, seventeen.",
+      "transcript": "Squachial 6917",
+      "languageProbability": 1,
+      "result": "MATCH — phonetic custom name and number rendering"
+    }
+  ]
+}

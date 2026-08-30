@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makePlayerCar } from '../bing/vehicles.js';
+import { VehicleOccupants } from '../core/vehicles/occupants.js';
 
 // The Motel owns the blocking and story beats; the actual automobile is the
 // complete Bada Bing player car. Silver Case delegates to the same factory.
@@ -20,6 +21,10 @@ const PASSENGER_ACTOR = new THREE.Vector3(-0.38, 0.02, 0.43);
 const DRIVER_ACTOR = new THREE.Vector3(0.05, 0.06, -0.43);
 const PASSENGER_DOOR = new THREE.Vector3(-0.20, 1.18, 0.82);
 const PASSENGER_EXIT = new THREE.Vector3(-0.20, 0, 1.72);
+// Same clear pavement as the exit, raised to door-handle height. The return
+// prompt belongs outside the car collider; putting it on the visible door leaf
+// makes that collider occlude its own [E] target once Tony is on foot.
+const PASSENGER_BOARD = new THREE.Vector3(-0.20, 1.18, 1.72);
 const DRIVER_EXIT = new THREE.Vector3(-0.20, 0, -1.72);
 const MONEY_CASE = new THREE.Vector3(-0.78, 1.05, 0.38);
 const GLOVEBOX = new THREE.Vector3(0.55, 1.20, 0.45);
@@ -86,6 +91,7 @@ export function makeMotelArrivalCar(scene) {
     x: PARK.x,
     z: PARK.z,
     yaw: -Math.PI / 2,
+    spatialId: 'motel.arrival-car',
   });
   paintMaroon(car);
   removeConvertibleRoof(car);
@@ -109,6 +115,18 @@ export function makeMotelArrivalCar(scene) {
   car.group.userData.bodyStyle = 'convertible';
   car.group.userData.paintColor = MAROON;
 
+  /* The car owns every transform that is physically inside it. The old
+   * adapter recomputed three world-space points after moving the car and the
+   * scene copied its actors onto those points on a separate frame path. That
+   * is visually close at constant speed, but it is not a seat: suspension,
+   * rotation and acceleration can be observed one update apart. These named
+   * anchors are the same contract used by Special Meeting. */
+  const occupants = new VehicleOccupants(car.group, {
+    passengerEye: PASSENGER,
+    passengerActor: PASSENGER_ACTOR,
+    driverActor: DRIVER_ACTOR,
+  });
+
   const point = (local) => {
     car.group.updateMatrixWorld(true);
     return local.clone().applyMatrix4(car.group.matrixWorld);
@@ -118,12 +136,13 @@ export function makeMotelArrivalCar(scene) {
 
   const adapter = {
     ...car,
+    occupants,
     cabinFill,
     park: PARK.clone(),
     arrivalStart: ARRIVAL[0].clone(),
-    passengerPosition: () => point(PASSENGER),
-    passengerActorPosition: () => point(PASSENGER_ACTOR),
-    driverActorPosition: () => point(DRIVER_ACTOR),
+    passengerPosition: () => occupants.worldPoint('passengerEye'),
+    passengerActorPosition: () => occupants.worldPoint('passengerActor'),
+    driverActorPosition: () => occupants.worldPoint('driverActor'),
     driverFacingPassengerYaw: () => {
       const from = point(DRIVER_ACTOR);
       const to = point(PASSENGER);
@@ -142,6 +161,7 @@ export function makeMotelArrivalCar(scene) {
     },
     passengerDoorPosition: () => point(PASSENGER_DOOR),
     passengerExitPosition: () => point(PASSENGER_EXIT),
+    passengerBoardPosition: () => point(PASSENGER_BOARD),
     driverExitPosition: () => point(DRIVER_EXIT),
     moneyCasePosition: () => point(MONEY_CASE),
     gloveboxPosition: () => point(GLOVEBOX),

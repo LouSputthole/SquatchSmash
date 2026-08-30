@@ -12,12 +12,13 @@
 #   - npm run check:flight  the Brushrunner flight-model bench, node-only
 #   - npm run verify:campaign-route   fresh-save campaign topology, node-only
 #   - npm run verify:geometry repo-wide headless mesh/collider geometry, node-only
-#   - npm run verify:staging  actor staging across every recorded scene state
+#   - npm run certify:debt-ratchet  no-new architecture/semantic/liveness/spatial debt
 #   - npm run verify:framing  camera framing, blocking, allowlisted exceptions
 #   - npm run verify:dialogue:check / check:line-presence / check:rerecord
 #   - npm run check:takes   recorded mp3s still say what the script says
+#   - rendered-voice + radio audit checks  hash/text/decode/transcript evidence
 #   - npm run voice:needed:check / audio:todo:check  booth sheets in step
-#   - the sixteen per-scene cue ledgers (check:*-vo, check:mansion-sfx)
+#   - all twenty authored cue ledgers (check:*-vo, check:mansion-sfx)
 #   - npm run verify:boot-failure-surfaces      cheap browser gate, all 20 staged pages
 #   - npm run verify:campaign-marathon the whole public route, scenes stubbed
 #   - node tools/bundle-preview.mjs  the shareable single-file build
@@ -26,11 +27,11 @@
 # because neither one boots a scene. verify:boot-failure-surfaces aborts each staged
 # page's entry module and asserts the recovery surface, touching all 20 staged
 # pages. verify:campaign-marathon stubs every scene runtime out and walks the
-# whole public route — 27 handoffs, apartment day one to the finale — through
+# whole public route — 28 handoffs, apartment day one to the finale — through
 # the real skip adapters and a durable reload at each landing. The other
 # verify:* gates each boot full scenes under swiftshader for minutes apiece,
 # and as of the scene-gate pass they are no longer "local/manual for now":
-# .github/workflows/verify-scenes.yml runs all forty on a schedule, one runner
+# .github/workflows/verify-scenes.yml runs all forty-three on a schedule, one runner
 # each, priced per gate in tools/scene-gate-tiers.mjs. Promote one up here only
 # when a run of THAT workflow has measured it cheap enough to say so — the
 # sentence this replaced said "for now" and meant "never".
@@ -41,8 +42,9 @@
 # failed at step 25 for weeks, silently, because nothing ran it. A gate that
 # runs nowhere is not a gate. Of the 65 verify:*/check:* scripts in
 # package.json, everything that runs headless is now wired in below —
-# verify:staging and verify:framing included, both of which were built, made
-# green, and then left running nowhere at all.
+# framing included. Staging now feeds the certification-debt ratchet: strict
+# zero-debt audits remain red and actionable without making existing migration
+# debt an excuse for CI to admit one more finding.
 #
 # verify:systemic-polish and verify:ground-combat are deliberately absent:
 # they are convenience aliases that re-run suites `npm test` already runs, and
@@ -76,6 +78,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The debt ceiling comes from the immutable base commit, never from
+          # the PR's editable baseline. Missing/shallow history must fail.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -90,6 +96,22 @@ jobs:
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Deterministic apartment-mirror visual smoke
+        id: apartment_mirror_visual_smoke
+        run: npm run verify:visual-smoke
+
+      # A visual failure without its actual/diff/trace taught us only that a
+      # Windows-authored PNG differed on Ubuntu. Preserve the evidence from the
+      # blocking PR smoke just as the scheduled canonical visual job does.
+      - name: Upload apartment-mirror visual failure evidence
+        if: ${{ failure() && steps.apartment_mirror_visual_smoke.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apartment-mirror-visual-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/visual-regression
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Lint
         run: npm run lint
@@ -127,8 +149,28 @@ jobs:
       - name: Single-file preview build
         run: node tools/bundle-preview.mjs
 
-      - name: Staging gate
-        run: npm run verify:staging
+      # Strict architecture, semantic, liveness, and spatial certification is
+      # intentionally red while the migration ledger is non-empty. CI applies
+      # the subtractive baseline instead: every current record is pinned by a
+      # stable ID, status, semantic fingerprint, and count. Removing debt is
+      # green; adding, disguising, substituting, or growing it is red.
+      - name: No-new certification debt
+        env:
+          EVENT_TRUSTED_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          trusted_ref="$EVENT_TRUSTED_REF"
+          if [ -z "$trusted_ref" ] || printf '%s' "$trusted_ref" | grep -Eq '^0+$'; then
+            trusted_ref=$(git rev-parse HEAD^)
+          fi
+          args=(--trusted-ref "$trusted_ref")
+          if ! git cat-file -e "$trusted_ref:tools/certification-debt-baseline.json" 2>/dev/null; then
+            # Only the initial landing can take this branch. The tool still
+            # resolves the commit and uses ls-tree to prove PATH absence;
+            # shallow history, bad refs, and unreadable existing files fail.
+            args+=(--allow-missing-trusted-baseline)
+          fi
+          npm run certify:debt-ratchet -- "${args[@]}"
 
       # IT GATES NOW, AND THE ALLOWLIST IS EMPTY TO THE POINT OF BEING GONE.
       # It used to exit 0 with five findings on purpose while the backlog was
@@ -166,12 +208,21 @@ jobs:
       - name: Recorded takes match the script
         run: npm run check:takes
 
+      - name: Rendered voice evidence
+        run: npm run audit:rendered-voices:check
+
+      - name: Radio audit evidence
+        run: |
+          npm run audit:radio:check
+          npm run audit:radio-loudness:check
+          npm run audit:radio-content:check
+
       - name: Booth sheets match the manifest
         run: |
           npm run voice:needed:check
           npm run audio:todo:check
 
-      # One step for all sixteen cue ledgers. bash -e stops at the first
+      # One step for all twenty cue ledgers. bash -e stops at the first
       # failure, and the step name that goes red names the scene.
       - name: Scene cue ledgers
         run: |
@@ -179,6 +230,7 @@ jobs:
           npm run check:apartment-vo
           npm run check:beefrun-vo
           npm run check:bing-vo
+          npm run check:cabin-vo
           npm run check:enolasquatch-vo
           npm run check:golf-vo
           npm run check:heist-vo
@@ -188,6 +240,9 @@ jobs:
           npm run check:mansion-vo
           npm run check:motel-vo
           npm run check:nowake-vo
+          npm run check:palace-vo
           npm run check:siege-vo
           npm run check:silver-vo
           npm run check:silvercase-vo
+          npm run check:specialmeeting-vo
+          npm run check:squatchfather-vo

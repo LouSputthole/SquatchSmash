@@ -117,6 +117,37 @@ export const BIG_UNCLE_LOU_MANSION = Object.freeze({
   threePiece: false,
 });
 
+/**
+ * The return from the Enola, when home is a briefing room again.
+ *
+ * This is not the Bing owner's chalk stripe and fedora, and it is not the
+ * camp shirt from the quiet house visit. The oxblood-charcoal suit is sober
+ * enough for bad news, with a cream shirt, black tie and no decorative square.
+ * His body, watch, chain and corno stay exactly the same.
+ */
+export const BIG_UNCLE_LOU_MANSION_RETURN = Object.freeze({
+  ...BIG_UNCLE_LOU,
+  dress: 'suit',
+  shirt: 0x32252a,
+  shirtAccent: 0xeadfc8,
+  jacketColour: 0x32252a,
+  trouserColour: 0x242329,
+  tieColour: 0x0c0b0e,
+  pocketSquare: false,
+  trim: true,
+  neckline: false,
+  hat: false,
+  pinstripe: false,
+  threePiece: false,
+  pattern: false,
+  patches: false,
+  workVest: false,
+  tuxedo: false,
+  argyle: null,
+  knickers: false,
+  barefoot: false,
+});
+
 export const CAPTAIN_LOU_SASOLE = Object.freeze({
   height: 1.80,
   build: 1.10,
@@ -151,6 +182,40 @@ export const BOOSKI = Object.freeze({
   chainStyle: 'layered',
   pendant: true,
   pendantStyle: 'crest',
+});
+
+/**
+ * NO WAKE, where he is spending an afternoon on Lou's boat rather than
+ * holding court at the Bing.
+ *
+ * Same man and the same old-money jewellery, but without the knit and gold
+ * ribbing he wears in the club: an open short-sleeve slate camp shirt over a
+ * white tee, warm stone trousers, a leather belt and plain dark shoes. The
+ * canonical neckline/luxury flags are explicitly cleared because those build
+ * real V-neck and rib geometry; leaving either one behind would put the club
+ * shirt through the open boat shirt.
+ */
+export const BOOSKI_NO_WAKE = Object.freeze({
+  ...BOOSKI,
+  dress: 'camp',
+  shirt: 0x315b63,
+  shirtAccent: null,
+  trouserColour: 0x8b8068,
+  neckline: false,
+  luxury: false,
+  trim: false,
+  belt: 'leather',
+  trouserFit: 'plain',
+  pattern: false,
+  barefoot: false,
+  hat: false,
+  pinstripe: false,
+  threePiece: false,
+  patches: false,
+  workVest: false,
+  argyle: null,
+  knickers: false,
+  shoeStyle: 'plain',
 });
 
 /**
@@ -194,6 +259,36 @@ export const DEATHMEGATRON = Object.freeze({
   belt: 'gold',
 });
 
+/**
+ * THE TAKE: mission clothes under the plate carrier, not an evening gown
+ * intersecting it. Midnight-navy utility shirt, charcoal tactical trousers
+ * and dark practical hardware; same woman, build, face and tied hair.
+ */
+export const DEATHMEGATRON_HEIST = Object.freeze({
+  ...DEATHMEGATRON,
+  dress: 'shirt',
+  shirt: 0x18273d,
+  shirtAccent: 0x8793a0,
+  trouserColour: 0x292c32,
+  gownStrapWidth: 0.03,
+  neckline: false,
+  luxury: false,
+  trim: true,
+  belt: 'leather',
+  trouserFit: 'plain',
+  workVest: false,
+  pattern: false,
+  patches: false,
+  tuxedo: false,
+  threePiece: false,
+  pinstripe: false,
+  hat: false,
+  argyle: null,
+  knickers: false,
+  barefoot: false,
+  shoeStyle: 'plain',
+});
+
 export const SNOW = Object.freeze({
   height: 1.70,
   build: 0.95,
@@ -202,6 +297,30 @@ export const SNOW = Object.freeze({
   hairColour: 0x9a9a9a,
   skin: 0xf0cba6,
   belt: 'leather',
+});
+
+/**
+ * SNOW ON THE MAINTENANCE JOB — the morning after the siege.
+ *
+ * Owner playtest, verbatim: *"Maybe Snow is working on it as a maintenance
+ * man -- lets give him a maintenance outfit and a voice line about how long
+ * its going to take to get everything fixed up."*
+ *
+ * It is the same man, so it is the same figure: his height, his build, his
+ * grey hair and his skin are taken straight off `SNOW` rather than retyped,
+ * and only the clothes change. Coverall blue top AND bottom -- one colour
+ * head to foot is the whole reason a coverall reads as a coverall and not as
+ * a shirt somebody tucked in -- a hi-vis work vest over it, and the flat cap
+ * a man wears when he is under something all day.
+ */
+export const SNOW_MAINTENANCE = Object.freeze({
+  ...SNOW,
+  shirt: 0x35506e,
+  trouserColour: 0x35506e,
+  workVest: true,
+  workVestColour: 0xc4922c,
+  hat: 'flatcap',
+  hatColour: 0x2b4058,
 });
 
 /* Ape's figure is canon and is NOT restated here -- `src/bing/family-ape.js`
@@ -234,6 +353,34 @@ export const RIPPINFLOW = Object.freeze({
   pendant: false,
   belt: 'leather',
   watch: 'silver',
+});
+
+/**
+ * THE TAKE: a deep-plum collared driving shirt and charcoal trousers beneath
+ * the driver's plate carrier. His thin silver chain and watch stay on him;
+ * those are identity, not mission kit.
+ */
+export const RIPPINFLOW_HEIST = Object.freeze({
+  ...RIPPINFLOW,
+  dress: 'shirt',
+  shirt: 0x43263d,
+  shirtAccent: 0xb8b2b8,
+  trouserColour: 0x292a2f,
+  neckline: false,
+  luxury: false,
+  trim: true,
+  trouserFit: 'creased',
+  workVest: false,
+  pattern: false,
+  patches: false,
+  tuxedo: false,
+  threePiece: false,
+  pinstripe: false,
+  hat: false,
+  argyle: null,
+  knickers: false,
+  barefoot: false,
+  shoeStyle: 'plain',
 });
 
 export const NUMBSKULL = Object.freeze({
@@ -297,10 +444,10 @@ export const NUMBSKULL = Object.freeze({
  * this roster is built (see HOG_MAMA, DEATHMEGATRON), and `makePerson` gates
  * the performer figure on the bikini rather than on `curvy`, so nothing from
  * the Silver Room's stage roles comes with them. `hair: 'tied'` replaces
- * `'short'` because she has NO face photo: at ten metres, in the dark, under
- * one dome light and a boot bulb, the hair silhouette is the only thing on
- * screen that says who she is. It also earns its keep on the gag -- that is
- * hair that has spent forty-two minutes against a spare wheel.
+ * `'short'` so her silhouette remains readable at ten metres, in the dark,
+ * under one dome light and a boot bulb; the landed portrait reinforces that
+ * identity up close. It also earns its keep on the gag -- that is hair that
+ * has spent forty-two minutes against a spare wheel.
  *
  * Deliberately NOT luxury and deliberately no chain: the men in the front of
  * the car have both. She is what a prospect owns.
@@ -384,6 +531,35 @@ export const IRISH = Object.freeze({
   beard: true,
   skin: 0xf0cba6,
   belt: 'leather',
+});
+
+/**
+ * NO WAKE: the lookout dresses for spray and wind. A weatherproof navy deck
+ * vest sits open over his green shirt, with dark trousers and laced dark shoes
+ * that read as deck boots. His body, red hair and beard do not change.
+ */
+export const IRISH_NO_WAKE = Object.freeze({
+  ...IRISH,
+  dress: 'shirt',
+  shirt: 0x29402f,
+  shirtAccent: 0x9ca8a0,
+  trouserColour: 0x20242a,
+  neckline: false,
+  luxury: false,
+  trim: true,
+  workVest: true,
+  workVestColour: 0x1b304c,
+  trouserFit: 'plain',
+  pattern: false,
+  patches: false,
+  tuxedo: false,
+  threePiece: false,
+  pinstripe: false,
+  hat: false,
+  argyle: null,
+  knickers: false,
+  barefoot: false,
+  shoeStyle: 'plain',
 });
 
 /**

@@ -770,9 +770,25 @@ export class SiegeNavigator {
     return shared;
   }
 
-  /** He has not moved for a while. Somewhere else to be, or nothing. */
-  blocked(actorId, dt) {
-    return this.director.noteBlocked(actorId, dt);
+  /**
+   * He has not moved for a while. Somewhere else to be, or nothing.
+   *
+   * `SquadDirector` normally reads its actor's assigned destination. Siege
+   * reserves that destination before the walk begins, while the entry owns
+   * the last anchor it actually reached. Recovery must start from the latter
+   * or a man one step below the gallery is treated as already on it and sent
+   * backwards to an unrelated exterior anchor. Restore the reservation after
+   * the query, and consume the blocked streak when a recovery is issued so a
+   * single obstruction cannot rewrite the path every frame forever.
+   */
+  blocked(actorId, dt, currentAnchor = null) {
+    const actor = this.actors.get(actorId);
+    const assigned = actor?.anchor ?? null;
+    if (actor && currentAnchor && BY_ID.has(currentAnchor)) actor.anchor = currentAnchor;
+    const recovery = this.director.noteBlocked(actorId, dt);
+    if (actor) actor.anchor = assigned;
+    if (recovery.recover) this.director.noteMoving(actorId);
+    return recovery;
   }
 
   /** Reset blocked recovery as soon as the actor is genuinely travelling. */

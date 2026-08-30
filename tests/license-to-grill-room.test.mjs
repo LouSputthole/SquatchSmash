@@ -19,6 +19,7 @@ import { ensureDomShim } from '../tools/three-shim.mjs';
 
 import { isBingPreloadCue } from '../src/bing/audio.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { auditDeathTransition } from '../src/core/death-transition.js';
 import {
   ENDINGS,
   FATAL_HITS,
@@ -613,10 +614,27 @@ test('the seventh landed blow kills Blond, pools blood, and persists no informat
   assert.equal(h.dialogue.ended, 'fatal', 'fatal impact left stale dialogue options active');
   assert.equal(h.quest.blood.pools.visibleCount, 1, 'fatal blow left no floor pool');
   assert.equal(h.quest.blond.group.userData.dead, true, 'Blond still presents as alive');
-  assert.ok(Math.abs(h.quest.blond.parts.body.rotation.z) > 0.2, 'fatal close reset him upright');
+  const death = h.quest.blond.group.userData.deathTransitionReceipt;
+  assert.equal(death?.mode, 'seated');
+  assert.deepEqual(auditDeathTransition(death), []);
+  assert.ok(Math.abs(h.quest.blond.group.rotation.z) > 0.1,
+    'fatal close never moved the connected figure into its slump');
+  assert.ok(Math.abs(h.quest.blond.parts.body.rotation.z) < 1e-9,
+    'fatal close still tears the torso branch away from the legs');
+  for (const part of [
+    h.quest.blond.parts.body,
+    h.quest.blond.parts.hips,
+    h.quest.blond.parts.torsoWrap,
+    h.quest.blond.parts.legL,
+    h.quest.blond.parts.legR,
+  ]) {
+    let node = part;
+    while (node && node !== h.quest.blond.group) node = node.parent;
+    assert.equal(node, h.quest.blond.group, `${part.name} left the connected corpse hierarchy`);
+  }
 
-  /* The torso rotates in the fatal pose, but the shin-parented cuffs do not.
-   * The chain must remain measured between the cuffs after that rotation. */
+  /* The complete body now rotates around its hips. The ankle restraints still
+   * ride the shin branches, and the chain must remain measured between them. */
   h.scene.updateMatrixWorld(true);
   const rig = h.quest.restraints;
   const first = rig.links[0].getWorldPosition(new THREE.Vector3());

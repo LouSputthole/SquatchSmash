@@ -36,6 +36,11 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  CAMPAIGN_STORAGE_KEY,
+  MISSION_IDS,
+  createCampaign,
+} from '../src/core/campaign.js';
 import { PEE_CUE_NAMES } from '../src/core/pee-system.js';
 import { TV_AUDIO_SPATIAL_PROFILE } from '../src/core/tv.js';
 
@@ -58,6 +63,34 @@ const BASEMENT_Y = -2.8;
 const FACADE_Z = 36;
 const COURT_Z = 30;
 const FOUNTAIN_Z = 27;
+
+class MemoryStorage {
+  constructor() { this.values = new Map(); }
+
+  getItem(key) { return this.values.get(key) ?? null; }
+
+  setItem(key, value) { this.values.set(key, String(value)); }
+}
+
+/** Known-valid repaired-house landing; the browser proof below carries only
+ * the player-created radio block from its ordinary-visit save into this
+ * story template. Story setup is not the behavior under test. */
+function returnVisitSave() {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    Object.assign(state.missions[MISSION_IDS.ENOLA_SQUATCH], {
+      status: 'complete',
+      payloadReleased: true,
+      returnedHome: true,
+    });
+    state.missions[MISSION_IDS.MANSION_RETURN].status = 'available';
+    state.story.chapter = 'mansion_return';
+  });
+  return storage.getItem(CAMPAIGN_STORAGE_KEY);
+}
+
+const RETURN_VISIT_SAVE = returnVisitSave();
 
 let chromium;
 try {
@@ -94,7 +127,11 @@ const browser = await chromium.launch({
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
-const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
+/* The receiver reload receipt opens the repaired-house visit beside the
+ * ordinary visit and must share its localStorage. Browser.newPage creates a
+ * one-page convenience context; an explicit context can own both pages. */
+const mainContext = await browser.newContext({ viewport: { width: 480, height: 300 } });
+const page = await mainContext.newPage();
 
 const problems = [];
 /* Every 404 the page takes, by path. All four authored theatre reels now
@@ -305,11 +342,66 @@ try {
   /* ================================================================ */
   /* Boot gate                                                         */
   /* ================================================================ */
-  await page.evaluate(() => document.getElementById('startBtn').click());
+  /* A trusted click, not HTMLElement.click(): pointer lock is a user-gesture
+   * contract and the whole point of this gate is to prove that contract. */
+  await page.locator('#startBtn').click();
+  await page.waitForFunction(
+    () => document.pointerLockElement === window.mansion.renderer.domElement,
+    null,
+    { timeout: 30000 },
+  );
   await page.waitForFunction(() => window.mansion.running === true, null, { timeout: 120000 });
   check('clicking start begins the tour and hides the menu',
     await page.evaluate(() => window.mansion.running === true
       && document.getElementById('menu').classList.contains('hidden')));
+
+  const realInput = await (async () => {
+    const before = await page.evaluate(() => {
+      const M = window.mansion;
+      return {
+        x: M.player.position.x,
+        y: M.player.position.y,
+        z: M.player.position.z,
+        ground: M.player.ground,
+        yaw: M.player.yaw,
+      };
+    });
+    await page.mouse.move(240, 150);
+    await page.mouse.move(285, 150, { steps: 2 });
+    await page.keyboard.down('KeyW');
+    await settle(0.45);
+    await page.keyboard.up('KeyW');
+    await settle(0.05);
+    const after = await page.evaluate(() => {
+      const M = window.mansion;
+      return {
+        x: M.player.position.x,
+        z: M.player.position.z,
+        yaw: M.player.yaw,
+        input: M.input.snapshot(),
+      };
+    });
+    await page.evaluate((origin) => {
+      window.mansion.teleport(
+        origin.x,
+        origin.ground,
+        origin.z,
+        (origin.yaw * 180) / Math.PI,
+      );
+    }, before);
+    return {
+      moved: Math.hypot(after.x - before.x, after.z - before.z),
+      looked: Math.abs(after.yaw - before.yaw),
+      ...after.input,
+    };
+  })();
+  check('real pointer lock, W, and mouse input move and turn the live player',
+    realInput.locked === true
+      && realInput.movementPresses >= 1
+      && realInput.lookEvents >= 1
+      && realInput.moved > 0.05
+      && realInput.looked > 0.001,
+    JSON.stringify(realInput));
 
   // Render real frames before the tour, so a shader or WebGL failure in the
   // new geometry surfaces here rather than never being exercised.
@@ -1877,7 +1969,14 @@ try {
       .map((cue) => cue.name))
     : mansionSelectedNames;
   const mansionSelectedCues = soundManifest.sfx.filter((cue) => (
-    scopedNames.has(cue.name) || cue.name.startsWith('vo.silentsquatch.')
+    scopedNames.has(cue.name)
+      /* Before the page exposed its three actual banks, the broad story
+       * prefix was the verifier's safety net. Once published banks exist,
+       * adding that prefix again is wrong: it makes the Silent Squatch visit
+       * wait for repaired-house-only `vo.silentsquatch.return.*` recordings
+       * that this visit intentionally never decodes. Keep the old breadth
+       * only on the legacy fallback path. */
+      || (!publishedBanks && cue.name.startsWith('vo.silentsquatch.'))
   ));
   const expectedMansionResident = mansionSelectedCues
     .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
@@ -2478,7 +2577,12 @@ try {
       && vaultPicture.outside && vaultPicture.facesCorridor
       && vaultPicture.shown && vaultPicture.mapped && vaultPicture.decoded
       && vaultPicture.art?.real === true
-      && vaultPicture.art?.file === 'stacks-5-years.jpg',
+      /* `feature.stacks` owns stacks-5-years.jpg. The vault slot's approved
+       * manifest asset is the estate architectural study visible in this
+       * exact rendered frame; expecting the apartment picture here made a
+       * fully decoded, correctly placed Mansion print fail by filename. */
+      && vaultPicture.art?.file
+        === 'silver-sasquatches/silver-sasquatches-estate-architectural-study.webp',
     JSON.stringify(vaultPicture));
 
   const sharedBedroom = await page.evaluate(() => {
@@ -2576,15 +2680,161 @@ try {
       && tvRun.every((tv) => tv.ran && tv.restored),
     JSON.stringify(tvRun));
 
-  const radioRun = await page.evaluate(() => {
-    window.mansion.media.useRadio(1);
-    const afterOn = window.mansion.media.radioOn;
-    window.mansion.media.useRadio(1);
-    return { afterOn, afterOff: window.mansion.media.radioOn };
+  /* Positioning is verifier setup; both switch changes below are the real E
+   * path through camera ray, InteractionSystem and the canonical input
+   * Adapter. The billiard and pool cabinets deliberately share one tuner. */
+  const stageHouseRadio = async (targetPage) => targetPage.evaluate(() => {
+    const mansion = window.mansion;
+    const target = mansion.interior.props.lounge.radio.group;
+    const stand = mansion.rooms.billiardBay;
+    mansion.teleport(stand.x, stand.y, stand.z, 0);
+    mansion.scene.updateMatrixWorld(true);
+    const targetPosition = target.getWorldPosition(new mansion.THREE.Vector3());
+    const delta = targetPosition.clone().sub(mansion.player.position);
+    mansion.player.yaw = Math.atan2(-delta.x, -delta.z);
+    mansion.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    mansion.player.update(0.001);
+    mansion.camera.updateMatrixWorld(true);
+    mansion.interaction.setPaused(false);
+    mansion.interaction.update(0);
+    return {
+      targetResolved: mansion.interaction.current === target,
+      current: mansion.interaction.current?.name ?? null,
+      distance: mansion.camera.position.distanceTo(targetPosition),
+    };
   });
-  check('either radio set switches the house receiver on and off',
-    radioRun.afterOn === true && radioRun.afterOff === false,
-    JSON.stringify(radioRun));
+
+  const watchRadioPage = (targetPage, label) => {
+    targetPage.setDefaultTimeout(180000);
+    targetPage.on('pageerror', (error) => problems.push(`${label} pageerror: ${error.message}`));
+    targetPage.on('console', (message) => {
+      if (message.type() === 'error') problems.push(`${label} console: ${message.text().slice(0, 400)}`);
+    });
+    targetPage.on('requestfailed', (request) => {
+      problems.push(`${label} request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
+    });
+  };
+
+  /* Preview campaign storage is page-local by design, so run the persistence
+   * receipt on an ordinary non-preview landing. Pause the main verifier page
+   * first: no proof should manufacture two audible station contexts. */
+  await page.evaluate(() => window.mansion.pause());
+  await page.waitForFunction(() => window.mansion.audio.ctx?.state === 'suspended');
+  const firstRadioPage = await mainContext.newPage();
+  watchRadioPage(firstRadioPage, 'radio first-visit');
+  await firstRadioPage.goto(`http://localhost:${PORT}/mansion.html`, {
+    waitUntil: 'load', timeout: 180000,
+  });
+  await firstRadioPage.waitForFunction(() => window.mansion?.player, null, { timeout: 180000 });
+  const beforeFirstGesture = await firstRadioPage.evaluate(() => ({
+    visit: window.mansion.campaign.visit,
+    on: window.mansion.media.radioOn,
+    preferredOn: window.mansion.media.radioPreferredOn,
+    savedPower: window.mansion.media.radioSavedPower,
+  }));
+  check('a fresh ordinary Mansion visit keeps the default-off receiver silent before audio unlock',
+    beforeFirstGesture.visit === 'silent_squatch' && !beforeFirstGesture.on
+      && !beforeFirstGesture.preferredOn && !beforeFirstGesture.savedPower,
+    JSON.stringify(beforeFirstGesture));
+  await firstRadioPage.locator('#startBtn').click();
+  await firstRadioPage.waitForFunction(() => window.mansion?.running === true, null, { timeout: 180000 });
+  const houseRadioApproach = await stageHouseRadio(firstRadioPage);
+  if (!await firstRadioPage.evaluate(() => document.pointerLockElement === window.mansion.renderer.domElement)) {
+    await firstRadioPage.locator('canvas').click({ position: { x: 240, y: 150 } });
+    await stageHouseRadio(firstRadioPage);
+  }
+  await firstRadioPage.keyboard.press('KeyE');
+  await firstRadioPage.waitForFunction(() => window.mansion.media.radioOn === true);
+  const houseRadioOn = await firstRadioPage.evaluate(() => ({
+    on: window.mansion.media.radioOn,
+    preferredOn: window.mansion.media.radioPreferredOn,
+    savedPower: window.mansion.media.radioSavedPower,
+    activeSet: window.mansion.media.activeRadioSet,
+    talkBeds: Number(window.mansion.audio.loops.has('radio.talk')),
+    persistedPower: JSON.parse(localStorage.getItem('squatchlife.campaign'))
+      ?.radio?.receivers?.mansion_house ?? null,
+  }));
+  check('real E on a Mansion cabinet persists the one shared house tuner',
+    houseRadioApproach.targetResolved && houseRadioApproach.distance < 3
+      && houseRadioOn.on && houseRadioOn.preferredOn && houseRadioOn.savedPower
+      && houseRadioOn.persistedPower === true
+      && houseRadioOn.activeSet === 0 && houseRadioOn.talkBeds === 1,
+    JSON.stringify({ approach: houseRadioApproach, radio: houseRadioOn }));
+
+  /* Carry the radio block written by that E press into a known-valid return
+   * story template. This changes only verifier story setup; the radio state
+   * under test is the exact browser save produced above. */
+  await firstRadioPage.evaluate(({ key, template }) => {
+    const played = JSON.parse(localStorage.getItem(key));
+    const returned = JSON.parse(template);
+    returned.radio = played.radio;
+    localStorage.setItem(key, JSON.stringify(returned));
+  }, { key: CAMPAIGN_STORAGE_KEY, template: RETURN_VISIT_SAVE });
+  await firstRadioPage.evaluate(() => window.mansion.pause());
+  await firstRadioPage.waitForFunction(() => window.mansion.audio.ctx?.state === 'suspended');
+
+  const returnRadioPage = await mainContext.newPage();
+  watchRadioPage(returnRadioPage, 'radio return');
+  await returnRadioPage.goto(`http://localhost:${PORT}/mansion.html?visit=return`, {
+    waitUntil: 'load', timeout: 180000,
+  });
+  await returnRadioPage.waitForFunction(() => window.mansion?.player, null, { timeout: 180000 });
+  const beforeReturnGesture = await returnRadioPage.evaluate(() => ({
+    visit: window.mansion.campaign.visit,
+    on: window.mansion.media.radioOn,
+    preferredOn: window.mansion.media.radioPreferredOn,
+    savedPower: window.mansion.media.radioSavedPower,
+  }));
+  check('the repaired-house visit shares saved power but stays silent before its own gesture',
+    beforeReturnGesture.visit === 'return' && !beforeReturnGesture.on
+      && beforeReturnGesture.preferredOn && beforeReturnGesture.savedPower,
+    JSON.stringify(beforeReturnGesture));
+  await returnRadioPage.locator('#startBtn').click();
+  await returnRadioPage.waitForFunction(() => (
+    window.mansion?.running === true && window.mansion.media.radioOn === true
+  ), null, { timeout: 180000 });
+  const afterReturnGesture = await returnRadioPage.evaluate(() => ({
+    on: window.mansion.media.radioOn,
+    preferredOn: window.mansion.media.radioPreferredOn,
+    savedPower: window.mansion.media.radioSavedPower,
+    activeSet: window.mansion.media.activeRadioSet,
+    talkBeds: Number(window.mansion.audio.loops.has('radio.talk')),
+  }));
+  const inactiveRadioContexts = await Promise.all([
+    page.evaluate(() => window.mansion.audio.ctx?.state ?? null),
+    firstRadioPage.evaluate(() => window.mansion.audio.ctx?.state ?? null),
+  ]);
+  check('the return gesture restores exactly one house bed while both prior scene contexts stay suspended',
+    afterReturnGesture.on && afterReturnGesture.preferredOn && afterReturnGesture.savedPower
+      && afterReturnGesture.activeSet === 0 && afterReturnGesture.talkBeds === 1
+      && inactiveRadioContexts.every((state) => state === 'suspended'),
+    JSON.stringify({ returnRadio: afterReturnGesture, inactiveRadioContexts }));
+  await returnRadioPage.close();
+
+  await firstRadioPage.bringToFront();
+  await firstRadioPage.evaluate(() => window.mansion.resume());
+  if (!await firstRadioPage.evaluate(() => document.pointerLockElement === window.mansion.renderer.domElement)) {
+    await firstRadioPage.locator('canvas').click({ position: { x: 240, y: 150 } });
+  }
+  await stageHouseRadio(firstRadioPage);
+  await firstRadioPage.keyboard.press('KeyE');
+  await firstRadioPage.waitForFunction(() => window.mansion.media.radioOn === false);
+  const houseRadioOff = await firstRadioPage.evaluate(() => ({
+    on: window.mansion.media.radioOn,
+    preferredOn: window.mansion.media.radioPreferredOn,
+    savedPower: window.mansion.media.radioSavedPower,
+    talkBeds: Number(window.mansion.audio.loops.has('radio.talk')),
+    persistedPower: JSON.parse(localStorage.getItem('squatchlife.campaign'))
+      ?.radio?.receivers?.mansion_house ?? null,
+  }));
+  check('a second real E press persists the house tuner off and clears its talk bed',
+    !houseRadioOff.on && !houseRadioOff.preferredOn && !houseRadioOff.savedPower
+      && houseRadioOff.persistedPower === false && houseRadioOff.talkBeds === 0,
+    JSON.stringify(houseRadioOff));
+  await firstRadioPage.close();
+
+  await page.bringToFront();
+  await page.evaluate(() => window.mansion.resume());
 
   const sinkRun = await page.evaluate(() => {
     window.mansion.sink.set(true);
@@ -4178,7 +4428,9 @@ try {
     const advance = (seconds) => {
       for (let t = 0; t < seconds; t += 1 / 30) M.tick(1 / 30);
     };
-    const poolHeadsBefore = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
+    const reclinerIndices = [0, 1, 3, 4];
+    const poolHeadsBefore = reclinerIndices
+      .map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     advance(12);
     const secondHeadBefore = M.cast.evening.poolComposition
       .find(({ id }) => id === 'poolPerformer1')?.headX;
@@ -4218,7 +4470,8 @@ try {
     const stoveThird = M.cast.useOldStove();
     advance(5.5);
     const state = M.cast.evening;
-    const poolHeadsAfter = [0, 1].map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
+    const poolHeadsAfter = reclinerIndices
+      .map((index) => M.cast.poolPerformerRig(index)?.head?.uuid ?? null);
     return {
       first, second, third, stove, stoveSecond, stoveThird,
       otherHello, otherFlirt, otherStart, otherMiss, otherPulls, timingShown,
@@ -4258,10 +4511,10 @@ try {
       miss: evening.otherMiss, pulls: evening.otherPulls, timing: evening.timingShown,
       dress: evening.state?.secondDress,
     }));
-  check('the two pool performers keep distinct stable heads across the full interaction',
-    evening.poolHeadsBefore?.length === 2
+  check('all four pool recliners keep distinct stable heads across the full interaction',
+    evening.poolHeadsBefore?.length === 4
       && evening.poolHeadsBefore.every(Boolean)
-      && evening.poolHeadsBefore[0] !== evening.poolHeadsBefore[1]
+      && new Set(evening.poolHeadsBefore).size === 4
       && JSON.stringify(evening.poolHeadsAfter) === JSON.stringify(evening.poolHeadsBefore)
       && Number.isFinite(evening.secondHeadBefore) && Number.isFinite(evening.secondHeadAfter)
       && Math.abs(evening.secondHeadBefore - 0.2) <= 0.023
@@ -4270,16 +4523,18 @@ try {
       idsBefore: evening.poolHeadsBefore, idsAfter: evening.poolHeadsAfter,
       angleBefore: evening.secondHeadBefore, angleAfter: evening.secondHeadAfter,
     }));
-  check('the pool scene keeps two women reclined on loungers and a third in the water',
-    evening.state?.poolComposition?.length === 3
-      && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 2
+  check('the pool scene keeps four women reclined on loungers and a fifth in the water',
+    evening.state?.poolComposition?.length === 5
+      && evening.state.poolComposition.filter(({ pose }) => pose === 'reclined').length === 4
       && evening.state.poolComposition.filter(({ pose }) => pose === 'in-water').length === 1,
     JSON.stringify(evening.state?.poolComposition));
-  check('the three pool women resolve to the existing Bada Bing performer looks, not invented cast',
+  check('the five pool women resolve to unique Bada Bing performer identities, not invented cast',
     JSON.stringify(evening.state?.poolComposition?.map(({ identity }) => identity)) === JSON.stringify([
       { source: 'BADA_BING_PERFORMERS', index: 0, look: 'platinum tied hair' },
       { source: 'BADA_BING_PERFORMERS', index: 2, look: 'black long hair' },
-      { source: 'BADA_BING_PERFORMERS', index: 1, look: 'brunette long hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 4, look: 'auburn long hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 5, look: 'raven tied hair' },
+      { source: 'BADA_BING_PERFORMERS', index: 6, look: 'silver long hair' },
     ]),
     JSON.stringify(evening.state?.poolComposition));
   check('Old Stove is present in the theatre and encourages the player to put on a picture',
@@ -4385,14 +4640,61 @@ try {
    * it, and BOTH are the fault — 20 mm either way is the tolerance, which is
    * a centimetre of upholstery. */
   const seats = await page.evaluate(() => window.mansion.cast?.seats ?? []);
-  const seatFails = seats
+  /* A reclined body contacts a slatted chaise along its lowest dressed mesh,
+   * not at the underside-centre of its pelvis. The centre ray used by the
+   * ordinary chair report goes through the lounger's authored 55 mm gap and
+   * lands on the pool deck 487.5 mm below the slats. Keep the strict 20 mm
+   * pelvis check for chairs/stools, and prove all four loungers separately
+   * against their actual slat thickness below. */
+  const poolReclinerIds = new Set([
+    'poolPerformer0', 'poolPerformer1', 'poolPerformer3', 'poolPerformer4',
+  ]);
+  const ordinarySeats = seats.filter((seat) => !poolReclinerIds.has(seat.id));
+  const seatFails = ordinarySeats
     .filter((seat) => seat.gap === null || Math.abs(seat.gap) > 0.02)
     .map((seat) => `${seat.name} ${seat.gap === null ? 'has nothing under him' : `${(seat.gap * 1000).toFixed(0)} mm ${seat.gap < 0 ? 'inside' : 'above'} his seat`}`);
-  const named = ['sasole', 'hogmama'].filter((id) => !seats.some((seat) => seat.id === id));
-  check('everybody sitting on something is sitting ON it, not in it',
-    seatFails.length === 0 && named.length === 0 && seats.length >= 3,
+  const named = ['sasole', 'hogmama'].filter((id) => !ordinarySeats.some((seat) => seat.id === id));
+  check('every ordinary chair and stool sitter is sitting ON it, not in it',
+    seatFails.length === 0 && named.length === 0 && ordinarySeats.length >= 3,
     seatFails.join(' | ') || (named.length ? `not measured: ${named.join(', ')}`
-      : `${seats.length} seated: ${seats.map((s2) => `${s2.id} ${(s2.gap * 1000).toFixed(0)}mm`).join(', ')}`));
+      : `${ordinarySeats.length} seated: ${ordinarySeats.map((s2) => `${s2.id} ${(s2.gap * 1000).toFixed(0)}mm`).join(', ')}`));
+
+  const poolReclinerContact = await page.evaluate(() => {
+    const T = window.mansion.THREE;
+    const samples = [];
+    /* buildLoungeChair's slats occupy 0.4425..0.4875 m above the chair
+     * origin. Compression may use that 45 mm of wood; passing through its
+     * underside or floating more than 20 mm above it is a real failure. */
+    const slatTop = 0.4875;
+    for (const index of [0, 1, 3, 4]) {
+      const rig = window.mansion.cast?.poolPerformerRig?.(index) ?? null;
+      if (!rig?.target || !rig?.chair) {
+        samples.push({ id: `poolPerformer${index}`, error: 'missing live body or chair' });
+        continue;
+      }
+      rig.target.updateMatrixWorld(true);
+      rig.chair.updateMatrixWorld(true);
+      let lowest = Infinity;
+      rig.target.traverse((mesh) => {
+        if (!mesh.isMesh || mesh.visible === false) return;
+        lowest = Math.min(lowest, new T.Box3().setFromObject(mesh).min.y);
+      });
+      const chairY = rig.chair.getWorldPosition(new T.Vector3()).y;
+      const surface = chairY + slatTop;
+      samples.push({
+        id: `poolPerformer${index}`,
+        lowest: +lowest.toFixed(4),
+        surface: +surface.toFixed(4),
+        sink: +(surface - lowest).toFixed(4),
+      });
+    }
+    return samples;
+  });
+  check('all four pool recliners rest on their real slatted loungers',
+    poolReclinerContact.length === 4
+      && poolReclinerContact.every((sample) => !sample.error
+        && sample.sink >= -0.02 && sample.sink <= 0.045),
+    JSON.stringify(poolReclinerContact));
 
   /* ---- S12: THE MAN IN THE BOOTH ACTUALLY SPEAKS.
    *
@@ -5180,6 +5482,18 @@ try {
        * actual cast body, Player movement keys, the actual crosshair owner and
        * InteractionSystem.press(). */
       if (want.louReport && !bad.length) {
+        /* The canonical input Adapter deliberately leaves Player disabled
+         * until the page owns pointer capture. This checkpoint page cold-loads
+         * itself without a start-button gesture, so acquire capture the same
+         * way a player does before asking Player movement to prove the walk.
+         * A direct `player.enabled = true` here would make this gate green by
+         * bypassing the exact scene/input contract it is meant to protect. */
+        await cpPage.locator('canvas').click({ position: { x: 320, y: 200 } });
+        await cpPage.waitForFunction(
+          () => window.mansion?.input?.snapshot?.().captured === true,
+          null,
+          { timeout: 10000 },
+        );
         const lou = await cpPage.evaluate(() => {
           const T = window.mansion.THREE;
           const m = window.mansion;

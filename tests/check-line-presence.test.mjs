@@ -116,14 +116,18 @@ test('a cue-substring exemption clears one specific line without staging the voi
   const scenes = [{
     id: 'gamma', label: 'Gamma Scene', cuePrefixes: ['vo.gamma.'], staged: [], sceneVoiceExemptions: {},
   }];
-  const exemptName = CUE_SUBSTRING_EXEMPTIONS[0].includes;
+  const cueSubstringExemptions = Object.freeze([Object.freeze({
+    includes: 'remote-pickup',
+    reason: 'Synthetic contract fixture; production currently needs no cue-specific exemption.',
+  })]);
+  const exemptName = cueSubstringExemptions[0].includes;
   const manifest = {
     sfx: [
       { name: `vo.gamma.${exemptName}.1`, say: 'Exempted.', voice: 'lou1' },
       { name: 'vo.gamma.lou1.other', say: 'Not exempted.', voice: 'lou1' },
     ],
   };
-  const { violations } = findViolations(manifest, scenes);
+  const { violations } = findViolations(manifest, scenes, { cueSubstringExemptions });
   // Only the non-exempt line should surface, and only counted once.
   assert.equal(violations.length, 1);
   assert.equal(violations[0].count, 1);
@@ -162,7 +166,7 @@ test('formatReport names the scene, the voice and the count for every violation'
   assert.match(report, /voice "ghost" has 1 line in scene "Alpha Scene" but no staged character/);
 });
 
-test('exemption tables are non-empty, frozen and documented data, not accidental empties', () => {
+test('exemption tables are frozen, explicit data even when repaired debt leaves one empty', () => {
   assert.equal(Object.isFrozen(GLOBAL_EXEMPT_VOICES), true);
   assert.equal(Object.isFrozen(GLOBAL_EXEMPT_PREFIXES), true);
   assert.equal(Object.isFrozen(CUE_SUBSTRING_EXEMPTIONS), true);

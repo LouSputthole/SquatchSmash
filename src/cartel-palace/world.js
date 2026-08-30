@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 
-import { EVIDENCE_IDS } from './mission.js';
+import { resolveGear } from '../world/gear.js';
+import { makePlant } from '../world/props.js';
+import { markSemanticPlacement } from '../core/semantic-placement.js';
+import { markSpatialPrimitive } from '../core/spatial-contract.js';
+import { PALACE_ANCHORS } from './anchors.js';
+import { EVIDENCE_IDS, PALACE_CASE_ROUTE_EVIDENCE } from './mission.js';
+
+export { PALACE_ANCHORS } from './anchors.js';
 
 /* THE SECURITY ROOM'S RACK COLUMN, in one place.
  *
@@ -17,21 +24,6 @@ const SECURITY_RACK_FACE_X = SECURITY_RACK_X - 0.54;
 const SECURITY_RACK_Z0 = -14;
 const SECURITY_RACK_Z1 = -6;
 const SECURITY_RACK_PITCH = 2.1;
-
-export const PALACE_ANCHORS = Object.freeze({
-  approach: Object.freeze(new THREE.Vector3(14, 0, 76)),
-  powerBox: Object.freeze(new THREE.Vector3(19.2, 1.15, 61.2)),
-  perimeter: Object.freeze(new THREE.Vector3(14, 0, 51)),
-  estate: Object.freeze(new THREE.Vector3(12.5, 0, 4)),
-  belongings: Object.freeze(new THREE.Vector3(4.7, 0.72, -6.4)),
-  paymentLedger: Object.freeze(new THREE.Vector3(-10.6, 0.88, -6.8)),
-  securityStill: Object.freeze(new THREE.Vector3(14.8, 1.22, -10.2)),
-  gallery: Object.freeze(new THREE.Vector3(0, 0, -25)),
-  diningRoom: Object.freeze(new THREE.Vector3(0, 0, -42)),
-  mark: Object.freeze(new THREE.Vector3(-3.2, 0, -40.8)),
-  sauce: Object.freeze(new THREE.Vector3(3.2, 0, -40.8)),
-  extraction: Object.freeze(new THREE.Vector3(0, 0, -55)),
-});
 
 const M = Object.freeze({
   stucco: new THREE.MeshStandardMaterial({ color: 0xc4aa82, roughness: 0.92 }),
@@ -107,6 +99,152 @@ const ART_TONES = Object.freeze([
   new THREE.MeshStandardMaterial({ color: 0x3a2440, roughness: 0.97 }),
 ]);
 
+/* ------------------------------------------------------------------ *
+ * THE A-TEAM ART, AND WHY THE PALACE FINALLY READS THE ART MANIFEST.
+ *
+ * Owner punch list: *"Add substantial A-Team themed wall art throughout the
+ * palace. The building needs more visual personality and parody flavour."*
+ * Six finished pieces followed, with *"All this is Art for the Cartel Palace
+ * only"* written across them.
+ *
+ * The pieces are NOT in the repository. They were pasted into a chat and
+ * nothing was ever written to assets/art/. What is in the repository is the
+ * system that has been hanging owner art since the apartment: a slot is
+ * named in assets/art/manifest.json, src/world/gear.js `resolveGear` turns
+ * that slot into the owner's file if the manifest names one and into a drawn
+ * placeholder from its own FALLBACKS table if it does not, and the scene
+ * never has to know which of the two it got. The mansion hangs its pictures
+ * that way (`MANSION_ART_SLOTS`), so does the Bing (`artSticker`), so does
+ * the Squatchfather. The palace read the manifest not at all -- which is
+ * precisely the empty-walled building the owner reported.
+ *
+ * So every row below is a SLOT, not a file. Three things about the shape of
+ * this table are load-bearing and none of them is taste:
+ *
+ *   The frames are authored at the DELIVERED shape. All six drawings are
+ *   1456 x 1092, a 4:3 landscape, so `width` is authored and the height is
+ *   derived from `A_TEAM_ART_ASPECT`. The frame then never resizes when the
+ *   file lands. That is the whole point of the doorway proof in
+ *   tests/cartel-palace-a-team-art.test.mjs: a frame that grew at load time
+ *   could grow across a doorway, and no static measurement of the authored
+ *   scene would ever have seen it happen.
+ *
+ *   `(x, y, z)` is a point ON the wall face, as `wallArt` above demands, and
+ *   every one of them is a few millimetres proud of a face that was measured
+ *   out of the geometry rather than guessed -- the same 2026-08-20 rule that
+ *   pulled the gallery's frames back onto their panels.
+ *
+ *   The placeholder lettering lives in src/world/gear.js FALLBACKS, not
+ *   here. It has to: this file is built headless by tests/cartel-palace-*,
+ *   and every procedural texture in the project goes through a real 2D
+ *   canvas, which Node has not got. `resolveGear` is therefore asked for
+ *   these slots ASYNCHRONOUSLY and its failure is not an error -- in Node it
+ *   fails on the first `document.createElement` and the frames keep the
+ *   painted canvas they were built with, which is exactly what a test wants
+ *   to measure anyway.
+ *
+ * Which picture hangs where, and why that wall:
+ *
+ *   THE A TEAM -- the crew posed in front of this building, cream stucco,
+ *   red tile, the fountain, the flag -- hangs in the entry hall, on the west
+ *   partition, in the first ten seconds of being inside. It is the only one
+ *   of the six that is a picture OF the room the player is standing in.
+ *
+ *   A TEAM / WE DON'T MISS goes on the entry hall's east wall beside the
+ *   watch desk, because that is where a guard actually sits (see cast.js,
+ *   post `entry-watch`) and this is guardroom taste.
+ *
+ *   A TEAM ASSAULT -- four men coming through a set of double doors -- goes
+ *   in the intelligence room the `service-hall` patrol works, on the one
+ *   solid stretch of its west partition, below the doorway and clear of it.
+ *
+ *   EL JEFE goes on the dining room's rear wall at x -6.6, mirroring the
+ *   family portrait already hung at x +6.6, so the wall Mark holds court
+ *   against has a boss on each side of the extraction opening.
+ *
+ *   A TEAM CHAMPIONS (the 0-47 trophy wall) and A TEAM STRAT (Operation
+ *   Dumb Luck, drawn on a table) go in the long room west of the gallery
+ *   wall -- the empty room the owner asked to have turned into an
+ *   operations gallery. It is still sealed today: the gallery's west wall
+ *   runs z -33.9..-15.3 and the partitions either end close everything but
+ *   about twelve centimetres, so cutting its door belongs to that separate
+ *   pass. These two are hung on its west wall now, either side of the
+ *   portrait that has hung at z -24 since the estate was built, so the pass
+ *   that opens the door finds the room already saying what it is for -- and
+ *   the room's whole east wall, eighteen metres of it, is deliberately left
+ *   bare for the rest of that gallery.
+ * ------------------------------------------------------------------ */
+const A_TEAM_ART_ASPECT = 4 / 3;
+
+const A_TEAM_ART = Object.freeze([
+  Object.freeze({
+    slot: 'cartel-palace.entry.the-a-team',
+    room: 'entry',
+    /* Entry hall, west partition. Inner face x 10.675 (`guest-service-
+     * partition`, 0.35 thick at 10.5, solid z -8..12), which is the number
+     * the four canvases already on this wall hang off. The run between the
+     * canvas at z 4.4 and the one at z 9.0 is clear from 5.0 to 8.52, so a
+     * 1.9 m picture centred at 6.75 leaves 80 cm of plaster on both sides.
+     * Its foot at y 1.588 clears the dado rail (top 1.29); the cleaner's
+     * cart and the wet-floor sign are floor furniture out at x 11.6+. */
+    x: 10.68, y: 2.3, z: 6.75, yaw: Math.PI / 2, width: 1.9, tone: 4,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.entry.we-dont-miss',
+    room: 'entry',
+    /* Entry hall, east wall. Inner face x 17.75 and no opening anywhere in
+     * it -- the estate's east wall is solid z -50..12. The three canvases
+     * here sit at z 10.0, -2.4 and -6.6, so z 5.0 is the middle of the only
+     * long gap, and it is the piece of wall the seated watch guard at
+     * (15.6, 5.35) has over his shoulder. Clear of the bin at z 3.5 and the
+     * console table at z -1.6, both of which are under a metre tall. */
+    x: 17.74, y: 2.2, z: 5.0, yaw: -Math.PI / 2, width: 1.5, tone: 1,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.security.assault',
+    room: 'security',
+    /* Intelligence room, west partition. `security-service-partition` is
+     * solid from z -22 to -14.5 and the finished doorway through to the guest
+     * suite is centred at z -11.25, so a 1.6 m picture centred at -16.3
+     * stands a full metre clear of the opening -- which is the fault
+     * this building has already been caught with once (the gallery's east
+     * row, hung straight across the service doorway) and the Bing's back
+     * office once. The east wall is not available at all:
+     * the rack column occupies x 16.675..17.725 the length of the room. The
+     * mop leaning against the sink tops out at y 1.65 but stands at x 11.1,
+     * a third of a metre off the frame's front face. */
+    x: 10.68, y: 2.25, z: -16.3, yaw: Math.PI / 2, width: 1.6, tone: 0,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.dining.el-jefe',
+    room: 'dining',
+    /* Dining room, rear wall, on the panel at x -6.6. The panelled inset's
+     * front face is z -49.6025 and this hangs 2.5 mm proud of it; the panel
+     * is 3.1 wide and 2.6 tall about y 1.58, and a 2.2 x 1.65 picture at
+     * y 1.8 sits inside the inset on all four sides. The rear wall segments
+     * stop at |x| 3.2 -- the extraction opening -- and this is 2.3 m clear
+     * of that edge, on the opposite side from Mark's family portrait. */
+    x: -6.6, y: 1.8, z: -49.6, yaw: 0, width: 2.2, tone: 3,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.ops.champions',
+    room: 'operations',
+    /* Operations room, west wall: the estate's own west wall, inner face
+     * x -17.75, solid its whole length. North of the portrait that hangs at
+     * z -24 (which spans -24.9..-23.1), leaving 2.1 m between them, and
+     * 4.2 m south of the room's north partition at z -15. */
+    x: -17.74, y: 2.3, z: -20.0, yaw: Math.PI / 2, width: 2.0, tone: 2,
+  }),
+  Object.freeze({
+    slot: 'cartel-palace.ops.strat',
+    room: 'operations',
+    /* Operations room, same wall, south of the portrait by the same 2.1 m,
+     * and 5 m clear of the dining partition at z -34.2. The plan of the job
+     * belongs opposite the trophies for failing at it. */
+    x: -17.74, y: 2.3, z: -28.0, yaw: Math.PI / 2, width: 2.0, tone: 0,
+  }),
+]);
+
 function combatMaterialFor(material) {
   if (material === M.glass || material === M.window) return 'glass';
   if (material === M.plaster) return 'drywall';
@@ -175,13 +313,50 @@ function instanced(parent, geometry, material, placements, name, { cast = false,
   return mesh;
 }
 
-function addCollider(colliders, center, size, name = '') {
+/**
+ * A collider with no mesh of its own, for geometry drawn somewhere else.
+ *
+ * `material` is optional and is the THREE material the visible geometry uses,
+ * not a string -- it is passed through `combatMaterialFor` exactly as `solid`
+ * does, so a block authored here and a block authored there stop a round the
+ * same way. Leave it off and the collider is untagged, which the shared stack
+ * reads as a stopper (docs/CONTEXT.md: appearance never implies penetration);
+ * that is right for a door leaf and wrong for a stone reveal, which should
+ * behave like the stone either side of it.
+ */
+function addCollider(colliders, center, size, name = '', material = null) {
   const c = new THREE.Vector3(...center);
   const half = new THREE.Vector3(...size).multiplyScalar(0.5);
   const collider = new THREE.Box3(c.clone().sub(half), c.clone().add(half));
   collider.name = name;
+  const combatMaterial = material ? combatMaterialFor(material) : null;
+  if (combatMaterial) {
+    collider.combatMaterial = combatMaterial;
+    collider.userData = { ...(collider.userData ?? {}), combatMaterial };
+  }
   colliders.push(collider);
   return collider;
+}
+
+/**
+ * Give newly authored Palace architecture an explicit spatial identity.
+ *
+ * The rest of the Palace collider inventory remains legacy debt. This helper
+ * is deliberately opt-in so adding a repaired wall cannot silently inherit a
+ * guessed meaning merely because it happened to be built with `solid`.
+ */
+function markPalaceWorldCollider(collider, id) {
+  return markSpatialPrimitive(collider, {
+    id: `cartel-palace.world.${id}`,
+    kind: 'world',
+  });
+}
+
+function markPalaceWorldSolid(mesh, id) {
+  const volume = mesh?.userData?.collider;
+  if (!volume) throw new Error(`Palace world solid ${id} has no collider`);
+  markPalaceWorldCollider(volume, id);
+  return mesh;
 }
 
 function solid(parent, colliders, size, position, material, name = '') {
@@ -259,10 +434,43 @@ function entrancePortal(parent, colliders) {
   const { radius, tube, springY, faceZ } = PORTAL.ring;
 
   /* The header. The opening is 4.0 m wide and 4.8 m tall and the door is
-   * 2.6 m; this is the 2.2 m of wall that was simply missing above it. */
+   * 2.6 m; this is the 2.2 m of wall that was simply missing above it.
+   *
+   * IT ALSO HAD TO STOP A ROUND, and for a long time it did not. The tag on
+   * the mesh below is real and was always right; what was missing is that the
+   * mesh had no collider, and the collider array is the only thing the shared
+   * ballistics and perception ever trace against. `estate-front-west` ends at
+   * x 11.5 and `estate-front-east` starts at 15.5, while the door leaf covers
+   * 11.99..15.01 up to y 2.6 -- so this 2.2 m band and a ~0.49 m slot down
+   * each side were a hole in a wall the player sees as solid stucco and stone.
+   * A guard in the entry hall could put rounds through it into a player who
+   * had not opened the door yet, which is the owner's report that he "can be
+   * shot through the service-wing door before entering".
+   *
+   * The reveals are tagged as the stone they are drawn as (the jamb boxes
+   * below), the header as the stucco of the wall it continues. */
   const header = box([4.0, 4.8 - height, 0.5], [x, (4.8 + height) / 2, wallZ], M.stucco, 'estate-entry-header');
   header.userData.combatMaterial = 'concrete';
   portal.add(header);
+  markPalaceWorldCollider(
+    addCollider(colliders, [x, (4.8 + height) / 2, wallZ], [4.0, 4.8 - height, 0.5],
+      'estate-entry-header', M.stucco),
+    'estate-entry.header',
+  );
+  /* The two slots either side of the leaf, from the ground to the header. */
+  const revealWidth = (4.0 - width) / 2;
+  for (const side of [-1, 1]) {
+    markPalaceWorldCollider(
+      addCollider(
+        colliders,
+        [x + side * (width + revealWidth) / 2, height / 2, wallZ],
+        [revealWidth, height, 0.5],
+        'estate-entry-reveal',
+        M.stoneLight,
+      ),
+      `estate-entry.reveal.${side < 0 ? 'west' : 'east'}`,
+    );
+  }
 
   // Step and threshold, so the door meets the ground on something.
   portal.add(
@@ -328,6 +536,15 @@ function entrancePortal(parent, colliders) {
     door.add(box([0.1, 0.24, 0.05], [half - 1.46, hy, 0.06], M.iron, 'estate-service-door-hinge', { cast: false }));
   }
   portal.add(door);
+  /* THE LEAF STAYS UNTAGGED, AND THAT IS THE POINT.
+   *
+   * It is tempting to tag it `M.wood` so a round into it sounds like a round
+   * into a door. Do not: `combatMaterialFor` maps every wood in this scene to
+   * `wood_thin`, `wood_thin` is in the shared ballistics' PENETRABLE set, and
+   * the leaf's collider is 0.30 m deep against a 0.35 m penetration ceiling --
+   * so the tag that buys a nicer impact sound also puts rifle rounds straight
+   * back through the shut door, which is the owner's original report. Untagged
+   * is a stopper (see `addCollider`), and a shut door is a stopper. */
   const collider = addCollider(colliders, [x, height / 2, wallZ], [width, height, 0.3], 'estate-service-door');
   return { portal, door, collider };
 }
@@ -483,55 +700,75 @@ function framedPortrait(parent, x, y, z, { scale = 1, facing = 'z' } = {}) {
  * surface the picture hangs on and `yaw` is the direction that surface
  * looks. Everything is built forward of local z = 0, which puts the back of
  * the frame exactly on the plaster whatever the wall is doing.
+ *
+ * `slot` turns one of these into a piece of OWNER art rather than a coloured
+ * field: it names an `assets/art/manifest.json` slot, the canvas gets a
+ * material of its own so a texture can be swapped onto it without repainting
+ * every other frame in the building (`ART_TONES` entries are shared), and the
+ * group's names change so the geometry allowlist's `wall-art-frame#n` paths
+ * keep counting the frames they were written for. See `A_TEAM_ART` below.
  */
-function wallArt(parent, { x, y, z, yaw = 0, width = 0.9, height = 1.15, tone = 0 }) {
+/**
+ * @param {object} options
+ * @param {string|null} [options.slot] a manifest slot; the canvas is dressed
+ *        from `resolveGear` and gets its own material instance.
+ * @param {boolean} [options.aTeamNaming] whether to name the meshes
+ *        `a-team-art-*` instead of `wall-art-*`. Defaults to true when a slot
+ *        is given, which is what the six late-added pieces want -- BUT the
+ *        gallery's four canvases were authored before any of this and sit in
+ *        the middle of the traversal, so tools/geometry-allowlists addresses
+ *        their neighbours as `wall-art-frame#N`. Renaming those two per wall
+ *        would renumber every `wall-art-*` entry after them and invalidate
+ *        allowlist rows describing geometry nobody touched. They take a slot
+ *        and keep their name.
+ */
+function wallArt(parent, {
+  x, y, z, yaw = 0, width = 0.9, height = 1.15, tone = 0, slot = null,
+  aTeamNaming = slot !== null,
+}) {
   const art = new THREE.Group();
-  art.name = 'palace-wall-art';
+  art.name = aTeamNaming ? 'palace-a-team-art' : 'palace-wall-art';
   art.position.set(x, y, z);
   art.rotation.y = yaw;
-  const frame = box([width, height, 0.07], [0, 0, 0.035], M.brass, 'wall-art-frame');
+  const toneMaterial = ART_TONES[Math.abs(Math.trunc(tone)) % ART_TONES.length];
+  const frame = box(
+    [width, height, 0.07], [0, 0, 0.035], M.brass,
+    aTeamNaming ? 'a-team-art-frame' : 'wall-art-frame',
+  );
   const field = box(
     [width - 0.14, height - 0.14, 0.075],
     [0, 0, 0.042],
-    ART_TONES[Math.abs(Math.trunc(tone)) % ART_TONES.length],
-    'wall-art-field',
+    slot ? toneMaterial.clone() : toneMaterial,
+    aTeamNaming ? 'a-team-art-field' : 'wall-art-field',
     { cast: false },
   );
-  const mount = box([0.07, 0.07, 0.02], [0, height / 2 - 0.06, 0.01], M.iron, 'wall-art-mount', { cast: false });
+  const mount = box(
+    [0.07, 0.07, 0.02], [0, height / 2 - 0.06, 0.01], M.iron,
+    aTeamNaming ? 'a-team-art-mount' : 'wall-art-mount',
+    { cast: false },
+  );
   art.add(frame, field, mount);
+  if (slot) {
+    art.userData.artSlot = slot;
+    art.userData.artField = field;
+  }
   parent.add(art);
   return art;
 }
 
-/** A potted plant: the cheapest honest sign that somebody lives somewhere. */
+/**
+ * Palace adapter for the shared, attached-leaf plant.
+ *
+ * The old local seven-box fork was the broken asset called out in the
+ * playtest: every long frond grew from the same point and read as roots or
+ * sticks pushed through the pot. Keep the Palace's stable semantic name and
+ * authored placement surface, but let the shared prop own the actual plant.
+ */
 function pottedPlant(parent, x, z, { scale = 1, y = 0 } = {}) {
-  const plant = new THREE.Group();
+  const { group: plant } = makePlant(M, { x, z, scale });
   plant.name = 'palace-potted-plant';
-  plant.position.set(x, y, z);
-  const pot = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.26 * scale, 0.19 * scale, 0.44 * scale, 12),
-    M.terracotta,
-  );
-  pot.name = 'planter-pot';
-  pot.position.y = 0.22 * scale;
-  pot.castShadow = true;
-  pot.receiveShadow = true;
-  plant.add(pot);
-  plant.add(cylinder(0.22 * scale, 0.04, [0, 0.43 * scale, 0], M.soil, 'planter-soil', 12));
-  for (let index = 0; index < 7; index++) {
-    const angle = (index / 7) * Math.PI * 2 + x * 0.31;
-    const blade = box(
-      [0.075 * scale, 0.9 * scale, 0.03],
-      [0, 0.88 * scale, 0],
-      M.leaf,
-      'planter-frond',
-      { cast: false },
-    );
-    blade.rotation.y = angle;
-    blade.rotation.x = 0.24 + (index % 3) * 0.12;
-    blade.translateZ(0.16 * scale);
-    plant.add(blade);
-  }
+  plant.position.y = y;
+  plant.userData.plantModule = 'world.makePlant';
   parent.add(plant);
   return plant;
 }
@@ -697,12 +934,28 @@ function cleaningCart(parent, colliders, x, z, yaw = 0) {
   bag.scale.set(1, 1.25, 0.9);
   bag.castShadow = true;
   cart.add(bag);
-  const mop = cylinder(0.022, 1.5, [0.28, 0.78, -0.2], M.woodLight, 'cleaning-cart-mop-handle', 8);
-  mop.rotation.x = 0.2;
-  mop.rotation.z = -0.16;
-  cart.add(mop);
   const head = box([0.16, 0.24, 0.1], [0.42, 0.12, -0.34], M.plasticPale, 'cleaning-cart-mop-head');
-  cart.add(head);
+  /* One authored segment from the mop head to the cart handle. The previous
+   * Euler-rotated cylinder missed its own head by sixteen centimetres: the
+   * broom looked laid against the cart while its cleaning end floated beside
+   * it. Derive the transform from the join point so placement and orientation
+   * cannot drift apart again. */
+  const mopFoot = new THREE.Vector3(0.42, 0.2, -0.34);
+  const mopDirection = new THREE.Vector3(-0.16, 1.45, 0.15).normalize();
+  const mop = cylinder(
+    0.022,
+    1.5,
+    mopFoot.clone().addScaledVector(mopDirection, 0.75).toArray(),
+    M.woodLight,
+    'cleaning-cart-mop-handle',
+    8,
+  );
+  mop.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), mopDirection);
+  markSemanticPlacement(mop, {
+    id: 'cartel-palace.cleaning-cart.mop-attachment',
+    seams: [{ target: 'cleaning-cart-mop-head', maxGap: 0.03 }],
+  });
+  cart.add(head, mop);
   parent.add(cart);
   addCollider(colliders, [x, 0.5, z], [0.9, 1.0, 1.2], 'estate-cleaning-cart');
   return cart;
@@ -981,8 +1234,9 @@ function evidenceLedger(parent, colliders) {
   const target = box([0.62, 0.09, 0.78], [0, 0.94, 0], ledgerPaper, 'evidence.payment-ledger');
   target.rotation.y = -0.18;
   target.userData.evidenceId = EVIDENCE_IDS.PAYMENT_LEDGER;
-  target.userData.evidenceTitle = 'Mark\'s payment ledger';
-  target.userData.evidenceDetail = 'Sauce is listed as a consultant, paid every other Friday, and the first payment predates the attack on Lou\'s house. There is a cob of corn holding down his recipe card.';
+  target.userData.evidenceTitle = 'Cartel payment ledger';
+  target.userData.evidenceDetail = `${PALACE_CASE_ROUTE_EVIDENCE.operation} route addendum: ${PALACE_CASE_ROUTE_EVIDENCE.cargo} to ${PALACE_CASE_ROUTE_EVIDENCE.destination}, delivery ${PALACE_CASE_ROUTE_EVIDENCE.deliveryAt}; breach window ${PALACE_CASE_ROUTE_EVIDENCE.breachAt} ${PALACE_CASE_ROUTE_EVIDENCE.breachRelation.toLowerCase()}. ${PALACE_CASE_ROUTE_EVIDENCE.source} signs both entries; ${PALACE_CASE_ROUTE_EVIDENCE.insideContact} countersigns the breach. A cob of corn pins Sauce's recipe card underneath.`;
+  target.userData.evidenceDatum = PALACE_CASE_ROUTE_EVIDENCE;
   desk.add(target);
   for (let i = 0; i < 7; i++) {
     target.add(box([0.46, 0.008, 0.018], [0, 0.052, -0.24 + i * 0.075], M.ink, 'ledger-entry', { cast: false }));
@@ -992,6 +1246,35 @@ function evidenceLedger(parent, colliders) {
     box([0.48, 0.01, 0.026], [0, 0.056, 0.06], M.red, 'ledger-flagged-entry', { cast: false }),
     box([0.06, 0.03, 0.8], [-0.33, 0.9 - 0.9, 0], M.tile, 'ledger-spine', { cast: false }),
   );
+
+  /* The route addendum is a real object on the page, not a conclusion that
+   * appears only in Tony's subtitle. The brass case bar and paired red time
+   * stamps make it read as a different record at desk distance; the exact
+   * datum lives on both the inspect target and the slip for deterministic
+   * evidence/continuity checks. Appended after the established ledger pieces
+   * so their geometry traversal paths do not churn. */
+  const routeSlip = new THREE.Group();
+  routeSlip.name = 'silver-case-route-slip';
+  routeSlip.position.set(0.03, 0.064, 0.18);
+  routeSlip.rotation.y = 0.05;
+  routeSlip.userData.evidenceDatum = PALACE_CASE_ROUTE_EVIDENCE;
+  routeSlip.add(
+    box([0.5, 0.006, 0.24], [0, 0, 0], M.paper, 'silver-case-route-slip.paper', { cast: false }),
+    box([0.42, 0.007, 0.026], [0, 0.006, -0.085], M.brass, 'silver-case-route-slip.case-code', { cast: false }),
+    box([0.1, 0.008, 0.034], [-0.15, 0.007, 0.07], M.red, 'silver-case-route-slip.time-stamp', { cast: false }),
+    box([0.1, 0.008, 0.034], [0.15, 0.007, 0.07], M.red, 'silver-case-route-slip.time-stamp', { cast: false }),
+    box([0.34, 0.008, 0.018], [0, 0.007, 0.105], M.red, 'silver-case-route-slip.inside-countersign', { cast: false }),
+  );
+  for (let index = 0; index < 3; index++) {
+    routeSlip.add(box(
+      [0.34 - index * 0.035, 0.007, 0.012],
+      [-0.02, 0.006, -0.035 + index * 0.035],
+      M.ink,
+      'silver-case-route-slip.field',
+      { cast: false },
+    ));
+  }
+  target.add(routeSlip);
   desk.add(
     box([0.02, 0.014, 0.15], [0.13, 0.995, 0.06], M.brass, 'mark-office-desk.pen', { cast: false }),
   );
@@ -1060,13 +1343,32 @@ function evidenceLedger(parent, colliders) {
     cylinder(0.12, 0.035, [0, 0.018, 0], M.iron, 'clue-lamp-base', 12),
     cylinder(0.02, 0.5, [0, 0.27, 0], M.iron, 'clue-lamp-stem', 8),
   );
-  const neck = cylinder(0.018, 0.46, [0.2, 0.52, 0.06], M.iron, 'clue-lamp-neck', 8);
+  /* THE SHADE HANGS OFF THE END OF THE ARM, and it is derived rather than
+   * typed. It used to be placed at (0.42, 0.46, 0.14) by eye against an arm
+   * whose far end is at (0.405, 0.624, 0.06) -- 16 cm low and 8 cm off to the
+   * side, which reads at desk distance as a lampshade floating beside a
+   * gooseneck that is pointing at nothing. Owner: floating lamp on the first
+   * evidence desk.
+   *
+   * The arm is a cylinder of `NECK_LENGTH` centred at `NECK_AT` and rotated on
+   * two axes, so where its end actually is depends on both rotations; working
+   * that out by hand once and pasting the number is exactly how the two came
+   * apart. Three.js is asked instead. */
+  const NECK_LENGTH = 0.46;
+  const NECK_AT = [0.2, 0.52, 0.06];
+  const neck = cylinder(0.018, NECK_LENGTH, NECK_AT, M.iron, 'clue-lamp-neck', 8);
   neck.rotation.z = -1.1;
   neck.rotation.x = -0.25;
   lamp.add(neck);
+  neck.updateMatrix();
+  /* The far end of the arm, in the lamp's own space: the cylinder's local +Y
+   * tip carried through its rotation. */
+  const neckTip = new THREE.Vector3(0, NECK_LENGTH / 2, 0).applyMatrix4(neck.matrix);
   const shade = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.18, 12, 1, true), M.lampWarm);
   shade.name = 'clue-lamp-shade';
-  shade.position.set(0.42, 0.46, 0.14);
+  /* A cone's own origin is its middle, so drop it half its height down the
+   * arm's heading -- the shade hangs FROM the tip, it does not straddle it. */
+  shade.position.copy(neckTip).add(new THREE.Vector3(0.02, -0.06, 0.02));
   shade.rotation.x = 1.05;
   shade.rotation.z = 0.62;
   lamp.add(shade);
@@ -1154,7 +1456,7 @@ function evidenceSecurityStill(parent, colliders) {
   target.rotation.x = 0.12;
   target.userData.evidenceId = EVIDENCE_IDS.SECURITY_STILL;
   target.userData.evidenceTitle = 'Cartel dossier: SAUCE, R.';
-  target.userData.evidenceDetail = 'Gate camera, 02:14. No restraints, no escort. Sauce keys himself in carrying a bottle for Mark, and the file has him on the payroll.';
+  target.userData.evidenceDetail = 'Gate camera, 02:14. No restraints, no escort. Sauce keys himself in carrying a bottle for the boss, and the file has him on the payroll.';
   parent.add(target);
   target.add(box([1.5, 0.98, 0.07], [0, 0, -0.03], M.iron, 'security-still-bezel'));
 
@@ -1507,18 +1809,126 @@ export function buildCartelPalace(scene) {
   const estateDoor = entrance.door;
   const estateDoorCollider = entrance.collider;
 
+  /* THE PARTITIONS REACH THE CEILING, AND UNTIL 2026-08-24 THEY DID NOT.
+   *
+   * Owner: floating beige rectangles in the estate. They are these walls, seen
+   * from the next room over.
+   *
+   * Every interior partition was 4.2 m tall, standing on the floor, and the
+   * ceiling slabs above start at 4.48 — a 28 cm slot running unbroken around
+   * the top of every wall in the building. Stand in Mark's office and look up
+   * and you see over the office's south partition, over the guest suite's, and
+   * into rooms two doors away; what reads at that angle is a lit beige panel
+   * hanging in the dark with no floor under it and no ceiling over it. Traced
+   * from a screenshot: two of them, `office-south-partition` at 11.1 m and
+   * `guest-south-partition` at 12.9 m, both from a camera standing at the
+   * office desk.
+   *
+   * 4.6 puts their tops 12 cm INTO the 4.48–4.60 slab rather than merely
+   * touching it, which is the same half-thickness key the facade segments use
+   * on each other — a butt joint at exactly 4.48 is a hairline the depth
+   * buffer can open at a glancing angle, which is the same bug back again in a
+   * form that is harder to see.
+   */
+  const PARTITION_TOP = 4.6;
+  const partition = (size, at, name) => solid(
+    estate, colliders,
+    [size[0], PARTITION_TOP, size[2]], [at[0], PARTITION_TOP / 2, at[2]],
+    M.plaster, name,
+  );
   // Rooms and a continuous service corridor along the east edge.
-  solid(estate, colliders, [0.35, 4.2, 20], [10.5, 2.1, 2], M.plaster, 'guest-service-partition');
-  solid(estate, colliders, [0.35, 4.2, 7.5], [10.5, 2.1, -18.25], M.plaster, 'security-service-partition');
-  solid(estate, colliders, [0.35, 4.2, 8.5], [10.5, 2.1, -30.75], M.plaster, 'gallery-service-partition');
+  partition([0.35, 0, 20], [10.5, 0, 2], 'guest-service-partition');
+  partition([0.35, 0, 7.5], [10.5, 0, -18.25], 'security-service-partition');
+  /* THE THIRD-EVIDENCE ROOM HAD A SIX-AND-A-HALF-METRE HOLE IN ITS WALL.
+   *
+   * Owner, 2026-08-25: facing the third evidence and its chair, there is a
+   * large unexplained opening behind it. It did serve one purpose: this is
+   * the route from the intelligence room into Sauce's suite. That requires a
+   * doorway, not an entire missing wall.
+   *
+   * Two keyed wall leaves close the 6.5 m span from z -14.5 to -8 around a
+   * 2.4 m clear door. Each 160 mm side trim fills the reveal before the wall
+   * begins; the structural header clears those outer edges by 1 mm while its
+   * top trim spans only the clear opening. Every piece therefore meets or clears
+   * at a face rather than intersecting, and evidence order/navigation stay intact. */
+  const SECURITY_GUEST_DOOR_Z = -11.25;
+  const SECURITY_GUEST_DOOR_WIDTH = 2.4;
+  const SECURITY_GUEST_DOOR_EDGE = SECURITY_GUEST_DOOR_WIDTH / 2;
+  const securityGuestNorthEnd = SECURITY_GUEST_DOOR_Z + SECURITY_GUEST_DOOR_EDGE + 0.16;
+  const securityGuestSouthEnd = SECURITY_GUEST_DOOR_Z - SECURITY_GUEST_DOOR_EDGE - 0.16;
+  markPalaceWorldSolid(
+    partition(
+      [0.35, 0, -8 - securityGuestNorthEnd],
+      [10.5, 0, (securityGuestNorthEnd - 8) / 2],
+      'security-guest-partition-north',
+    ),
+    'security-guest.partition.north',
+  );
+  markPalaceWorldSolid(
+    partition(
+      [0.35, 0, securityGuestSouthEnd + 14.5],
+      [10.5, 0, (securityGuestSouthEnd - 14.5) / 2],
+      'security-guest-partition-south',
+    ),
+    'security-guest.partition.south',
+  );
+  markPalaceWorldSolid(
+    solid(
+      estate, colliders,
+      [0.35, PARTITION_TOP - 3.2, SECURITY_GUEST_DOOR_WIDTH + 0.318],
+      [10.5, 3.2 + (PARTITION_TOP - 3.2) / 2, SECURITY_GUEST_DOOR_Z],
+      M.plaster,
+      'security-guest-door-header',
+    ),
+    'security-guest.header',
+  );
+  estate.add(
+    box([0.42, 3.2, 0.16], [10.5, 1.6, securityGuestNorthEnd - 0.08], M.wood,
+      'security-guest-door-architrave', { cast: false }),
+    box([0.42, 3.2, 0.16], [10.5, 1.6, securityGuestSouthEnd + 0.08], M.wood,
+      'security-guest-door-architrave', { cast: false }),
+    box([0.42, 0.18, SECURITY_GUEST_DOOR_WIDTH],
+      [10.5, 3.11, SECURITY_GUEST_DOOR_Z], M.wood,
+      'security-guest-door-architrave', { cast: false }),
+  );
+  partition([0.35, 0, 8.5], [10.5, 0, -30.75], 'gallery-service-partition');
   // West office / guest split with wide door gaps.
-  solid(estate, colliders, [8.2, 4.2, 0.35], [-13.9, 2.1, 1.5], M.plaster, 'office-north-partition');
-  solid(estate, colliders, [18.4, 4.2, 0.35], [1.3, 2.1, 1.5], M.plaster, 'guest-north-partition');
-  solid(estate, colliders, [7.8, 4.2, 0.35], [-14.1, 2.1, -15], M.plaster, 'office-south-partition');
-  solid(estate, colliders, [18.2, 4.2, 0.35], [1.4, 2.1, -15], M.plaster, 'guest-south-partition');
+  partition([8.2, 0, 0.35], [-13.9, 0, 1.5], 'office-north-partition');
+  partition([18.4, 0, 0.35], [1.3, 0, 1.5], 'guest-north-partition');
+  partition([7.8, 0, 0.35], [-14.1, 0, -15], 'office-south-partition');
+  partition([18.2, 0, 0.35], [1.4, 0, -15], 'guest-south-partition');
+  /* SAUCE'S BEDROOM HAD NO WEST WALL.
+   *
+   * The media wall's own note already calls the suite's entrance the finished
+   * security-room doorway at x 10.5, z -12.45..-10.05 -- but nothing ever closed the
+   * other side, so the sleeping end simply ran out of room at x 0 and opened
+   * onto the unlit strip between here and Mark's office. Owner, 2026-08-25:
+   * *"that's the small door in the wall on the left side of the bedroom
+   * (sauces bedroom) maybe we just close that gap so we don't have to deal
+   * with it."*
+   *
+   * So it is closed, and closed at the SLEEPING end only: z -14.85 to -8.30,
+   * which stops level with the media wall. The dressing end north of that
+   * line stays open exactly as it was, which is what keeps every existing
+   * route through the estate intact -- the suite still reaches the office
+   * strip, the office still reaches the gallery, and nothing had to be
+   * re-planned to lose a hole.
+   *
+   * The 25 mm key into the south partition (whose inner face is -14.825) is
+   * deliberately UNDER the geometry gate's 30 mm overlap threshold: enough to
+   * close the corner against a glancing-angle hairline, not enough to be a
+   * structural interpenetration that has to be argued for in an allowlist.
+   *
+   * x -1.5 rather than 0: the suite's own west picture hangs at x -0.6 on
+   * the south partition, so a wall on the rug's edge would have left one of
+   * the room's two paintings out in the corridor. */
+  markPalaceWorldSolid(
+    partition([0.35, 0, 6.55], [-1.5, 0, -11.575], 'guest-west-partition'),
+    'guest-suite.partition.west',
+  );
   // Gallery to dining partition, with a locked double door in the middle.
-  solid(estate, colliders, [14.7, 4.3, 0.42], [-10.65, 2.15, -34.2], M.plaster, 'dining-partition-west');
-  solid(estate, colliders, [14.7, 4.3, 0.42], [10.65, 2.15, -34.2], M.plaster, 'dining-partition-east');
+  partition([14.7, 0, 0.42], [-10.65, 0, -34.2], 'dining-partition-west');
+  partition([14.7, 0, 0.42], [10.65, 0, -34.2], 'dining-partition-east');
   const diningDoors = new THREE.Group();
   diningDoors.name = 'dining-room-double-doors';
   diningDoors.position.set(0, 0, -34.15);
@@ -1615,7 +2025,8 @@ export function buildCartelPalace(scene) {
   const wetSign = new THREE.Group();
   wetSign.name = 'entry-detail.wet-floor-sign';
   wetSign.position.set(12.7, 0, 3.3);
-  wetSign.rotation.y = -0.5;
+  /* The +Z/readable face points back down the player's entrance lane. */
+  wetSign.rotation.y = Math.atan2(13.5 - wetSign.position.x, 12 - wetSign.position.z);
   for (const side of [-1, 1]) {
     /* y 0.31, not 0.34. The boards lean 0.16 rad, and leaning a 0.62 m board
      * lifts its own bounding box: at 0.34 the sign's feet finished 5.7 cm off
@@ -1625,6 +2036,25 @@ export function buildCartelPalace(scene) {
     board.rotation.x = side * 0.16;
     wetSign.add(board);
   }
+  const warning = new THREE.Group();
+  warning.name = 'wet-floor-warning-front';
+  warning.position.set(0, -0.075, 0.112);
+  warning.userData.warningFace = true;
+  warning.add(
+    box([0.16, 0.035, 0.012], [0, 0.46, 0], M.ink, 'wet-floor-warning-cap', { cast: false }),
+    box([0.035, 0.2, 0.012], [0, 0.34, 0], M.ink, 'wet-floor-warning-mark', { cast: false }),
+    box([0.045, 0.045, 0.012], [0, 0.2, 0], M.ink, 'wet-floor-warning-dot', { cast: false }),
+  );
+  wetSign.add(warning);
+  markSemanticPlacement(wetSign, {
+    id: 'cartel-palace.foyer.wet-floor-sign',
+    surface: { kind: 'floor', y: 0, maxGap: 0.012, maxPenetration: 0.012 },
+    upright: { maxDegrees: 1 },
+    facing: {
+      axis: '+z', direction: [13.5 - wetSign.position.x, 0, 12 - wetSign.position.z],
+      maxDegrees: 1,
+    },
+  });
   entryDetails.add(wetSign);
 
   const trashCan = new THREE.Group();
@@ -1955,6 +2385,20 @@ export function buildCartelPalace(scene) {
   for (const x of [2.6, 4.7, 6.8]) {
     guestWall.add(box([1.65, 1.35, 0.08], [x, 2.78, -14.785], M.woodLight, 'guest-suite-wall-panel'));
   }
+  /* The bedroom's new west wall gets the same panelling and the same dado as
+   * the wall it meets -- a partition put in to close a hole still has to look
+   * like it was built with the house. Its face is x -1.325; these stand 4 cm
+   * proud of it, the way the south wall's do. */
+  for (const z of [-13.5, -10.6]) {
+    guestWall.add(box([0.08, 1.35, 1.65], [-1.285, 2.78, z], M.woodLight, 'guest-suite-wall-panel'));
+  }
+  guestWall.add(
+    box([0.09, 0.22, 6.35], [-1.28, 0.11, -11.575], M.woodLight, 'guest-suite-detail.west-skirting', { cast: false }),
+    /* And the open end of it is a doorway, so the end grain gets an architrave
+     * across it rather than being left a sawn-off slab of plaster. Flush on
+     * the wall's own end face at z -8.30, standing proud on both sides. */
+    box([0.52, 3.1, 0.06], [-1.5, 1.55, -8.27], M.wood, 'guest-suite-detail.west-door-architrave'),
+  );
   guestDetails.add(guestWall);
   for (const [index, x] of [-0.6, 10.0].entries()) {
     wallArt(guestDetails, {
@@ -1965,8 +2409,8 @@ export function buildCartelPalace(scene) {
   /* THE MEDIA WALL. The suite had no surface to hang a television on, and a
    * TV 16 m up the room on the far partition is not "across from the bed";
    * this stub carries the set, the dresser under it, and the line between
-   * the sleeping and dressing ends. It leaves the corridor doorway at
-   * x 10.5, z -14.5..-8 completely clear and can be walked around either
+   * the sleeping and dressing ends. It leaves the finished corridor doorway
+   * at x 10.5, z -12.45..-10.05 completely clear and can be walked around either
    * side (x < 2.2 or x > 7.2). */
   solid(guestDetails, colliders, [5.0, 2.9, 0.3], [4.7, 1.45, -8.7], M.plaster, 'guest-suite-detail.media-wall');
   guestDetails.add(
@@ -1995,19 +2439,47 @@ export function buildCartelPalace(scene) {
     box([0.12, 0.16, 0.12], [-1.1, 0.08, 0.2], M.wood, 'dresser-foot', { cast: false }),
     box([0.12, 0.16, 0.12], [1.1, 0.08, 0.2], M.wood, 'dresser-foot', { cast: false }),
   );
+  /* THREE SHUT DRAWERS AND ONE OPEN ONE, and the open one is a DRAWER rather
+   * than a slab parked in front of a shut drawer face.
+   *
+   * Owner: misaligned dresser drawer. Two things were wrong and they compound.
+   * The top-right slot carried a closed face at z -0.29 AND an open drawer
+   * box at z -0.48..-0.32, so the player saw a shut drawer front with a second
+   * drawer hovering in front of it. And the open box's BACK was at -0.32 while
+   * the cabinet's front face is at -0.28, leaving 4 cm of daylight between the
+   * drawer and the furniture it is supposed to be sliding out of.
+   *
+   * Now the loop skips the open slot, and the open drawer is a carcass whose
+   * back is INSIDE the body with its own face and pull on the front of it --
+   * one drawer, pulled out 12 cm, still in its runners. */
+  const OPEN_DRAWER = Object.freeze({ dx: 0.6, dy: 0.62 });
+  /* The cabinet's front face: `dresser-body` is 0.56 deep about z 0. */
+  const DRESSER_FRONT = -0.28;
+  const OPEN_BY = 0.12;
   for (const dy of [0.28, 0.62]) {
     for (const dx of [-0.6, 0.6]) {
+      if (dx === OPEN_DRAWER.dx && dy === OPEN_DRAWER.dy) continue;
       dresser.add(
         box([1.1, 0.28, 0.03], [dx, dy, -0.29], M.woodLight, 'dresser-drawer-face', { cast: false }),
         box([0.26, 0.035, 0.03], [dx, dy, -0.32], M.brass, 'dresser-drawer-pull', { cast: false }),
       );
     }
   }
-  // Half open, with a sleeve hanging out of it. Somebody packed in a hurry
-  // exactly once in this house, and it was not this room.
+  // Half open. Keep its silhouette unambiguous: the pale sleeve that used to
+  // protrude from this slot read as the owner's "random light/object sticking
+  // out of a drawer", so the drawer now communicates only its own geometry.
+  const drawerDepth = 0.16;
+  const drawerFrontZ = DRESSER_FRONT - OPEN_BY;
   dresser.add(
-    box([1.1, 0.28, 0.16], [0.6, 0.62, -0.4], M.woodLight, 'dresser-open-drawer'),
-    box([0.16, 0.06, 0.24], [0.72, 0.55, -0.52], M.chefWhite, 'dresser-spilled-sleeve', { cast: false }),
+    box(
+      [1.1, 0.28, drawerDepth],
+      [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ + drawerDepth / 2],
+      M.woodLight, 'dresser-open-drawer',
+    ),
+    box([1.1, 0.28, 0.03], [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ - 0.015],
+      M.woodLight, 'dresser-drawer-face', { cast: false }),
+    box([0.26, 0.035, 0.03], [OPEN_DRAWER.dx, OPEN_DRAWER.dy, drawerFrontZ - 0.045],
+      M.brass, 'dresser-drawer-pull', { cast: false }),
     cylinder(0.09, 0.24, [-0.9, 1.08, -0.06], M.bottleAmber, 'dresser-decanter', 10),
     cylinder(0.04, 0.09, [-0.66, 1.005, -0.1], M.glass, 'dresser-tumbler', 10),
   );
@@ -2349,18 +2821,56 @@ export function buildCartelPalace(scene) {
 
   /* Wall faces, measured: the west gallery wall is 0.32 thick at x -10.5 and
    * the east service partitions are 0.35 thick at x 10.5. */
+  /* Canvases outside `A_TEAM_ART` that still carry a manifest slot, collected
+   * so the one dressing pass below reaches all of them. */
+  const extraSlottedArt = [];
+
+  /* THE FOUR CANVASES IN HERE ARE NOT PLACEHOLDERS ANY MORE.
+   *
+   * Every second position on each wall is a `wallArt` canvas rather than a
+   * framedPortrait, and until 2026-08-25 all four were flat coloured fields --
+   * four blank rectangles on the one stretch of wall every player walks the
+   * whole length of on his way to the dining doors. The owner delivered four
+   * more A-Team pieces that night, all portrait, and this is where they go:
+   * on the route, at eye height, lit by the picture lights already over them.
+   *
+   * The order is the joke, read in the direction he walks (z -15 toward -34):
+   * the crew introduce themselves, show you the plan, show you the raid, and
+   * then show you the scoreboard.
+   */
   const GALLERY_WALLS = Object.freeze([
     Object.freeze({
-      side: -1, face: -10.34, yaw: -Math.PI / 2,
+      /* THE YAWS WERE SWAPPED, AND FOUR BLANK RECTANGLES HID IT.
+       *
+       * `yaw` orients the `wallArt` canvases, and a canvas is built forward of
+       * its own origin -- so yaw must point OUT of the wall, into the corridor.
+       * Both walls had the opposite value: measured 2026-08-25, the left wall's
+       * canvases faced -x into the west wall and the right wall's faced +x into
+       * the service partition. The player walking between them saw the back of
+       * every one. Nobody could tell, because until the same day all four were
+       * flat coloured fields, and a flat field looks the same from behind.
+       *
+       * The framedPortraits interleaved with them on these exact walls have
+       * always been right (`facing: wall.side > 0 ? '-x' : 'x'`), which is what
+       * the correct values look like: away from the wall, at the player. */
+      side: -1, face: -10.34, yaw: Math.PI / 2,
       /* LEFT WALL -- pushed farther down the hall, and spread rather than
        * bunched at the entrance end. */
       art: Object.freeze([-19.4, -23.0, -26.6, -30.2]),
+      slots: Object.freeze([
+        { index: 1, slot: 'cartel-palace.gallery.master-plan' },
+        { index: 3, slot: 'cartel-palace.gallery.stealth-mission' },
+      ]),
     }),
     Object.freeze({
-      side: 1, face: 10.325, yaw: Math.PI / 2,
+      side: 1, face: 10.325, yaw: -Math.PI / 2,
       /* RIGHT WALL -- the service doorway occupies z -26.5..-22, so the row
        * is authored either side of it and hard against the wall. */
       art: Object.freeze([-17.4, -20.2, -28.6, -31.4]),
+      slots: Object.freeze([
+        { index: 1, slot: 'cartel-palace.gallery.respect-us' },
+        { index: 3, slot: 'cartel-palace.gallery.best-team' },
+      ]),
     }),
   ]);
   for (const wall of GALLERY_WALLS) {
@@ -2381,9 +2891,23 @@ export function buildCartelPalace(scene) {
           scale: 0.46, facing: wall.side > 0 ? '-x' : 'x',
         });
       } else {
-        wallArt(galleryDetails, {
-          x: front, y: 1.85, z, yaw: wall.yaw, width: 1.0, height: 1.3, tone: index + wall.side + 2,
+        /* 1.0 x 1.25 rather than the old 1.0 x 1.30: the delivered drawings are
+         * 1122 x 1402, a 0.8 portrait, and a frame authored at the picture's
+         * own shape never has to stretch it. The frame does not resize when
+         * the file lands -- same rule as the six in `A_TEAM_ART` -- so the
+         * shape has to be right here, in the authored scene the static checks
+         * measure, rather than at load time. */
+        const hung = wallArt(galleryDetails, {
+          x: front, y: 1.85, z, yaw: wall.yaw, width: 1.0, height: 1.25,
+          tone: index + wall.side + 2, slot: wall.slots?.find((row) => row.index === index)?.slot ?? null,
+          aTeamNaming: false,
         });
+        if (hung.userData.artSlot) {
+          extraSlottedArt.push({
+            slot: hung.userData.artSlot, group: hung, field: hung.userData.artField,
+            room: 'gallery', x: front, y: 1.85, z, yaw: wall.yaw, width: 1.0, height: 1.25,
+          });
+        }
       }
       const pictureLight = new THREE.Group();
       pictureLight.name = 'gallery-picture-light';
@@ -2812,6 +3336,79 @@ export function buildCartelPalace(scene) {
     return true;
   }
 
+  /* ---------------------------------------------------------------- *
+   * Hanging the six. See `A_TEAM_ART` at the top of this file for which
+   * picture goes on which wall and what proves each position.
+   *
+   * They go in a group of their own, added to `estate` LAST, for a reason
+   * that is not tidiness: tools/geometry-allowlists/cartel-palace.json
+   * addresses objects by traversal path -- `name=wall-art-frame#6` and the
+   * like -- so anything inserted ahead of the existing frames renumbers
+   * entries that describe geometry nobody touched. Added last, and named
+   * `a-team-art-*` rather than `wall-art-*` by `wallArt`, these six cannot
+   * renumber anything at all.
+   * ---------------------------------------------------------------- */
+  const aTeamWall = new THREE.Group();
+  aTeamWall.name = 'a-team-wall-art';
+  estate.add(aTeamWall);
+  const aTeamPieces = A_TEAM_ART.map((piece) => {
+    const height = piece.width / A_TEAM_ART_ASPECT;
+    const hung = wallArt(aTeamWall, {
+      x: piece.x,
+      y: piece.y,
+      z: piece.z,
+      yaw: piece.yaw,
+      width: piece.width,
+      height,
+      tone: piece.tone,
+      slot: piece.slot,
+    });
+    return { ...piece, height, group: hung, field: hung.userData.artField };
+  });
+
+  /**
+   * Swap the resolved image onto each canvas.
+   *
+   * Deliberately applied whether or not the slot resolved to a real FILE:
+   * `resolveGear` hands back the drawn placeholder for a slot the manifest
+   * has no file for, and that placeholder -- cheap hand-lettered A-TEAM
+   * parody, drawn by src/world/gear.js FALLBACKS -- is the point. A flat
+   * coloured field is what these walls looked like before, and it is what
+   * they look like for the few milliseconds between the room being built
+   * and the manifest arriving.
+   *
+   * The frame is NOT resized from the file's aspect ratio the way the Bing
+   * resizes its stickers, and that is the deliberate half: these frames were
+   * authored at the delivered 4:3 and the doorway proof measures them there.
+   * A frame that resized itself at load time would be a frame no static
+   * check had ever measured.
+   */
+  const dressableArt = [...aTeamPieces, ...extraSlottedArt];
+
+  function dressATeamArt(gear) {
+    const dressed = [];
+    for (const piece of dressableArt) {
+      const resolved = gear.get(piece.slot);
+      if (!resolved?.texture) continue;
+      piece.field.material.dispose();
+      piece.field.material = new THREE.MeshStandardMaterial({
+        map: resolved.texture, roughness: 0.95,
+      });
+      piece.field.userData.art = {
+        slot: piece.slot, real: resolved.real, file: resolved.file,
+      };
+      dressed.push(piece.slot);
+    }
+    return dressed;
+  }
+
+  /* Nothing waits on this. A failed manifest, a missing file, or a Node test
+   * with no canvas to draw a placeholder into all land in the same place:
+   * the frames keep what they were built with and the palace still stands. */
+  const artReady = resolveGear(dressableArt.map((piece) => piece.slot))
+    .then((gear) => dressATeamArt(gear))
+    .catch(() => []);
+
   const environmentZones = Object.freeze({
     ceilings,
     courtyard: courtyardDetails,
@@ -2892,6 +3489,31 @@ export function buildCartelPalace(scene) {
     groundAt: () => 0,
     materialLanguage: 'stucco-stone-clay-tile-courtyard',
     anchors: PALACE_ANCHORS,
+    /* The owner art, measured off the built scene rather than restated: the
+     * boxes below come from the frames the player sees, so a picture that
+     * moves in `A_TEAM_ART` moves here too and the doorway proof in
+     * tests/cartel-palace-a-team-art.test.mjs moves with it. */
+    art: {
+      /* EVERY owner-art canvas in the palace, not just the six in
+       * `A_TEAM_ART`. The gallery's four were flat coloured fields when this
+       * surface was written and had nothing to report; they carry delivered
+       * pictures now, and the doorway sweep in
+       * tests/cartel-palace-a-team-art.test.mjs is worth just as much on a
+       * corridor wall as on a dining-room panel. */
+      slots: dressableArt.map((piece) => piece.slot),
+      ready: artReady,
+      pieces: dressableArt.map((piece) => ({
+        slot: piece.slot,
+        room: piece.room,
+        x: piece.x,
+        y: piece.y,
+        z: piece.z,
+        yaw: piece.yaw,
+        width: piece.width,
+        height: piece.height,
+        box: new THREE.Box3().setFromObject(piece.group),
+      })),
+    },
     evidence,
     targets: { powerBox: cabinet, estateDoor, diningDoor: diningDoors, extractionGate },
     doors: { openServiceGate, openEstateDoor, openDiningRoom, openExtraction },

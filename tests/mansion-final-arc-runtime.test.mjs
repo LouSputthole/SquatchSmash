@@ -14,6 +14,7 @@ const {
   MANSION_RETURN_REPORT,
   mansionVisitMode,
 } = await import('../src/mansion/campaign.js');
+const { SEQUENCES } = await import('../src/mansion/script.js');
 
 test('the quiet-evening guest bed is an exposed physical interaction target', () => {
   const grounds = buildMansionGrounds(null);
@@ -66,4 +67,25 @@ test('the repaired return visit is explicit and carries only approved briefing f
     palaceLocationKnown: true,
   });
   assert.ok(Object.isFrozen(MANSION_RETURN_REPORT));
+});
+
+test('Lou alone interprets the Enola clue before the repaired-mansion report commits', () => {
+  const lines = SEQUENCES.returnBriefing;
+  assert.ok(Object.isFrozen(lines));
+  assert.deepEqual(lines.map(({ speaker }) => speaker), [
+    'LOU', 'PROSPECT', 'LOU', 'LOU', 'PROSPECT', 'LOU',
+  ]);
+
+  const text = lines.map(({ text }) => text).join('\n');
+  assert.match(lines[0].text, /instrument was right.*briefing wasn’t.*wrong fucking city/i);
+  assert.match(lines[2].text, /Squatchbourg is a crater.*desert compound is still/i);
+  assert.match(lines[3].text, /Sauce went missing/i);
+  assert.match(lines[5].text, /restaurant burner.*estate gate logs.*A-Team leadership estate/i);
+  assert.match(lines[5].text, /Could be a prisoner, could be a guest.*tonight/i);
+  assert.doesNotMatch(lines[5].text, /gave.*Silver Case|sold.*address/i,
+    'the repaired mansion must not spend the Palace verdict early');
+  assert.doesNotMatch(text, /\bMark\b/i,
+    'Mark stays unnamed until the palace boss fight');
+  assert.ok(lines.every(({ cue }) => cue?.startsWith('vo.silentsquatch.return.briefing.')),
+    'every payoff line belongs to the return-only recording scope');
 });

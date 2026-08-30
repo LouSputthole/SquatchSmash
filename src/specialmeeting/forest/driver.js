@@ -136,6 +136,34 @@ export class ForestDrive {
     return this;
   }
 
+  /**
+   * Restore a persisted drive checkpoint at an authored road event.
+   *
+   * This is reconstruction, not traversal: crossed events are marked fired
+   * without invoking their callbacks, so loading at the spur cannot replay
+   * the chain, dialogue, or campaign writes that got the player there.
+   */
+  restoreAtEvent(id) {
+    const target = this._events.find((event) => event.id === id);
+    if (!target) throw new Error(`Unknown Special Meeting road event: ${id}`);
+
+    this.distance = target.s;
+    this.speed = 0;
+    this.running = false;
+    this.waitingAt = target.stop ? target.id : null;
+    this.heading = roadAt(target.s).yaw;
+    this._heightRate = 0;
+    this._pitchRate = 0;
+    this._rollRate = 0;
+    this._accelLast = 0;
+    this._braking = false;
+    this.car.setBrakeLights(false);
+    for (const event of this._events) event.fired = event.s <= target.s;
+    this._grid.fired = target.s >= TURN_OFF_S;
+    this._place(true);
+    return this;
+  }
+
   /* ---------------------------------------------------------------- */
 
   /** The next stop the car has to plan a deceleration for, or null. */
@@ -306,7 +334,15 @@ export class ForestDrive {
         this.waitingAt = event.id;
       }
       event.fired = true;
-      this.onNode?.(event.id, this);
+      /* An event is marked spent before it is announced, and it is never
+       * retried -- so one listener that throws would silently delete a beat
+       * for the rest of the drive. The rail is not the place to find that out.
+       * See the note on ordering in `./index.js`'s own onNode. */
+      try {
+        this.onNode?.(event.id, this);
+      } catch (error) {
+        console.error(`a listener threw on the '${event.id}' road node`, error);
+      }
     }
 
     return this;

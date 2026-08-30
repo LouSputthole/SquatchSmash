@@ -1,5 +1,7 @@
 import { SPEAKERS } from './script.js';
 
+const wallSeconds = () => (globalThis.performance?.now?.() ?? Date.now()) / 1000;
+
 /**
  * Plays SEQUENCES from script.js and presents CHOICES. Deliberately does not
  * touch player movement, camera, or interaction — see the mission brief this
@@ -13,7 +15,7 @@ import { SPEAKERS } from './script.js';
 export class DialogueController {
   /**
    * @param {object} hooks
-   * @param {(cue:string, voice:?string)=>number|void} [hooks.playCue] starts a
+   * @param {(cue:string, voice:?string, line?:object)=>number|void} [hooks.playCue] starts a
    *   line and RETURNS ITS LENGTH IN SECONDS (0/undefined when there is no
    *   recording). The length is what stops the next line talking over it —
    *   see `_advance()`.
@@ -22,6 +24,7 @@ export class DialogueController {
    */
   constructor({
     onLine, onLineEnd, onLook, onChoiceOpen, onChoiceClose, playCue, stopVoice,
+    now = wallSeconds,
   } = {}) {
     this.onLine = onLine;
     this.onLineEnd = onLineEnd;
@@ -30,14 +33,17 @@ export class DialogueController {
     this.onChoiceClose = onChoiceClose;
     this.playCue = playCue;
     this.stopVoice = stopVoice;
+    this.now = now;
 
     this.queue = [];
     this.active = null;
     this.timer = 0;
+    this._lineWallTime = null;
     this._onDone = null;
 
     this.choice = null;
     this.choiceTimer = 0;
+    this._choiceWallTime = null;
     this._onChoiceResolved = null;
 
     /** Every cue name this controller ever attempted, played or not — the
@@ -92,6 +98,7 @@ export class DialogueController {
     if (!line) {
       const prev = this.active;
       this.active = null;
+      this._lineWallTime = null;
       const done = this._onDone;
       this._onDone = null;
       this.onLineEnd?.(prev);
@@ -105,7 +112,13 @@ export class DialogueController {
      * so a line whose recording ran past its authored `hold` was still
      * speaking when the next one began. */
     this.stopVoice?.();
-    const spoken = this.playCue?.(line.cue, speaker.voice);
+    /* Give the scene adapter the authored line as well as the legacy cue and
+     * voice arguments. Spatial dialogue cannot choose the correct live actor
+     * from a cue string alone (the car and apartment even have separate Ape
+     * rigs), and asking every adapter to reverse-engineer that relationship is
+     * how world speech gets flattened into non-positional playback. Existing
+     * two-argument adapters remain valid because JavaScript ignores extras. */
+    const spoken = this.playCue?.(line.cue, speaker.voice, line);
     /* Logged from `spoken` — playCue's own real-time report — not from a
      * post-hoc `hasSample(cue)` re-check, which is exactly what would have
      * missed the race: by the time anything asks again, the manifest may
@@ -136,6 +149,7 @@ export class DialogueController {
     const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
     const real = typeof spoken === 'number' && spoken > 0 ? spoken + 0.35 : 0;
     this.timer = Math.max(authored, real);
+    this._lineWallTime = this.now();
   }
 
   /**
@@ -146,8 +160,19 @@ export class DialogueController {
   presentChoice(choiceDef, { onResolved } = {}) {
     this.choice = choiceDef;
     this.choiceTimer = choiceDef.timeout ?? 6;
+    this._choiceWallTime = this.now();
     this._onChoiceResolved = onResolved || null;
     this.onChoiceOpen?.(choiceDef);
+  }
+
+  /**
+   * Restart the active-time wall clock without spending time elapsed while the
+   * game was paused or hidden. The scene calls this on resume; keeping it here
+   * also makes the timing policy explicit and independently testable.
+   */
+  syncClock() {
+    if (this.active) this._lineWallTime = this.now();
+    if (this.choice) this._choiceWallTime = this.now();
   }
 
   /** Returns true if `key` matched an open choice's option. */
@@ -169,6 +194,7 @@ export class DialogueController {
   _resolveChoice(outcome, option) {
     const choice = this.choice;
     this.choice = null;
+    this._choiceWallTime = null;
     const resolve = this._onChoiceResolved;
     this._onChoiceResolved = null;
     this.onChoiceClose?.(choice);
@@ -177,14 +203,36 @@ export class DialogueController {
 
   update(dt) {
     if (this.choice) {
-      this.choiceTimer -= dt;
+      /* A decision window is a promise in human seconds, not rendered frames.
+       * Under software rendering the scene can advance only a few clamped-dt
+       * seconds during 25 wall seconds, which made Winston wait far past the
+       * authored 27-second default. Use whichever active interval is larger:
+       * wall time gives the player the advertised real window, while `dt`
+       * preserves deterministic verifier/game-clock stepping. */
+      const now = this.now();
+      const wallDt = this._choiceWallTime === null
+        ? 0
+        : Math.max(0, now - this._choiceWallTime);
+      this._choiceWallTime = now;
+      const gameDt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
+      this.choiceTimer -= Math.max(gameDt, wallDt);
       if (this.choiceTimer <= 0) {
         this._resolveChoice(this.choice.defaultOutcome ?? null, null);
       }
       return;
     }
     if (!this.active) return;
-    this.timer -= dt;
+    /* Subtitle/sequence holds obey the same human-time contract as choices.
+     * Recorded audio already plays in wall time; advancing its dialogue queue
+     * only in clamped render dt makes low-frame-rate clients leave stale text
+     * up and delay the next playable affordance long after the take ended. */
+    const now = this.now();
+    const wallDt = this._lineWallTime === null
+      ? 0
+      : Math.max(0, now - this._lineWallTime);
+    this._lineWallTime = now;
+    const gameDt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
+    this.timer -= Math.max(gameDt, wallDt);
     if (this.timer <= 0) this._advance();
   }
 }

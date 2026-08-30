@@ -537,6 +537,13 @@ try {
   await capture(page, '04-starboard-waterline.png', 'Exterior broadside at the real waterline.');
   await page.evaluate(() => window.__noWakeBoatView([6.2, .60, -8.8], [0, .05, -4.65]));
   await capture(page, '05-bow-quarter.png', 'Fine-bow exterior and sea immediately beside the widened forward station.');
+  await page.evaluate(() => window.__noWakeBoatView([4.0, 3.05, -7.4], [1.75, 3.05, -4.55]));
+  await capture(page, '05b-irish-bow-lookout.png',
+    'Front-quarter wardrobe view proves Irish remains on his bow station with the open vest and binoculars.',
+    {
+      pattern: 'workvest\\.(front|strap|pocket)|shirt\\.(placket|collar)|ribcage|binocular',
+      characterId: 'irish',
+    });
 
   evidence.measurements.waterRest = await waterMeasurements(page, false);
   assertWaterMeasurements(evidence.measurements.waterRest);
@@ -595,13 +602,19 @@ try {
   );
   await capture(page, '11-booski-galley-front.png',
     'Legal aisle pose, front angle on Booski at the real galley mark.',
-    { pattern: 'hips|waist|torso|forearm|thigh|gut|belly', characterId: 'booski' });
+    {
+      pattern: 'camp\\.(front|undershirt|collar)|hips|waist|torso|forearm|thigh|gut|belly',
+      characterId: 'booski',
+    });
   evidence.measurements.booskiViewSide = await legalCabinView(
     page, [.10, -4.75], [-1.12, .18, -4.45],
   );
   await capture(page, '12-booski-galley-side.png',
     'Legal forward-walkway angle distinguishes interpenetration from Box3-only overlap.',
-    { pattern: 'hips|waist|torso|forearm|thigh|gut|belly', characterId: 'booski' });
+    {
+      pattern: 'camp\\.(front|undershirt|collar)|hips|waist|torso|forearm|thigh|gut|belly',
+      characterId: 'booski',
+    });
 
   let reachedSitLine = false;
   for (let i = 0; i < 20; i++) {

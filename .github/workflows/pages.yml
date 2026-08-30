@@ -51,43 +51,70 @@ jobs:
       - name: Stage the site
         run: |
           mkdir -p _site
-          cp index.html bing.html squatchfather.html motel.html beefrun.html \
+          cp index.html bing.html squatchfather.html motel.html beefrun.html cabin.html luxury-apartment.html \
              graveyard.html nowake.html silver.html golf.html heist.html initiation.html \
              silvercase.html mansion.html mansion-siege.html enolasquatch.html \
              cartel-palace.html specialmeeting.html preview.html roster.html \
-             wardrobe.html combatlab.html trophyroom.html _site/
+             wardrobe.html combatlab.html weapon-sound-audition.html trophyroom.html _site/
           cp -r src vendor assets game lib _site/
-          test -f _site/nowake.html
-          test -f _site/graveyard.html
-          test -f _site/heist.html
-          test -f _site/golf.html
-          test -f _site/silvercase.html
-          test -f _site/mansion.html
-          test -f _site/mansion-siege.html
-          test -f _site/enolasquatch.html
-          test -f _site/cartel-palace.html
-          test -f _site/combatlab.html
-          test -f _site/specialmeeting.html
-          test -f _site/src/nowake/main.js
-          test -f _site/src/graveyard/main.js
-          test -f _site/src/heist/main.js
-          test -f _site/src/golf/main.js
-          test -f _site/src/silvercase/main.js
-          test -f _site/src/mansion/main.js
-          test -f _site/src/mansion/siege/main.js
-          test -f _site/src/enolasquatch/main.js
-          test -f _site/src/cartel-palace/main.js
-          test -f _site/src/combatlab/main.js
-          test -f _site/src/specialmeeting/main.js
-          test -f _site/lib/jsm/postprocessing/EffectComposer.js
-          test -f _site/lib/jsm/postprocessing/UnrealBloomPass.js
-          grep -q 'src/nowake/main.js' _site/nowake.html
-          grep -q 'src/golf/main.js' _site/golf.html
-          grep -q 'src/mansion/siege/main.js' _site/mansion-siege.html
-          grep -q 'src/cartel-palace/main.js' _site/cartel-palace.html
-          grep -q 'src/combatlab/main.js' _site/combatlab.html
-          grep -q 'src/specialmeeting/main.js' _site/specialmeeting.html
-          grep -q '../../lib/jsm/postprocessing/EffectComposer.js' _site/src/initiation/main.js
+          # Every check below says what it wanted before it runs.
+          #
+          # This block used to be a silent run of `test -f` and `grep -q`
+          # under `bash -e`. One stale path started failing on 25 August and
+          # took every deploy with it, producing NO output at all -- the job
+          # log went straight from the command echo to "exit code 1". A
+          # staging check that cannot say what it was looking for is a check
+          # that costs a day to read.
+          fail=0
+          need_file() {
+            if [ -f "$1" ]; then echo "  ok       $1"
+            else echo "  MISSING  $1"; fail=1; fi
+          }
+          need_ref() {
+            if grep -q "$1" "$2"; then echo "  ok       $2 -> $1"
+            else echo "  NO REF   $2 does not reference $1"; fail=1; fi
+          }
+
+          echo "Scene pages:"
+          for page in nowake graveyard heist golf cabin luxury-apartment silvercase \
+                      mansion mansion-siege enolasquatch cartel-palace combatlab \
+                      specialmeeting; do
+            need_file "_site/$page.html"
+          done
+
+          echo "Scene roots:"
+          for root in nowake graveyard heist golf cabin luxury-apartment silvercase \
+                      mansion mansion/siege enolasquatch cartel-palace combatlab \
+                      specialmeeting; do
+            need_file "_site/src/$root/main.js"
+          done
+
+          echo "Each page loads its own root:"
+          need_ref 'src/nowake/main.js' _site/nowake.html
+          need_ref 'src/golf/main.js' _site/golf.html
+          need_ref 'src/cabin/main.js' _site/cabin.html
+          need_ref 'src/luxury-apartment/main.js' _site/luxury-apartment.html
+          need_ref 'src/mansion/siege/main.js' _site/mansion-siege.html
+          need_ref 'src/cartel-palace/main.js' _site/cartel-palace.html
+          need_ref 'src/combatlab/main.js' _site/combatlab.html
+          need_ref 'src/specialmeeting/main.js' _site/specialmeeting.html
+
+          # Post-processing. This is the check that broke. Initiation used to
+          # import EffectComposer straight out of lib/jsm; d9bdf5bc moved it
+          # onto the shared PostFX module, which takes its passes from
+          # vendor/addons. Nothing under src/ references lib/jsm/postprocessing
+          # any more, so both of the old checks were guarding a path the game
+          # had already stopped using.
+          echo "Post-processing:"
+          need_ref 'core/postfx.js' _site/src/initiation/main.js
+          need_file _site/src/core/postfx.js
+          need_file _site/vendor/addons/postprocessing/EffectComposer.js
+          need_file _site/vendor/addons/postprocessing/UnrealBloomPass.js
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::The staged site is missing something listed above."
+            exit 1
+          fi
           node tools/verify-pages-routes.mjs _site
           echo "Staged $(du -sh _site | cut -f1)"
 

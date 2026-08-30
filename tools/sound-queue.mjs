@@ -266,6 +266,7 @@ const NON_AUDIO_EXPORTS = new Set([
   'voice', 'voiceBusy', 'voiceCoverage', 'voiceRequested', 'voicePlayed', 'voiceReady',
   'prepareVoice', 'primeVoice', 'stopVoice',
   'setEngineSpeed', 'stopEngine',
+  'setListenerPose', 'audioEvents', 'driveMusicStatus',
 ]);
 
 const dialogue = await import(pathToFileURL(join(root, 'src', 'motel', 'dialogue.js')).href);

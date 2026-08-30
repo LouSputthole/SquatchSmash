@@ -110,7 +110,7 @@
     font-size: 14px; font-weight: 900; letter-spacing: 3px; color: var(--purple-bright);
     margin-bottom: 6px;
   }
-  #line { font-size: 20px; line-height: 1.5; color: var(--silver-bright); min-height: 30px; }
+  #line { font-size: 20px; line-height: 1.5; color: var(--silver-bright); min-height: 30px; white-space: pre-line; }
   #dlgHint {
     margin-top: 8px; text-align: right; font-size: 13px; color: #8a92ab;
     animation: hintPulse 1.2s infinite alternate;
@@ -199,6 +199,57 @@
   .controls-hint { margin-top: 26px; font-size: 15px; color: #8a92ab; line-height: 1.9; }
   .controls-hint b { color: var(--silver); }
 
+  /* ---------- Full-screen campaign credits ---------- */
+  .hidden-hard { display: none !important; }
+  #credits {
+    position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+    background: #000; opacity: 0; transition: opacity 2.4s ease;
+    pointer-events: none; color: #fff;
+  }
+  #credits.showing { opacity: 1; pointer-events: auto; }
+  .credits-window {
+    position: relative; width: min(760px, 92vw); height: 100%; overflow: hidden;
+    mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+  }
+  .credits-track {
+    position: absolute; inset: 0; padding: 0 16px; text-align: center;
+    transform: translateY(100%);
+  }
+  #credits.rolling .credits-track {
+    animation: creditsCrawl var(--credits-duration, 212s) linear both;
+  }
+  .credits-section {
+    margin: 96px 0 44px; color: var(--ember);
+    font-size: clamp(15px, 2.4vw, 22px); font-weight: 800; letter-spacing: 6px;
+  }
+  .credits-row { margin: 26px 0; }
+  .credits-role {
+    display: block; margin-bottom: 5px; color: #8a8071;
+    font-size: clamp(9px, 1.2vw, 11px); letter-spacing: 2.5px; text-transform: uppercase;
+  }
+  .credits-name {
+    color: #ece2cf; font-size: clamp(14px, 2vw, 19px);
+    font-weight: 600; letter-spacing: 1px;
+  }
+  #credits-skip {
+    position: absolute; right: 22px; bottom: 20px; padding: 9px 16px;
+    color: #b6ab98; background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.14); border-radius: 4px;
+    font: 600 11px inherit; letter-spacing: 1.5px; cursor: pointer;
+  }
+  #credits-skip:hover { color: #fff; border-color: rgba(255,154,58,.5); }
+  #credits-skip:focus-visible { outline: 3px solid #fff1ca; outline-offset: 3px; }
+  @keyframes creditsCrawl {
+    from { transform: translateY(100%); }
+    to { transform: translateY(-100%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #credits { transition: none; }
+    .credits-window { overflow: auto; mask-image: none; }
+    .credits-track { position: static; transform: none; padding: 40px 16px; }
+    #credits.rolling .credits-track { animation: none; }
+  }
+
   /* ---------- Touch controls ---------- */
   #touchUI { display: none; }
   body.touch #touchUI { display: block; }
@@ -270,22 +321,13 @@
     <button id="retryBtn" class="btn danger">TRY AGAIN</button>
   </div>
 
-  <div id="complete" class="overlay hidden">
-    <div id="teamMark2" style="font-size:15px;font-weight:800;letter-spacing:7px;color:var(--purple-bright);margin-bottom:6px;">
-      <span style="color:var(--red)">—</span> INITIATION COMPLETE <span style="color:var(--red)">—</span>
+  <section id="credits" class="hidden-hard" role="dialog" aria-modal="true"
+    aria-label="Credits" aria-hidden="true">
+    <div class="credits-window">
+      <div id="credits-track" class="credits-track"></div>
     </div>
-    <div class="title">SILVER SASQUATCH</div>
-    <div class="subtitle">
-      You walked in a prospect. You're walking out family.<br>
-      Tony Squatchtana is one of the Circle now — and the Circle has <b>plans</b> for what comes next.
-    </div>
-    <div class="btn-row">
-      <button id="replayBtn" class="btn ghost">REPLAY INITIATION</button>
-      <!-- The temporary G1 exit: routed through the campaign so the save
-           leaves with him, instead of a bare link that left it behind. -->
-      <button id="goHomeBtn" class="btn">TO THE CAMPGROUND ▸</button>
-    </div>
-  </div>
+    <button id="credits-skip" type="button">SKIP — ESC</button>
+  </section>
 
   <div id="fade"></div>
 

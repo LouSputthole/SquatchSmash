@@ -1,5 +1,5 @@
 /**
- * The Enola Squatch's markings: the Silver Sasquatches crest, and the owner's
+ * SQUATCHOLA GAY's markings: the Silver Sasquatches crest, and the owner's
  * own nose art.
  *
  * Owner playtest, 2026-08-04: "Aircraft is nice. Needs Squatch logo." and
@@ -135,12 +135,12 @@ export function applyCrest(meshes, texture) {
  *
  * Two paintings, delivered as 1024x1536 portrait PNGs:
  *
- *   enola-squatch-nose-art.webp   the pin-up — olive halter and shorts, red
+ *   squatchola-gay-nose-art.webp  the pin-up — olive halter and shorts, red
  *                                 heels, dog tags, a stein in one hand and a
- *                                 lit joint in the other, ENOLA SQUATCH on the
+ *                                 lit joint in the other, SQUATCHOLA GAY on the
  *                                 garrison cap. Painted on a warm brown
  *                                 vignette.
- *   enola-squatch-nose-name.png   ENOLA SQUATCH in arched yellow block capitals
+ *   squatchola-gay-nose-name.png  SQUATCHOLA GAY in arched yellow block capitals
  *                                 with a dark outline and a glow, on grey.
  *
  * WHAT THE PIXELS ACTUALLY SAY (measured, not assumed — see
@@ -189,8 +189,8 @@ const ART_DIR = 'assets/art/';
 
 /** The two files, by the name the caller asks for. */
 const NOSE_ART_FILES = {
-  pinup: 'enola-squatch-nose-art.webp',
-  name: 'enola-squatch-nose-name.png',
+  pinup: 'squatchola-gay-nose-art.webp',
+  name: 'squatchola-gay-nose-name.png',
 };
 
 /* Long edge of the finished texture. The pin-up is 1.5 m tall on the fuselage
@@ -271,7 +271,7 @@ export function prepareArt(image, which) {
      * eats the model is not an improvement on one. */
     if (which !== 'name') {
       console.warn('[livery] nose art arrived with an opaque background and cannot be keyed safely; '
-        + 'export enola-squatch-nose-art.webp with its alpha channel.');
+        + 'export squatchola-gay-nose-art.webp with its alpha channel.');
       return null;
     }
     keyGreyField(px, w, h);
@@ -532,8 +532,12 @@ export function noseNamePlaceholderTexture() {
       travelled += widths[i];
     });
   };
-  arc('ENOLA', 104, 108, 940);
-  arc('SQUATCH', 114, 268, 980);
+  /* Canonical runtime fallback after the 2026-08-28 mission rename. The
+   * owner-supplied binary name plate still needs a matching art revision; if
+   * that file fails to load, the aeroplane must not fall back to the retired
+   * name. */
+  arc('SQUATCHOLA', 78, 108, 1100);
+  arc('GAY', 132, 268, 900);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;

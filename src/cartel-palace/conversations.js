@@ -101,7 +101,7 @@ export const PALACE_CONVERSATIONS = Object.freeze([
     lines: [
       {
         who: 0, hold: 3.4,
-        text: 'You hear what the A-Team did in Jersey Tuesday? Big house. Old money.',
+        text: 'You hear what the A-Team did in Jersey earlier this week? Big house. Old money.',
         direction: 'Conversational, bored, filling a gap. Two men on a gate at two in the morning.',
       },
       {
@@ -363,7 +363,7 @@ export const PALACE_CONVERSATIONS = Object.freeze([
       },
       {
         who: 0, hold: 4.6,
-        text: 'Mister Mark eats at a table with a napkin the size of a bedsheet, and we get a bone.',
+        text: 'The boss eats at a table with a napkin the size of a bedsheet, and we get a bone.',
         direction: 'Bitter, and quieter than the rest, because of where they are standing.',
       },
       {

@@ -12,14 +12,18 @@ import { ApartmentAudioEngine, closedNightCuePrefixes } from './core/apartment-a
 import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
+import { createFirstPersonInput } from './core/first-person-input.js';
 import { Player } from './core/player.js';
-import { translateKey, shakeScale } from './core/settings.js';
+import { shakeScale } from './core/settings.js';
 import { attachPixelRatio } from './core/pixel-ratio.js';
-import { Radio } from './core/radio.js';
+import { PlanarMirror } from './core/planar-mirror.js';
+import { FirstPersonBody, createPlayerAppearanceStore } from './core/first-person-body.js';
+import { Radio, radioHudWithinRange } from './core/radio.js';
 import { SPOOKY_RADIO_LINES, newsSegmentsFor, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
 import {
+  APARTMENT_MARGO_ENTRY_DOOR_YAW,
   APARTMENT_MARGO_GEOMETRY_STAGES,
   stageApartmentMargoGeometry,
 } from './world/apartment-preview-geometry.js';
@@ -56,7 +60,7 @@ import {
 import { createCampaignFinaleView } from './core/campaign-finale-view.js';
 import { createCampaignCreditsView } from './core/campaign-credits-view.js';
 import { BEAT_S, ColdOpen, monitorFillDistance } from './core/cold-open.js';
-import { isPreviewMode, previewNavigationHref } from './core/preview-mode.js';
+import { isPreviewMode, previewBeatForLocation, previewNavigationHref } from './core/preview-mode.js';
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
@@ -96,6 +100,8 @@ import {
 } from './world/props.js';
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
+import { createApartmentInputPolicy } from './apartment-controls.js';
+import { makePerson } from './bing/cast.js';
 
 const DRINK_TIME = 2.4;
 const SWIG_TIME = 1.7;   // whiskey goes down faster, for better or worse
@@ -106,6 +112,70 @@ const CIG_DRAG = 0.46;
 const CIG_EXHALE = 1.55;
 const CIG_DONE = 2.40;
 const CIG_AFTERGLOW = 4.20;
+
+/* Stable appearance ids are shared with the Cabin and Luxury Apartment.
+ * Each scene may own its figure builder, but an id must still mean the same
+ * clothes when Tony crosses a page boundary. This apartment also preserves
+ * its three long-standing shirt choices for saves made here. */
+const APARTMENT_PLAYER_OUTFITS = Object.freeze({
+  black_henley: Object.freeze({
+    dress: 'shirt', shirt: 0x17191d, trouserColour: 0x20242b,
+    trim: true, tie: false, neckline: 'open',
+  }),
+  grey_henley: Object.freeze({
+    dress: 'shirt', shirt: 0x6d7278, trouserColour: 0x20242b,
+    trim: true, tie: false, neckline: 'open',
+  }),
+  good_shirt: Object.freeze({
+    dress: 'shirt', shirt: 0x323b4b, trouserColour: 0x181b21,
+    trim: true, tie: false, neckline: 'open',
+  }),
+  charcoal_suit: Object.freeze({
+    dress: 'suit', jacketColour: 0x292d35, shirtAccent: 0xe4d8c2,
+    trouserColour: 0x171a20, trim: true, belt: 'leather',
+    tie: true, tieColour: 0x49354e, pocketSquare: false,
+  }),
+  cream_cashmere: Object.freeze({
+    dress: 'shirt', shirt: 0xd8cdb7, trouserColour: 0x393a3f,
+    trim: false, tie: false, neckline: 'open',
+  }),
+  'late-night_track_jacket': Object.freeze({
+    dress: 'tracksuit', shirt: 0x252d3d, trouserColour: 0x171c27,
+    jacketColour: 0x252d3d, trim: true, tie: false,
+  }),
+  cabin_workshirt: Object.freeze({
+    dress: 'shirt', shirt: 0x4b5143, trouserColour: 0x27303a,
+    trim: true, belt: 'leather', tie: false, neckline: 'open',
+  }),
+});
+
+const APARTMENT_SHIRT_OUTFIT = Object.freeze({
+  'black shirt': 'black_henley',
+  'grey henley': 'grey_henley',
+  'good shirt': 'good_shirt',
+});
+
+const apartmentAppearanceStore = createPlayerAppearanceStore({ fallback: 'charcoal_suit' });
+const storedApartmentOutfitId = apartmentAppearanceStore.read();
+const initialApartmentOutfitId = Object.hasOwn(APARTMENT_PLAYER_OUTFITS, storedApartmentOutfitId)
+  ? storedApartmentOutfitId
+  : apartmentAppearanceStore.write('charcoal_suit');
+
+function buildApartmentPlayerBody(outfitId) {
+  const outfit = APARTMENT_PLAYER_OUTFITS[outfitId]
+    ?? APARTMENT_PLAYER_OUTFITS.charcoal_suit;
+  return makePerson({
+    height: 1.80,
+    build: 1.03,
+    gut: 0.08,
+    skin: 0xc9936d,
+    hair: 'short',
+    hairColour: 0x261b16,
+    bandana: false,
+    castShadow: false,
+    ...outfit,
+  });
+}
 
 const canvas = document.getElementById('scene');
 const fxDrunk = document.getElementById('fx-drunk');
@@ -134,6 +204,8 @@ campaignFinaleView.setRollCreditsHandler(() => campaignCreditsView.roll());
 const coldOpen = new ColdOpen();
 /** True from boot until the pull-back has landed him in the chair. */
 let coldOpenActive = false;
+/** True only while a confirmed game Quit automatically leaves the desk. */
+let automaticDeskExitStanding = false;
 /** Scratch, so the dolly does not allocate sixty vectors a second. */
 const _coldOpenEye = new THREE.Vector3();
 const _coldOpenLook = new THREE.Vector3();
@@ -349,10 +421,10 @@ if (wakingOnDayTwo) {
     'Day Four, 10:00 AM. Tonight is the big night. Booskibro will call about it.';
 } else if (wakingOnGolfMorning) {
   overlay.querySelector('.tag').textContent =
-    'Day Four, 7:00 AM. Margo is still here. Lou has plans for the quiet part of the morning.';
+    'Day Six, 7:00 AM. Silver Pines at eight. Lou gave you the time last night.';
 } else if (wakingOnHeistDay) {
   overlay.querySelector('.tag').textContent =
-    'Day Four, 10:00 AM. Margo is still here. Lou will call when she leaves.';
+    'Day Five, 12:00 PM. THE TAKE is today. Lou said he would call.';
 }
 // One station, several physical receivers. The running order follows the
 // campaign while this apartment keeps its own power switch.
@@ -368,6 +440,11 @@ const radio = new Radio(audio, hud, time, {
    * state, so nothing airs before its event). Read live rather than snapshot,
    * so a save that advances mid-session is reported on the same evening. */
   news: () => newsSegmentsFor(campaign.state),
+  /* The receiver keeps playing as Tony crosses the flat, but its station card
+   * is local furniture, not permanent mission HUD. Use the same shared useful
+   * range as the radio audio and let Radio clear/restore the
+   * card on the distance edge. */
+  hudVisible: () => radioHudWithinRange(camera?.position, apartment?.radioPos),
 });
 const DAY_TWO_CALL_AFTER_BULLETIN = 20;
 // Nothing happens in here. Somebody should say so.
@@ -596,6 +673,8 @@ const _aim = new THREE.Vector3();
 const _aimPoint = new THREE.Vector3();
 
 let apartment = null;
+let bathroomMirror = null;
+let playerBody = null;
 
 const game = {
   started: false,
@@ -632,14 +711,37 @@ const game = {
   fartQueued: false,    // deliberate one waiting for him to stop talking
 };
 
+let browserInput = null;
+
 /* Canvas-native desktop apps use relative pointer motion while framed apps
  * (DOOM and Squatch Smash) need an ordinary DOM mouse. Leaving pointer
  * lock for those apps is intentional and must not pause the apartment. */
 const arcade = createArcade({
   audio,
+  // The Beef Run is Tony's first Sasole meeting. Only later apartment visits
+  // may show Sasole's follow-up email in the otherwise static inbox.
+  sasoleKnown: campaignAtLoad.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status === 'complete',
   onInputModeChange(mode) {
+    browserInput?.refresh(`arcade-input-${mode}`);
     if (mode === 'dom') document.exitPointerLock?.();
     else if (game.seated && game.started && !game.paused) requestLock();
+  },
+  /* The framed-app chrome normally returns to SquatchOS. During the opening,
+   * however, revealing a desktop while leaving Tony in the chair bypasses the
+   * campaign's entire first transition. Click and both held-Tab routes now
+   * enter the same state machine as Squatch Smash's Quit / YES button. */
+  onExitRequest(app) {
+    if (app?.id !== 'smash' || !coldOpenActive) return false;
+    coldOpen.quit();
+    return true; // also consumes repeated requests while shutdown is running
+  },
+  exitPresentation(app) {
+    if (app?.id !== 'smash' || !coldOpenActive) return null;
+    return {
+      label: 'QUIT SQUATCH SMASH',
+      ariaLabel: 'Quit Squatch Smash',
+      title: 'Quit Squatch Smash.',
+    };
   },
 });
 const screenTexture = new THREE.CanvasTexture(arcade.canvas);
@@ -701,6 +803,8 @@ async function boot() {
     // The drawer names the shirt he settled on, so the toast can say which.
     onDressed: (shirt) => {
       const name = shirt?.name || 'clean shirt';
+      const outfitId = APARTMENT_SHIRT_OUTFIT[name.toLowerCase?.() ?? ''];
+      if (outfitId) playerBody?.setOutfit(outfitId);
       completeApartmentActivity('changedClothes', TIME_EVENT_IDS.CHANGE_CLOTHES);
       audio.say('dress', { chance: 0.8, delay: 0.4 });
       hud.toast(`Changed · ${name}`, 'good');
@@ -758,6 +862,26 @@ async function boot() {
       hud.toast(`Radio volume ${Math.round(volume * 100)}%`);
     },
   });
+  bathroomMirror = new PlanarMirror(scene, apartment.mirrorMesh, {
+    width: 0.54,
+    height: 0.66,
+    resolution: [384, 468],
+    maxDistance: 9,
+    enabled: true,
+  });
+  playerBody = new FirstPersonBody(scene, {
+    factory: buildApartmentPlayerBody,
+    store: apartmentAppearanceStore,
+    outfitId: initialApartmentOutfitId,
+    eyeHeight: 1.66,
+  });
+  /* The view-model remains camera-owned; this second revolver exists only on
+   * the mirror layer and rides the shared body's hand socket. */
+  const reflectedRevolver = makeRevolver(makeMaterials(), { x: 0, y: 0, z: 0 }).group;
+  reflectedRevolver.position.set(0, -0.02, 0.015);
+  reflectedRevolver.rotation.set(-0.10, Math.PI, 0.08);
+  reflectedRevolver.scale.setScalar(0.94);
+  playerBody.setWeapon(reflectedRevolver, { visible: false });
 
   const savedActivities = campaign.state.activities;
   apartment.state.fed ||= savedActivities.eaten;
@@ -822,7 +946,7 @@ async function boot() {
     apartment.toiletCollider,
   );
 
-  // Third way to find out about the meeting: leave the radio on.
+  // Third way to find out about the routine weekly meeting: leave the radio on.
   /* One place decides what the hands look like. Both the row of slots and the
    * card naming the selected thing come from the same change event, so they
    * cannot disagree about what he is holding. */
@@ -889,7 +1013,7 @@ async function boot() {
         : returningFromNoWake
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
-          ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
+          ? 'Back from the Jerky Motel. It is half six in the morning. Go to bed.'
           : returningFromInitiation
             ? 'Home from the Initiation. The campaign is complete.'
             : 'Back from the restaurant. The business is settled.';
@@ -915,6 +1039,8 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
+    get input() { return browserInput; },
+    get inputOwner() { return apartmentInputPolicy.owner(); },
     apartmentStory, apartmentReturnSource: returnSource,
     drunk, highs, focusRush, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
@@ -1103,12 +1229,16 @@ function apartmentStartupCueNames() {
  *
  * The cold open is for a player who does not yet know SQUATCH LIFE exists. It
  * is emphatically not for somebody reloading mid-campaign, coming home from a
- * scene, running a preview, or recovering a broken save -- all of whom know
- * exactly what they downloaded and would just be confused by a full-screen
- * arcade game.
+ * scene, running an ordinary preview, or recovering a broken save -- all of
+ * whom know exactly what they downloaded and would just be confused by a
+ * full-screen arcade game. The bounded beat-0 preview is the one deliberate
+ * exception: its whole purpose is to review this reveal, while beat 1 remains
+ * an honest post-reveal apartment preview.
  */
 function coldOpenEligible() {
-  return !isPreviewMode()
+  const previewingColdOpen = isPreviewMode()
+    && previewBeatForLocation() === 'squatch_smash_intro';
+  return (!isPreviewMode() || previewingColdOpen)
     && !returningToApartment
     && !recoveryNotice
     && !campaignFinaleRecapAtLoad
@@ -1135,7 +1265,7 @@ function enterColdOpen() {
    * and no hint in the HUD. As far as the player is concerned there is no
    * room and no chair. `sitAtPC` would announce all three. */
   game.seated = true;
-  player.clearKeys();
+  browserInput?.clear('cold-open-seat');
   interaction.setPaused(true);
   hud.setMode('seated');
   hud.setPosture(null);
@@ -1188,25 +1318,81 @@ function runColdOpenReveal() {
 }
 
 /**
- * He is in the chair, and the game lets go.
+ * The reveal lands at the chair, then carries him straight back onto his feet.
  *
- * No narrator, no toast, no "WELCOME TO SQUATCH LIFE". One prompt telling him
- * Q gets him out of the chair, and then forty seconds of nothing at all --
- * which is `beginMorning`'s existing ring delay, not a second timer, so there
- * is exactly one clock deciding when Lou rings.
+ * Owner, 2026-08-27: "when you quit Squatch Smash don't make me hit Q to stand
+ * up — just back me out of the computer." The pull-back still reaches the
+ * seated pose so the fake-out lands spatially, but quitting the game is now the
+ * whole exit gesture: the shared desk transition hides the frame, restores
+ * apartment input and walks him to the authored desk exit without another key.
+ * Squatch Smash is also closed back to SquatchOS, rather than leaving its
+ * shutdown card waiting to reappear the next time he sits down.
+ *
+ * The forty seconds of silence still come from `beginMorning`'s existing ring
+ * delay, not a second timer, so exactly one clock decides when Lou rings.
  */
+function exitSquatchSmashDesk() {
+  const squatchSmash = arcade.appById?.('smash');
+  automaticDeskExitStanding = true;
+  standFromPC();
+  arcade.toDesktop();
+  /* This is a confirmed Quit, not an ordinary stand-up. Throw the framed
+   * session away so its shutdown card cannot be waiting next time. The desk
+   * exit itself does not depend on this optional cleanup: even a damaged app
+   * session must never be allowed to keep the player in the chair. */
+  squatchSmash?.closeSession?.();
+  return true;
+}
+
 function endColdOpen() {
   coldOpenActive = false;
-  hud.setPosture('get up from the desk');
+  exitSquatchSmashDesk();
   apartmentStory.beginMorning({ delay: BEAT_S });
 }
 
 /** What the embedded Squatch Smash calls when the player confirms quitting. */
 window.__SQUATCH_SMASH_HOST = {
   quitSquatchSmash() {
-    if (!coldOpenActive) return false;
-    return coldOpen.quit();
+    if (coldOpenActive) {
+      coldOpen.quit();
+      return true;
+    }
+    /* Owner, 2026-08-29: "I can't get up from the fucking desk." The old
+     * host accepted confirmed Quit only while the pristine-save cold-open
+     * flag was live. Existing saves reached this same iframe and this same
+     * YES button, got `false`, and stayed forever on its shutdown card. Quit
+     * now means leave the computer on every embedded desk session. */
+    return exitSquatchSmashDesk();
   },
+
+  /* [Q], FROM INSIDE THE FRAME.
+   *
+   * The apartment's own key handler promises "[Q] is the one exception: the
+   * stand-up key works everywhere", and while Squatch Smash is up that was
+   * not true: the iframe owns the keyboard, so the parent never saw the key
+   * at all. Owner, 2026-08-27: *"at the beginning you still can't get up. It
+   * needs to pan out. Q doesn't work to get you up."* He was pressing it into
+   * a game that has no Q, and the pull-back only ever ran off the quit box he
+   * had not found.
+   *
+   * During the cold open Q IS the quit: it starts the shutdown, the camera
+   * pulls back off the monitor, and `endColdOpen` puts him on his feet when
+   * it lands -- so one key gets both halves of what he asked for. At any
+   * later sitting there is no reveal to play and it is the plain stand. */
+  standUp() {
+    if (coldOpenActive) return coldOpen.quit();
+    if (!game.seated) return false;
+    standFromPC();
+    return true;
+  },
+  /* THE ONE THING THE EMBEDDED GAME NEEDS TO KNOW ABOUT US.
+   *
+   * While the cold open is running the player believes Squatch Smash is a game
+   * he downloaded, and its pause menu must not offer him Export save / Import
+   * save for a campaign he has not been told about. It asks; this answers.
+   * Deliberately narrow: the game learns whether the fake-out is live, and
+   * nothing else about the apartment. */
+  coldOpenActive: () => coldOpenActive === true,
 };
 
 startBtn.addEventListener('click', async () => {
@@ -1343,43 +1529,25 @@ startBtn.addEventListener('click', async () => {
       .catch((error) => console.warn('[sfx] Apartment background load failed', error));
   }
   game.paused = false;
+  browserInput?.refresh('start-ready');
   radio.resume();
 });
 
-/* Pointer lock is how this is meant to be played, but some embeddings refuse
- * it -- a sandboxed frame without allow-pointer-lock, for one. Rather than
- * leave the game unplayable there, fall back to hold-the-left-button-and-drag
- * to look. The fallback is not permanent: later user gestures, including
- * standing up from a framed PC app, still retry native pointer lock. */
-let dragLook = false;
-let dragging = false;
-
 function requestLock() {
-  const p = canvas.requestPointerLock?.();
-  // Chrome returns a promise from requestPointerLock; older builds throw or
-  // simply never fire pointerlockchange, so both paths are covered.
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (document.pointerLockElement !== canvas && !game.paused) {
-      fallBackToDragLook();
-    }
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (document.pointerLockElement === canvas) return;
-  if (dragLook) return;
-  dragLook = true;
-  enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+  return browserInput?.requestPointerLock() ?? false;
 }
 
 function enableInput() {
-  player.enabled = true;
   game.paused = false;
   document.body.classList.remove('unlocked');
   overlay.classList.add('hidden');
   hideCampaignRestart();
+  browserInput?.refresh('enable-input');
+}
+
+function paintInputCapture({ captured = false } = {}) {
+  const computerDomInput = game.seated && arcade.inputMode === 'dom';
+  document.body.classList.toggle('unlocked', !captured && !computerDomInput);
 }
 
 /* The wheel picks the next thing he is carrying. Only while the pointer is
@@ -1393,26 +1561,10 @@ window.addEventListener('wheel', (e) => {
   apartment?.inventory?.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
 
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  const computerDomInput = game.seated && arcade.inputMode === 'dom';
-  if (locked) dragLook = false;
-  player.enabled = locked || computerDomInput || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !computerDomInput && !dragLook);
-  /* NOT DURING THE COLD OPEN. Confirming the quit inside Squatch Smash hands
-   * the keyboard back from the iframe, so `computerDomInput` goes false with
-   * nothing pointer-locked, and this fired -- pausing the game half a second
-   * into the reveal and freezing the camera on the monitor forever. The whole
-   * sequence is on rails and has no controls to pause. */
-  if (!locked && game.started && !computerDomInput && !dragLook
-    && !pauseMenu.isPaused() && !coldOpenActive) pauseGame();
-});
-
 function pauseGame() {
   game.paused = true;
   radio.pause();
-  player.clearKeys();
-  interaction.release();
+  browserInput?.refresh('manual-pause');
   overlay.classList.remove('hidden');
   overlay.querySelector('h1').innerHTML = 'PAUSED<span>SQUATCH LIFE</span>';
   overlay.querySelector('.tag').textContent = game.seated
@@ -1518,10 +1670,8 @@ const pauseMenu = createPauseMenu({
   }),
   onPause: () => {
     game.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    interaction.release();
     interaction.setPaused(true);
+    browserInput?.refresh('pause-menu');
     radio.pause();
     audio.ctx?.suspend?.();
   },
@@ -1531,6 +1681,7 @@ const pauseMenu = createPauseMenu({
     audio.ctx?.resume?.();
     radio.resume();
     clock.getDelta();
+    browserInput?.refresh('pause-menu-resume');
     requestLock();
   },
 });
@@ -1539,21 +1690,20 @@ const pauseMenu = createPauseMenu({
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
-document.addEventListener('mousemove', (e) => {
-  if (!player.enabled || game.paused) return;
-  if (dragLook && !dragging) return;      // look only while the button is held
-  if (game.seated) {
-    arcade.onPointer(e.movementX, e.movementY);
-    // Let the head drift very slightly so the pose is not rigid.
-    player.handleMouseMove(e.movementX * 0.06, e.movementY * 0.06);
-  } else {
-    player.handleMouseMove(e.movementX, e.movementY);
-  }
-});
+function routeApartmentMouseMove(e, controls) {
+  if (!controls.playerEnabled || game.paused) return true;
+  // Pointer-lock fallback is deliberately hold-and-drag, including while the
+  // relative SquatchOS cursor owns the scene route instead of default look.
+  if (!controls.locked && !(controls.dragFallback && controls.dragging)) return true;
+  if (!game.seated) return false;
+  arcade.onPointer(e.movementX, e.movementY);
+  // Let the head drift very slightly so the pose is not rigid.
+  controls.adapter.applyLook(e.movementX * 0.06, e.movementY * 0.06);
+  return true;
+}
 
-document.addEventListener('mousedown', (e) => {
-  if (!player.enabled || game.paused || e.button !== 0) return;
-  dragging = true;
+function routeApartmentMouseDown(e, controls) {
+  if (!controls.playerEnabled || game.paused || e.button !== 0) return false;
   if (game.seated) arcade.onClick(true);
   else if (apartment.state.heldItem === 'gun') fireGun();
   /* Same posture guards as [E] below: a click while he is on the toilet or
@@ -1562,23 +1712,26 @@ document.addEventListener('mousedown', (e) => {
   else if (game.onToilet) standFromToilet();
   else if (game.peeing) stopPee();
   else interaction.press();
-});
+  // The canonical Adapter still owns drag-button truth and retries native
+  // pointer lock from a fallback click after this authored action runs.
+  return false;
+}
 
-document.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  dragging = false;
+function routeApartmentMouseUp(e) {
+  if (e.button !== 0) return false;
   if (game.seated) arcade.onClick(false);
   else interaction.release();
-});
+  return false;
+}
 
-document.addEventListener('keydown', (e) => {
+function routeApartmentKeyDown(e, { code }) {
   /* Do not rely on a pointer-lock change to surface pause. Some embedded
    * previews consume Escape without sending that event, which made the pause
    * menu disappear exactly when it was most needed. */
   if (e.code === 'Escape' && !e.repeat) {
-    if (!game.started || game.left) return;
+    if (!game.started || game.left) return false;
     // The seated DOM arcade deliberately owns its keyboard, including Escape.
-    if (game.seated && arcade.inputMode === 'dom') return;
+    if (game.seated && arcade.inputMode === 'dom') return false;
     e.preventDefault();
     if (game.paused) {
       startBtn.click();
@@ -1586,27 +1739,27 @@ document.addEventListener('keydown', (e) => {
       pauseGame();
       if (document.pointerLockElement) document.exitPointerLock?.();
     }
-    return;
+    return true;
   }
   if (e.repeat) {
     // Still needs to reach the hold-to-drink accumulator.
-    if (e.code === 'KeyF') return;
-    return;
+    if (code === 'KeyF') return true;
+    return true;
   }
-  if (!game.started || game.paused) return;
+  if (!game.started || game.paused) return false;
 
   /* Sat on the toilet, WASD is the push game rather than movement -- you are
    * not going anywhere, and the keys are already under your fingers. */
-  if (game.onToilet && tryPush(e.code)) {
+  if (game.onToilet && tryPush(code)) {
     e.preventDefault();
-    return;
+    return true;
   }
 
   // In the shower, F is the other thing you are doing in there.
-  if (game.showering !== null && e.code === 'KeyF') {
+  if (game.showering !== null && code === 'KeyF') {
     if (game.peeing) stopPee(); else startPee();
     e.preventDefault();
-    return;
+    return true;
   }
 
   /* The dress bar runs while he is still flat on his back, so it has to take
@@ -1615,20 +1768,20 @@ document.addEventListener('keydown', (e) => {
    * cancelling it -- nothing in this morning is allowed to leave him in the
    * bed with no key that does anything. */
   if (margoDress.active) {
-    if (e.code === 'KeyE') { margoDress.press(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ') { abandonMargoDressHelp(); e.preventDefault(); return; }
+    if (code === 'KeyE') { margoDress.press(); e.preventDefault(); return true; }
+    if (code === 'KeyQ') { abandonMargoDressHelp(); e.preventDefault(); return true; }
   }
 
   if (glue.bar.active) {
-    if (e.code === 'KeyE') { glue.bar.press(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ') {
+    if (code === 'KeyE') { glue.bar.press(); e.preventDefault(); return true; }
+    if (code === 'KeyQ') {
       glue.bar.stop();
       hud.setTiming(null);
       hud.setPosture(null);
       interaction.setPaused(false);
       hud.say('Right. That can stay crooked.', 3400);
       e.preventDefault();
-      return;
+      return true;
     }
   }
 
@@ -1638,18 +1791,18 @@ document.addEventListener('keydown', (e) => {
    * desk. [Q] is the one exception: the stand-up key works everywhere. */
   if (game.seated) {
     // Escape is left to the browser -- it releases the pointer and pauses.
-    if (e.code === 'KeyQ') {
+    if (code === 'KeyQ') {
       standFromPC();
-      return;
+      return true;
     }
+    // Computer apps receive the physical keyboard, not the Apartment's
+    // remapped gameplay vocabulary.
     if (arcade.onKey(e.code, true)) e.preventDefault();
     if (e.code === 'Space') e.preventDefault();
-    return;
+    return true;
   }
 
-  player.setKey(translateKey(e.code), true);
-
-  switch (e.code) {
+  switch (code) {
     case 'KeyE':
       /* The Margo wake/come-home scenes used to special-case [E] here so the
        * dress bar could take it over the ordinary get-up action -- and that
@@ -1667,30 +1820,30 @@ document.addEventListener('keydown', (e) => {
        * cannot open a fridge and answer a call with the same key, and the
        * call wins -- it is the one thing in this flat that is not waiting
        * for you to get round to it. */
-      if (apartment.state.heldItem === 'phone') { phone.press(); break; }
+      if (apartment.state.heldItem === 'phone') { phone.press(); return true; }
       // Lying down on purpose is the one case where E means sleep, not stand.
       if (game.inBed) sleepInBed();
       else if (player.mode === 'bed') getUp();
       else if (game.onToilet) standFromToilet();
       else if (game.peeing) stopPee();
       else interaction.press();
-      break;
+      return true;
     case 'KeyG':
       fart({ voluntary: true });
-      break;
+      return true;
     case 'KeyT':
       game.flashlightOn = !game.flashlightOn;
       audio.play('switch.click', { volume: 0.5 });
-      break;
+      return true;
     /* Bloom off, for a machine that is struggling. There is no options menu to
      * put this in and it is the first thing worth dropping. */
     /* Slots. Digit1..Digit5 pick one directly; the wheel cycles (below). */
     case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
-      apartment.inventory.select(Number(e.code.slice(5)) - 1);
-      break;
+      apartment.inventory.select(Number(code.slice(5)) - 1);
+      return true;
     case 'KeyB':
       hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-      break;
+      return true;
     case 'KeyR':
       /* Reload takes priority over skipping the radio, but only while the gun
        * is the thing in his hand -- otherwise standing at the sideboard with a
@@ -1704,7 +1857,7 @@ document.addEventListener('keydown', (e) => {
       else if (actOne.ringingOut > 0) endRingBooskiBack();
       else if (canRingBooskiBack()) ringBooskiBack();
       else if (interaction.current && interaction.current.name === 'radio') radio.next();
-      break;
+      return true;
     case 'KeyQ':
       /* [Q] while she is merely OFFERING no longer does anything special --
        * he is free to walk off and come back, so there is nothing here to
@@ -1714,7 +1867,7 @@ document.addEventListener('keydown', (e) => {
        * keyboard while it runs, the same way the glue bar does. */
       if (apartment.state.heldItem === 'phone' && phone.call) {
         phone.hangUp();
-        break;
+        return true;
       }
       if (apartment.state.lipPacked) {
         apartment.dropZyn();
@@ -1726,16 +1879,73 @@ document.addEventListener('keydown', (e) => {
       else if (game.sitting) standFromSeat();
       else if (game.inBed || player.mode === 'bed') getUp();
       else dropHeld();
-      break;
+      return true;
+    case 'KeyF':
+      // The Adapter owns this scene-declared held Player key and its release.
+      return false;
     default:
-      break;
+      return false;
   }
+}
+
+function routeApartmentKeyUp(_e, { code }) {
+  if (code === 'KeyE' && !game.seated) interaction.release();
+  return code === 'KeyE';
+}
+
+const apartmentInputPolicy = createApartmentInputPolicy({
+  readState: () => ({
+    started: game.started,
+    paused: game.paused,
+    left: game.left,
+    seated: game.seated,
+    domArcade: arcade.inputMode === 'dom',
+    coldOpen: coldOpenActive,
+  }),
+  keyDown: routeApartmentKeyDown,
+  keyUp: routeApartmentKeyUp,
+  mouseMove: routeApartmentMouseMove,
+  mouseDown: routeApartmentMouseDown,
+  mouseUp: routeApartmentMouseUp,
+  clear: () => arcade.onClick(false),
 });
 
-document.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE' && !game.seated) interaction.release();
+let fallbackHints = 0;
+browserInput = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  playerKeyCodes: ['KeyF'],
+  ...apartmentInputPolicy.adapterOptions,
+  onCaptureChange: (_event, controls) => {
+    paintInputCapture(controls);
+    const computerDomInput = game.seated && arcade.inputMode === 'dom';
+    /* NOT DURING THE COLD OPEN. Confirming quit inside Squatch Smash hands
+     * the keyboard back from the iframe with no pointer lock. Pausing there
+     * freezes the reveal against the monitor forever. */
+    if (!controls.locked && game.started && !game.paused && !computerDomInput
+      && !controls.dragFallback && !pauseMenu.isPaused() && !coldOpenActive) {
+      pauseGame();
+    }
+  },
+  onCaptureError: (_error, controls) => {
+    paintInputCapture(controls);
+    if (!controls.recovered) return;
+    /* A pointer-lock request can reject after Tab has already opened the
+     * shared pause menu. Recovery used to call enableInput() unconditionally,
+     * setting game.paused=false behind a still-visible menu. The menu owns
+     * this lifecycle boundary; a late browser error must not resume it. */
+    if (game.paused || pauseMenu.isPaused() || game.left) return;
+    enableInput();
+    const activations = controls.adapter.snapshot().dragFallbackActivations;
+    if (activations <= fallbackHints) return;
+    fallbackHints = activations;
+    if (!coldOpenActive) {
+      hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+    }
+  },
 });
+paintInputCapture(browserInput.snapshot());
 
 /* ------------------------------------------------------------------ */
 /* Bed / desk transitions                                              */
@@ -1848,7 +2058,8 @@ function sitAtPC() {
   if (game.seated) return;
   game.seated = true;
   // Anything held on the walk up dies here; while seated no key reaches him.
-  player.clearKeys();
+  browserInput?.clear('sit-at-pc');
+  browserInput?.refresh('sit-at-pc');
   interaction.setPaused(true);
   hud.setMode('seated');
   audio.play('chair.roll', { volume: 0.4 });
@@ -1882,6 +2093,7 @@ function standFromPC() {
   const leavingDomApp = arcade.inputMode === 'dom';
   game.seated = false;
   arcade.setSeated?.(false);
+  browserInput?.refresh('stand-from-pc');
   if (leavingDomApp && game.started && !game.paused) requestLock();
   hud.setMode('walk');
   audio.setMuffle(false);
@@ -3095,7 +3307,7 @@ function learnAboutMeeting(source) {
     state.story.meetingLearnedFrom = source;
   });
   audio.play('ui.select', { volume: 0.4 });
-  hud.toast('Wednesday, 7 PM', 'good');
+  hud.toast('Crew meeting · Wednesday, 7 PM', 'good');
   // The radio reads the notice out; he answers it, the way you answer a radio.
   audio.say('notice', { delay: source === 'radio' ? 2.4 : 1.0 });
   narrator.note('meeting');
@@ -3154,6 +3366,10 @@ function activityContext() {
     playedSquatchShoot: campaign.state.activities.playedSquatchShoot === true,
     playedSquatchSmash: campaign.state.activities.playedSquatchSmash === true,
     tookShrooms: campaign.state.activities.tookShrooms === true,
+    /* A required call is actionable only while the physical phone is actually
+     * ringing. ApartmentStory keeps the future ledger row for recovery and QA,
+     * but marks it pending until this exact runtime edge says otherwise. */
+    ringingCallId: phone.ringing ? phone.call?.def?.eventId ?? null : null,
     /* Not a flag -- the seconds themselves, so the objective can count down
      * rather than sit there saying the same thing for half a minute. */
     tvSeconds: apartment.state.tvWatched || 0,
@@ -3441,7 +3657,6 @@ function tryLeave() {
   const res = apartmentStory.tryLeave(activityContext());
 
   if (res.kind === 'go') {
-    audio.say('door.leave', { delay: 0.2 });
     leaveForMission(res.destination);
     return res;
   }
@@ -3509,6 +3724,7 @@ function tryLeave() {
 /** Out of the apartment and into whichever campaign mission is ready. */
 function leaveForMission(destination) {
   game.left = true;
+  browserInput?.refresh('leave-apartment');
   saveApartmentProgress();
   if (destination === SCENE_IDS.BADA_BING_ONE) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE, (state) => {
@@ -3545,6 +3761,13 @@ function leaveForMission(destination) {
     }, { required: true });
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.COUNTRYSIDE_CABIN) {
+    /* Lou's text is the instruction; this is the drive that follows it. The
+     * cabin is a second hub, not a mission, so only the exact-once clock moves
+     * here. Silver Case remains available while Tony waits out the heat. */
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_COUNTRYSIDE_CABIN);
+    syncClockFromCampaign();
+  }
   if (destination === SCENE_IDS.INITIATION) {
     /* The Initiation build is deliberately untouched and does not report its
      * own progress, so leaving for it is the only thing the campaign can
@@ -3579,7 +3802,7 @@ function leaveForMission(destination) {
 
   interaction.setPaused(true);
   hud.hidePrompt();
-  player.clearKeys();
+  browserInput?.clear('leave-apartment');
   player.mode = 'frozen';
   audio.say('door.leave', { delay: 0.2 });
   audio.play('door.knob', { volume: 0.8 });
@@ -3598,14 +3821,14 @@ function leaveForMission(destination) {
 function missedIt() {
   if (game.left || goals.missed) return;
   goals.missed = true;
-  hud.say('<em>Eight o\'clock.</em> That will have started without you.', 6000);
-  hud.toast('You missed it', 'bad');
+  hud.say('<em>Eight o\'clock.</em> The weekly meeting started without you.', 6000);
+  hud.toast('Missed the weekly meeting', 'bad');
 }
 
 function showEnding(kind) {
   const e = ENDINGS[kind] || ENDINGS.clean;
   game.paused = true;
-  player.enabled = false;
+  browserInput?.refresh('ending');
   // The blackout sits above the overlay, so it has to come off or the card
   // is delivered to a black rectangle.
   blackout.classList.remove('on');
@@ -4275,11 +4498,12 @@ function playNews(station, { onStart = null } = {}) {
 }
 
 /* ------------------------------------------------------------------ */
-/* THE SPECIAL MEETING — ACT ONE                                       */
+/* THE SPECIAL MEETING — LEGACY STARTER-FLAT COMPATIBILITY             */
 /* ------------------------------------------------------------------ */
 
 /**
- * Everything the flat does on the night three men come for him.
+ * Compatibility staging for saves created before Beat 27 moved to the luxury
+ * apartment. Fresh campaign saves do not return to this flat after the Palace.
  *
  * `docs/SPECIAL-MEETING-SCRIPT.md`, beats SM-010 to SM-090. The words and
  * their cue names are all authored elsewhere -- `src/specialmeeting/script.js`,
@@ -4520,11 +4744,10 @@ function endRingBooskiBack() {
 /**
  * SM-070. Getting dressed for something nobody has described to him.
  *
- * The script stages these at a wardrobe and a mirror. This flat has neither --
- * the clean shirts are in the nightstand drawer and there is no mirror in the
- * build at all -- so the drawer carries both halves: the wardrobe line the
- * first time he opens it, and one of the three mirror lines every time after,
- * ending on the one that is him talking himself down and failing.
+ * Both the closet rail and the legacy nightstand route feed this one callback,
+ * so the same getting-ready beat survives whichever clean shirt the player
+ * actually reaches first. The bathroom mirror now reflects the persisted
+ * choice; the line still belongs to dressing, not to entering that room.
  *
  * Called from `onDressed` AFTER the ordinary toast, because the ordinary toast
  * is the flat behaving normally and that is the joke he is standing inside.
@@ -5366,8 +5589,8 @@ function updateMargoWake(dt) {
   /* The door swings for her near whichever end of the walk she is passing it
    * at -- the start, coming in, or the end, going out. */
   apartment.frontDoorPivot.rotation.y = scene.entry
-    ? (w < 0.20 ? -1.0 * Math.min(1, (0.20 - w) / 0.12) : 0)
-    : (w > 0.80 ? -1.0 * Math.min(1, (w - 0.80) / 0.12) : 0);
+    ? (w < 0.20 ? APARTMENT_MARGO_ENTRY_DOOR_YAW * Math.min(1, (0.20 - w) / 0.12) : 0)
+    : (w > 0.80 ? APARTMENT_MARGO_ENTRY_DOOR_YAW * Math.min(1, (w - 0.80) / 0.12) : 0);
   if (w < 1) return;
   if (scene.entry) {
     scene.walk = null;
@@ -5398,9 +5621,9 @@ const CHAPTER_DONE = Object.freeze({
   day_two: 'Day One is done',
   no_wake: 'Day Two is done',
   date: 'The harbor is behind you',
-  golf_morning: 'The Silver Room is behind you',
+  golf_morning: 'THE TAKE is behind you',
   big_night: 'The Silver Room is behind you',
-  heist_day: 'The Silver Room is behind you',
+  heist_day: 'The Jerky Motel is behind you',
 });
 
 /** And what the morning it opened onto is for. */
@@ -5408,9 +5631,9 @@ const WAKE_LINES = Object.freeze({
   day_two: 'Booskibro said he would call.',
   no_wake: 'Grey out. Lou said he would call.',
   date: 'Nothing on today. She said she would ring.',
-  golf_morning: 'Margo is still here. Lou can wait until she leaves.',
+  golf_morning: 'Silver Pines at eight. Lou gave you the time last night.',
   big_night: 'Tonight is the thing. Booskibro said he would call.',
-  heist_day: 'Margo is still here. Lou can wait until she leaves.',
+  heist_day: 'THE TAKE is today. Lou said he would call.',
 });
 
 /**
@@ -5447,7 +5670,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
   if (game.passingOut) return;
   game.passingOut = true;
 
-  player.clearKeys();
+  browserInput?.clear('pass-out');
   interaction.setPaused(true);
   hud.hidePrompt();
   hud.setHold(null);
@@ -5783,7 +6006,21 @@ function frame() {
       focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
       applyDrunkFx();
 
-      player.update(dt);
+      /* The cold-open camera now follows real wall time. Its final automatic
+       * chair rise must do the same or a low-frame-rate machine reaches the
+       * room and then appears trapped for another long simulated tween. This
+       * flag is deliberately narrower than every other frozen player motion. */
+      player.update(automaticDeskExitStanding ? rawDt : dt);
+      if (automaticDeskExitStanding && player.mode === 'walk') {
+        automaticDeskExitStanding = false;
+      }
+      const reflectedPose = game.inBed || player.mode === 'bed'
+        ? 'bed'
+        : game.seated || game.sitting || game.onToilet || player.mode === 'seated'
+          ? 'seated'
+          : 'standing';
+      playerBody?.update(dt, player, { pose: reflectedPose });
+      playerBody?.setWeaponVisible(apartment.state.heldItem === 'gun');
       apartment.update(hdt, elapsed);
       updateMargoWake(dt);
       updateConsume(dt);
@@ -5835,7 +6072,12 @@ function frame() {
        * view is already exactly where his head is, so there is nothing to
        * hand back and nothing to snap. */
       if (coldOpenActive) {
-        for (const event of coldOpen.update(dt)) {
+        /* Owner, 2026-08-29: "I can't get up from the fucking desk." The Quit
+         * event reached this code on the live build; the defect was feeding a
+         * presentation clock the physics delta capped at 0.05. Under the two
+         * WebGL renderers, 5.2 authored seconds took several wall minutes.
+         * Presentation follows wall time; collision simulation stays capped. */
+        for (const event of coldOpen.update(rawDt)) {
           if (event === 'reveal') runColdOpenReveal();
           else if (event === 'land') endColdOpen();
         }
@@ -5883,6 +6125,7 @@ function frame() {
     }
   }
 
+  bathroomMirror?.render(renderer, camera);
   postfx.render();
   postfx.sample(dt);
 }

@@ -35,17 +35,26 @@ const MANIFEST = path.join(ROOT, 'assets/sfx/manifest.json');
 const INDEX = path.join(ROOT, 'assets/sfx/index.json');
 const OUT = path.join(ROOT, 'VOICE-LINES-NEEDED.md');
 
+const CABIN_CALL_PREFIXES = Object.freeze([
+  'vo.call.lou.cabin_lay_low.',
+  'vo.call.gratin.cabin_basement.',
+  'vo.call.ape.cabin_morning.',
+]);
+const isCabinVoiceCue = (name) => name.startsWith('vo.cabin.')
+  || CABIN_CALL_PREFIXES.some((prefix) => name.startsWith(prefix));
+
 /** Which scene a cue belongs to, for the note beside each line. */
 const SCENES = [
   ['PROJECT SILENT SQUATCH', (n) => n.startsWith('vo.silentsquatch.')],
   ['MANSION UNDER SIEGE', (n) => n.startsWith('vo.siege.')],
   ['The HotDog Incident', (n) => n.startsWith('vo.bing2.')],
-  ['The Enola Squatch', (n) => n.startsWith('vo.enolasquatch.')],
+  ['SQUATCHOLA GAY', (n) => n.startsWith('vo.enolasquatch.')],
   ['THE TAKE', (n) => n.startsWith('heist.')],
   ['Bada Bing', (n) => n.startsWith('vo.bing.') || n.startsWith('vo.bj.') || n.startsWith('vo.slots.')],
   ['Silver Pines', (n) => n.startsWith('vo.golf.')],
   ['The Silver Room', (n) => n.startsWith('vo.silver.')],
   ['The Silver Case', (n) => n.startsWith('vo.silvercase.')],
+  ['The Countryside Cabin', isCabinVoiceCue],
   ['NO WAKE', (n) => n.startsWith('vo.nowake.')],
   ['The Beef Run', (n) => n.startsWith('vo.beefrun.')],
   ['Jerky Motel', (n) => n.startsWith('vo.motel.')],

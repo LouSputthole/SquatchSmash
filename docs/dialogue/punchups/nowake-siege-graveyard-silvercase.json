@@ -13,7 +13,9 @@
       "mcdonagh": "Right. Come on. Come on up, the whole fuckin' lot of yiz.",
       "houser": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
       "coen": "Okay. All right then. Come on up.",
-      "status": "open"
+      "status": "ACCEPTED 2026-08-28",
+      "picked": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
+      "retiredText": "Say hello to my little friend."
     },
     {
       "cue": "vo.nowake.cabin.willy.dont-remember.1",
@@ -134,20 +136,6 @@
       "houser": "Colton. His plot smells exactly like his van, which raises questions about the van that nobody wants answered.",
       "coen": "Colton. Huh. Smells just like his van did. That's — I don't know what to make of that.",
       "status": "open"
-    },
-    {
-      "cue": "vo.graveyard.snow.done",
-      "character": "snow",
-      "current": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.",
-      "why": "Already strong. One note only: the second half telegraphs the next mission a little cleanly. Variants keep the dread and lose the signposting.",
-      "house": "That closes the HotDog thing. Get in the car. The next one doesn't close with a shovel.",
-      "tarantino": "That's HotDog done. Get in the car. The next one doesn't end with a shovel and a hole, and I'd get comfortable with that on the drive.",
-      "mcdonagh": "That's HotDog closed. Get in the car. The next one doesn't close with a shovel, and you'd want to be thinkin' about that on the way.",
-      "houser": "That concludes the HotDog matter. Get in the car. The next item does not resolve with earthmoving equipment.",
-      "coen": "Well. That closes HotDog. Get in the car. The next one's not going to be like this one.",
-      "status": "ACCEPTED 2026-08-19",
-      "picked": "That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.",
-      "retiredText": "That closes the HotDog incident. The Motel does not close this easy."
     },
     {
       "cue": "vo.silvercase.aftermath.ape.badideas",

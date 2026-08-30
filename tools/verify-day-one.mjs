@@ -377,6 +377,14 @@ try {
   const panel = await page.evaluate(() => {
     const game = window.__squatch;
     game.updateObjectives();
+    /* The panel auto-collapses twelve seconds after each change, and
+     * `setObjectives` only touches the DOM when the list reads differently --
+     * so an `updateObjectives()` that changes nothing leaves it collapsed and
+     * reading `hidden` here was a race against a timer, not a fact about the
+     * draw. Reveal it explicitly: this check is about whether required and
+     * optional rows are drawn differently, not about when the panel happens
+     * to be up. */
+    game.hud.revealObjectives();
     const plan = game.apartmentStory.objectives(game.activityContext());
     const drawn = [...document.querySelectorAll('#objectives .olist li')].map((li) => ({
       text: li.textContent,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Synchronize The Enola Squatch's authored dialogue with the sound manifest.
+ * Synchronize SQUATCHOLA GAY's authored dialogue with the sound manifest.
  *
  *   npm run vo:enolasquatch        -> synchronize the exact cue block
  *   npm run check:enolasquatch-vo  -> report missing/stale/text/cast drift
@@ -71,10 +71,10 @@ function main() {
     const failures = checkEnolaSquatchVoiceManifest(manifest);
     if (failures.length) {
       failures.forEach((failure) => console.error(`FAIL ${failure}`));
-      console.error(`${failures.length} Enola Squatch voice problem(s). Run \`npm run vo:enolasquatch\`.`);
+      console.error(`${failures.length} SQUATCHOLA GAY voice problem(s). Run \`npm run vo:enolasquatch\`.`);
       process.exitCode = 1;
     } else {
-      console.log(`Enola Squatch voice manifest matches ${collectEnolaSquatchVoiceCues().length} cue(s).`);
+      console.log(`SQUATCHOLA GAY voice manifest matches ${collectEnolaSquatchVoiceCues().length} cue(s).`);
     }
     return;
   }
@@ -85,7 +85,7 @@ function main() {
 
   const byWho = {};
   for (const line of allEnolaSquatchLines()) byWho[line.who] = (byWho[line.who] ?? 0) + 1;
-  console.log(`${cues.length} Enola Squatch voice cue(s) in the manifest`
+  console.log(`${cues.length} SQUATCHOLA GAY voice cue(s) in the manifest`
     + `${dropped ? ` (replaced ${dropped})` : ''}.`);
   for (const [who, count] of Object.entries(byWho).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${(SPEAKERS[who] ?? SPEAKERS.SASOLE).name.padEnd(20)} ${count}`);

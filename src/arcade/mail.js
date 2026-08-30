@@ -28,51 +28,6 @@ const HEADER_H = 30;
  */
 const MESSAGES = [
   {
-    /* Top of the inbox on purpose. It is the first thing you read on the PC,
-     * and it is the one that tells you what tomorrow actually is -- everything
-     * else in the flat calls it "the meeting", because to everyone else that
-     * is all it is. */
-    from: 'Uncle Lou',
-    addr: 'lou@silversasquatches.gg',
-    subject: 'Tomorrow',
-    time: '5:12 AM',
-    unread: true,
-    meeting: true,
-    initiation: true,
-    body: [
-      'Kid,',
-      '',
-      'Up early. Could not sleep. Thought I would write this before the day '
-        + 'gets hold of me.',
-      '',
-      'Good job making it this far. I mean that. There were four of you in '
-        + 'the spring and there is one of you now, and the other three did not '
-        + 'wash out because they were not good enough. They washed out because '
-        + 'nobody told them what it was going to be like and they decided they '
-        + 'would rather not find out. You stayed. That counts.',
-      '',
-      'Tomorrow night is yours. Seven, the usual place, and you walk in the '
-        + 'same door as everyone else. Nobody is going to make a fuss of you at '
-        + 'the start, and if anybody does, ignore them, because they are being '
-        + 'funny.',
-      '',
-      'Two things and then I will leave you alone.',
-      '',
-      'One: bring nothing. I know Booski has said it. I am saying it as well '
-        + 'because prospects always bring something and it is always wrong.',
-      '',
-      'Two: turn up as yourself. Whatever you think we are looking for, we are '
-        + 'not looking for it, and the ones who try to be it are the ones we '
-        + 'notice trying.',
-      '',
-      'Looking forward to it. Genuinely.',
-      '',
-      '— Lou',
-      '',
-      'PS. Do not be late. I will not be able to help you with that one.',
-    ],
-  },
-  {
     from: 'Marguerite Vane · HR',
     addr: 'm.vane@goycorp.com',
     subject: 'Tomorrow evening — coverage request',
@@ -137,8 +92,8 @@ const MESSAGES = [
     unread: true,
     meeting: true,
     body: [
-      'ok so its confirmed. squatch meeting. tomorrow night. 7pm.',
-      'the usual place. bring the thing.',
+      'ok so its confirmed. weekly meeting. tomorrow night. 7pm.',
+      'the usual hall. regular business.',
       '',
       'ape says hes coming which means he is not coming',
       'irish is bringing the eggs',
@@ -153,25 +108,25 @@ const MESSAGES = [
     ],
   },
   {
-    /* The second Booski mail. The thread above is logistics; this one is not,
-     * which is why it is its own message and arrived four hours later. */
+    /* The second Booski mail is exactly the kind of administrative emergency
+     * he creates for everybody else. */
     from: 'BOOSKIBRO',
     addr: 'booski@silversasquatches.gg',
-    subject: 'tonight',
+    subject: 'minutes',
     time: '6:31 AM',
     unread: true,
     vo: 'mail.booski',
     body: [
       'right',
       '',
-      'good luck tonight. genuinely.',
+      'if lou asks who is taking minutes look at the floor',
       '',
-      'you have been at this longer than anyone thinks you have and i am '
-        + 'the only one who was there for the bad bit so i am the one telling you.',
+      'i said ape was doing it and ape said i was doing it so currently the '
+        + 'minutes are doing themselves',
       '',
-      'dont overthink it. walk in, sit down, be normal.',
+      'walk in. sit down. do not make eye contact when lou asks.',
       '',
-      'i will be there. ape says he will be there.',
+      'i will be there. ape says he will be there which is not the same thing.',
     ],
   },
   {
@@ -217,8 +172,8 @@ const MESSAGES = [
       'It had a good discount and I did not read past the discount. By the '
         + 'time I had read past the discount it was bought.',
       '',
-      'Anyway. Good luck tomorrow night. You have earned it and I mean that '
-        + 'entirely separately from the above.',
+      'Anyway. See you tomorrow night. That is entirely separate from the '
+        + 'above and considerably less embarrassing.',
       '',
       'Irish',
       '',
@@ -239,7 +194,7 @@ const MESSAGES = [
     body: [
       'mate',
       '',
-      'any chance you can bring some extra weed tomorrow. for the initiation. '
+      'any chance you can bring some extra weed tomorrow. for after the meeting. '
         + 'i said i would sort it and then i did not sort it.',
       '',
       'not loads. just more than none, which is what i currently have.',
@@ -256,20 +211,24 @@ const MESSAGES = [
     time: '5:58 AM',
     unread: true,
     vo: 'mail.flying',
+    /* The Beef Run is Tony's introduction to Sasole. Showing this on Day One
+     * made an optional inbox quietly pre-introduce him before the airstrip.
+     * It joins the inbox only on a later apartment visit, as a follow-up to
+     * the flight they actually shared. */
+    afterBeefRun: true,
     body: [
       'Morning,',
       '',
-      'Ignore the other Lou, he is being dramatic about tomorrow as usual.',
+      'You got the Brushrunner back with the wings still attached. I count that as a good first outing.',
       '',
-      'Actual reason I am writing: do you want me to take you flying sometime? '
+      'Actual reason I am writing: if you ever want to fly without a hold full of meat, say so. '
         + 'Nothing mad. Up, round the field, back down, forty minutes.',
       '',
-      'I have taken half the guys up already. Open offer, any time, you just '
-        + 'have to say when.',
+      'Open offer. You already know where the field is, and now you know which engine lies.',
       '',
-      'If you make it past initiation, that is.',
+      'Give your hands a day to stop shaking first.',
       '',
-      'Good luck.',
+      'Good landing.',
       '',
       'Lou',
     ],
@@ -376,19 +335,21 @@ const MESSAGES = [
  * clearer it is that the sentence was always going to be this one. He knows
  * what he is doing. He is not going to the Wednesday shift.
  */
-const REPLY = 'Go fuck yourself I have a squatch meeting';
+const REPLY = 'Go fuck yourself I already made plans';
 
 export class Mail {
-  constructor({ os, audio } = {}) {
+  constructor({ os, audio, sasoleKnown = false } = {}) {
     this.id = 'mail';
     this.label = 'SQUATCH\nMAIL.exe';
     /** Mail hit-tests against the shell cursor rather than owning an aim reticle. */
     this.usesOsCursor = true;
     this.os = os;
     this.audio = audio;
-    // The old Uncle Lou mail remains in source history while it is excluded
-    // from the live inbox. Lou gives instructions by phone and in person.
-    this.messages = MESSAGES.filter((m) => m.from !== 'Uncle Lou').map((m) => ({ ...m }));
+    // Family instructions arrive by phone or in person. This inbox is texture,
+    // not a secret second campaign script.
+    this.messages = MESSAGES
+      .filter((message) => message.afterBeefRun !== true || sasoleKnown === true)
+      .map((message) => ({ ...message }));
     this.sel = 0;
     this.scroll = 0;
     this.t = 0;

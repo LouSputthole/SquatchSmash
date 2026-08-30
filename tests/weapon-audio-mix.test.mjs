@@ -21,7 +21,8 @@ import {
   WEAPON_MIX, WEAPON_ORDER, weaponCue, weaponCueSlots, weaponMix,
 } from '../src/core/weapons/catalog.js';
 import {
-  WEAPON_POSITIONAL_DEFAULTS, playWeaponCue, weaponCueOptions,
+  WEAPON_AUDIO_PROFILE_IDS, WEAPON_AUDIO_PROFILES, WEAPON_POSITIONAL_DEFAULTS,
+  playWeaponCue, weaponAudioProfile, weaponCueOptions, weaponProfileCue,
 } from '../src/core/weapons/audio.js';
 
 /** An AudioEngine that has decoded the whole delivered bank and writes down
@@ -120,6 +121,11 @@ test('the mix reaches the stand-in path as well as the delivered recording', () 
   assert.ok(Math.abs(standIn.volume - 0.6 * weaponMix('shotgun', 'fire')) < 1e-12);
   // The stand-in's deliberate pitch shift survives the mix.
   assert.ok(standIn.rate < 1, 'the 12-gauge stand-in lost its pitch shift');
+  assert.equal(standIn.requestedCue, 'weapon.shotgun.fire');
+  assert.equal(standIn.receiptSource, 'stand-in');
+  assert.equal(standIn.fallbackReason, 'requested-recording-not-decoded');
+  assert.equal(standIn.requiredRecorded, true,
+    'strict QA cannot fail a weapon-specific fallback that is not marked required');
 });
 
 test('every weapon and every slot arrives mixed, by whichever path', () => {
@@ -181,4 +187,56 @@ test('weaponCueOptions does not mutate the options it was handed', () => {
 
 test('playWeaponCue with no audio engine is still a no-op', () => {
   assert.equal(playWeaponCue(null, 'revolver', 'fire', { volume: 1 }), false);
+});
+
+/* ------------------------------------------------------------------ */
+/* Named report profiles                                               */
+/* ------------------------------------------------------------------ */
+
+test('standard is the frozen default profile and the short carbine stays unsuppressed', () => {
+  assert.equal(Object.isFrozen(WEAPON_AUDIO_PROFILES), true);
+  assert.equal(weaponAudioProfile().id, WEAPON_AUDIO_PROFILE_IDS.STANDARD);
+  assert.equal(weaponAudioProfile('not-a-profile').id, WEAPON_AUDIO_PROFILE_IDS.STANDARD);
+
+  const audio = recorder();
+  playWeaponCue(audio, 'carbine', 'fire', { volume: 0.75 });
+  assert.deepEqual(audio.played.map(({ name }) => name), ['weapon.carbine.fire']);
+  assert.equal(audio.played[0].weaponAudioProfile, undefined,
+    'ordinary callers should retain the legacy unsuppressed path exactly');
+});
+
+test('a suppressed profile selects its dedicated report and mechanical action', () => {
+  const audio = recorder();
+  playWeaponCue(audio, 'carbine', 'fire', {
+    volume: 0.75,
+    profile: WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED,
+  });
+  assert.deepEqual(audio.played.map(({ name }) => name), [
+    weaponProfileCue('carbine', 'fire', WEAPON_AUDIO_PROFILE_IDS.SUPPRESSED),
+    WEAPON_AUDIO_PROFILES.suppressed.actionCue,
+  ]);
+  assert.ok(audio.played.every((row) => row.weaponAudioProfile === 'suppressed'));
+  assert.ok(audio.played[1].volume > 0.5,
+    'the can must leave a close, physical action—not a weak pfft');
+});
+
+test('a missing suppressed take falls back quietly without changing the global default', () => {
+  const played = [];
+  const audio = {
+    hasSample: (name) => name === 'weapon.carbine.fire'
+      || name === WEAPON_AUDIO_PROFILES.suppressed.actionCue,
+    play: (name, opts = {}) => played.push({ name, ...opts }),
+  };
+  playWeaponCue(audio, 'carbine', 'fire', { volume: 0.75, profile: 'suppressed' });
+  const report = played.find(({ name }) => name === 'weapon.carbine.fire');
+  assert.ok(report, 'the missing profile recording silenced the weapon');
+  assert.ok(report.volume < 0.75 * weaponMix('carbine', 'fire') * 0.5);
+  assert.equal(report.receiptSource, 'profile-fallback');
+  assert.equal(report.requestedCue, 'weapon.suppressed.carbine.fire');
+
+  played.length = 0;
+  playWeaponCue(audio, 'carbine', 'fire', { volume: 0.75 });
+  assert.equal(played[0].name, 'weapon.carbine.fire');
+  assert.ok(played[0].volume > report.volume * 2,
+    'one suppressed call contaminated the next ordinary carbine shot');
 });

@@ -1,7 +1,9 @@
 /**
- * The Wednesday night Squatch meeting.
+ * The Wednesday night Silver Sasquatches weekly meeting.
  *
- * The only goal in the game, and the game never tells you about it directly.
+ * A save-compatible piece of the original apartment's optional life loop. It
+ * is ordinary association business, not the campaign's eventual Initiation.
+ * The game never tells you about it directly.
  * You find out from the card on the corkboard, or from Booski's messages on
  * the second monitor, or from the radio reading community notices. Until you
  * have found out, the front door behaves exactly as it always did.
@@ -17,7 +19,7 @@
  * off, and being checked at the door is the point of it.
  */
 
-/** Day 1 is Tuesday, so the meeting is on day 2. */
+/** Day 1 is Tuesday, so the ordinary weekly meeting is on day 2. */
 export const MEETING = { day: 2, hour: 19 };
 /** You can set off from five. Before that it is not time yet. */
 const WINDOW_OPEN = 17;
@@ -98,7 +100,7 @@ const GATES = [
 
 /** What the door says when it is simply not time yet. */
 const TOO_EARLY = [
-  'The meeting is tomorrow night. Today is a Tuesday with nothing in it.',
+  'The weekly meeting is tomorrow night. Today is a Tuesday with nothing in it.',
   'Tomorrow. Seven. There is a whole day between here and there.',
   'It is still Tuesday. Going now would just be standing outside a locked hall.',
 ];

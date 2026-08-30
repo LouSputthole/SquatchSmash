@@ -233,11 +233,14 @@ test('Silver Case adapters stage all six public poses over both built worlds', a
   };
   const expectedColliders = {
     car: 0,
-    hallway: 20,
-    room: 19,
-    prayer: 19,
-    bathroom: 19,
-    aftermath: 18,
+    // Every apartment pose shares the finished bathroom's physical toilet
+    // and sink. The car remains its own world; the apartment checkpoints each
+    // gain the same two authored fixture colliders.
+    hallway: 22,
+    room: 21,
+    prayer: 21,
+    bathroom: 21,
+    aftermath: 20,
   };
   const expectedAssemblyMembers = {
     ape: ['person'],
@@ -273,7 +276,7 @@ test('Silver Case adapters stage all six public poses over both built worlds', a
   }
 });
 
-test('Silver Case aftermath leaves Pruitt visibly fallen in the doorway, not inside the kitchen', async () => {
+test('Silver Case aftermath leaves Pruitt visibly fallen clear of the open bathroom leaf and kitchen', async () => {
   const built = await buildGeometrySceneState('silvercase:aftermath');
   const root = built.roots[0].root;
   const pruittAssembly = gateAssembly(root, 'silvercase:pruitt');
@@ -281,9 +284,12 @@ test('Silver Case aftermath leaves Pruitt visibly fallen in the doorway, not ins
   const pruittGun = pruittAssembly.find(({ name }) => name === 'big-revolver');
   assert.ok(pruitt, 'aftermath must include Pruitt');
   assert.equal(pruitt.visible, true);
-  assert.ok(Math.abs(pruitt.position.x - 11.1) < 1e-9);
-  assert.ok(Math.abs(pruitt.position.z - -2) < 1e-9);
-  assert.ok(Math.abs(pruitt.rotation.y - -0.55) < 1e-9);
+  // This is the same clear ambush position the live checkpoint uses. Keeping
+  // him on the doorway's east half made the open leaf absorb a correct shot
+  // after retry, so the authored corpse must also certify the repaired pose.
+  assert.ok(Math.abs(pruitt.position.x - 10.45) < 1e-9);
+  assert.ok(Math.abs(pruitt.position.z - -1.92) < 1e-9);
+  assert.ok(Math.abs(pruitt.rotation.y - -0.4) < 1e-9);
   assert.ok(Math.abs(pruitt.rotation.z - 0.15) < 1e-9);
   assert.ok(pruittGun, 'aftermath must leave Pruitt’s dropped revolver visible');
   assert.ok(pruittGun.parent === pruitt.parent, 'the dropped revolver must leave Pruitt’s hand but remain in the apartment world');
@@ -345,7 +351,9 @@ test('Squatchfather default mounts all controllers, room figures, pools, mirror,
     controllers: 3,
     sceneFigures: 3,
     impactPool: 8,
-    bloodPool: 8,
+    bloodWoundPool: 8,
+    bloodSpatterPool: 8,
+    deathBloodPool: 2,
     mirrorOverlays: 1,
   });
   assert.deepEqual(built.metadata.figureIds, ['diner1', 'diner2', 'waiter']);

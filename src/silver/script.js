@@ -117,7 +117,10 @@ export const PROFILE_OF = {
   // Owner-cast 2026-08-04, split off the shared npc-male id.
   manager: 'manager',
   waiter: 'silver-waiter',
-  bandleader: 'waiter',
+  /* A named performer, never the generic diner/waiter actor. The shared
+   * manifest owns the ElevenLabs id and all eight takes; keeping the profile
+   * explicit here prevents a missing cast from silently falling back. */
+  bandleader: 'bandleader',
   driver: 'doorman',
   vinny: 'doorman',
   cellarman: 'waiter',
@@ -132,6 +135,19 @@ export const PROFILE_OF = {
   /** The building overheard: "a cook", "the pass", "a porter". */
   room: 'waiter',
 };
+
+/**
+ * The dining floor is a crowd, not one waiter reading fourteen parts.
+ *
+ * These are dedicated, non-recurring supper-club patrons. The cue ids remain
+ * `vo.silver.room.floor.N` because runtime timing and authored bark retirement
+ * key off those stable names; the recording catalog rotates only the actor.
+ */
+export const DINER_VOICE_PROFILES = Object.freeze([
+  'silver-diner-a',
+  'silver-diner-b',
+  'silver-diner-c',
+]);
 
 function silverCueWords(value) {
   return String(value ?? '')
@@ -304,9 +320,8 @@ export function buildScripts(ctx) {
     },
     off: {
       who: '',
-      line: '<em>(And he pulls out, and that is the last person this evening who will have '
-        + 'no idea who you are.)</em>',
-      hold: 4.0,
+      line: '',
+      hold: 0.6,
     },
   };
 
@@ -1001,9 +1016,7 @@ export function buildScripts(ctx) {
     },
     'funny-how': {
       who: '',
-      line: '<em>(The table goes quiet. Two men at the next table stop talking. '
-        + 'The waiter, halfway down with a tray, does not put it down and does not '
-        + 'move.)</em>',
+      line: '',
       enter: () => { flags.funnyHow = true; ctx.holdTheRoom(); },
       hold: 3.6,
       next: 'funny-hang',
@@ -1271,11 +1284,9 @@ export function buildScripts(ctx) {
       ],
     },
     figs: {
-      who: 'the waiter',
-      line: '<em>(Twenty seconds later Chef is standing at the pass with a towel over '
-        + 'his shoulder, looking across the room at your table, and then he goes back '
-        + 'in.)</em>',
-      hold: 4.6,
+      who: '',
+      line: '',
+      hold: 0.8,
     },
     'her-call': {
       who: DATE.name,
@@ -1590,9 +1601,9 @@ export function buildScripts(ctx) {
     },
     up: {
       who: '',
-      line: '<em>(Six feet of floor by the stage. Not a dance floor. A gap.)</em>',
+      line: '',
       enter: () => ctx.startSway(),
-      hold: 2.0,
+      hold: 0.6,
     },
     declined: {
       who: DATE.name,
@@ -1665,11 +1676,7 @@ export function buildScripts(ctx) {
       who: DATE.name,
       enter: () => ctx.openInvitation?.(),
       variant: () => (woo.score >= 88 ? 'looking-at-the-door' : woo.score >= 60 ? 'she-claps' : 'checks-the-time'),
-      line: () => {
-        if (woo.score >= 88) return '<em>(She has been looking at the door for about a minute and not saying anything about it.)</em>';
-        if (woo.score >= 60) return '<em>(The set finishes. The room claps. She claps, and then she looks at you.)</em>';
-        return '<em>(She checks the time on your watch rather than asking.)</em>';
-      },
+      line: '',
       options: () => [
         { tone: 'Plain', text: 'Come back with me. There’s a bottle I’ve been saving for a reason I couldn’t name until about an hour ago.', next: 'judge',
           effect: () => { flags.invitation = 'plain'; } },
@@ -1685,10 +1692,6 @@ export function buildScripts(ctx) {
          * used to buy him out of it entirely, because nothing fired. */
         { tone: 'Overconfident', text: 'Car’s outside. Come on.', next: 'judge',
           effect: () => { flags.invitation = 'crude'; fire('Woo.CrudeInvitation'); } },
-        { tone: 'Transactional', text: '<em>(Put money on the tablecloth.)</em>', next: 'judge',
-          effect: () => { flags.invitation = 'transactional'; fire('Woo.PaidForAffection'); } },
-        { tone: 'Don’t', text: 'I’ll get you a car. This was good.', next: 'judge',
-          effect: () => { flags.invitation = 'none'; } },
       ],
     },
     judge: {
@@ -1711,50 +1714,6 @@ export function buildScripts(ctx) {
       line: 'One drink. <em>(Beat.)</em> And if your building has a service entrance, '
         + 'I’m getting back in the car and you can explain it to the man on the door.',
       hold: 4.8,
-    },
-    good: {
-      who: DATE.name,
-      line: 'I had a genuinely good time. Don’t ruin it by being in a hurry. '
-        + '<em>(She writes nothing down, because she does not have to.)</em> '
-        + 'Four in the morning. I’m there. You know where the door is.',
-      hold: 6.0,
-    },
-    gentleman: {
-      who: DATE.name,
-      line: '<em>(A pause, and then something in her face resettles.)</em> …Alright. '
-        + 'Come in some night. Late. I cook better for one person than for forty and '
-        + 'nobody has ever let me prove it.',
-      hold: 5.2,
-    },
-    polite: {
-      who: DATE.name,
-      line: 'That’s kind. In my experience kind comes with an invoice, so I’ll wait for the invoice. <em>(The coat check is already coming across the floor with '
-        + 'her coat, which means she asked somebody a while ago.)</em>',
-      hold: 4.8,
-    },
-    awkward: {
-      who: DATE.name,
-      line: 'I’m going to let them call me a car. <em>(Politely. Very politely.)</em> '
-        + 'Thank you for dinner. The band was excellent.',
-      hold: 5.0,
-    },
-    disaster: {
-      who: DATE.name,
-      line: '<em>(She stands up, puts her napkin on the chair rather than the table, '
-        + 'and goes back the way you brought her in.)</em>',
-      hold: 5.0,
-    },
-    insult: {
-      who: DATE.name,
-      line: '<em>(She looks at the money for a long moment. Then at you. Then she picks '
-        + 'up her bag and does not touch it.)</em> …Huh.',
-      hold: 5.4,
-    },
-    'from-a-distance': {
-      who: DATE.name,
-      line: 'I like you. <em>(She is laughing, and she is also standing.)</em> From a '
-        + 'distance. A good distance. About this one.',
-      hold: 5.0,
     },
   };
 
@@ -1813,7 +1772,7 @@ export const DATE_BARKS = {
     'It smells exactly like my own walk-in and I am furious about how much better it is.',
   ],
   kitchen: [
-    '<em>(Counting, under her breath, without meaning to.)</em> …Eleven of them on a Tuesday. '
+    '<em>(Counting, under her breath, without meaning to.)</em> …Eleven of them in one service. '
       + 'I have four and I have to beg.',
     'Everybody in here knows you. <em>(Beat.)</em> Everybody in here is <em>mid-service</em>, and they still know you.',
     'That man put down a pan. <em>(Flatly.)</em> I run a kitchen. Nobody puts down a pan.',
@@ -1855,7 +1814,7 @@ export const DATE_BARKS = {
   waiting2: ['Right — are we doing something, or is this the evening?'],
   waiting3: ['I stand up for fourteen hours a day. I did not dress like this to keep doing it.'],
   hazard: ['<em>(As a tray goes past her ear.)</em> Thank you. Genuinely, thank you.'],
-  show: ['Seven of them. On a Tuesday. In a room this size.'],
+  show: ['Seven of them. In a room this size.'],
 };
 
 /** What the club sounds like when you are not being spoken to. */

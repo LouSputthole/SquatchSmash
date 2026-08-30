@@ -45,6 +45,7 @@ const THREE = await import('three');
 const site = await import('../src/initiation/cabin/site.js');
 const staging = await import('../src/initiation/cabin/staging.js');
 const ambience = await import('../src/initiation/cabin/ambience.js');
+const { FOOTSTEP_VARIANTS, selectFootstepVariant } = await import('../src/core/audio.js');
 const { Person } = await import('../src/core/person.js');
 const { STOOL_SIT } = await import('../src/bing/cast.js');
 const { buildInitiationCabinSite } = await import('../src/initiation/cabin/index.js');
@@ -442,6 +443,32 @@ test('the trail is one continuous walk from the clearing to the cabin door', () 
   assert.ok(end.z < site.PORCH.minZ - 0.5, 'the trail runs into the porch');
 });
 
+test('the woods trail has restrained diegetic wayfinding without a waypoint light', () => {
+  const built = buildInitiationCabinSite({ clearing: false, cabin: false });
+  built.root.updateWorldMatrix(true, true);
+  const guides = [];
+  built.root.traverse((object) => {
+    if (object.userData?.navigationMarker === 'moonlit-cairn') guides.push(object);
+  });
+
+  assert.equal(guides.length, 5, 'the full trail should retain five sparse guide cairns');
+  const fractions = guides.map((guide) => guide.userData.trailFraction);
+  assert.deepEqual(fractions, [0.12, 0.31, 0.50, 0.70, 0.88]);
+  for (const guide of guides) {
+    const position = new THREE.Vector3();
+    guide.getWorldPosition(position);
+    const offset = site.distanceToPath(site.TRAIL, position);
+    assert.ok(offset > 0.95 && offset < site.TRAIL_HALF_WIDTH + 0.02,
+      `guide at ${guide.userData.trailFraction} left the trail edge (${offset.toFixed(2)} m)`);
+    const bounds = new THREE.Box3().setFromObject(guide, true);
+    assert.ok(bounds.min.y >= -1e-5, 'a guide cairn sank through the forest floor');
+    assert.ok(bounds.max.y < 0.36, 'a subtle guide became a tall waypoint marker');
+    let artificialLight = false;
+    guide.traverse((object) => { if (object.isLight) artificialLight = true; });
+    assert.equal(artificialLight, false, 'the moon-catching guide became an electric light');
+  }
+});
+
 test('a man can walk the whole night through without meeting a collider', () => {
   const built = buildInitiationCabinSite();
   const PLAYER_RADIUS = 0.3;
@@ -563,11 +590,38 @@ test('boots know what they are standing on', () => {
   assert.equal(ambience.footingAt(site.PLAYER_SLOT.x, site.PLAYER_SLOT.z), 'gravel', 'the line');
   assert.equal(ambience.footingAt(site.CABIN_DOOR.x, site.PORCH.minZ + 1), 'wood', 'the porch');
   assert.equal(ambience.footingAt(site.CEREMONY_CENTRE.x, site.CEREMONY_CENTRE.z), 'wood', 'the room');
-  assert.equal(ambience.footingAt(-52, -40), 'leaves', 'the woods');
+  assert.equal(ambience.footingAt(-52, -40), 'forest', 'the woods');
 
   const played = [];
-  const audio = { play: (name, options) => played.push({ name, options }) };
+  const audio = {
+    footstep: (surface, intensity, options) => played.push({ surface, intensity, options }),
+  };
   ambience.playFootstep(audio, -52, -40);
-  assert.equal(played[0].name, 'footstep.leaves');
+  assert.equal(played[0].surface, 'forest');
   assert.ok(played[0].options.position, 'a footstep is positional or it is a slideshow');
+  assert.equal(played[0].options.requiredRecorded, true,
+    'the woods cannot silently substitute a synthetic step in certification');
+});
+
+test('the shared forest bank rotates dirt, leaves, twig crack and soft forest floor', () => {
+  assert.deepEqual(
+    FOOTSTEP_VARIANTS.forest.map((entry) => entry.id),
+    ['packed-dirt', 'leaf-crunch', 'twig-crack', 'soft-floor'],
+  );
+  const random = (() => {
+    const values = [0, 0.5, 0, 0.5, 0.4, 0.5, 0.8, 0.5];
+    return () => values.shift() ?? 0;
+  })();
+  const picks = [];
+  let previous = null;
+  for (let i = 0; i < 4; i += 1) {
+    const picked = selectFootstepVariant('forest', previous, random);
+    picks.push(picked);
+    previous = picked.id;
+  }
+  assert.equal(new Set(picks.map((entry) => entry.id)).size, 4,
+    'one short walk hears every treatment before the pattern repeats');
+  assert.equal(picks.every((entry) => Number.isFinite(entry.rate) && entry.rate > 0), true);
+  assert.equal(picks.find((entry) => entry.id === 'twig-crack').cue, 'footstep.leaves',
+    'the twig treatment is a pitch-shifted delivered woodland recording, not an unrecorded cue');
 });

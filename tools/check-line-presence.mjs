@@ -96,29 +96,7 @@ export const GLOBAL_EXEMPT_PREFIXES = Object.freeze([
  * Each entry is `{ includes, reason }`; a cue name matches if it CONTAINS
  * `includes`.
  */
-export const CUE_SUBSTRING_EXEMPTIONS = Object.freeze([
-  {
-    includes: 'vo.enolasquatch.lou.call-opening',
-    reason: "The pre-flight telephone call ('Remember that little delivery "
-      + "flight?') -- src/enolasquatch/dialogue/script.js's 'call.opening' "
-      + 'beat, played before the hangar scene opens. Minted onto '
-      + "vo.enolasquatch.* by tools/enolasquatch-vo.mjs's generator instead "
-      + 'of vo.call.* like the rest of the game\'s calls, so it needs naming '
-      + 'here rather than being caught by the global prefix exemption.',
-  },
-  {
-    includes: 'vo.enolasquatch.lou.arrival-lou',
-    reason: "The post-landing check-in ('Did they get the package?') -- "
-      + "script.js's 'arrival.lou' epilogue beat. crew.js is explicit that "
-      + 'Big Uncle Lou is not on this aeroplane, and '
-      + "MissionController.updateEpilogue() calls itself 'the one deliberate "
-      + "stub': no populated hangar scene exists to stand him in, so the "
-      + 'beat plays as Lou over the radio, the same contact channel the '
-      + 'mission opens on. If a real hangar epilogue is ever built and Lou '
-      + 'gets a body there, DELETE this entry so the checker starts holding '
-      + 'him to it.',
-  },
-]);
+export const CUE_SUBSTRING_EXEMPTIONS = Object.freeze([]);
 
 /* ================================================================== */
 /* ALLOWLIST -- accepted, deliberate exceptions to "staged or exempt".   */
@@ -177,8 +155,8 @@ export function sceneForCue(name, scenes) {
   return matches[0] || null;
 }
 
-function isCueSubstringExempt(name) {
-  return CUE_SUBSTRING_EXEMPTIONS.find((entry) => name.includes(entry.includes)) || null;
+function isCueSubstringExempt(name, exemptions) {
+  return exemptions.find((entry) => name.includes(entry.includes)) || null;
 }
 
 function isAllowlisted(sceneId, voice) {
@@ -190,6 +168,9 @@ function isAllowlisted(sceneId, voice) {
  *
  * @param {object} manifest   parsed assets/sfx/manifest.json
  * @param {object[]} scenes   tools/scene-casts.json's `scenes` array
+ * @param {{cueSubstringExemptions?: {includes:string, reason:string}[]}} [options]
+ *   Test seam for proving the narrow exemption rule without keeping dead
+ *   production exemptions after their staging defects have been repaired.
  * @returns {{
  *   violations: {scene:string, sceneId:string, voice:string, count:number, cues:string[]}[],
  *   allowlisted: {scene:string, voice:string, count:number, reason:string}[],
@@ -197,7 +178,9 @@ function isAllowlisted(sceneId, voice) {
  *   sceneSummary: {sceneId:string, label:string, voices:number, violations:number}[],
  * }}
  */
-export function findViolations(manifest, scenes) {
+export function findViolations(manifest, scenes, {
+  cueSubstringExemptions = CUE_SUBSTRING_EXEMPTIONS,
+} = {}) {
   const cues = spokenCues(manifest);
   const unmapped = [];
   /* scene id -> voice -> cue[] */
@@ -206,7 +189,7 @@ export function findViolations(manifest, scenes) {
   for (const cue of cues) {
     if (GLOBAL_EXEMPT_VOICES.includes(cue.voice)) continue;
     if (matchesAnyPrefix(cue.name, GLOBAL_EXEMPT_PREFIXES)) continue;
-    if (isCueSubstringExempt(cue.name)) continue;
+    if (isCueSubstringExempt(cue.name, cueSubstringExemptions)) continue;
 
     const scene = sceneForCue(cue.name, scenes);
     if (!scene) { unmapped.push({ name: cue.name, voice: cue.voice }); continue; }

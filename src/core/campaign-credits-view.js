@@ -5,14 +5,15 @@
  * 260-pixel box in the corner of the recap card, which is a decoration on a
  * results screen rather than an ending. This is the ending: the recap goes,
  * the screen goes black, and then two hundred and sixty-odd credits go past on
- * the black for as long as the song lasts.
+ * the black for its authored duration.
  *
- * THE SONG. `CREDITS_MUSIC_SRC` is a slot, not an asset. The owner is
- * supplying the track, and this file must not care whether it is there yet:
- * a missing file, a browser that refuses to autoplay, and a player who has
- * muted everything all end the same way -- the crawl runs anyway, on its own
- * clock. The one thing it must never do is hold the ending hostage to an
- * audio element.
+ * THE SONG. `CREDITS_MUSIC_SRC` is a slot, not an asset. It stays null until
+ * the owner supplies a real track: asking the browser for a filename that is
+ * not on disk turns an intentionally silent ending into a production 404.
+ * Once a track lands, a browser that refuses to autoplay and a player who has
+ * muted everything still end the same way -- the crawl runs on its own clock.
+ * The one thing it must never do is hold the ending hostage to an audio
+ * element.
  *
  * SKIPPING. Escape, or the button, or a click anywhere. Nobody gets trapped in
  * a four-minute crawl, and a crawl you cannot leave is the kind of thing this
@@ -25,10 +26,10 @@ import { campaignCreditRoll } from './campaign-credits.js';
  * Where the owner's track goes.
  *
  * Deliberately outside the sfx manifest: the manifest is cues the game fires
- * during play, all of them ours, and a licensed song is neither. It is loaded
- * by path and its absence is not an error.
+ * during play, all of them ours, and a licensed song is neither. Set this to
+ * the delivered asset path only when that file actually exists.
  */
-export const CREDITS_MUSIC_SRC = 'assets/music/credits.mp3';
+export const CREDITS_MUSIC_SRC = null;
 
 /** How long the whole crawl takes, in seconds. Roughly the length of a song. */
 export const CREDITS_DURATION_S = 212;
@@ -85,6 +86,15 @@ export function createCampaignCreditsView({
   let music = null;
   let onDone = null;
   let running = false;
+  let crawlTimer = null;
+  let finishTimer = null;
+
+  function clearTimers() {
+    if (crawlTimer !== null) globalThis.clearTimeout?.(crawlTimer);
+    if (finishTimer !== null) globalThis.clearTimeout?.(finishTimer);
+    crawlTimer = null;
+    finishTimer = null;
+  }
 
   function stopMusic() {
     if (!music) return;
@@ -97,6 +107,7 @@ export function createCampaignCreditsView({
   function finish() {
     if (!running) return;
     running = false;
+    clearTimers();
     stopMusic();
     screen.classList.remove('showing', 'rolling');
     screen.classList.add('hidden-hard');
@@ -135,8 +146,9 @@ export function createCampaignCreditsView({
 
       /* The crawl starts AFTER the black has arrived, not during -- credits
        * sliding up through a half-faded game read as a bug in playtest. */
-      globalThis.setTimeout?.(() => {
+      crawlTimer = globalThis.setTimeout?.(() => {
         if (!running) return;
+        crawlTimer = null;
         screen.classList.add('rolling');
         if (musicSrc && typeof globalThis.Audio === 'function') {
           try {
@@ -149,8 +161,22 @@ export function createCampaignCreditsView({
         }
       }, CREDITS_FADE_S * 1000);
 
+      /* The animation clock, not the music file, owns completion. Missing
+       * music and reduced-motion layouts still arrive at a clean ending, and
+       * a player who puts the controller down is never trapped in the crawl. */
+      finishTimer = globalThis.setTimeout?.(
+        finish,
+        (CREDITS_FADE_S * 1000) + (duration * 1000),
+      );
+
       documentRef.addEventListener('keydown', onKey);
-      skip.focus?.({ preventScroll: true });
+      /* Keep focus inside the modal without arming a native button. The final
+       * initiation action is Space; focusing Skip here lets that same held key
+       * synthesize a click after gameplay input releases and silently throws
+       * the player past the entire ending. Deliberate keyboard users can still
+       * Tab to Skip, while Escape/Enter remain the global shortcuts above. */
+      screen.tabIndex = -1;
+      screen.focus?.({ preventScroll: true });
     },
 
     end: finish,

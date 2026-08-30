@@ -254,7 +254,7 @@ export const SEQUENCES = Object.freeze({
   /* performed at him. Their `.idle` twin fires if he hangs around.       */
   /* =================================================================== */
   arrivalProspect: Object.freeze([
-    { speaker: 'PROSPECT', text: 'Whatever’s in here has been humming since the car.', cue: cue('arrival', 'prospect.humming'), hold: 3.0 },
+    { speaker: 'PROSPECT', text: 'First time at Lou’s place. Whatever’s in this case has been humming since the car.', cue: cue('arrival', 'prospect.firstvisitcase'), hold: 4.2 },
   ]),
   rippinBar: Object.freeze([
     // spec
@@ -307,7 +307,7 @@ export const SEQUENCES = Object.freeze({
     // spec
     { speaker: 'PROSPECT', text: 'What’s inside?', cue: cue('office', 'prospect.whatsinside'), hold: 1.6 },
     // spec
-    { speaker: 'LOU', text: 'You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did.', cue: cue('office', 'lou.soonenough'), hold: 2.6 },
+    { speaker: 'LOU', text: 'Squatchanium. Booski will show you what that means downstairs. Then you’ll wish I hadn’t named it.', cue: cue('office', 'lou.namesquatchanium'), hold: 4.4 },
     { speaker: 'HUD', stage: 'case.close', hold: 1.6 },
     // spec
     { speaker: 'LOU', text: 'Go deliver it to Booski. He’s in the basement.', cue: cue('office', 'lou.deliverittobooski'), hold: 3.2 },
@@ -742,7 +742,7 @@ export const SEQUENCES = Object.freeze({
    * epilogue: the player walks back to Lou and presses E on Lou's body. Only
    * after this exchange does the mission become the quiet mansion evening. */
   louAfterLab: Object.freeze([
-    { speaker: 'LOU', text: 'You’re staying here tonight.', cue: cue('exit', 'lou.stayingtonight'), hold: 2.2 },
+    { speaker: 'LOU', text: 'Things are hot right now. You’re staying here tonight.', cue: cue('exit', 'lou.hotstayingtonight'), hold: 3.2 },
     { speaker: 'LOU', text: 'Guest room’s downstairs, off the cellar hall. It’s made up.', cue: cue('exit', 'lou.guestroomdownstairs'), hold: 3.8 },
     { speaker: 'LOU', text: 'Look around if you want. Have a drink, watch a picture. Then get some sleep.', cue: cue('exit', 'lou.enjoythehouse'), hold: 4.8 },
   ]),
@@ -952,6 +952,91 @@ export const SEQUENCES = Object.freeze({
   ]),
   guardVaultIdle: Object.freeze([
     { speaker: 'GUARD_VAULT', text: 'Back up. I don’t get told what’s in there either, and I’ve stopped wanting to know.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
+  ]),
+
+  /* ---- The guards, THE MORNING AFTER. ---------------------------------
+   *
+   * Owner playtest, verbatim: *"Repaired mansion is really just the same
+   * thing as the original mansion. The guards should have some voicelines
+   * acknowledging your actions. Welcome back, nice work the other night.
+   * Etc."*
+   *
+   * He was right and the reason was structural rather than an oversight. The
+   * return visit re-mounted the SAME cast module with the same barks, so five
+   * men who had watched the player fight a war through this house on the
+   * night of the siege greeted him the next morning with "Keep on the path"
+   * and "Nothing down here belongs to you" -- the house had not noticed.
+   *
+   * Each of these is the same man on the same square of floor as his mission
+   * line, saying the one thing that square earned. Nobody makes a speech: the
+   * stairs man still will not look at you, the vault man still will not tell
+   * you what is in there. They just know who you are now.
+   *
+   * `cue('return', ...)` is its own scope, so the recording sheet lists them
+   * as a block and no take of a mission line gets reused for one.
+   */
+  /* Owner, 2026-08-26: the wrong city is never acknowledged aboard the
+   * Enola. Lou reveals it here, at the repaired mansion, then delivers the
+   * Sauce and palace facts in that order. The instrument line is the payoff
+   * for the quiet ORDER / NAV discrepancy in the cockpit. Mark stays unnamed
+   * until his boss fight; this is A-Team leadership's estate and nothing more
+   * specific. Grim absurdity, played straight. */
+  returnBriefing: Object.freeze([
+    { speaker: 'LOU', text: 'Sit down. The instrument was right. Our briefing wasn’t. We bombed the wrong fucking city.', cue: cue('return', 'briefing.lou.instrument'), hold: 4.8 },
+    { speaker: 'PROSPECT', text: 'The whole city?', cue: cue('return', 'briefing.prospect.wholecity'), hold: 1.8 },
+    { speaker: 'LOU', text: 'Every pound of it. Squatchbourg is a crater. The A-Team’s desert compound is still exactly where it was.', cue: cue('return', 'briefing.lou.compoundstanding'), hold: 5.2 },
+    { speaker: 'LOU', text: 'While we were admiring the hole, Sauce went missing.', cue: cue('return', 'briefing.lou.saucemissing'), hold: 3.2 },
+    { speaker: 'PROSPECT', text: 'They took him?', cue: cue('return', 'briefing.prospect.tookhim'), hold: 1.8 },
+    { speaker: 'LOU', text: 'His restaurant burner and one of their estate gate logs put his name at an A-Team leadership estate. Could be a prisoner, could be a guest. You are going there tonight and finding out.', cue: cue('return', 'briefing.lou.estate'), hold: 7.2 },
+  ]),
+
+  guardPathReturn: Object.freeze([
+    { speaker: 'GUARD', text: 'Walk wherever you want today.', cue: cue('return', 'perimeter.wherever'), hold: 2.4 },
+  ]),
+  guardCameraReturn: Object.freeze([
+    { speaker: 'GUARD', text: 'Cameras are back up. Took them all night.', cue: cue('return', 'perimeter.camerasback'), hold: 3.0 },
+  ]),
+  guardLapReturn: Object.freeze([
+    { speaker: 'GUARD_PERIMETER', text: 'Eleven laps and I still missed the whole thing. Story of my life.', cue: cue('return', 'perimeter.missedit'), hold: 4.2 },
+  ]),
+  guardStairsReturn: Object.freeze([
+    { speaker: 'GUARD_STAIRS', text: 'Welcome back. He’s expecting you.', cue: cue('return', 'stairs.welcomeback'), hold: 2.8 },
+  ]),
+  guardStairsReturnIdle: Object.freeze([
+    { speaker: 'GUARD_STAIRS', text: 'Nice work the other night. I mean that.', cue: cue('return', 'stairs.nicework'), hold: 3.0 },
+  ]),
+  guardBasementReturn: Object.freeze([
+    { speaker: 'GUARD_BASEMENT', text: 'Go where you like. After the other night you’ve earned the run of it.', cue: cue('return', 'basement.runofit'), hold: 4.4 },
+  ]),
+  guardBasementReturnIdle: Object.freeze([
+    { speaker: 'GUARD_BASEMENT', text: 'They came down these stairs at me. I got two. You got the rest.', cue: cue('return', 'basement.gottwo'), hold: 4.4 },
+  ]),
+  guardVaultReturn: Object.freeze([
+    { speaker: 'GUARD_VAULT', text: 'Door’s still open. I’m still here. Different reason now.', cue: cue('return', 'vault.differentreason'), hold: 4.0 },
+  ]),
+  guardVaultReturnIdle: Object.freeze([
+    { speaker: 'GUARD_VAULT', text: 'Whatever you did upstairs, nobody got past me down here. Not that night.', cue: cue('return', 'vault.nobodygotpast'), hold: 4.6 },
+  ]),
+
+  /* ---- Snow, the morning after. ---------------------------------------
+   *
+   * Owner, same note: *"I want some things to be repaired. Like maybe the
+   * centerpiece in the foyer is clearly still half broken and being repaired.
+   * Maybe Snow is working on it as a maintenance man -- lets give him a
+   * maintenance outfit and a voice line about how long its going to take to
+   * get everything fixed up."*
+   *
+   * He is the man who said "Try not to make more work for me tonight" on the
+   * way in, on the night that turned into the siege. This is the bill. */
+  snowRepairFoyer: Object.freeze([
+    { speaker: 'SNOW', text: 'Six weeks. That’s what the man quoted me for the foyer alone.', cue: cue('return', 'snow.sixweeks'), hold: 4.2 },
+  ]),
+  snowRepairIdle: Object.freeze([
+    { speaker: 'SNOW', text: 'I told you not to make more work for me. Nobody listens.', cue: cue('return', 'snow.nobodylistens'), hold: 4.0 },
+  ]),
+  snowRepairSecond: Object.freeze([
+    { speaker: 'SNOW', text: 'Marble you can’t patch. It has to come out and go back in.', cue: cue('return', 'snow.marblecomesout'), hold: 4.2 },
+    { speaker: 'SNOW', text: 'Ask me at Christmas.', cue: cue('return', 'snow.askmeatchristmas'), hold: 2.2 },
   ]),
 
   /* ---- The bar in the billiard bay. -----------------------------------

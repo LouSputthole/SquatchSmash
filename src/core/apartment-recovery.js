@@ -10,7 +10,14 @@ import {
 
 const PREPARATION_IDS = new Set(HEIST_PREPARATION_ITEMS.map(({ id }) => id));
 const CLEANUP_IDS = new Set(HEIST_CLEANUP_ITEMS.map(({ id }) => id));
-const SLEEP_GATES = new Set(['sleep', 'sleep_before_big_night']);
+/* Every `stay` the flat's door can answer with that a night's sleep resolves.
+ * `sleep_before_the_course` is beat 12's evening -- the bank is counted, Lou
+ * has rung about a new space, and eight o'clock at Silver Pines is tomorrow. */
+const SLEEP_GATES = new Set([
+  'sleep',
+  'sleep_before_big_night',
+  'sleep_before_the_course',
+]);
 const MAX_RECOVERY_STEPS = 32;
 
 /**
@@ -48,7 +55,13 @@ export function apartmentRecoveryBeatId(state) {
       : `${SCENE_IDS.APARTMENT}:date:before_silver`;
   }
   if (chapter === 'golf_morning') {
-    return `${SCENE_IDS.APARTMENT}:golf_morning:before_golf`;
+    /* Two beats now, because beat 14 is a doorway rather than a dead end: a
+     * save that already played the round is standing in a flat whose only
+     * remaining exit is the address Lou gave him on the eighteenth green. A
+     * single id would make a retry before the round grant a skip after it. */
+    return missions[MISSION_IDS.SILVER_PINES]?.status === 'complete'
+      ? `${SCENE_IDS.APARTMENT}:golf_morning:after_golf`
+      : `${SCENE_IDS.APARTMENT}:golf_morning:before_golf`;
   }
   if (chapter === 'heist_day') {
     return `${SCENE_IDS.APARTMENT}:heist_day:before_heist`;
@@ -176,19 +189,6 @@ export function createApartmentRecoverySkipAdapter({
 
       if (decision?.kind === 'stay' && SLEEP_GATES.has(decision.id)) {
         if (story.sleep()?.ok !== true) break;
-        continue;
-      }
-
-      // One old transition wrote a completed round without advancing its
-      // chapter. Repair that durable seam, then let the normal heist-day call
-      // and packing gates run on the next loop.
-      if (decision?.kind === 'stay'
-        && decision.id === 'golf_return_pending'
-        && campaign.state.missions[MISSION_IDS.SILVER_PINES].status === 'complete') {
-        campaign.update((state) => {
-          state.story.chapter = 'heist_day';
-          state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
-        });
         continue;
       }
 

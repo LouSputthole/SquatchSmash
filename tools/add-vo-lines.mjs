@@ -157,8 +157,8 @@ const LINES = {
   /* Reading the post. One bank per sender, because the whole point is that he
    * answers three very different messages in the same flat register. */
   'mail.booski': [
-    'He does not say things like that. He has said a thing like that.',
-    'Right. Well. Now I have to actually go, do not I.',
+    'He emailed twice about meeting minutes. This is apparently an emergency.',
+    'Right. Well. Now I have to actually go to a meeting, do not I.',
     'Cheers, Booski.',
   ],
   'mail.hate': [
@@ -171,19 +171,20 @@ const LINES = {
     'Forty one thousand people reviewed this. Overwhelmingly positive.',
     'He bought it, then read what it was, and sent it anyway.',
     'That is in my library now. That is on my account, permanently.',
-    'The nice bit at the end was genuinely nice, to be fair to him.',
+    'The bit at the end was almost normal, to be fair to him.',
   ],
   'mail.ape': [
     'He said he would sort it. He says that.',
     'So I am bringing it. Obviously I am bringing it.',
     '"More than none, which is what I currently have." Brilliant.',
   ],
-  /* He is not getting in that plane and everyone involved knows it. The reply
-   * is the sound of an offer being accepted in principle and never again. */
+  /* Sasole's mail appears only after the Beef Run. Tony is reacting to a
+   * second, recreational offer from a pilot he now knows, not accepting a
+   * flight before their authored first meeting at the airstrip. */
   'mail.flying': [
-    'Yeah. Yeah, definitely. Sometime.',
-    'Love to. Absolutely. Not this week though.',
-    '"If you make it past initiation." Cheers, Lou.',
+    'He gets one safe landing and starts recruiting.',
+    'Love to. Absolutely. After my hands stop shaking.',
+    '“Nothing mad,” he says, after the meat run.',
     'I will reply to that later. I will not reply to that.',
   ],
 
@@ -367,7 +368,7 @@ const LINES = {
     'Something should probably happen at some point.',
     'I could just stand here. That is an option.',
     'Nobody is coming round. I checked.',
-    'Long way to Wednesday.',
+    'Long way to anything happening.',
   ],
 };
 
@@ -375,6 +376,17 @@ const LINES = {
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
 manifest.sfx ??= [];
+
+/* These two banks changed meaning rather than merely gaining another take.
+ * Appending would leave the retired copy in the same random playback prefix:
+ * Sasole could still introduce himself before the Beef Run, and the toilet
+ * could still recommend mechanics the apartment no longer uses. Own these
+ * small prefixes explicitly, remove their old slots, and rebuild them from
+ * the current source above. Stable slot numbers are then re-rendered below
+ * instead of shipping two contradictory banks under one selector. */
+const REPLACED_GROUPS = new Set(['mail.flying', 'toilet.hint']);
+manifest.sfx = manifest.sfx.filter((cue) => ![...REPLACED_GROUPS]
+  .some((group) => new RegExp(`^vo\\.${group.replace('.', '\\.')}\\.\\d+$`).test(cue.name)));
 
 const existing = new Set(manifest.sfx.map((c) => c.name));
 const saidAlready = new Set(

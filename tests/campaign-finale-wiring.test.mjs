@@ -32,10 +32,11 @@ test('Apartment owns the credits, career recap, and durable freeplay handoff', a
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
-test('the protected Initiation only reports completion and returns through its existing edge', async () => {
+test('Initiation reports completion and hands the ending directly to the shared credits', async () => {
   const source = await read('src/initiation/main.js');
-  assert.doesNotMatch(source, /campaign-finale|campaignFinale|career recap/i);
   assert.match(source, /TIME_EVENT_IDS\.COMPLETE_INITIATION/);
-  assert.match(source, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
+  assert.match(source, /createCampaignCreditsView/);
+  assert.match(source, /prospectRecordCreditEntries\(campaign\.state\.statistics\)/);
+  assert.match(source, /campaignCreditsView\.roll\(\{/);
+  assert.doesNotMatch(source, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
 });
-

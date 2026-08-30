@@ -2,10 +2,10 @@
 /**
  * Frozen-safe WebGL runtime health gate.
  *
- * This file deliberately enumerates every playable card in preview.html except
- * Initiation. `validateRuntimeMatrix` holds that list in exact sync with the
- * launcher, so a new scene cannot ship without joining this gate and the
- * frozen scene cannot join it accidentally.
+ * This file deliberately enumerates every public hub beat, playable mission,
+ * and tool card in preview.html except Initiation. `validateRuntimeMatrix`
+ * holds that list in exact sync with the launcher, so a new runtime cannot ship
+ * without joining this gate and the frozen scene cannot join it accidentally.
  */
 
 import fs from 'node:fs';
@@ -86,30 +86,21 @@ export function createWebGLRuntimeMode({
   });
 }
 
-const APARTMENT_VARIANTS = Object.freeze([
-  'day-one-wake',
-  'after-bing-one',
-  'after-squatchfather',
-  'day-two-wake',
-  'after-beef-run',
-  'after-motel',
-  'day-three-wake',
-  'after-no-wake',
-  'after-silver-room',
-  'day-four-wake',
-  'after-golf',
-  'after-heist',
-]);
-
 const runtime = (id, url, start = null, ready = null) => Object.freeze({ id, url, start, ready });
 
 export const NON_INITIATION_RUNTIME_CASES = Object.freeze([
-  ...APARTMENT_VARIANTS.map((variant) => runtime(
-    `apartment:${variant}`,
-    `index.html?preview=1&apartment=${variant}`,
-    '#start-btn',
-    ['__squatch', 'apartment'],
-  )),
+  runtime('hub:squatch_smash_intro', 'index.html?preview=1&beat=squatch_smash_intro', '#start-btn', ['__squatch', 'apartment']),
+  runtime('hub:first_apartment', 'index.html?preview=1&beat=first_apartment', '#start-btn', ['__squatch', 'apartment']),
+  runtime('hub:cabin_lay_low', 'cabin.html?preview=1&beat=cabin_lay_low', '#start-btn', ['COUNTRYSIDE_CABIN', 'story']),
+  runtime('hub:booski_sasole_call', 'cabin.html?preview=1&beat=booski_sasole_call', '#start-btn', ['COUNTRYSIDE_CABIN', 'story']),
+  runtime('hub:cabin_two', 'cabin.html?preview=1&beat=cabin_two', '#start-btn', ['COUNTRYSIDE_CABIN', 'story']),
+  runtime('hub:return_to_old_apartment', 'index.html?preview=1&beat=return_to_old_apartment', '#start-btn', ['__squatch', 'apartment']),
+  runtime('hub:new_space_call', 'index.html?preview=1&beat=new_space_call', '#start-btn', ['__squatch', 'apartment']),
+  runtime('hub:luxury_apartment_intro', 'luxury-apartment.html?preview=1&beat=luxury_apartment_intro', '#start-btn', ['LUXURY_APARTMENT', 'world']),
+  runtime('hub:margo_stayover', 'luxury-apartment.html?preview=1&beat=margo_stayover', '#start-btn', ['LUXURY_APARTMENT', 'world']),
+  runtime('hub:luxury_apartment_morning', 'luxury-apartment.html?preview=1&beat=luxury_apartment_morning', '#start-btn', ['LUXURY_APARTMENT', 'world']),
+  runtime('hub:luxury_apartment_return', 'luxury-apartment.html?preview=1&beat=luxury_apartment_return', '#start-btn', ['LUXURY_APARTMENT', 'world']),
+  runtime('hub:special_meeting_call', 'luxury-apartment.html?preview=1&beat=special_meeting_call', '#start-btn', ['LUXURY_APARTMENT', 'world']),
   runtime('bing-one', 'bing.html?preview=1', '#start-btn', ['__bing', 'campaign']),
   runtime('squatchfather', 'squatchfather.html?preview=1', '#startBtn', ['squatchfather', 'fsm']),
   runtime('beefrun', 'beefrun.html?preview=1', '#start-btn', ['__beefrun', 'story']),
@@ -152,12 +143,12 @@ export function launcherRuntimeEntries(html) {
   const entries = [];
   for (const match of html.matchAll(/<a\b[^>]*>/gi)) {
     const anchor = match[0];
-    const preview = anchor.match(/\bdata-preview-(apartment|scene|tool)=["']([^"']+)["']/i);
+    const preview = anchor.match(/\bdata-preview-(beat|scene|tool)=["']([^"']+)["']/i);
     const href = anchor.match(/\bhref=["']([^"']+)["']/i);
     if (!preview || !href) continue;
     const [, kind, value] = preview;
     entries.push(Object.freeze({
-      id: kind.toLowerCase() === 'apartment' ? `apartment:${value}` : value,
+      id: kind.toLowerCase() === 'beat' ? `hub:${value}` : value,
       url: decodeHtmlHref(href[1]),
     }));
   }

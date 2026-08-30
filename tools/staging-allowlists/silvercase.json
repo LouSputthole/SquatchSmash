@@ -9,7 +9,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     },
     {
@@ -19,7 +19,7 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
     },
     {
@@ -29,18 +29,8 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
-    },
-    {
-      "id": "silvercase-hallway-pruitt-bathroom-door",
-      "state": "hallway",
-      "kind": "FACING_INTO_SOLID",
-      "actor": "pruitt",
-      "solid": "aabb-10p85-0-m2p6-11p55-2p2-m2p4",
-      "reason": "Pruitt is the gunman hiding in the bathroom, and `pruitt.group.visible = false` until reveal() teleports him into the doorway -- until then there is nothing on screen to be mis-staged. He stands in the shallow unlit alcove behind the bathroom door, which is authored 0.70 m wide by 0.60 m deep on purpose: just enough for the leaf to swing and a man to burst out of, with no modelled interior to see. The solid 0.30 m off his nose IS that door, the one he comes through. Probed at all 24 headings 15 degrees apart, the nearest solid is 0.300 to 0.424 m on every single one, so no yaw in a cupboard that size can clear the gate's 0.8 m -- there is no turn that fixes this, and facing the door he is about to come through is the correct way for him to be standing.",
-      "source": "src/silvercase/cast/cast.js:310",
-      "sourceAnchor": "const pruittHidden = {"
     },
     {
       "id": "silvercase-prayer-deke-couch",
@@ -49,18 +39,8 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
-    },
-    {
-      "id": "silvercase-prayer-pruitt-bathroom-door",
-      "state": "prayer",
-      "kind": "FACING_INTO_SOLID",
-      "actor": "pruitt",
-      "solid": "aabb-10p85-0-m2p6-11p55-2p2-m2p4",
-      "reason": "Pruitt is the gunman hiding in the bathroom, and `pruitt.group.visible = false` until reveal() teleports him into the doorway -- until then there is nothing on screen to be mis-staged. He stands in the shallow unlit alcove behind the bathroom door, which is authored 0.70 m wide by 0.60 m deep on purpose: just enough for the leaf to swing and a man to burst out of, with no modelled interior to see. The solid 0.30 m off his nose IS that door, the one he comes through. Probed at all 24 headings 15 degrees apart, the nearest solid is 0.300 to 0.424 m on every single one, so no yaw in a cupboard that size can clear the gate's 0.8 m -- there is no turn that fixes this, and facing the door he is about to come through is the correct way for him to be standing.",
-      "source": "src/silvercase/cast/cast.js:310",
-      "sourceAnchor": "const pruittHidden = {"
     },
     {
       "id": "silvercase-room-deke-couch",
@@ -69,18 +49,8 @@
       "actor": "deke",
       "solid": "aabb-6p905-0-1p58-9p095-0p66-2p5",
       "reason": "Deke is sat on the couch, which is the whole point of him: the beat this mission builds to is a man shot ON that couch, and he stays on it afterwards. The couch is collided as one box from the floor to 0.66 m, the height of its ARMS, which the player must not be able to walk through; the seat cushion inside that box tops out at 0.54 and his hips measure 0.583, so he is 43 mm above the cushion and 77 mm below the lid of the box. A sitter's hips are inside the couch by definition. Chester, on a chair whose collider stops at 0.50, clears the same check only because a dining chair has no arms.",
-      "source": "src/silvercase/cast/cast.js:248",
+      "source": "src/silvercase/cast/cast.js:280",
       "sourceAnchor": "position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },"
-    },
-    {
-      "id": "silvercase-room-pruitt-bathroom-door",
-      "state": "room",
-      "kind": "FACING_INTO_SOLID",
-      "actor": "pruitt",
-      "solid": "aabb-10p85-0-m2p6-11p55-2p2-m2p4",
-      "reason": "Pruitt is the gunman hiding in the bathroom, and `pruitt.group.visible = false` until reveal() teleports him into the doorway -- until then there is nothing on screen to be mis-staged. He stands in the shallow unlit alcove behind the bathroom door, which is authored 0.70 m wide by 0.60 m deep on purpose: just enough for the leaf to swing and a man to burst out of, with no modelled interior to see. The solid 0.30 m off his nose IS that door, the one he comes through. Probed at all 24 headings 15 degrees apart, the nearest solid is 0.300 to 0.424 m on every single one, so no yaw in a cupboard that size can clear the gate's 0.8 m -- there is no turn that fixes this, and facing the door he is about to come through is the correct way for him to be standing.",
-      "source": "src/silvercase/cast/cast.js:310",
-      "sourceAnchor": "const pruittHidden = {"
     }
   ]
 }

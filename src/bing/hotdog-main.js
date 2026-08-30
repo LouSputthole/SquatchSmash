@@ -15,8 +15,10 @@ import {
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { conciseObjectiveItems, createObjectivePanel } from '../core/objective-panel.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -29,6 +31,7 @@ import {
 } from './hotdog-attack.js';
 import { hotDogAudioLoadOptions } from './hotdog-audio.js';
 import { createHotDogChatter } from './hotdog-chatter.js';
+import { createHotDogInputPolicy } from './hotdog-controls.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
 import {
@@ -57,8 +60,6 @@ const loading = document.getElementById('loading');
 const startButton = document.getElementById('start-btn');
 const assetStatus = document.getElementById('asset-status');
 const blackout = document.getElementById('blackout');
-const objectivesRoot = document.getElementById('objectives');
-const objectiveList = objectivesRoot.querySelector('ul');
 const dialogueRoot = document.getElementById('dialogue');
 
 /* `.otitle`, not `.head`, and THIS PAGE SHARES bing.html WITH THE CLUB.
@@ -73,7 +74,7 @@ const dialogueRoot = document.getElementById('dialogue');
  * The rename was grepped for, in main.js and in the HTML, and not in the
  * sibling that shares the file. verify:webgl-health is what caught it, on its
  * first run in this repository's life. */
-objectivesRoot.querySelector('.otitle').textContent = 'THE HOTDOG INCIDENT';
+const objectivePanel = createObjectivePanel();
 
 overlay.querySelector('h1').innerHTML = 'THE <span>HOTDOG INCIDENT</span>';
 overlay.querySelector('.tag').textContent = 'The Bada Bing is closed for Billy HotDog\'s welcome-home party. Family only. Hog Mama is waiting on the stage controls.';
@@ -238,13 +239,19 @@ mission = new SecondVisitMission({
 
 function repaintObjectives() {
   if (!mission) return;
-  objectiveList.replaceChildren(...mission.objectives.map((objective) => {
-    const li = document.createElement('li');
-    li.className = objective.done ? 'done' : '';
-    li.innerHTML = `<i></i><span>${objective.text}</span>`;
-    return li;
-  }));
-  objectivesRoot.classList.remove('hidden');
+  /* SecondVisitMission keeps its completed ledger for campaign recovery and
+   * verifier receipts. The shared panel projects that ledger onto the one
+   * thing the player can act on now, so completed work leaves immediately and
+   * an exhausted list hides the whole card instead of becoming a trophy case. */
+  objectivePanel.set({
+    title: 'THE HOTDOG INCIDENT',
+    items: conciseObjectiveItems(mission.objectives.map((objective) => ({
+      id: objective.id,
+      label: objective.text,
+      done: objective.done,
+      required: true,
+    }))),
+  });
 }
 repaintObjectives();
 window.__squatchStage?.('Assigning party reactions...');
@@ -346,23 +353,37 @@ function setCinematicShot(name, eye, look) {
   // the last one should not carry over into a different framing.
   state.cinematic.anchorYaw = player.yaw;
   state.cinematic.anchorPitch = player.pitch;
-  player.clearKeys();
+  input.clear('cinematic-shot');
   interaction.setPaused(true);
 }
 
 function releaseCinematic({ x = null, z = null, lookAt = null } = {}) {
+  /* Preserve the camera the player is actually looking through. The old handoff
+   * discarded the cinematic pitch and rebuilt yaw from the authored lookAt,
+   * so the release frame snapped even when the player had not moved the mouse
+   * (and snapped harder when they had). Player uses the same YXZ convention. */
+  const handoff = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+  let yaw = handoff.y;
+  let pitch = clamp(handoff.x, player.pitchMin, player.pitchMax);
+  if (!Number.isFinite(yaw) && lookAt && Number.isFinite(x) && Number.isFinite(z)) {
+    const dx = lookAt.x - x;
+    const dz = lookAt.z - z;
+    yaw = Math.atan2(-dx, -dz);
+  }
+  if (!Number.isFinite(yaw)) yaw = player.yaw;
+  if (!Number.isFinite(pitch)) pitch = player.pitch;
   state.cinematic.active = false;
   state.cinematic.shot = null;
   state.cinematic.shake = 0;
+  input.clear('cinematic-release');
   interaction.setPaused(false);
   if (Number.isFinite(x) && Number.isFinite(z)) {
-    let yaw = player.yaw;
-    if (lookAt) {
-      const dx = lookAt.x - x;
-      const dz = lookAt.z - z;
-      yaw = Math.atan2(-dx, -dz);
-    }
-    teleport(x, z, yaw);
+    teleport(x, z, yaw, pitch);
+  } else {
+    player.yaw = yaw;
+    player.pitch = pitch;
+    player.velocity.set(0, 0, 0);
+    player.update(0.016);
   }
 }
 
@@ -1040,18 +1061,18 @@ interaction.register(party.cleanup.bathroomPads.mens, {
 });
 
 interaction.register(party.cleanup.kit, {
-  label: 'Take <b>Aubbie\'s correct cleanup kit</b>',
+  label: 'Take <b>Stove\'s Cleaning Kit</b>',
   enabled: () => state.phase === 'active' && mission.state === 'cleanup' && !state.kitTaken,
   onUse: () => {
     state.kitTaken = true;
     party.cleanup.kit.visible = false;
     completeCleanupTask('cleaning_kit');
     audio.play('cloth.snap', { volume: 0.55, position: party.cleanup.kit.position });
-    /* Aubbie calls across the room about his own case; the line under it is
-     * the Prospect looking in the case, which is his to notice and stays HUD. */
+    /* Old Stove identifies his own case; the line under it is the Prospect
+     * looking inside, which remains HUD observation rather than voiced fact. */
     speakThenNote(
-      HOTDOG_STAGED_LINES.aubbieKitCalled,
-      'Plastic sheeting, nitrile gloves, carpet knife, proper chemicals. Aubbie labels everything.',
+      HOTDOG_STAGED_LINES.stoveKitCalled,
+      'Plastic sheeting, nitrile gloves, carpet knife, proper chemicals. Stove labels everything.',
       4300,
     );
   },
@@ -1107,7 +1128,7 @@ interaction.register(party.extra.lou.group, {
     if (mission.state === 'cleanup' && !mission.roomClean) {
       const missing = [];
       if (!mission.cleanup.has('bathrooms')) missing.push('the men\'s room');
-      if (!mission.cleanup.has('cleaning_kit')) missing.push('Aubbie\'s kit');
+      if (!mission.cleanup.has('cleaning_kit')) missing.push('Stove\'s Cleaning Kit');
       if (!mission.cleanup.has('missing_evidence')) missing.push('HotDog\'s jewelry');
       /* He refuses in his own voice. The list of what is still owed is a
        * checklist, so it follows him rather than standing in for him -- and it
@@ -1144,10 +1165,10 @@ interaction.register(party.extra.lou.group, {
  *
  * It used to be a second press on Lou himself, which meant "sweep the room"
  * was two men talking. He orders it; the Prospect does it, on his knees, on
- * the boards Billy bled into, with the kit he already went and fetched.
+ * the boards Billy bled into, with Stove's kit already fetched.
  */
 interaction.register(party.cleanup.blood, {
-  label: 'Hold to <b>sweep the floor</b> with Aubbie\'s kit',
+  label: 'Hold to <b>sweep the floor</b> with Stove\'s Cleaning Kit',
   hold: 2.2,
   enabled: () => state.phase === 'active'
     && mission.state === 'sweep'
@@ -1249,7 +1270,7 @@ interaction.register(party.cleanup.wrap, {
     camera.attach(party.cleanup.wrap);
     party.cleanup.wrap.position.copy(CARRY_POSITION);
     party.cleanup.wrap.quaternion.copy(CARRY_QUATERNION);
-    player.clearKeys();
+    input.clear('body-carry');
     audio.play('cloth.suit.movement', { volume: 0.75, position: player.position });
     repaintObjectives();
     hud.toast('Billy HotDog · carrying', 'good');
@@ -1492,7 +1513,7 @@ function jumpToPreviewCheckpoint(id) {
 }
 
 /**
- * The cutscene is over and the only thing left is the back door.
+ * The cutscene is over and the only thing left is the service exit.
  *
  * The scene does NOT end here: it ends when the player walks out of it,
  * which is what `updateRoom` is watching for.
@@ -1531,9 +1552,15 @@ function finishParty() {
   state.endingShown = true;
   mission.finish();
   state.phase = 'complete';
-  player.enabled = false;
-  player.clearKeys();
+  input.suspend();
   interaction.setPaused(true);
+  /* The player has physically crossed the service door before this seam. The
+   * club is no longer a live room, so retire every loop it owns here instead
+   * of letting the rain, crowd, or Billy's record leak under the graveyard.
+   * stopLoop removes the ownership key immediately even while its short fade
+   * finishes, which also makes a double-click or slow navigation harmless. */
+  for (const key of [...audio.loops.keys()]) audio.stopLoop(key, 0.18);
+  audio.stopSpeech?.();
   document.exitPointerLock?.();
   blackout.classList.add('on');
   setTimeout(() => {
@@ -1579,12 +1606,12 @@ function updateRoom() {
   if (state.departing && ['yard', 'alley'].includes(next)) finishParty();
 }
 
-function teleport(x, z, yaw = player.yaw) {
+function teleport(x, z, yaw = player.yaw, pitch = 0) {
   player.mode = 'walk';
   player.position.set(x, 1.66, z);
   player.velocity.set(0, 0, 0);
   player.yaw = yaw;
-  player.pitch = 0;
+  player.pitch = clamp(pitch, player.pitchMin, player.pitchMax);
   player.update(0.016);
 }
 
@@ -1614,9 +1641,12 @@ const runtime = {
   party,
   cast,
   club,
+  scene,
   camera,
   three: THREE,
   player,
+  get input() { return input; },
+  get renderedFrameCount() { return renderedFrameCount; },
   interaction,
   audio,
   postfx,
@@ -1634,6 +1664,7 @@ const runtime = {
   settleAuthoredWalks,
   updateDirector,
   applyCinematicCamera,
+  releaseCinematic,
   attack,
   gore,
   completeCleanupTask,
@@ -1644,14 +1675,24 @@ window.__bing = runtime;
 window.HOTDOG_INCIDENT = runtime;
 
 function requestGamePointerLock() {
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // Embedded previews can deny pointer lock. The scene remains playable
-    // through its debug/verification surface and a later canvas click retries.
-  }
+  return input.requestPointerLock();
 }
+
+const hotDogInputPolicy = createHotDogInputPolicy({
+  isActive: () => state.phase === 'active' && !state.paused,
+  isCarrying: () => state.carrying,
+  drinkShot: () => shotBeat.drink(),
+  primaryControl: interaction,
+  notifyCarryRefusal: () => hud.say('Not with Billy in both arms.', 2200),
+  toggleBloom: () => postfx.toggle(),
+  showBloom: (enabled) => hud.toast(enabled ? 'Bloom on' : 'Bloom off', 'good'),
+});
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  ...hotDogInputPolicy,
+});
 
 startButton.addEventListener('click', async () => {
   if (state.phase === 'complete') return;
@@ -1696,13 +1737,13 @@ startButton.addEventListener('click', async () => {
   document.body.classList.add('playing', 'hotdog-party');
   sceneInventory.set([]);
   sceneInventory.show();
-  player.enabled = true;
   // Start just inside the closed club. The exterior arrival was dead walking
   // before the scene's actual premise; this gets the player to the packed room
   // and stage controls immediately.
   teleport(club.anchors.frontDoor.x, club.anchors.frontDoor.z - 7.1, 0);
   restoreFromCampaign();
   if (previewCheckpoint) jumpToPreviewCheckpoint(previewCheckpoint);
+  input.refresh('mission-start');
   requestGamePointerLock();
   // The opening line narrates a party that has not happened yet; a jump past
   // it has nothing for this line to introduce.
@@ -1724,9 +1765,7 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
     audio.ctx?.suspend?.();
   },
@@ -1735,7 +1774,7 @@ const pauseMenu = createPauseMenu({
     interaction.setPaused(state.cinematic.active);
     audio.ctx?.resume?.();
     lastTime = performance.now();
-    requestGamePointerLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -1744,59 +1783,12 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active' && !state.paused) {
-    player.enabled = document.pointerLockElement === canvas;
-  }
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('keydown', (event) => {
-  if (event.code === 'Space') event.preventDefault();
-  if (state.phase !== 'active' || state.paused) return;
-  /* Carrying Billy takes both arms. Same restriction the graveyard puts on
-   * the same body: no jumping and no hurrying with a man on your shoulder. */
-  const key = translateKey(event.code);
-  if (state.carrying && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
-    player.setKey(key, false);
-    if (key === 'Space' && !event.repeat) hud.say('Not with Billy in both arms.', 2200);
-    return;
-  }
-  player.setKey(key, true);
-  // The shot beat owns [E] while the glass is in his hand.
-  if (event.code === 'KeyE' && shotBeat.drink()) return;
-  if (event.code === 'KeyE') interaction.press();
-  if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && document.pointerLockElement === canvas) interaction.press();
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) interaction.release();
-});
-/* Alt-tab safety. A window that loses focus never gets the keyup, so without
- * this the last held key walks the player into the club wall for as long as
- * the tab is away (the pattern in src/silver/main.js and src/bing/main.js). */
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-});
 /* And a hidden tab should not keep simulating the party at nobody: route
  * through the pause menu, whose onPause already clears keys, suspends the
  * audio context, and freezes the sim. pause() refuses politely outside the
  * active phase. */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
-});
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
-    requestGamePointerLock();
-  }
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1805,6 +1797,7 @@ addEventListener('resize', () => {
   postfx.setSize(innerWidth, innerHeight);
 });
 
+let renderedFrameCount = 0;
 let lastTime = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
@@ -1847,7 +1840,13 @@ function animate(now) {
     clock.update(dt);
   }
   hud.setClock(clock.day, clock.clock12, clock.elapsedReal);
+  /* Where the player's ears are. Without this the WebAudio listener sits at
+   * the world origin facing -Z for the whole scene and every positioned cue is
+   * panned as heard from there -- see the long note in
+   * src/cartel-palace/main.js, where the owner caught it. */
+  audio.updateListener(camera);
   postfx.render();
+  renderedFrameCount += 1;
   postfx.sample(dt);
 }
 requestAnimationFrame(animate);

@@ -43,7 +43,7 @@ export function pendingCleanupPrerequisites(task, done = new Set()) {
  */
 const CLEANUP_LABELS = Object.freeze({
   bathrooms: 'Clear the men\'s room — nobody else is in this building',
-  cleaning_kit: 'Retrieve Aubbie\'s cleanup kit from storage',
+  cleaning_kit: 'Retrieve Stove\'s Cleaning Kit from storage',
   missing_evidence: 'Find HotDog\'s missing cufflink and lapel pin',
   final_sweep: 'Perform Lou\'s final evidence sweep',
 });
@@ -381,12 +381,12 @@ export class SecondVisitMission {
 
   /**
    * The ending cutscene has played, inside, and the only thing left is the
-   * back door. Called by the runtime when the handoff beats finish.
+   * service exit. Called by the runtime when the handoff beats finish.
    */
   beginDeparture() {
     if (!this.readyToLeave || this.flags.departing) return false;
     this.flags.departing = true;
-    this.addObjective('leave', 'Leave through the back door with Snow');
+    this.addObjective('leave', 'Leave through the service exit.');
     return true;
   }
 

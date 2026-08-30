@@ -14,6 +14,31 @@ import { APARTMENT_PREVIEW_VARIANTS } from '../src/core/preview-mode.js';
 import { HOTDOG_PREVIEW_CHECKPOINTS } from '../src/bing/preview.js';
 import { HEIST_PREVIEW_CHECKPOINTS } from '../src/heist/config.js';
 
+export const GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS = Object.freeze({
+  REQUIRED: 'REQUIRED',
+  INTENTIONAL_NA: 'INTENTIONAL_NA',
+});
+
+const requiredActors = (reason) => Object.freeze({
+  disposition: GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.REQUIRED,
+  minimum: 1,
+  reason,
+});
+
+const intentionalNoActors = (reason) => Object.freeze({
+  disposition: GEOMETRY_ACTOR_EXPECTATION_DISPOSITIONS.INTENTIONAL_NA,
+  minimum: 0,
+  reason,
+});
+
+const APARTMENT_VISIBLE_MARGO_VARIANTS = new Set(['after-silver-room', 'day-four-wake']);
+
+function apartmentActorExpectation(variant) {
+  return APARTMENT_VISIBLE_MARGO_VARIANTS.has(variant)
+    ? requiredActors(`Apartment ${variant} visibly stages Margo.`)
+    : intentionalNoActors(`Apartment ${variant} intentionally hides Margo and has no other cast.`);
+}
+
 const APARTMENT_CHAPTER = Object.freeze({
   'day-one-wake': 'day_one',
   'after-bing-one': 'day_one',
@@ -38,14 +63,34 @@ const MANSION_SIEGE_PREVIEW_CHECKPOINTS = Object.freeze([
   'wake', 'armed', 'briefed', 'wave_one',
 ]);
 
-const entry = (scene, state, adapter, launcherIds, options = {}) => Object.freeze({
-  id: `${scene}:${state}`,
-  scene,
-  state,
-  adapter,
-  launcherIds: Object.freeze([...launcherIds]),
-  ...options,
+const MANSION_SIEGE_NO_CAST_DAMAGE_STATES = Object.freeze({
+  clean: 'The clean pre-siege house intentionally mounts no battle or aftermath ensemble.',
+  alert: 'The alert damage preview is environment-only; the battle ensemble is not active yet.',
+  repaired: 'The repaired post-siege house intentionally removes the battle and aftermath ensemble.',
 });
+
+function mansionSiegeActorExpectation(damageState) {
+  const reason = MANSION_SIEGE_NO_CAST_DAMAGE_STATES[damageState];
+  return reason ? intentionalNoActors(reason) : requiredActors(
+    `Mansion Siege ${damageState} visibly stages the siege ensemble.`,
+  );
+}
+
+const entry = (scene, state, adapter, launcherIds, options = {}) => {
+  const {
+    actorExpectation = requiredActors(`${scene}:${state} must expose its visible staged cast.`),
+    ...metadata
+  } = options;
+  return Object.freeze({
+    id: `${scene}:${state}`,
+    scene,
+    state,
+    adapter,
+    launcherIds: Object.freeze([...launcherIds]),
+    actorExpectation,
+    ...metadata,
+  });
+};
 
 /**
  * Every independently authored geometry state exercised by the blocking gate.
@@ -55,7 +100,10 @@ const entry = (scene, state, adapter, launcherIds, options = {}) => Object.freez
 export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...APARTMENT_PREVIEW_VARIANTS.map((variant) => entry(
     'apartment', variant, 'apartment', [`apartment:${variant}`],
-    { chapter: APARTMENT_CHAPTER[variant] },
+    {
+      chapter: APARTMENT_CHAPTER[variant],
+      actorExpectation: apartmentActorExpectation(variant),
+    },
   )),
   entry('bing', 'visit-one', 'bing', ['bing']),
   entry('bing', 'performer-bathroom', 'bing', [], { geometryStage: 'performer-bathroom' }),
@@ -85,9 +133,28 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   ...HEIST_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'heist', checkpoint.replaceAll('_', '-'), 'heist', ['heist'], { checkpoint },
   )),
+  /* Lag lives visibly at the woodpile, so an empty Cabin cast is a defect. */
+  entry('cabin', 'property', 'cabin', ['cabin'], {
+    actorExpectation: requiredActors(
+      'The countryside hideout visibly stages Lag at the woodpile.',
+    ),
+  }),
+  /* The anonymous poker patrons remain retired. Margo is mounted but hidden
+   * for her later physical entrance, so this initial property snapshot still
+   * intentionally has no visible NPC cast. */
+  entry('luxury-apartment', 'property', 'luxury-apartment', ['luxury-apartment'], {
+    actorExpectation: intentionalNoActors(
+      'The initial Luxury Apartment snapshot has no visible guest; Margo remains hidden until her owed entrance.',
+    ),
+  }),
   entry('motel', 'property', 'motel', ['motel'], { geometryStage: 'startup' }),
   entry('motel', 'late-cast', 'motel', [], { geometryStage: 'late' }),
-  entry('motel', 'drive', 'motel', [], { geometryStage: 'drive' }),
+  entry('motel', 'drive', 'motel', [], {
+    geometryStage: 'drive',
+    actorExpectation: intentionalNoActors(
+      'The Motel drive snapshot is vehicle-only; its cast is outside this authored world state.',
+    ),
+  }),
   ...['arrival', 'carried', 'placed', 'buried'].map((checkpoint) => entry(
     'graveyard', checkpoint, 'graveyard', ['graveyard'], { checkpoint },
   )),
@@ -104,11 +171,18 @@ export const GEOMETRY_SCENE_STATES = Object.freeze([
   )),
   ...['clean', 'alert', 'under_attack', 'damaged', 'post_battle', 'repaired'].map((damageState) => entry(
     'mansion-siege', damageState.replaceAll('_', '-'), 'mansion-siege', ['mansion-siege'],
-    { damageState },
+    { damageState, actorExpectation: mansionSiegeActorExpectation(damageState) },
   )),
   ...MANSION_SIEGE_PREVIEW_CHECKPOINTS.map((checkpoint) => entry(
     'mansion-siege', `checkpoint-${checkpoint.replaceAll('_', '-')}`, 'mansion-siege', ['mansion-siege'],
-    { checkpoint, damageState: 'under_attack' },
+    {
+      checkpoint,
+      damageState: 'under_attack',
+      /* `armory` exposes the same settled world geometry as `armed`; it only
+       * advances the in-page interaction/story state. Keep one authoritative
+       * scan instead of duplicating 1,570 reviewed geometry suppressions. */
+      checkpointAliases: checkpoint === 'armed' ? Object.freeze(['armory']) : Object.freeze([]),
+    },
   )),
   /* The Special Meeting is one campaign scene over two mutually exclusive
    * worlds, so it registers three states rather than one. `kerb` is the
@@ -332,6 +406,54 @@ async function buildApartment(descriptor, THREE, collaborators) {
         whiteLine: 1,
       },
     },
+  );
+}
+
+async function buildCabin(descriptor, THREE, collaborators) {
+  const { buildCountrysideCabin } = await import('../src/cabin/world.js');
+  const scene = new THREE.Scene();
+  const cabin = await buildCountrysideCabin({
+    scene,
+    ...collaborators,
+    externalLighting: true,
+  });
+  await cabin.models;
+  const lagAssemblyId = 'cabin-resident:lag';
+  setGeometryGateMetadata(cabin.lag?.group, { assemblyId: lagAssemblyId });
+  cabin.lag?.group?.traverse((object) => {
+    if (object.isGroup && object.name === 'forearm') {
+      setGeometryGateMetadata(object, { fixedSupportAnchor: true });
+    }
+  });
+  const lagCollider = cabin.colliders.find((entry) => entry?.name === 'cabin-lag-body');
+  if (!lagCollider) throw new Error('Cabin geometry Adapter expected Lag body collider');
+  setGeometryGateMetadata(lagCollider, { assemblyId: lagAssemblyId });
+  return result(
+    descriptor,
+    [{ label: 'countryside-cabin-property', root: cabin.root }],
+    cabin.colliders,
+    {
+      landmarkCount: Object.keys(cabin.interactionTargets ?? {})
+        .filter((id) => ['creek', 'overlook', 'shed', 'firepit'].includes(id)).length,
+      utilityCount: Object.keys(cabin.utilityTargets ?? {}).length,
+      artCount: cabin.frames?.length ?? 0,
+      landscape: cabin.landscape?.counts ?? {},
+    },
+  );
+}
+
+async function buildLuxuryApartment(descriptor, THREE, collaborators) {
+  const { buildLuxuryApartment: build } = await import('../src/luxury-apartment/world.js');
+  const scene = new THREE.Scene();
+  const apartment = await build({
+    scene,
+    ...collaborators,
+  });
+  return result(
+    descriptor,
+    [{ label: 'luxury-apartment-property', root: apartment.root }],
+    apartment.colliders,
+    { metrics: apartment.metrics },
   );
 }
 
@@ -1089,6 +1211,16 @@ async function mountMansionGeometryCast(base, descriptor, { lab = null } = {}) {
       'second pool performer lounger',
       'mansion-pool-lounger-6',
     )],
+    ['poolPerformer3', fixtureOwner(
+      base.grounds.props?.poolPatio?.chairs?.[1],
+      'third pool performer lounger',
+      'mansion-pool-lounger-1',
+    )],
+    ['poolPerformer4', fixtureOwner(
+      base.grounds.props?.poolPatio?.chairs?.[3],
+      'fourth pool performer lounger',
+      'mansion-pool-lounger-3',
+    )],
   ]);
   const hotTubOwner = base.interior.props?.masterSuite?.tub?.assemblyId;
   if (hotTubOwner !== 'mansion-suite-hot-tub') {
@@ -1491,6 +1623,14 @@ function objectPose(object) {
     z: object.position.z,
     yaw: object.rotation.y,
   };
+}
+
+function worldObjectPose(object) {
+  object.updateWorldMatrix(true, false);
+  const position = object.getWorldPosition(object.position.clone());
+  const quaternion = object.getWorldQuaternion(object.quaternion.clone());
+  const rotation = object.rotation.clone().setFromQuaternion(quaternion, 'YXZ');
+  return { x: position.x, y: position.y, z: position.z, yaw: rotation.y };
 }
 
 function golfTerrainSupportCollider(THREE, heightAt, root, name) {
@@ -2364,7 +2504,7 @@ async function buildMotel(descriptor, THREE) {
     floorAt: motel.floorAt,
   });
   const expectedCastCount = descriptor.geometryStage === 'startup' ? 4 : 10;
-  if (cast.length !== expectedCastCount || cast.some(({ group }) => group.parent !== scene)) {
+  if (cast.length !== expectedCastCount || cast.some(({ group }) => scene.getObjectById(group.id) !== group)) {
     throw new Error(
       `Motel ${descriptor.geometryStage} Adapter expected ${expectedCastCount} mounted actors; found ${cast.length}`,
     );
@@ -2383,7 +2523,7 @@ async function buildMotel(descriptor, THREE) {
       actorStages,
       actorPoses: Object.fromEntries(cast.map(({ group }) => [
         group.userData.motelGeometryStage,
-        objectPose(group),
+        worldObjectPose(group),
       ])),
       enabledColliderCount: motel.colliders.filter(({ enabled }) => enabled !== false).length,
       propertyMeshCount: meshCount(scene),
@@ -2598,6 +2738,35 @@ async function buildSquatchfather(descriptor, THREE) {
     descriptor.id,
     () => buildSquatchfatherRuntimeGeometry(scene, camera, { renderer: null }),
   );
+  /* STAGE THE LENS WHERE FRAME ONE PUTS IT, not where `new PerspectiveCamera`
+   * leaves it.
+   *
+   * `buildSquatchfatherRuntimeGeometry` hands the camera to ProspectController,
+   * which records the boot pose but never writes it to the camera -- in the
+   * game, `CameraDirector.update()` does that on the first frame, and this
+   * Adapter never runs a frame. So the camera sat at the world origin, and the
+   * origin is INSIDE the restaurant's front door: the `frontDoor` collider is
+   * x -0.70..0.70, y -0.50..4.00, z -0.12..0.02, measured off this build.
+   * tools/verify-framing.mjs reported it as CAMERA_INSIDE_SOLID and was right
+   * about the arithmetic and wrong about the scene -- it was measuring the
+   * harness's default, not a shot anybody authored.
+   *
+   * This is `CameraDirector.update()` with the shake at zero: eye at
+   * (-12.00, 1.76, -2.60) -- POS.playerStart with ProspectController's
+   * EYE_STAND on top -- looking along PLAYER_START_YAW at pitch -0.03, which
+   * is Tony on the pavement facing the restaurant door. Nothing in the build
+   * moved; only the stand-in camera did. Measured after: the lens sits at
+   * (-12.000, 1.760, -2.600) looking (0.999, -0.030, 0.020), and 0 of the 36
+   * colliders contain that point -- the nearest, the kerbside block
+   * `aabb-m18-m0p5-m4p25-m13p2-4-m2p15`, stands 1.20 m off. */
+  camera.rotation.order = 'YXZ';
+  camera.position.copy(runtime.prospect.eye);
+  camera.rotation.y = runtime.prospect.yaw;
+  camera.rotation.x = runtime.prospect.pitch;
+  /* Object3D.raycast reads matrixWorld and never recomputes it, and nothing
+   * updates it headlessly without a renderer (docs/ENGINE-TRAPS.md). */
+  camera.updateMatrixWorld(true);
+
   const mirror = new MirrorReflection(scene, runtime.sceneState.props.mirror);
   const controllers = {
     prospect: runtime.prospect.fig.group,
@@ -2611,7 +2780,11 @@ async function buildSquatchfather(descriptor, THREE) {
   if (figureIds.length === 0 || figureIds.some((id) => !runtime.sceneState.figures[id]?.group)) {
     throw new Error('Squatchfather geometry Adapter did not publish its complete scene figure roster');
   }
-  if (runtime.impacts.pool.length !== 8 || runtime.blood.pool.length !== 8 || mirror.overlay.parent !== scene) {
+  if (runtime.impacts.pool.length !== 8
+    || runtime.bloodImpacts.wounds.pool.length !== 8
+    || runtime.bloodImpacts.spatter.pool.length !== 8
+    || runtime.deathBloodPools.meshes.length !== 2
+    || scene.getObjectById(mirror.overlay.id) !== mirror.overlay) {
     throw new Error('Squatchfather geometry Adapter omitted effect-pool or mirror geometry');
   }
 
@@ -2620,7 +2793,9 @@ async function buildSquatchfather(descriptor, THREE) {
       controllers: Object.keys(controllers).length,
       sceneFigures: figureIds.length,
       impactPool: runtime.impacts.pool.length,
-      bloodPool: runtime.blood.pool.length,
+      bloodWoundPool: runtime.bloodImpacts.wounds.pool.length,
+      bloodSpatterPool: runtime.bloodImpacts.spatter.pool.length,
+      deathBloodPool: runtime.deathBloodPools.meshes.length,
       mirrorOverlays: 1,
     },
     figureIds,
@@ -2811,7 +2986,14 @@ function annotateCartelPalaceGeometry(root, colliders) {
  * an unlisted body into `all` still fails.
  */
 function annotatePalaceCast(cast) {
-  const roster = [...(cast?.guards ?? []), cast?.mark, cast?.sauce];
+  /* Since 2026-08-25 the roster is the guards, the two named targets, AND the
+   * wave Mark calls when his plates come off -- four men who exist from the
+   * first frame, parked inactive and invisible behind the dining room's two
+   * openings. They are in `all` because everything that makes a Combatant
+   * work (the perception runtimes, the impact registrations, the checkpoint
+   * snapshot, the separation pass) is built once from `all` at construction,
+   * so a man spawned later would be a man none of that knows about. */
+  const roster = [...(cast?.guards ?? []), cast?.mark, cast?.sauce, ...(cast?.wave ?? [])];
   if (!Array.isArray(cast?.guards) || cast.guards.length === 0 || !cast?.mark || !cast?.sauce) {
     throw new Error('Cartel Palace Adapter expected a guard roster plus Mark and Sauce');
   }
@@ -2819,7 +3001,8 @@ function annotatePalaceCast(cast) {
     || cast.all.length !== roster.length
     || !roster.every((member) => cast.all.includes(member))) {
     throw new Error(`Cartel Palace Adapter expected ${roster.length} cast members `
-      + `(${cast.guards.length} guards, Mark and Sauce); found ${cast?.all?.length ?? 'none'}`);
+      + `(${cast.guards.length} guards, Mark, Sauce and ${cast?.wave?.length ?? 0} reprisal); `
+      + `found ${cast?.all?.length ?? 'none'}`);
   }
   const ids = new Set();
   for (const member of cast.all) {
@@ -3451,6 +3634,8 @@ async function buildSpecialMeetingSpur(descriptor, THREE) {
 
 const BUILDERS = Object.freeze({
   apartment: buildApartment,
+  cabin: buildCabin,
+  'luxury-apartment': buildLuxuryApartment,
   bing: (descriptor, THREE) => buildBing(descriptor, THREE, false),
   'bing-party': (descriptor, THREE) => buildBing(descriptor, THREE, true),
   mansion: buildMansion,

@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
-import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
+import { PostFX } from '../core/postfx.js';
 import { lambert } from '../../game/src/world.js';
 import { BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import { AudioEngine } from '../core/audio.js';
@@ -38,7 +35,9 @@ import {
   makeInitiationCeremonyFigure,
   poseFallen,
   poseKneeling,
+  poseKneelingPanic,
   poseSeated,
+  poseStandingFallen,
 } from './ceremony-figure.js';
 import {
   INITIATION_BARRAGE_SHOTS,
@@ -49,6 +48,17 @@ import {
   mountInitiationExecutionRevolver,
   updateInitiationExecutionRevolver,
 } from './presentation.js';
+import {
+  buildExecutionHolster,
+  buildFounderStaff,
+  mountFounderStaff,
+  poseCeremonyOffer,
+  poseCeremonySalute,
+  poseExecutionDraw,
+  poseExecutionHolster,
+  poseFounderStaffGrip,
+  setExecutionSidearmDrawn,
+} from './ceremony-props-motion.js';
 import {
   KITTENBOSS_SLOT,
   KNEELING_EXECUTIONS,
@@ -89,20 +99,36 @@ import {
 } from './cabin/staging.js';
 import { INITIATION_SHOTS } from './framing.js';
 import { CardBurn } from './cabin/card-burn.js';
+import {
+  buildRoomReactionSchedule,
+  roomReactionDuration,
+} from './room-reaction.js';
 import { resolveGear } from '../world/gear.js';
 import { playFootstep } from './cabin/ambience.js';
-import { SPEECH_MIX, speak } from '../core/dialogue.js';
+import {
+  INITIATION_CABIN_PROCESSION,
+  INITIATION_CABIN_REQUIRED_AT_MARK,
+  INITIATION_TRAIL_BEATS,
+  INITIATION_TRAIL_FORMATION,
+  cabinProcessionRoute,
+  formationTarget,
+  trailNarrativeStatus,
+} from './trail-formation.js';
+import { SPEECH_MIX, speak, speechDuration } from '../core/dialogue.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
-import { shakeScale, bindAudioVolume, translateKey } from '../core/settings.js';
+import { shakeScale, bindAudioVolume } from '../core/settings.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
+import { createCampaignCreditsView } from '../core/campaign-credits-view.js';
+import { campaignCreditRoll } from '../core/campaign-credits.js';
+import { prospectRecordCreditEntries } from '../core/campaign-stats.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
-  navigateCampaign,
 } from '../core/campaign.js';
 
 // ============================================================
@@ -139,12 +165,15 @@ const sceneInventory = new SceneInventoryBar({ slots: 5, visible: true });
 /* ------------------------------------------------------------------
  * Campaign bookkeeping, unchanged: claim the scene so a reload lands back
  * here, write the completion event exactly once at the making, and give the
- * end card a real exit home so no save is ever trapped in a terminal scene.
+ * hand the final wind beat directly to the shared full-screen credit roll.
  * ------------------------------------------------------------------ */
 const campaign = createCampaign();
 if (campaign.state.scene.id !== SCENE_IDS.INITIATION) {
   campaign.enter(SCENE_IDS.INITIATION, { spawn: 'gathering' });
 }
+
+const campaignCreditsView = createCampaignCreditsView();
+campaignCreditsView.setDoneHandler(() => location.assign('./index.html'));
 
 const ACTIVE_INITIATION_VOICE_CUES = Object.freeze([...new Set([
   ...allCabinVoiceLines(),
@@ -234,45 +263,67 @@ const CABIN_WALL_SLOTS = {
 
 // ---------- Renderer / scene / bloom ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+attachPixelRatio(renderer);
 renderer.setSize(window.innerWidth, window.innerHeight);
-attachPixelRatio(renderer, {
-  onChange: () => {
-    composer.setPixelRatio(renderer.getPixelRatio());
-    composer.setSize(window.innerWidth, window.innerHeight);
-  },
-});
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.98;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.1, 600);
 
-const composer = new EffectComposer(renderer);
-composer.setPixelRatio(renderer.getPixelRatio());
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight), 0.72, 0.55, 1.05
-);
-composer.addPass(bloom);
-composer.addPass(new OutputPass());
+/* One canonical post chain, tuned down for readable faces in the cabin. The
+ * shared helper owns output colour, adaptive performance fallback and resize
+ * behaviour; this scene supplies only art-direction policy. */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.18;
+  postfx.bloom.strength = 0.30;
+  postfx.bloom.radius = 0.28;
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 // ---------- Night sky, fog, lights ----------
 scene.background = new THREE.Color(0x05080f);
 scene.fog = new THREE.Fog(0x05080f, 24, 130);
 
-scene.add(new THREE.HemisphereLight(0x1a2440, 0x080c09, 0.42));
+/* THERE IS A MOON OUT, AND YOU ARE SUPPOSED TO BE ABLE TO SEE BY IT.
+ *
+ * Owner, 2026-08-24: *"In initationscene there needs to be some more moonlight
+ * to see... you should walk up a poorly lit wooded trail."*
+ *
+ * POORLY LIT IS NOT UNLIT. The trail, the trunks and the forest floor were all
+ * authored -- a dirt ribbon at 0x2f2820, bark at 0x2b2016, needles at 0x1b3122
+ * -- and then rendered under a 0.42 sky and a 0.42 moon, which puts every one
+ * of them within a few values of the 0x05080f background. Screenshots of the
+ * yard and the trail came back as black rectangles with a bonfire in them: the
+ * player was walking through geometry he had no way of knowing was there, and
+ * the only navigable light in the scene was the fire he was walking away from.
+ *
+ * The numbers look large next to the ones they replace, and the reason is the
+ * colour space rather than the art direction: the floor texture's base is
+ * #14221a, and sRGB-to-linear takes 0.078 down to about 0.007 before a single
+ * light touches it. Multiplying a near-zero by a small number leaves a near
+ * zero, which is why the first attempt at this -- 0.42 up to 1.05 -- came back
+ * from the screenshot pass looking identical.
+ *
+ * The fire and the headlights are still far and away the brightest things in
+ * the scene, which is the whole look and is untouched: the bonfire is a point
+ * light at 56 and each headlight is a spot at 140. What has changed is that
+ * the ground between them now has a value.
+ */
+scene.add(new THREE.HemisphereLight(0x24314f, 0x11160f, 1.6));
 
-const moonLight = new THREE.DirectionalLight(0x9db4e6, 0.42);
+const moonLight = new THREE.DirectionalLight(0x9db4e6, 3.2);
 moonLight.castShadow = true;
 moonLight.shadow.mapSize.set(2048, 2048);
 moonLight.shadow.camera.left = -45;
@@ -285,6 +336,8 @@ moonLight.shadow.bias = -0.0005;
 scene.add(moonLight);
 scene.add(moonLight.target);
 const _moonOffset = new THREE.Vector3(-35, 60, 45);
+/** The same bearing, unit length, for anything that wants to point at the moon. */
+const _moonDirection = _moonOffset.clone().normalize();
 
 function makeDotTexture(size = 64, stops = [[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,.7)'], [1, 'rgba(255,255,255,0)']]) {
   const c = document.createElement('canvas');
@@ -325,6 +378,47 @@ const dotTex = makeDotTexture();
   });
   mat.color.setScalar(2.2);
   scene.add(new THREE.Points(geo, mat));
+}
+
+/* AND THE LIGHT HAS A SOURCE.
+ *
+ * `moonLight` is a DirectionalLight coming out of `_moonOffset`, and there was
+ * nothing up there. A scene lit by a moon nobody can find reads as a scene
+ * with the brightness turned up, which is the note this is answering rather
+ * than the fix for it. So: a disc and a halo, in the direction the light comes
+ * from, parked far enough out to sit behind everything and marked `fog: false`
+ * so the night air does not eat it at 130 metres.
+ *
+ * It rides the player the way the light does (see `updateCamera`) -- a moon
+ * that parallaxes across a thirty-metre walk is a moon a hundred metres away,
+ * which is worse than no moon at all.
+ */
+const MOON_DISTANCE = 340;
+const moonDisc = new THREE.Group();
+moonDisc.name = 'initiation.moon';
+{
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(9.5, 32),
+    new THREE.MeshBasicMaterial({ color: 0xe8eeff, fog: false, depthWrite: false }),
+  );
+  face.name = 'initiation.moon.disc';
+  const halo = new THREE.Mesh(
+    new THREE.CircleGeometry(34, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0x8ea6d8, map: dotTex, transparent: true, opacity: 0.42,
+      fog: false, depthWrite: false, blending: THREE.AdditiveBlending,
+    }),
+  );
+  halo.name = 'initiation.moon.halo';
+  halo.position.z = -0.5;
+  moonDisc.add(halo, face);
+  moonDisc.renderOrder = -1;
+  /* It is three hundred metres up and it is meant to be. The site's float and
+   * support gates exist to catch a tree hovering off the forest floor, and a
+   * moon is the one object in this scene that is allowed to have nothing under
+   * it -- so it says so, rather than being argued about in an allowlist. */
+  for (const node of [moonDisc, face, halo]) node.userData.sceneAuditIgnore = true;
+  scene.add(moonDisc);
 }
 
 // Distant ridge silhouettes
@@ -450,12 +544,11 @@ function makeNameplate(name, color) {
 const playerController = new InitiationPlayerAdapter(camera, {
   circles: colliders,
   bounds: BOUNDS,
-  canvas: renderer.domElement,
-  documentRef: document,
   onFootstep: onStep,
 });
 playerController.teleport(SPAWN, { heading: 0 });
 const player = playerController.player;
+let input = null;
 
 // Tony's ceremony body is presentation only. The shared Player owns movement,
 // collision and camera; this rig appears only when an authored cabin shot
@@ -464,6 +557,69 @@ let playerFigure = makeInitiationCeremonyFigure('TONY');
 playerController.syncFigure(playerFigure);
 playerFigure.group.visible = false;
 scene.add(playerFigure.group);
+
+const FIRST_PERSON_RITUAL_PHASES = new Set([
+  'hand', 'cut', 'card', 'oath_1', 'oath_2', 'burn', 'made',
+  'shot_offer', 'shot_toast', 'shot_drink',
+]);
+
+/**
+ * The player never leaves first person, but the hand ritual still needs hands.
+ * Keep the articulated shared body as the socket owner, hide every third-
+ * person surface, and reveal only its arm hierarchies while the ritual uses
+ * them. Props parented to a hand after this mask remain visible naturally.
+ */
+function prepareFirstPersonRitualFigure(figure) {
+  if (!figure?.group || figure.group.userData.firstPersonRitualPrepared) return;
+  figure.group.traverse((node) => {
+    if (node.isMesh) node.visible = false;
+  });
+  for (const arm of [figure.armL, figure.armR]) {
+    arm?.traverse((node) => {
+      if (node.isMesh) node.visible = true;
+    });
+  }
+  figure.group.userData.firstPersonRitualPrepared = true;
+}
+
+function poseFirstPersonRitualHands(figure, phaseId = phase, elapsed = phaseT) {
+  if (!figure) return;
+  figure.resetArticulation?.();
+
+  /* `hand` and `shot_offer` deliberately leave the arms at their authored
+   * rest. The prompt is a request for the next movement, not a caption for a
+   * pose that is already on screen. `cut` owns the visible raise after input. */
+  if (phaseId === 'hand' || phaseId === 'shot_offer') return;
+
+  if (phaseId === 'shot_toast' || phaseId === 'shot_drink') {
+    const drink = phaseId === 'shot_drink'
+      ? THREE.MathUtils.smoothstep(elapsed / 1.15, 0, 1)
+      : 0;
+    figure.armL?.rotation.set(-0.20, 0.02, -0.16);
+    figure.foreL?.rotation.set(-0.34, 0, -0.02);
+    figure.armR?.rotation.set(
+      THREE.MathUtils.lerp(-0.94, -1.58, drink),
+      -0.05,
+      THREE.MathUtils.lerp(0.30, 0.12, drink),
+    );
+    figure.foreR?.rotation.set(THREE.MathUtils.lerp(-1.08, -1.54, drink), 0, 0.04);
+    return;
+  }
+
+  const raise = phaseId === 'cut'
+    ? THREE.MathUtils.smoothstep(elapsed / 0.58, 0, 1)
+    : 1;
+  /* The saint card is a real 65 x 98 mm prop. At -0.98 the palm centre was
+   * technically in frame while the lower 5% of the card was below it. Raise
+   * the presenting elbow six degrees so the whole card, not just its socket,
+   * clears the HUD-safe frame in the actual 640 x 360 browser proof. */
+  figure.armL?.rotation.set(-1.08 * raise, 0.04 * raise, -0.28 * raise);
+  figure.foreL?.rotation.set(-1.08 * raise, 0, -0.04 * raise);
+  figure.armR?.rotation.set(-0.72 * raise, -0.04 * raise, 0.34 * raise);
+  figure.foreR?.rotation.set(-0.92 * raise, 0, 0.04 * raise);
+}
+
+prepareFirstPersonRitualFigure(playerFigure);
 
 /* Four of them, plus the player if he gets it wrong. */
 const deathPools = new DeathBloodPool(scene, { capacity: 6 });
@@ -490,9 +646,8 @@ for (const spec of CIRCLE) {
   sq.group.rotation.y = sq.heading;
   sq.walkT = Math.random() * 10;
   sq.breatheT = Math.random() * 10;
-  const plate = makeNameplate(spec.name, spec.founder ? '#ff8a8a' : '#cfd4e0');
-  plate.position.y = sq.model.height + 0.35;
-  sq.group.add(plate);
+  /* Established members are recognised by their canonical faces and clothes.
+   * Floating names turned the execution ground into a debug roster. */
   scene.add(sq.group);
   const entry = {
     key: spec.key, name: spec.name, sq,
@@ -501,7 +656,14 @@ for (const spec of CIRCLE) {
     stepTo: null,
     /** Fraction of the trail he keeps ahead of (or behind) the player. */
     trailOffset: 0,
+    /** Metres across the trail and this member's slight pace variation. */
+    trailLateral: 0,
+    trailSpeed: 3.2,
     poseT: 0,
+    poseDuration: 0,
+    /** Production cabin entry. Debug skips still use fillTheRoom(). */
+    cabinProcession: null,
+    placed: false,
   };
   members.push(entry);
   bindActorCollider(entry, 'member');
@@ -511,16 +673,12 @@ for (const spec of CIRCLE) {
 const boosk = memberByKey.get('BOOSKIBRO').sq;
 const lou = memberByKey.get('LOU').sq;
 
-/* Booskibro carries the founder's staff with his formal suit unobscured. */
-{
-  /* IN A HAND. This used to be the staff parented straight onto the forearm
-   * pivot with a hand-tuned -0.9 offset, which is the same fault that put beer
-   * cans on golfers' forearms. */
-  const staff = new THREE.Group();
-  staff.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.3, 6), lambert(0x33200e), 0, -0.05, 0));
-  staff.add(mesh(new THREE.DodecahedronGeometry(0.16, 0), lambert(0xcfd4e0), 0, 1.17, 0));
-  attachToHand(memberByKey.get('BOOSKIBRO').sq, 'R', staff, { offset: { y: -0.18 } });
-}
+/* Booskibro's staff stays in the quiet hand. The other hand visibly draws the
+ * execution revolver, so the two props never share a socket or cross his
+ * torso when the free arm gestures. */
+const founderStaff = buildFounderStaff();
+mountFounderStaff(boosk, founderStaff);
+poseFounderStaffGrip(boosk);
 
 /**
  * Five bodies in the line beside the player.
@@ -534,15 +692,17 @@ const prospects = [];
 const prospectByName = new Map();
 for (const slot of LINE_UP) {
   if (slot.player) continue;
-  const sq = makeInitiationCeremonyFigure(slot.name);
+  const sq = makeInitiationCeremonyFigure(slot.name, { face: slot.face ?? null });
   sq.group.position.set(slot.x, 0, LINE_Z);
   sq.heading = headingToward({ x: slot.x, z: LINE_Z }, { x: boosk.position.x, z: boosk.position.z });
   sq.group.rotation.y = sq.heading;
   sq.walkT = Math.random() * 10;
   sq.breatheT = Math.random() * 10;
   const plate = makeNameplate(slot.name, slot.name === 'KITTENBOSS' ? '#e5b7d8' : '#8a92ab');
-  plate.scale.set(2.2, 0.42, 1);
-  plate.position.y = sq.model.height + 0.35;
+  plate.name = `prospect.nameplate.${slot.name.toLowerCase().replaceAll(' ', '-')}`;
+  plate.scale.set(1.18, 0.22, 1);
+  plate.position.y = sq.model.height + 0.18;
+  plate.material.opacity = 0.68;
   sq.group.add(plate);
   scene.add(sq.group);
   const entry = {
@@ -553,6 +713,7 @@ for (const slot of LINE_UP) {
     /** >= 0 while going down. Kneeling bodies fold forward; the first one topples. */
     fallT: -1,
     fallMark: null,
+    standingFall: false,
     kneelMark: null,
     jerkT: 0,
   };
@@ -599,20 +760,38 @@ let louSeated = false;
  * and victim reactions.
  */
 const gun = buildInitiationExecutionRevolver();
+gun.visible = false;
 const barrageClock = new InitiationBarrageClock();
 const muzzleLight = new THREE.PointLight(0xffc86a, 0, 0, 2);
 scene.add(muzzleLight);
+
+/* A gun can only come from somewhere. These are visible from scene start and
+ * disappear exactly when the corresponding in-hand model clears the hip. */
+const executionHolsters = new Map();
+for (const key of ['BOOSKIBRO', 'GRATIN', 'SEFF']) {
+  const holder = memberByKey.get(key);
+  const receipt = buildExecutionHolster(holder?.sq, {
+    name: `initiation.${key.toLowerCase()}.execution-sidearm`,
+  });
+  if (receipt) executionHolsters.set(key, receipt);
+}
 
 /** Whose hand the revolver is in right now, by script speaker key. */
 let gunHolder = null;
 function handPistolTo(key) {
   const holder = memberByKey.get(key);
   if (!holder) return;
+  if (gunHolder && gunHolder !== key) {
+    setExecutionSidearmDrawn(executionHolsters.get(gunHolder), gun, false);
+  }
   gun.parent?.remove(gun);
   mountInitiationExecutionRevolver(holder.sq, gun);
+  setExecutionSidearmDrawn(executionHolsters.get(key), gun, false);
   gunHolder = key;
 }
 function holsterPistol() {
+  const holderKey = gunHolder;
+  if (holderKey) setExecutionSidearmDrawn(executionHolsters.get(holderKey), gun, false);
   gun.parent?.remove(gun);
   barrageClock.reset();
   if (gun.userData.initiationFlash) gun.userData.initiationFlash.visible = false;
@@ -827,7 +1006,13 @@ function showCurrentLine() {
     setObjective(`VOICE AUDIO NOT READY: ${line.cue}`);
     return;
   }
-  sayAutoT = Math.max(2.6 + line.text.length * 0.028, voiced > 0 ? voiced + 0.35 : 0);
+  const recordedTiming = currentPhase().dialogueTiming === 'recorded' && voiced > 0;
+  sayAutoT = recordedTiming
+    ? voiced + 0.35
+    : Math.max(2.6 + line.text.length * 0.028, voiced > 0 ? voiced + 0.35 : 0);
+  if (['IN-450', 'IN-460', 'IN-500', 'IN-510'].includes(line.beat)) {
+    startCeremonySalute(line.speakerKey, Math.min(1.65, Math.max(1.05, sayAutoT)));
+  }
   if (line.gesture === 'slam') {
     /* `gesture` is `dialogue.js`'s and only Booskibro and Lou carry one. It
      * used to play BOOSKIBRO's animation for any speaker who was not Lou,
@@ -898,33 +1083,6 @@ function sayBeat(id, done = null, onLast = null) {
   say(beat ? beat.lines : [], done, onLast);
 }
 
-/**
- * Fire a beat's lines OVER each other rather than queueing them.
- *
- * The room at IN-500 has to sound like fifteen men. A queued salud is a roll
- * call and it takes forty seconds; this plays each line at its own `overlap`
- * offset and lets the subtitles chase whichever one started last.
- */
-function sayOverlapping(id) {
-  const beat = beatById(id);
-  if (!beat) return 0;
-  let last = 0;
-  for (const line of beat.lines) {
-    const at = line.overlap ?? 0;
-    last = Math.max(last, at);
-    setTimeout(() => {
-      /* The room does not stop, but Lou taking him aside does take the
-       * subtitle: a straggler landing over IN-520 is a line nobody hears. */
-      if (phase !== 'room') return;
-      speakLine(line);
-      speakerEl.textContent = line.who;
-      lineEl.textContent = line.text;
-      dialogEl.classList.add('show');
-    }, at * 1000);
-  }
-  return last;
-}
-
 /* ------------------------------------------------------------------
  * CHOICES
  *
@@ -936,7 +1094,7 @@ let openChoice = null;
 /** Seconds the current choice has been on screen. Its own clock, not the phase's. */
 let choiceT = 0;
 
-function showChoice({ prompt, options, hint, onPick }) {
+function showChoice({ prompt, options, hint, onPick, releasePointerLock = true }) {
   openChoice = { options, onPick };
   choiceT = 0;
   quizQEl.textContent = prompt;
@@ -953,7 +1111,7 @@ function showChoice({ prompt, options, hint, onPick }) {
     btn.dataset.correct = option.correct ? '1' : '0';
   });
   quizEl.classList.add('show');
-  playerController.releasePointerLock();
+  if (releasePointerLock) input?.releasePointerLock();
 }
 
 function hideChoice() {
@@ -965,6 +1123,18 @@ function hideChoice() {
   }
 }
 
+/**
+ * Any full-screen card containing buttons owns the pointer.
+ *
+ * Keeping pointer lock while presenting completion made the buttons look live
+ * but converted every mouse movement into camera delta, so the pointer could
+ * never reach them. The same rule protects both failure cards as well.
+ */
+function showBlockingOverlay(element) {
+  input?.suspend();
+  element.classList.remove('hidden');
+}
+
 function pickChoice(index) {
   if (!openChoice) return;
   const option = openChoice.options[index];
@@ -973,7 +1143,7 @@ function pickChoice(index) {
   hideChoice();
   onPick(option);
   if (currentPhase().control !== CONTROL_MODES.CUTSCENE) {
-    playerController.requestPointerLock();
+    input?.requestPointerLock();
   }
 }
 
@@ -1009,6 +1179,7 @@ let currentStep = null;
 /** Beats already fired on the trail. */
 const firedTrailBeats = new Set();
 let trailChoiceUsed = false;
+let trailChoiceResolved = false;
 /** The player's one-button input for the ritual beats. */
 let ritualPressed = false;
 
@@ -1024,6 +1195,12 @@ let palmBlood = null;
 let emberT = 0;
 /** How far up the trail he is, 0..1. */
 let trailK = 0;
+/** The room eruption advances on its delivered-VO schedule, never wall time. */
+let roomAcknowledgementsComplete = false;
+let roomReactionHold = 0;
+let roomReaction = null;
+/** Physical state of the one ceremonial glass: table → hand → drinking → spent. */
+let ceremonialShotState = 'table';
 
 function currentPhase() {
   return PHASES[phase] ?? PHASES.approach;
@@ -1034,10 +1211,20 @@ function applyPhaseControl(spec = currentPhase()) {
     ? ADAPTER_PLAYER_POSES.KNEELING
     : ADAPTER_PLAYER_POSES.STANDING;
   playerController.setControl(spec.control, { pose });
+  playerController.setMovementPolicy({
+    moveScale: spec.moveScale,
+    allowSprint: spec.allowSprint,
+  });
 
   const authoredCamera = spec.control === CONTROL_MODES.CUTSCENE;
   if (authoredCamera) playerController.syncFigure(playerFigure);
-  playerFigure.group.visible = authoredCamera;
+  const showFirstPersonHands = FIRST_PERSON_RITUAL_PHASES.has(spec.id);
+  if (showFirstPersonHands && !playerFigure.group.visible) {
+    prepareFirstPersonRitualFigure(playerFigure);
+  }
+  if (showFirstPersonHands) poseFirstPersonRitualHands(playerFigure, spec.id, phaseT);
+  playerFigure.group.visible = showFirstPersonHands;
+  input?.refresh('phase-control');
 }
 
 function setPhase(next) {
@@ -1071,54 +1258,62 @@ function actionRelease() {
   holdHeld = false;
 }
 let holdHeld = false;
-
-window.addEventListener('keydown', (e) => {
-  if (paused) return;
-  const code = translateKey(e.code);
-  const movement = playerController.setKey(code, true);
-  if (movement) e.preventDefault();
-
-  if (code === 'Space' && !canMove()) {
-    e.preventDefault();
-    if (!e.repeat) actionPress();
-    holdHeld = true;
-  }
-  if (e.code === 'KeyM') toggleMute();
-  if (openChoice && /^Digit[123]$/.test(e.code)) {
-    pickChoice(Number(e.code.slice(-1)) - 1);
-  }
-});
-window.addEventListener('keyup', (e) => {
-  playerController.setKey(translateKey(e.code), false);
-  if (e.code === 'Space') actionRelease();
-});
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement === renderer.domElement) {
-    playerController.handleMouseMove(e.movementX, e.movementY);
-  }
-});
-document.addEventListener('pointerlockchange', () => {
-  playerController.setInputActive(document.pointerLockElement === renderer.domElement);
-});
-window.addEventListener('mousedown', (e) => {
-  if (paused || e.target.closest('button, a, .touch-btn') || e.button !== 0) return;
-  const locked = document.pointerLockElement === renderer.domElement;
-  if (!locked) {
-    playerController.requestPointerLock();
-    return;
-  }
-  if (!canMove()) {
-    actionPress();
-    holdHeld = true;
-  }
-});
-window.addEventListener('mouseup', () => actionRelease());
-window.addEventListener('blur', () => {
-  playerController.clearInput();
-  holdHeld = false;
-});
-
 let paused = false;
+input = createFirstPersonInput({
+  player: playerController,
+  canvas: renderer.domElement,
+  playerKeyCodes: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
+  canEnable: () => !paused,
+  canHandleInput: () => !paused,
+  controlState: () => {
+    const authoredCamera = currentPhase().control === CONTROL_MODES.CUTSCENE;
+    return {
+      playerEnabled: !authoredCamera && !openChoice,
+      movementEnabled: canMove() && !openChoice,
+      defaultLookEnabled: !authoredCamera && !openChoice,
+      interactionEnabled: false,
+    };
+  },
+  routes: {
+    keyDown(event, controls) {
+      if (controls.code === 'Space' && !canMove()) {
+        event.preventDefault();
+        if (!event.repeat) actionPress();
+        holdHeld = true;
+        return true;
+      }
+      if (event.code === 'KeyM' && !event.repeat) {
+        toggleMute();
+        return true;
+      }
+      if (openChoice && /^Digit[123]$/.test(event.code)) {
+        pickChoice(Number(event.code.slice(-1)) - 1);
+        return true;
+      }
+      return false;
+    },
+    keyUp(event) {
+      if (event.code === 'Space') actionRelease();
+      return false;
+    },
+    mouseDown(event, controls) {
+      if (event.button !== 0) return true;
+      if (!controls.locked) return false;
+      if (!canMove()) {
+        actionPress();
+        holdHeld = true;
+      }
+      return true;
+    },
+    mouseUp(event) {
+      if (event.button !== 0) return false;
+      actionRelease();
+      return true;
+    },
+  },
+  onClear: () => { holdHeld = false; },
+});
+
 createPauseMenu({
   title: 'The Initiation',
   canPause: () => phase !== 'complete' && phase !== 'failed' && phase !== 'failed_oath',
@@ -1131,7 +1326,7 @@ createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    playerController.setPaused(true);
+    input.suspend();
     holdHeld = false;
     sfx.suspend();
     audio.ctx?.suspend?.();
@@ -1139,10 +1334,9 @@ createPauseMenu({
   onResume: () => {
     paused = false;
     sfx.resume();
-    playerController.setPaused(false);
-    if (currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice) {
-      playerController.requestPointerLock();
-    }
+    input.resume({
+      requestPointerLock: currentPhase().control !== CONTROL_MODES.CUTSCENE && !openChoice,
+    });
     audio.ctx?.resume?.();
   },
   /* RESTART CHECKPOINT AND RESTART SCENE, like every other campaign scene.
@@ -1192,7 +1386,7 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     touch.x = 0;
     touch.y = 0;
     zone.setPointerCapture(e.pointerId);
-    playerController.setInputActive(true);
+    playerController.setTouchActive(true);
     playerController.setTouchVector(0, 0);
   });
   zone.addEventListener('pointermove', (e) => {
@@ -1227,13 +1421,13 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
   smashBtn.textContent = '▸';
   smashBtn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    playerController.setInputActive(true);
-    if (canMove()) playerController.setKey('Space', true);
+    playerController.setTouchActive(true);
+    if (canMove()) playerController.setTouchButton('Space', true);
     else { actionPress(); holdHeld = true; }
   });
   smashBtn.addEventListener('pointerup', (e) => {
     e.preventDefault();
-    playerController.setKey('Space', false);
+    playerController.setTouchButton('Space', false);
     actionRelease();
   });
 }
@@ -1241,15 +1435,6 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
 
 // ---------- Buttons / flow ----------
 $('retryBtn').addEventListener('click', retry);
-$('replayBtn').addEventListener('click', () => location.reload());
-$('goHomeBtn').addEventListener('click', () => {
-  try {
-    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
-  } catch (error) {
-    console.error('[initiation] campaign exit could not be saved', error);
-    location.assign('./index.html');
-  }
-});
 
 /* Browsers only allow audio after a real input on this page. Both engines are
  * armed together: the legacy synthesiser for the scene's own noises, and the
@@ -1343,8 +1528,8 @@ function answerQuiz(selected) {
               'Wrong founders.<br>The Circle now knows two things about you: your name, and where you’re buried.';
           },
           onFinished: () => {
-            failEl.classList.remove('hidden');
             setPhase('failed');
+            showBlockingOverlay(failEl);
           },
         });
       });
@@ -1461,12 +1646,32 @@ function updateExecution(dt) {
       _dir.set(dx / d, 0, dz / d);
       m.sq.update(dt, _dir, Math.min(2.6, d * 3));
     } else {
-      exec.state = 'aim';
+      /* He arrives with the gun still on his hip. The visible draw owns its
+       * own state; mounting the model at start only prepares the hidden copy
+       * and never makes it pop into his hand while he is walking. */
+      exec.state = 'draw';
       exec.t = 0;
       if (exec.stance) {
         m.sq.group.position.set(exec.stance.x, 0, exec.stance.z);
         faceAt(m.sq, tp);
       }
+    }
+  } else if (exec.state === 'draw') {
+    faceAt(m.sq, tp);
+    m.sq.update(dt, _zero, 0);
+    faceAt(m.sq, tp);
+    exec.t += dt;
+    poseExecutionDraw(
+      m.sq,
+      executionHolsters.get(m.key),
+      gun,
+      exec.t / 0.82,
+      aimPitch,
+    );
+    if (exec.t >= 0.82) {
+      exec.state = 'aim';
+      exec.t = 0;
+      exec.aim = 1;
     }
   } else if (exec.state === 'aim' || exec.state === 'fire') {
     /* SNAPPED, not chased. A stored target yaw that `update()` chases every
@@ -1514,6 +1719,26 @@ function updateExecution(dt) {
     exec.t += dt;
     if (exec.t > (exec.nape ? 1.4 : 1.1)) {
       m.sq.armR.rotation.x = 0;
+      if (exec.stay) {
+        exec.state = 'return';
+        if (t.onFinished) t.onFinished();
+      } else {
+        exec.state = 'holster';
+        exec.t = 0;
+      }
+    }
+  } else if (exec.state === 'holster') {
+    m.sq.update(dt, _zero, 0);
+    if (exec.stance) faceAt(m.sq, tp);
+    exec.t += dt;
+    poseExecutionHolster(
+      m.sq,
+      executionHolsters.get(m.key),
+      gun,
+      exec.t / 0.86,
+      aimPitch,
+    );
+    if (exec.t >= 0.86) {
       exec.state = 'return';
       if (t.onFinished) t.onFinished();
     }
@@ -1537,12 +1762,18 @@ function executeStanding(onFinished) {
     getPos: () => p.sq.position,
     y: 1.5,
     shooter: STANDING_EXECUTION.shooter,
+    stance: STANDING_EXECUTION.stance,
     rounds: STANDING_EXECUTION.rounds,
     onHit: () => { p.jerkT = 0.16; },
     onDead: () => {
       p.dead = true;
       p.fallT = 0;
-      p.fallMark = null; // he topples BACKWARD, about his feet
+      p.fallMark = {
+        x: p.sq.position.x,
+        z: p.sq.position.z,
+        heading: p.sq.heading,
+      };
+      p.standingFall = true;
       bleedOut(p.sq.position, 0);
     },
     onFinished: () => {
@@ -1576,6 +1807,7 @@ function executeKneeling(step, onFinished) {
       p.dead = true;
       p.fallT = 0;
       p.fallMark = mark;
+      p.standingFall = false;
       bleedOut({ x: mark.fall.x, y: 0, z: mark.fall.z }, runCursor + 1);
     },
     onFinished,
@@ -1778,9 +2010,85 @@ const _ritualHand = new THREE.Vector3();
  * arm gives a dull shot rather than a crash in the middle of the ceremony.
  */
 function ritualHandWorld(out) {
-  const socket = handSocket(playerFigure, TABLE_SOCKETS.card.hand ?? 'L');
+  const shotBeat = phase === 'shot_offer' || phase === 'shot_toast' || phase === 'shot_drink';
+  const tableSocket = shotBeat ? TABLE_SOCKETS.whiskey : TABLE_SOCKETS.card;
+  const socket = handSocket(playerFigure, tableSocket.hand ?? 'L');
   if (socket) return socket.getWorldPosition(out);
-  return out.set(TABLE_SOCKETS.card.x, TABLE.topY + 0.1, TABLE.z - 0.5);
+  return out.set(tableSocket.x, TABLE.topY + 0.1, TABLE.z - 0.5);
+}
+
+/**
+ * What the renderer can actually see of the saint card.
+ *
+ * Parentage and `visible=true` do not prove presentation: a playing card can
+ * be edge-on, behind the camera, or four pixels tall and satisfy both. Project
+ * the real face geometry after its hand hierarchy is updated so the browser
+ * verifier can certify framing, scale, and which side faces the player.
+ */
+function ritualCardPresentation() {
+  const front = props.card?.front;
+  if (!front?.geometry) return null;
+  front.geometry.computeBoundingBox?.();
+  const bounds = front.geometry.boundingBox;
+  if (!bounds) return null;
+  front.updateWorldMatrix(true, false);
+  camera.updateMatrixWorld(true);
+
+  const corners = [
+    [bounds.min.x, bounds.min.y, 0],
+    [bounds.max.x, bounds.min.y, 0],
+    [bounds.max.x, bounds.max.y, 0],
+    [bounds.min.x, bounds.max.y, 0],
+  ].map(([x, y, z]) => new THREE.Vector3(x, y, z)
+    .applyMatrix4(front.matrixWorld)
+    .project(camera));
+  const xs = corners.map((point) => point.x);
+  const ys = corners.map((point) => point.y);
+  const zs = corners.map((point) => point.z);
+  const ndc = {
+    minX: Math.min(...xs), maxX: Math.max(...xs),
+    minY: Math.min(...ys), maxY: Math.max(...ys),
+    minZ: Math.min(...zs), maxZ: Math.max(...zs),
+  };
+  const width = renderer.domElement.clientWidth || window.innerWidth;
+  const height = renderer.domElement.clientHeight || window.innerHeight;
+  const center = front.getWorldPosition(new THREE.Vector3());
+  const normal = new THREE.Vector3(0, 0, 1)
+    .transformDirection(front.matrixWorld)
+    .normalize();
+  const towardCamera = camera.position.clone().sub(center).normalize();
+  const facing = normal.dot(towardCamera);
+  const handQuaternion = props.card.group.parent?.getWorldQuaternion(new THREE.Quaternion())
+    ?? new THREE.Quaternion();
+  const towardCameraInHand = towardCamera.clone()
+    .applyQuaternion(handQuaternion.invert());
+  const ray = new THREE.Raycaster(
+    camera.position,
+    center.clone().sub(camera.position).normalize(),
+    camera.near,
+    camera.position.distanceTo(center) + 0.03,
+  );
+  playerFigure.group.updateMatrixWorld(true);
+  const firstHit = ray.intersectObject(playerFigure.group, true)
+    .find((hit) => hit.object.visible !== false) ?? null;
+  const hitCard = Boolean(firstHit && (
+    firstHit.object === props.card.group
+    || props.card.group.children.includes(firstHit.object)
+  ));
+  return {
+    corners: corners.map((point) => point.toArray()),
+    ndc,
+    pixelWidth: Math.abs(ndc.maxX - ndc.minX) * width / 2,
+    pixelHeight: Math.abs(ndc.maxY - ndc.minY) * height / 2,
+    fullyFramed: ndc.minX >= -0.96 && ndc.maxX <= 0.96
+      && ndc.minY >= -0.96 && ndc.maxY <= 0.96
+      && ndc.minZ >= -1 && ndc.maxZ <= 1,
+    facing,
+    frontFacing: facing > 0.35,
+    towardCameraInHand: towardCameraInHand.toArray(),
+    firstHit: firstHit?.object?.name ?? null,
+    unobstructed: hitCard,
+  };
 }
 
 let dtLast = 1 / 60;
@@ -1832,6 +2140,10 @@ function updateCamera(dt) {
 
   moonLight.position.copy(player.position).add(_moonOffset);
   moonLight.target.position.copy(player.position);
+  /* The disc sits on the same bearing, far out, facing the camera. */
+  moonDisc.position.copy(player.position)
+    .addScaledVector(_moonDirection, MOON_DISTANCE);
+  moonDisc.lookAt(camera.position);
   audio.updateListener(camera);
 }
 
@@ -1853,6 +2165,7 @@ function advanceRun() {
 function kneelOnMark(p, mark) {
   p.stepTo = null;
   p.kneelMark = mark;
+  p.standingFall = false;
   poseKneeling(p.sq, mark);
 }
 
@@ -1878,6 +2191,9 @@ function runExecutionStep(step) {
   const prospect = prospectByName.get(step.victim);
   const mark = markForStep(step);
   if (prospect && mark && prospect.kneelMark !== mark) kneelOnMark(prospect, mark);
+  if (prospect && mark && step.victim === 'KITTENBOSS') {
+    poseKneelingPanic(prospect.sq, mark);
+  }
   sayBeat(step.beat, () => executeKneeling(step, advanceRun));
 }
 
@@ -1938,30 +2254,18 @@ function releaseTony(entry) {
 /* ------------------------------------------------------------------
  * ACT THREE — the walk
  * ------------------------------------------------------------------ */
-const TRAIL_ORDER = [
-  ['BOOSKIBRO', 0.16], ['LOU', 0.13], ['RIPPINFLOW', 0.10], ['HOGMAMA', 0.08],
-  ['IRISH', 0.07], ['SASOLE', 0.05], ['ERIC', 0.04], ['SNOW', 0.03],
-  ['APE', -0.03], ['NUMBSKULL', -0.04], ['SHUBENATOR', -0.05], ['LAG', -0.07],
-  ['DEATHMEGATRON', -0.08], ['SEFF', -0.10], ['GRATIN', -0.12],
-];
-
 function startTheWalk() {
-  for (const [key, offset] of TRAIL_ORDER) {
+  for (const { key, along, lateral, speed } of INITIATION_TRAIL_FORMATION) {
     const member = memberByKey.get(key);
-    if (member) member.trailOffset = offset;
+    if (!member) continue;
+    member.trailOffset = along;
+    member.trailLateral = lateral;
+    member.trailSpeed = speed;
   }
 }
 
-/** Beats fire at fractions of the trail, in order. */
-const TRAIL_BEATS = [
-  { id: 'IN-210', at: 0.16 },
-  { id: 'IN-220', at: 0.34 },
-  { id: 'IN-230', at: 0.50 },
-  { id: 'IN-240', at: 0.64 },
-];
-
 function updateTrailBeats() {
-  for (const entry of TRAIL_BEATS) {
+  for (const entry of INITIATION_TRAIL_BEATS) {
     if (trailK < entry.at || firedTrailBeats.has(entry.id)) continue;
     /* A beat is marked fired when it is SAID, never when it is passed. A
      * sprinting player used to run through three markers while one line was
@@ -1977,36 +2281,155 @@ function updateTrailBeats() {
     const beat = beatById('IN-245');
     showChoice({
       prompt: beat.choice.prompt,
-      hint: '',
+      hint: '1 · 2 · 3',
       options: beat.choice.options,
+      /* This is the one choice made while walking. Keeping the real first-
+       * person lock means its nine-second silent fallback cannot strand the
+       * player with disabled WASD and no prompt to click the canvas again. */
+      releasePointerLock: false,
       onPick: (option) => {
         setPhase('trail_reply');
-        sayBeat(option.to, () => setPhase('trail'));
+        sayBeat(option.to, () => {
+          trailChoiceResolved = true;
+          setPhase('trail');
+        });
       },
     });
   }
 }
 
+function currentTrailNarrativeStatus() {
+  return trailNarrativeStatus({
+    firedBeatIds: firedTrailBeats,
+    choiceUsed: trailChoiceUsed,
+    choiceResolved: trailChoiceResolved,
+    dialogActive: dialogActive(),
+    choiceOpen: Boolean(openChoice),
+  });
+}
+
+let cabinProcessionActive = false;
+let cabinProcessionPlayerInside = false;
+
+function cabinMarkFor(member) {
+  if (member.key === 'LOU') return LOU_SEAT;
+  const slotId = CABIN_BLOCKING[member.key];
+  return slotId ? blockingSlot(slotId) : CABIN_WALL_SLOTS[member.key] ?? null;
+}
+
 /**
- * They walk up onto the porch, stamp their boots off, and go in.
+ * Put the whole group through the actual doorway.
  *
- * All of them EXCEPT Booskibro, who holds the door. Fifteen people milling on
- * the last two metres of a one-man trail is fifteen colliders across the only
- * door in the level — the cabin version of the siege armoury.
+ * Root cause of the visible teleport: `goInsideAhead()` called
+ * `fillTheRoom('BOOSKIBRO')`, which used `standOn()` to move fourteen live
+ * figures from the trail to their final room transforms in one frame. The
+ * second call moved Booski the instant the player crossed the sill. Nothing
+ * was a navigation problem; production was invoking the debug/checkpoint
+ * placement helper. The procession below uses the same measured final marks,
+ * but reaches each through porch, threshold and room waypoints. One entrant
+ * is released only after the previous one clears the doorway.
  */
+function startCabinProcession() {
+  if (cabinProcessionActive) return;
+  cabinProcessionActive = true;
+  cabinProcessionPlayerInside = false;
+  site.ambience.openDoor();
+  for (const [index, key] of INITIATION_CABIN_PROCESSION.entries()) {
+    const member = memberByKey.get(key);
+    const final = member ? cabinMarkFor(member) : null;
+    if (!member || !final) continue;
+    member.stepTo = null;
+    member.trailOffset = 0;
+    member.trailLateral = 0;
+    member.placed = false;
+    member.cabinProcession = {
+      index,
+      cursor: 0,
+      entered: false,
+      complete: false,
+      route: cabinProcessionRoute({
+        door: {
+          x: CABIN_DOOR.x,
+          frontZ: CABIN.frontZ,
+          outsideZ: CABIN_DOOR.outside.z,
+        },
+        final,
+        index,
+      }),
+    };
+  }
+}
+
+function finishCabinProcessionMember(member) {
+  const final = cabinMarkFor(member);
+  if (!final) return;
+  if (member.key === 'LOU') {
+    louSeated = true;
+    poseSeated(member.sq, LOU_SEAT, ROOM.floorY);
+  } else {
+    standOn(member.sq, {
+      x: final.x,
+      z: final.z,
+      heading: final.heading ?? headingToward(final, CEREMONY_CENTRE),
+    });
+  }
+  member.placed = true;
+  member.cabinProcession.complete = true;
+}
+
+function updateCabinProcession(dt) {
+  if (!cabinProcessionActive) return;
+  const ordered = INITIATION_CABIN_PROCESSION
+    .map((key) => memberByKey.get(key))
+    .filter((member) => member?.cabinProcession);
+
+  for (let index = 0; index < ordered.length; index++) {
+    const member = ordered[index];
+    const state = member.cabinProcession;
+    if (state.complete) continue;
+    const previous = ordered[index - 1]?.cabinProcession ?? null;
+    const predecessorClear = !previous || previous.entered;
+    const waitsForTony = member.key === 'BOOSKIBRO' && !cabinProcessionPlayerInside;
+    if (!predecessorClear || waitsForTony) {
+      member.sq.update(dt, _zero, 0);
+      faceAt(member.sq, CABIN_DOOR.outside);
+      continue;
+    }
+
+    const waypoint = state.route[state.cursor];
+    if (!waypoint) {
+      finishCabinProcessionMember(member);
+      continue;
+    }
+    if (!walkNpc(member.sq, waypoint.x, waypoint.z, dt, 2.65, 0.16)) continue;
+    if (waypoint.stage === 'threshold') state.entered = true;
+    state.cursor += 1;
+    if (state.cursor >= state.route.length) finishCabinProcessionMember(member);
+  }
+
+  cabinProcessionActive = ordered.some((member) => !member.cabinProcession.complete);
+}
+
+function cabinPrincipalsAtMarks() {
+  return INITIATION_CABIN_REQUIRED_AT_MARK.every((key) => memberByKey.get(key)?.placed === true);
+}
+
+/** Start the stagger before Tony reaches the porch; Booski waits for him. */
 function goInsideAhead() {
-  fillTheRoom('BOOSKIBRO');
-  const booskibro = memberByKey.get('BOOSKIBRO');
-  booskibro.trailOffset = 0;
-  booskibro.stepTo = { x: CABIN_DOOR.x - 1.0, z: CABIN_DOOR.outside.z - 0.3, face: CABIN_DOOR.outside };
+  startCabinProcession();
 }
 
 /** Everybody in their place, standing, facing the middle of the room. */
 function fillTheRoom(except = null) {
+  /* Checkpoint/debug placement only. Production reaches these exact marks by
+   * updateCabinProcession(), never through this one-frame helper. */
+  cabinProcessionActive = false;
   for (const member of members) {
     if (member.key === except) continue;
+    member.cabinProcession = null;
     member.stepTo = null;
     member.trailOffset = 0;
+    member.trailLateral = 0;
     const slotId = CABIN_BLOCKING[member.key];
     const slot = slotId ? blockingSlot(slotId) : CABIN_WALL_SLOTS[member.key];
     if (!slot) continue;
@@ -2037,16 +2460,18 @@ function runCeremonyBeat() {
   }
   const id = CEREMONY_BEATS_IN_ORDER[ceremonyIndex++];
   if (id === 'IN-310') {
-    sayBeat(id, () => {
-      /* He walks the length of the table and the room closes up behind him. */
-      playerFigure.stepTo = { x: CEREMONY_CENTRE.x, z: CEREMONY_CENTRE.z };
-      runCeremonyBeat();
-    });
+    /* Lou asks; then the player, who is Tony, walks there himself. Keeping
+     * the continuation out of this callback is deliberate: dialogue cannot
+     * drag a separate presentation body away from the first-person camera. */
+    sayBeat(id, () => setPhase('ceremony_approach'));
     return;
   }
   const beat = beatById(id);
   if (!beat || beat.lines.length === 0) {
-    ceremonyHold = 2.6;
+    /* A stage direction with no visible action used to insert 2.6 seconds of
+     * blank room. The doorway procession and prop moves own their real time;
+     * a text-only beat gets one deliberate breath, not hidden dead air. */
+    ceremonyHold = 0.85;
     return;
   }
   sayBeat(id, runCeremonyBeat);
@@ -2118,8 +2543,8 @@ function fireTheOathShot(reason = 'WRONG ANSWER') {
   shake = Math.max(shake, 0.5);
   failTitleEl.textContent = 'MISSION FAILED';
   failReasonEl.innerHTML = reason;
-  failEl.classList.remove('hidden');
   setPhase('failed_oath');
+  showBlockingOverlay(failEl);
 }
 
 /* ------------------------------------------------------------------
@@ -2141,13 +2566,205 @@ function releaseHeldProp() {
   }
 }
 
+function startCeremonySalute(key, duration = 1.3) {
+  const member = memberByKey.get(key);
+  if (!member) return false;
+  member.poseDuration = Math.max(0.4, Number(duration) || 1.3);
+  member.poseT = member.poseDuration;
+  return true;
+}
+
+function completeRoomAcknowledgements() {
+  if (phase !== 'room') return;
+  /* DeathMegatron's authored acknowledgment is physical: a hand at the back
+   * of Tony's neck, held a shade too long. The shared rig cannot make that
+   * contact from its measured wall mark, so the readable version is his one
+   * silent raised-hand acknowledgment while the last spoken salute lands. */
+  startCeremonySalute('DEATHMEGATRON', 1.45);
+  roomAcknowledgementsComplete = true;
+  roomReactionHold = 0.9;
+}
+
+function renderRoomReactionSubtitles() {
+  const active = roomReaction?.active ?? [];
+  if (active.length === 0) {
+    speakerEl.textContent = 'THE ROOM';
+    lineEl.textContent = '';
+    return;
+  }
+  const featured = active.find((entry) => entry.featured);
+  if (featured && active.length === 1) {
+    speakerEl.textContent = featured.line.who;
+    lineEl.textContent = featured.line.text;
+    return;
+  }
+  speakerEl.textContent = 'THE ROOM';
+  lineEl.textContent = active.slice(-4)
+    .map((entry) => `${entry.line.who} — ${entry.line.text}`)
+    .join('\n');
+}
+
+/**
+ * Start the collective congratulations without turning them into roll call.
+ *
+ * The crowd takes deliberately share the room and carry that intent through
+ * the shared audio diagnostics (`ambientVoice` + `interrupt`). Gratin and
+ * Booskibro are protected by the schedule itself, so their two payoff lines
+ * remain fully readable rather than competing with the burst.
+ */
+function startRoomReaction() {
+  const lines = [
+    ...(beatById('IN-500')?.lines ?? []),
+    ...(beatById('IN-510')?.lines ?? []),
+  ];
+  const unavailable = lines.filter((line) => !audioReady || !audio.hasSample?.(line.cue));
+  if (unavailable.length > 0) {
+    for (const line of unavailable) {
+      if (!missingVoiceCues.includes(line.cue)) missingVoiceCues.push(line.cue);
+    }
+    blockedVoiceCue = unavailable[0].cue;
+    roomReaction = {
+      elapsed: 0,
+      next: 0,
+      active: [],
+      started: [],
+      schedule: [],
+      duration: currentPhase().timeout,
+      blocked: unavailable.map((line) => line.cue),
+    };
+    setObjective(`VOICE AUDIO NOT READY: ${blockedVoiceCue}`);
+    return;
+  }
+
+  blockedVoiceCue = null;
+  const schedule = buildRoomReactionSchedule(
+    lines,
+    (line) => speechDuration(audio, line.cue),
+  );
+  roomReaction = {
+    elapsed: 0,
+    next: 0,
+    active: [],
+    started: [],
+    schedule,
+    duration: roomReactionDuration(schedule),
+    blocked: [],
+  };
+  dialogEl.classList.add('show');
+  renderRoomReactionSubtitles();
+}
+
+function updateRoomReaction(dt) {
+  if (!roomReaction || roomAcknowledgementsComplete) return;
+  roomReaction.elapsed += Math.max(0, Number(dt) || 0);
+
+  while (roomReaction.next < roomReaction.schedule.length
+    && roomReaction.schedule[roomReaction.next].at <= roomReaction.elapsed) {
+    const entry = roomReaction.schedule[roomReaction.next++];
+    const body = bodyFor(entry.line);
+    const spoken = speak(audio, entry.line.cue, {
+      speaker: body ?? (() => player.position),
+      mix: SPEECH_MIX,
+      gain: entry.featured ? 1 : 0.82,
+      speakerId: entry.line.speakerKey,
+      subtitle: entry.line.text,
+      ambientVoice: entry.ambient,
+      interrupt: entry.ambient,
+    });
+    startCeremonySalute(entry.line.speakerKey, Math.min(1.65, Math.max(1.05, spoken.seconds)));
+    const live = {
+      ...entry,
+      startedAt: roomReaction.elapsed,
+      visibleUntil: roomReaction.elapsed + spoken.seconds + 0.18,
+      acceptance: spoken.acceptance.status,
+    };
+    roomReaction.active.push(live);
+    roomReaction.started.push(live);
+  }
+
+  roomReaction.active = roomReaction.active
+    .filter((entry) => entry.visibleUntil > roomReaction.elapsed);
+  renderRoomReactionSubtitles();
+
+  if (roomReaction.elapsed >= roomReaction.duration) {
+    dialogEl.classList.remove('show');
+    lineEl.textContent = '';
+    completeRoomAcknowledgements();
+  }
+}
+
+function beginRoomAside() {
+  if (phase !== 'room') return;
+  setPhase('room_aside');
+  sayBeat('IN-520', () => {
+    if (phase !== 'room_aside') return;
+    const offer = beatById('IN-530')?.lines.filter((line) => line.speakerKey !== 'PROSPECT') ?? [];
+    if (props.whiskey?.group) {
+      props.whiskey.group.visible = true;
+      attachToHand(boosk, TABLE_SOCKETS.whiskey.hand ?? 'R', props.whiskey.group, {
+        offset: props.whiskey.grip?.offset ?? null,
+        rotation: props.whiskey.grip?.rotation ?? null,
+      });
+      props.whiskey.group.userData.ceremonialState = 'offered';
+    }
+    ceremonialShotState = 'offered';
+    say(offer, () => {
+      if (phase !== 'room_aside') return;
+      ritualPressed = false;
+      setPhase('shot_offer');
+    });
+  });
+}
+
+function takeCeremonialShot() {
+  if (phase !== 'shot_offer') return;
+  ritualPressed = false;
+  if (props.whiskey?.group) {
+    attachToHand(playerFigure, TABLE_SOCKETS.whiskey.hand ?? 'R', props.whiskey.group, {
+      offset: props.whiskey.grip?.offset ?? null,
+      rotation: props.whiskey.grip?.rotation ?? null,
+    });
+    props.whiskey.group.visible = true;
+    props.whiskey.group.userData.ceremonialState = 'in-hand';
+  }
+  ceremonialShotState = 'hand';
+  setPhase('shot_toast');
+  const toast = beatById('IN-530')?.lines.filter((line) => line.speakerKey === 'PROSPECT') ?? [];
+  say(toast, beginCeremonialDrink);
+}
+
+function beginCeremonialDrink() {
+  if (phase !== 'shot_toast') return;
+  ceremonialShotState = 'drinking';
+  if (props.whiskey?.group) props.whiskey.group.userData.ceremonialState = 'drinking';
+  setPhase('shot_drink');
+}
+
+function finishCeremonialShot() {
+  if (props.whiskey?.group) {
+    props.whiskey.group.parent?.remove(props.whiskey.group);
+    props.whiskey.group.visible = false;
+    props.whiskey.group.userData.ceremonialState = 'spent';
+  }
+  ceremonialShotState = 'spent';
+  dialogEl.classList.remove('show');
+  sayQueue = [];
+  site.ambience.stop();
+  setPhase('pullback');
+}
+
 function runBlade() {
   /* Rippinflow hands Lou the blade, handle first, and goes back to the wall.
    * Booskibro picks the card up and holds it flat on his palm. IN A HAND, both
    * of them: `TABLE_SOCKETS` says which hand each object is put into, because
    * that is a property of the object and not of the code that moves it. */
   holdProp(props.knife, lou, TABLE_SOCKETS.knife.hand ?? 'R');
-  if (props.card) attachToHand(boosk, TABLE_SOCKETS.card.hand ?? 'L', props.card.group);
+  if (props.card) {
+    attachToHand(boosk, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
+      offset: props.card.grip?.offset ?? null,
+      rotation: props.card.grip?.rotation ?? null,
+    });
+  }
   sayBeat('IN-400');
 }
 
@@ -2202,6 +2819,7 @@ function doTheCut() {
    * was still holding the saint. */
   if (props.card) {
     attachToHand(playerFigure, TABLE_SOCKETS.card.hand ?? 'L', props.card.group, {
+      offset: props.card.grip?.offset ?? null,
       rotation: props.card.grip?.rotation ?? null,
     });
   }
@@ -2289,7 +2907,10 @@ function runBurn() {
    * front, flame and embers; `cardBurn` owns the timing and the rules. */
   if (props.card) {
     props.card.resetBurn?.();
-    attachToHand(playerFigure, 'L', props.card.group);
+    attachToHand(playerFigure, 'L', props.card.group, {
+      offset: props.card.grip?.offset ?? null,
+      rotation: props.card.grip?.rotation ?? null,
+    });
   }
   cardBurn.reset().ignite();
   emberT = 0;
@@ -2324,10 +2945,15 @@ function tieTheBandana() {
     scene.remove(playerFigure.group);
     scene.add(member.group);
     playerFigure = member;
+    prepareFirstPersonRitualFigure(playerFigure);
   }
   setPhase('room');
-  sayOverlapping('IN-500');
-  setTimeout(() => sayOverlapping('IN-510'), 900);
+  roomAcknowledgementsComplete = false;
+  roomReactionHold = 0;
+  /* Owner QA: this has to be a collective eruption, not nineteen people
+   * waiting their turn to read one line each. The schedule preserves every
+   * authored cue and face while making the first wave genuinely simultaneous. */
+  startRoomReaction();
 }
 
 /* ------------------------------------------------------------------
@@ -2335,6 +2961,11 @@ function tieTheBandana() {
  * ------------------------------------------------------------------ */
 function retry() {
   failEl.classList.add('hidden');
+  /* The failure card suspends canonical input so the pointer can reach its
+   * button. Retrying is a lifecycle boundary too: numbered choice routes must
+   * be live again even while the cursor remains free over the restored quiz.
+   * Request capture only after the player makes that choice. */
+  input?.resume({ requestPointerLock: false });
   painT = 0;
   hideChoice();
   sayQueue = [];
@@ -2444,6 +3075,7 @@ function updatePhase(dt) {
           prospect.dead = true;
           prospect.fallT = 0;
           prospect.fallMark = markForStep(currentStep);
+          prospect.standingFall = false;
         }
         advanceRun();
       }
@@ -2471,7 +3103,8 @@ function updatePhase(dt) {
       updateTrailBeats();
       /* Only from `trail` itself: arriving out of a reply would cut a line off
        * for the sake of a HUD string. */
-      if (!openChoice && distance2D(player.position, CABIN_DOOR.outside) < 6) {
+      if (currentTrailNarrativeStatus().readyForCabin
+        && distance2D(player.position, CABIN_DOOR.outside) < 6) {
         setPhase('cabin_arrive');
         goInsideAhead();
       }
@@ -2479,7 +3112,10 @@ function updatePhase(dt) {
     if (phase === 'trail_choice' && openChoice && choiceT > spec.timeout) {
       hideChoice();
       setPhase('trail_reply');
-      sayBeat(beatById('IN-245').choice.fallback, () => setPhase('trail'));
+      sayBeat(beatById('IN-245').choice.fallback, () => {
+        trailChoiceResolved = true;
+        setPhase('trail');
+      });
     }
   } else if (phase === 'cabin_arrive') {
     trailK = 1;
@@ -2489,11 +3125,25 @@ function updatePhase(dt) {
     }
   } else if (phase === 'cabin_door') {
     if (player.position.z > CABIN.frontZ + 0.6) {
-      /* Booskibro comes in behind him and the door shuts. */
-      fillTheRoom();
+      /* Booskibro comes through behind him. Translation locks only while the
+       * three principals finish their real routes; mouse-look stays live. */
+      cabinProcessionPlayerInside = true;
+      setPhase('cabin_settle');
+    }
+  } else if (phase === 'cabin_settle') {
+    if (cabinPrincipalsAtMarks()) {
       setPhase('ceremony');
       ceremonyIndex = 0;
-      ceremonyHold = 2.4;
+      ceremonyHold = 0.45;
+    }
+  } else if (phase === 'ceremony_approach') {
+    if (distance2D(player.position, CEREMONY_CENTRE) < 0.72) {
+      /* Finish on the authored floor mark so every hand/table reach remains
+       * deterministic, then lock translation while preserving mouse-look. */
+      playerController.teleport(CEREMONY_CENTRE, { heading: CEREMONY_CENTRE.heading });
+      playerController.syncFigure(playerFigure);
+      setPhase('ceremony');
+      runCeremonyBeat();
     }
   } else if (phase === 'ceremony') {
     if (ceremonyHold > 0) {
@@ -2547,22 +3197,47 @@ function updatePhase(dt) {
       if (phaseT > spec.timeout) runMade();
     }
   } else if (phase === 'room') {
-    if (phaseT > spec.timeout) {
-      setPhase('room_aside');
-      sayBeat('IN-520', () => sayBeat('IN-530'));
+    updateRoomReaction(dt);
+    if (roomAcknowledgementsComplete) {
+      roomReactionHold -= dt;
+      if (roomReactionHold <= 0) beginRoomAside();
+    } else if (phaseT > spec.timeout) {
+      dialogEl.classList.remove('show');
+      completeRoomAcknowledgements();
     }
   } else if (phase === 'room_aside') {
     if (phaseT > spec.timeout && !dialogActive()) {
-      setPhase('pullback');
-      dialogEl.classList.remove('show');
-      sayQueue = [];
-      site.ambience.stop();
+      /* A voice-bank failure cannot strand a physical prop. The glass is
+       * already in Booski's hand on the normal route; the fallback still puts
+       * the exact same interaction prompt up rather than skipping the drink. */
+      if (ceremonialShotState === 'table' && props.whiskey?.group) {
+        attachToHand(boosk, TABLE_SOCKETS.whiskey.hand ?? 'R', props.whiskey.group, {
+          offset: props.whiskey.grip?.offset ?? null,
+          rotation: props.whiskey.grip?.rotation ?? null,
+        });
+        ceremonialShotState = 'offered';
+      }
+      ritualPressed = false;
+      setPhase('shot_offer');
     }
+  } else if (phase === 'shot_offer') {
+    if (ritualPressed || phaseT > spec.timeout) takeCeremonialShot();
+  } else if (phase === 'shot_toast') {
+    if (phaseT > spec.timeout && !dialogActive()) beginCeremonialDrink();
+  } else if (phase === 'shot_drink') {
+    if (phaseT > spec.timeout) finishCeremonialShot();
   } else if (phase === 'pullback') {
     if (phaseT > spec.timeout) {
       recordInitiationComplete();
-      $('complete').classList.remove('hidden');
       setPhase('complete');
+      input?.suspend();
+      hudEl.classList.remove('visible');
+      campaignCreditsView.roll({
+        roll: [
+          ...prospectRecordCreditEntries(campaign.state.statistics),
+          ...campaignCreditRoll(),
+        ],
+      });
     }
   }
 }
@@ -2633,7 +3308,6 @@ let flameT = 0;
 let footT = 0;
 
 function onStep() {
-  sfx.step();
   playFootstep(audio, player.position.x, player.position.z, { volume: 0.45 });
 }
 
@@ -2643,7 +3317,8 @@ function syncActorColliders() {
   for (const binding of actorColliders) {
     const { owner, kind, circle } = binding;
     const moving = Boolean(owner.stepTo)
-      || (kind === 'member' && scriptedTrail && owner.trailOffset !== 0);
+      || (kind === 'member' && scriptedTrail && owner.trailOffset !== 0)
+      || (kind === 'member' && owner.cabinProcession && !owner.cabinProcession.complete);
     const fallen = kind === 'prospect' && (owner.dead || owner.fallT >= 0);
     const authoredPose = isPosed(owner.sq);
     syncInitiationActorCircle(circle, owner.sq, {
@@ -2680,13 +3355,21 @@ function tick() {
       footT -= dt;
       if (footT <= 0) {
         footT = 0.42;
-        playFootstep(audio, playerFigure.position.x, playerFigure.position.z, { volume: 0.35 });
+        playFootstep(audio, playerFigure.position.x, playerFigure.position.z, {
+          volume: 0.35,
+          cadenceKey: 'scripted-player',
+        });
       }
     } else {
       playerFigure.update(dt, _zero, 0);
     }
   } else {
     playerController.syncFigure(playerFigure);
+  }
+  if (playerFigure.group.visible && FIRST_PERSON_RITUAL_PHASES.has(phase)) {
+    /* Person.update() owns normal gait arms. The close-up owns ritual arms,
+     * so the authored pose is re-applied after the shared update each frame. */
+    poseFirstPersonRitualHands(playerFigure, phase, phaseT);
   }
 
   if (playerFallT >= 0) {
@@ -2705,22 +3388,21 @@ function tick() {
 
   updateInitiationExecutionRevolver(gun, dt);
   updateExecution(dt);
+  updateCabinProcession(dt);
 
   // --- Prospects ---
   for (const p of prospects) {
     if (p.fallT >= 0) {
       p.fallT += dt;
-      if (p.fallMark) {
+      if (p.standingFall && p.fallMark) {
+        poseStandingFallen(p.sq, p.fallMark, Math.min(1, p.fallT * 2.2));
+      } else if (p.fallMark) {
         /* Shot from behind, on his knees: he goes FORWARD, face down, rotated
          * about the KNEES and about his own left-right axis. `main.js`'s old
          * topple spins the group about its origin on the world X axis, which
          * for a kneeling figure — whose origin is a metre BELOW the mud — sends
          * a man through the ground and out the other side. */
         poseFallen(p.sq, p.fallMark, Math.min(1, p.fallT * 2.6));
-      } else {
-        /* Prospect One, standing and frontal, still topples backward about his
-         * feet. Keeping him different is the point: the first one is temper. */
-        p.sq.group.rotation.x = -Math.min(1.5, p.fallT * 3.2);
       }
       continue;
     }
@@ -2757,20 +3439,39 @@ function tick() {
     || phase === 'trail_reply' || phase === 'cabin_arrive' || phase === 'walk_out';
   for (const m of members) {
     if (exec && m === exec.m) continue; // the executioner is otherwise engaged
-    if (isPosed(m.sq)) continue;        // Lou, in the only chair anybody sits in
-    if (m.poseT > 0) {
-      m.poseT -= dt;
-      const sway = Math.sin(flameT * 6 + m.home.x) * 0.15;
-      m.sq.armL.rotation.x = Math.PI - 0.3 + sway;
-      m.sq.armR.rotation.x = Math.PI - 0.3 - sway;
+    if (m.cabinProcession && !m.cabinProcession.complete) continue;
+
+    if (m.key === 'BOOSKIBRO' && ceremonialShotState === 'offered') {
+      m.sq.update(dt, _zero, 0);
+      faceAt(m.sq, player.position);
+      poseCeremonyOffer(m.sq, 1);
       continue;
     }
+
+    if (m.poseT > 0) {
+      const duration = Math.max(0.4, m.poseDuration || 1.3);
+      m.poseT = Math.max(0, m.poseT - dt);
+      if (m.key === 'LOU') poseSeated(m.sq, LOU_SEAT, ROOM.floorY);
+      else m.sq.update(dt, _zero, 0);
+      const elapsed = duration - m.poseT;
+      const amount = Math.min(
+        THREE.MathUtils.clamp(elapsed / 0.16, 0, 1),
+        THREE.MathUtils.clamp(m.poseT / 0.28, 0, 1),
+      );
+      poseCeremonySalute(m.sq, amount);
+      if (m.poseT <= 0) {
+        if (m.key === 'LOU') poseSeated(m.sq, LOU_SEAT, ROOM.floorY);
+        else m.sq.resetArticulation?.();
+      }
+      continue;
+    }
+    if (isPosed(m.sq)) continue;        // Lou, in the only chair anybody sits in
     if (onTheTrail && m.trailOffset !== 0) {
       /* Strung out along the trail in ones and twos, ahead of him and behind
        * him. The fire gets smaller behind them and nobody looks back at it. */
       const k = THREE.MathUtils.clamp(trailK + m.trailOffset, 0, 1);
-      const at = pointAlongPath(TRAIL, k);
-      walkNpc(m.sq, at.x, at.z, dt, 3.4, 0.5);
+      const at = formationTarget(pointAlongPath(TRAIL, k), m.trailLateral);
+      walkNpc(m.sq, at.x, at.z, dt, m.trailSpeed, 0.48);
       continue;
     }
     if (m.stepTo) {
@@ -2805,6 +3506,11 @@ function tick() {
     }
   }
 
+  /* The shared gait and speech gesture own the free arm. Reassert the founder
+   * grip afterward so the staff stays beside the coat in walking, turning,
+   * aiming and recovery instead of inheriting a full pendulum swing. */
+  poseFounderStaffGrip(boosk, boosk.armL.rotation.x);
+
   // --- Embers off the barrel ---
   for (let i = 0; i < EMBER_N; i++) {
     const e = emberData[i];
@@ -2835,7 +3541,8 @@ function tick() {
     painFlashEl.style.opacity = painT;
   }
 
-  if (phase === 'made' || phase === 'room' || phase === 'room_aside') {
+  if (phase === 'made' || phase === 'room' || phase === 'room_aside'
+    || phase === 'shot_offer' || phase === 'shot_toast' || phase === 'shot_drink') {
     inductionK = Math.min(1, inductionK + dt / 3);
   }
 
@@ -2844,7 +3551,8 @@ function tick() {
   deathPools.update(dt);
   spurts.update(dt);
   updateCamera(dt);
-  composer.render();
+  postfx.render();
+  postfx.sample(dt);
 }
 
 /* The staging is checked in a test with real world-space vectors, and it is
@@ -2860,6 +3568,7 @@ tick();
 // Debug/test handle (harmless in production)
 window.INITIATION = {
   get player() { return player; },
+  get input() { return input; },
   members,
   prospects,
   boosk,
@@ -2885,9 +3594,34 @@ window.INITIATION = {
     return quizButtons.findIndex((btn) => btn.dataset.correct === '1');
   },
   get deadProspects() { return prospects.filter((p) => p.dead).map((p) => p.name); },
+  get trail() {
+    return {
+      phase,
+      progress: trailK,
+      moveScale: playerController.moveScale,
+      allowSprint: playerController.allowSprint,
+      dialogueTiming: currentPhase().dialogueTiming,
+      playerSprinting: player.sprinting,
+      heldKeys: [...player.keys],
+      ...currentTrailNarrativeStatus(),
+    };
+  },
+  get cabinProcession() {
+    return members.map((member) => ({
+      key: member.key,
+      placed: member.placed,
+      cursor: member.cabinProcession?.cursor ?? null,
+      entered: member.cabinProcession?.entered ?? false,
+      complete: member.cabinProcession?.complete ?? false,
+      position: member.sq.position.toArray(),
+    }));
+  },
   get inductionK() { return inductionK; },
   chooseAnswer: pickChoice,
   get playerFigure() { return playerFigure; },
+  get firstPersonHandsVisible() {
+    return playerFigure.group.visible && FIRST_PERSON_RITUAL_PHASES.has(phase);
+  },
   get control() { return playerController.control; },
   get playerPose() { return playerController.pose; },
   get audioReady() { return audioReady; },
@@ -2935,6 +3669,7 @@ window.INITIATION = {
       p.dead = true;
       p.kneelMark = mark;
       p.fallMark = mark;
+      p.standingFall = false;
       p.fallT = 1.2;
       poseFallen(p.sq, mark, 1);
     }
@@ -2942,6 +3677,9 @@ window.INITIATION = {
     one.stepTo = null;
     one.dead = true;
     one.fallT = 1.2;
+    one.fallMark = { x: one.sq.position.x, z: one.sq.position.z, heading: one.sq.heading };
+    one.standingFall = true;
+    poseStandingFallen(one.sq, one.fallMark, 1);
     holsterPistol();
   },
 
@@ -2985,11 +3723,13 @@ window.INITIATION = {
     sayDone = null;
     dialogEl.classList.remove('show');
     this._layThemOut();
-    playerController.teleport(CABIN_DOOR.inside, { heading: headingToward(CABIN_DOOR.inside, CEREMONY_CENTRE) });
+    playerController.teleport(CEREMONY_CENTRE, { heading: CEREMONY_CENTRE.heading });
     playerController.syncFigure(playerFigure);
     fillTheRoom();
     setPhase('ceremony');
-    ceremonyIndex = 0;
+    /* The debug seam starts after the player-driven approach. Clean-start
+     * gameplay still plays IN-300/IN-310 and waits for real WASD movement. */
+    ceremonyIndex = 2;
     ceremonyHold = 0.4;
   },
   /**
@@ -3005,11 +3745,18 @@ window.INITIATION = {
     const socket = handSocket(playerFigure, TABLE_SOCKETS.card.hand ?? 'L');
     const cardGroup = props.card?.group ?? null;
     const hand = ritualHandWorld(new THREE.Vector3());
+    const handNdc = hand.clone().project(camera);
+    const cardPresentation = ritualCardPresentation();
     return {
       phase,
       camera: currentPhase().camera,
+      control: playerController.control,
+      cameraOwnedByPlayer: player.camera === camera,
+      firstPersonHandsVisible: playerFigure.group.visible
+        && FIRST_PERSON_RITUAL_PHASES.has(phase),
       cardInPlayerHand: Boolean(socket && cardGroup && cardGroup.parent === socket),
       cardVisible: props.card?.card?.visible === true,
+      cardPresentation,
       char: cardBurn.char,
       burnState: cardBurn.state,
       committed: cardBurn.committed,
@@ -3017,6 +3764,7 @@ window.INITIATION = {
       flame: cardBurn.flame,
       palmCut: Boolean(palmBlood && palmBlood.parent === socket),
       hand: hand.toArray(),
+      handNdc: handNdc.toArray(),
       cameraPos: camera.position.toArray(),
       /**
        * Two different questions, and conflating them wasted a verifier run.
@@ -3034,6 +3782,39 @@ window.INITIATION = {
        */
       aimMiss: _desiredLook.distanceTo(hand),
       lookMiss: _lookTarget.distanceTo(hand),
+    };
+  },
+  get roomReaction() {
+    return {
+      phase,
+      elapsed: roomReaction?.elapsed ?? 0,
+      duration: roomReaction?.duration ?? 0,
+      started: (roomReaction?.started ?? []).map((entry) => ({
+        cue: entry.line.cue,
+        speaker: entry.line.speakerKey,
+        at: entry.startedAt,
+        scheduledAt: entry.at,
+        end: entry.end,
+        ambient: entry.ambient,
+        featured: entry.featured,
+        acceptance: entry.acceptance,
+      })),
+      active: (roomReaction?.active ?? []).map((entry) => entry.line.cue),
+      blocked: [...(roomReaction?.blocked ?? [])],
+      complete: roomAcknowledgementsComplete,
+    };
+  },
+  get ceremonialShot() {
+    const glass = props.whiskey?.group ?? null;
+    const playerSocket = handSocket(playerFigure, TABLE_SOCKETS.whiskey.hand ?? 'R');
+    const booskSocket = handSocket(boosk, TABLE_SOCKETS.whiskey.hand ?? 'R');
+    return {
+      phase,
+      state: ceremonialShotState,
+      visible: glass?.visible === true,
+      inPlayerHand: Boolean(glass && playerSocket && glass.parent === playerSocket),
+      inBooskiHand: Boolean(glass && booskSocket && glass.parent === booskSocket),
+      handsVisible: playerFigure.group.visible && FIRST_PERSON_RITUAL_PHASES.has(phase),
     };
   },
   /** Drive the one-button HOLD the burn reads, without a real pointer. */

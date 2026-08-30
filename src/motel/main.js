@@ -47,10 +47,12 @@ import {
 } from './dialogue-timing.js';
 import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { shakeScale, lookSensitivity, bindAudioVolume, translateKey } from '../core/settings.js';
+import { shakeScale, lookSensitivity, bindAudioVolume } from '../core/settings.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { selectPointInteraction } from './point-interaction.js';
+import { createMotelInputPolicy } from './controls.js';
 import {
   MOTEL_REINFORCEMENT_STAGES,
   MOTEL_ROAD_Z,
@@ -59,6 +61,12 @@ import {
   stageMotelActor,
 } from './runtime-geometry.js';
 import { buildMotelDriveCar, buildMotelDriveScene } from './drive-geometry.js';
+import {
+  MotelEvidenceLedger,
+  evidenceCounter,
+  evidenceMissingCopy,
+  evidenceObjectiveCopy,
+} from './evidence.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -193,6 +201,7 @@ let sharedPauseMenu = null;
 let arrivalT = 0;
 let arrivalCameraMode = 'passenger';
 let openingVoiceReady = false;
+let browserInput = null;
 
 const S = {
   hp: 100,
@@ -213,6 +222,8 @@ const S = {
    * and it stays exactly what it always was, so the transaction is unchanged. */
   caseHeld: false,
   caseDown: false,
+  casePlacementReady: false,
+  casePlacementConfirmed: false,
   moneyOnTable: false,
   moneyOpened: false,
   couponOnly: false,
@@ -274,6 +285,7 @@ const S = {
   caseBurned: false,
   firedWeapon: false,
   lethalKills: 0,
+  shotsFired: 0,
   usedNonImprovised: false,
   policeHeat: 0,
   policeArrived: false,
@@ -302,6 +314,10 @@ const S = {
   paidBlind: false,        // bought without checking — his own fault, and said so
 };
 
+/* The getaway reads this ledger and nothing else. Cases can move through the
+ * scene; their collection requirement cannot. */
+const evidence = new MotelEvidenceLedger();
+
 const shipment = rollShipment();
 const inspection = new Inspection(shipment);
 const freshness = new Freshness();
@@ -323,11 +339,12 @@ const DEAL_STEPS = ['sample', 'count', 'pay', 'open', 'done'];
 const OBJECTIVES = {
   main: [
     { id: 'reach', text: 'Reach room twelve' },
+    { id: 'place', text: "Place Lou's case on the marked table spot" },
     { id: 'inspect', text: 'Inspect their sample' },
     { id: 'count', text: 'Count their case of eight' },
     { id: 'payment', text: 'Push your case across the table' },
     { id: 'survive', text: 'Survive the betrayal' },
-    { id: 'recover', text: 'Recover the jerky' },
+    { id: 'recover', text: 'Recover all three evidence cases' },
     { id: 'escape', text: 'Escape the motel' },
   ],
   opt: [
@@ -407,27 +424,76 @@ let blindT = 0;
 let stunT = 0;
 let inspecting = false;
 let playerMoving = false;
+let playerFootstepReadyAt = 0;
 let dialogue = null;    // { nodeId, node, opts }
 let subtitleT = 0;
 const speechFloor = new DialogueFloor({ nowSeconds: () => performance.now() / 1000 });
 const speechTimers = new Set();
 const carriedCases = { money: null, jerky: null };
 
+/* An unmistakable table target for the case in Tony's hands. It is a ghost
+ * preview plus a lit tray, not a floating objective sentence; both disappear
+ * the frame the authoritative `caseDown` state confirms placement. */
+const casePlacementMarker = new THREE.Group();
+casePlacementMarker.name = 'motel.room12.case-placement-marker';
+casePlacementMarker.position.set(MOTEL_YOUR_CASE.x, MOTEL_YOUR_CASE.y, MOTEL_YOUR_CASE.z);
+casePlacementMarker.rotation.y = MOTEL_YOUR_CASE.ry;
+casePlacementMarker.visible = false;
+const placementTray = new THREE.Mesh(
+  new THREE.BoxGeometry(1.65, 0.035, 0.92),
+  new THREE.MeshBasicMaterial({ color: 0x58f2d0, transparent: true, opacity: 0.42 }),
+);
+placementTray.name = 'motel.room12.case-placement-tray';
+placementTray.position.y = -0.04;
+const placementGhost = makeCarryCase(0x58f2d0);
+placementGhost.group.name = 'motel.room12.case-placement-ghost';
+placementGhost.lid.rotation.x = 0;
+for (const pack of placementGhost.packs) pack.mesh.visible = false;
+placementGhost.group.scale.setScalar(0.8);
+placementGhost.group.traverse((node) => {
+  if (!node.isMesh) return;
+  node.material = node.material.clone();
+  node.material.transparent = true;
+  node.material.opacity = 0.23;
+  node.material.depthWrite = false;
+  if (node.material.emissive) node.material.emissive.setHex(0x58f2d0);
+});
+casePlacementMarker.add(placementTray, placementGhost.group);
+scene.add(casePlacementMarker);
+let casePlacementAnim = null;
+
+function makeEvidenceMarker(color) {
+  const marker = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.62, 0.075, 8, 24),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.86, depthTest: false }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  const pointer = new THREE.Mesh(
+    new THREE.ConeGeometry(0.18, 0.42, 6),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92, depthTest: false }),
+  );
+  pointer.rotation.x = Math.PI;
+  pointer.position.y = 1.2;
+  marker.add(ring, pointer);
+  marker.visible = false;
+  marker.renderOrder = 20;
+  scene.add(marker);
+  return marker;
+}
+
+const evidenceMarkers = {
+  reserve: makeEvidenceMarker(0xffc857),
+  money: makeEvidenceMarker(0x58f2d0),
+  premium: makeEvidenceMarker(0xff5f87),
+};
+let evidenceMarkerClock = 0;
+
 // ---------- Input ----------
 const keys = new Set();
-const KEYMAP = {
-  KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right',
-  ShiftLeft: 'sprint', ShiftRight: 'sprint',
-  ArrowLeft: 'turnL', ArrowRight: 'turnR', ArrowUp: 'lookU', ArrowDown: 'lookD',
-};
 const touch = { active: false, x: 0, y: 0 };
 
-/* Keys whose default the page always eats, repeat or not. */
-const SWALLOWED_CODES = new Set(['Space', 'KeyE', 'Tab']);
-
-window.addEventListener('keydown', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) { keys.add(bound); e.preventDefault(); }
+function routeMotelKeyDown(e, code) {
   /* AUTO-REPEAT IS ONE HELD KEY, NOT A STREAM OF PRESSES.
    *
    * Nothing below wants it. Held [E] re-ran the focused interaction at the
@@ -436,70 +502,68 @@ window.addEventListener('keydown', (e) => {
    * every prompt in the scene, not only the glovebox. Held SPACE likewise beat
    * a grapple on its own. Movement, above, is the one thing that reads the
    * key's STATE rather than its edges, so it is handled before this returns. */
-  if (e.repeat) {
-    if (SWALLOWED_CODES.has(e.code)) e.preventDefault();
-    return;
-  }
-  switch (e.code) {
+  switch (code) {
     case 'Space':
       e.preventDefault();
       if (grapple) mashGrapple();
       else if (phase !== 'menu') tryJump();
-      break;
-    case 'KeyE': e.preventDefault(); onUse(); break;
+      return true;
+    case 'KeyE': e.preventDefault(); onUse(); return true;
     case 'KeyQ':
       if (phase === 'car') { e.preventDefault(); exitCar(); }
-      break;
-    case 'KeyF': onAttack(); break;
+      return true;
+    case 'KeyF': onAttack(); return true;
     /* [R] is reload, the way it is in the siege, the Palace and the combat
      * lab. It used to be a third way to fire — behind left click and behind
      * [F], which already routes a ranged weapon — on a scene whose only gun
      * could not be reloaded at all. */
-    case 'KeyR': onReload(); break;
-    case 'KeyX': drawSilverback(); break;
-    case 'KeyG': dropWeapon(); break;
-    case 'Tab': e.preventDefault(); togglePause(); break;
-    case 'KeyM': toggleMute(); break;
-    case 'KeyP': togglePause(); break;
+    case 'KeyR': onReload(); return true;
+    case 'KeyX': drawSilverback(); return true;
+    case 'KeyG': dropWeapon(); return true;
+    case 'Tab': e.preventDefault(); togglePause(); return true;
+    case 'KeyM': toggleMute(); return true;
+    case 'KeyP': togglePause(); return true;
     case 'Escape':
       if (inspecting) closeInspection();
       else if (dialogue) { /* the wheel is never modal — ignore */ }
       else togglePause();
-      break;
+      return true;
     case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4':
     case 'Digit5': case 'Digit6': case 'Digit7': case 'Digit8': {
-      const n = Number(e.code.slice(5));
+      const n = Number(code.slice(5));
       if (dialogue && n <= 4) pickDialogue(STYLES[n - 1]);
       else if (inspecting) runInspectionByKey(n);
-      break;
+      return true;
     }
     case 'Enter':
       if (phase === 'menu') startScene();
-      break;
-    default: break;
+      return true;
+    default: return false;
   }
-});
-window.addEventListener('keyup', (e) => {
-  const bound = KEYMAP[translateKey(e.code)];
-  if (bound) keys.delete(bound);
-});
-window.addEventListener('blur', () => keys.clear());
-window.addEventListener('contextmenu', (e) => e.preventDefault());
+}
 
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (phase === 'menu' || phase === 'end') return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    renderer.domElement.requestPointerLock?.();
-    return;
-  }
-  if (e.button === 0) onAttack();
-  else if (e.button === 2) onRanged();
+const motelInputPolicy = createMotelInputPolicy({
+  held: keys,
+  isGameplayEnabled: () => phase !== 'menu' && phase !== 'end' && !paused,
+  look(dx, dy) {
+    camYaw -= dx * lookSensitivity(0.0022);
+    camPitch = THREE.MathUtils.clamp(
+      camPitch - dy * lookSensitivity(0.0018),
+      -0.85,
+      0.5,
+    );
+  },
+  routeKeyDown: routeMotelKeyDown,
+  attack: onAttack,
+  ranged: onRanged,
 });
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-  camYaw -= e.movementX * lookSensitivity(0.0022);
-  camPitch = THREE.MathUtils.clamp(camPitch - e.movementY * lookSensitivity(0.0018), -0.85, 0.5);
+browserInput = createFirstPersonInput({
+  player: motelInputPolicy.player,
+  canvas: renderer.domElement,
+  ...motelInputPolicy.adapterOptions,
 });
+
+window.addEventListener('contextmenu', (e) => e.preventDefault());
 
 $('startBtn').addEventListener('click', () => startScene());
 $('resumeBtn').addEventListener('click', () => togglePause());
@@ -554,15 +618,15 @@ sharedPauseMenu = createPauseMenu({
   ],
   onPause: () => {
     paused = true;
-    keys.clear();
+    browserInput.clear('pause');
     sfx.stopMusic();
   },
   onResume: () => {
     paused = false;
     sfx.setMusic(phase === 'fight' || phase === 'recover' || phase === 'escape' ? 'fight' : phase === 'drive' ? 'chase' : 'tense');
     clock.getDelta();
-    const pending = renderer.domElement.requestPointerLock?.();
-    pending?.catch?.(() => {});
+    browserInput.refresh('pause-resume');
+    browserInput.requestPointerLock();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -628,11 +692,42 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
 }
 
 // ---------- Collision helpers ----------
+function playerWindowTraversalBlocked(x, z, y, radius) {
+  const { ROOM12: r, BATH: b, ROOM11: r11 } = level.rects;
+  const openings = [
+    { x0: 2.0, x1: 4.0, z0: r.z1, z1: r.z1 + 0.3 },
+    { x0: 2.4, x1: 4.2, z0: r.z0, z1: r.z0 + 0.3 },
+    { x0: -12.8, x1: -11.2, z0: r11.z0, z1: r11.z0 + 0.3 },
+  ];
+  const bot = y + 0.25;
+  const top = y + 2.6;
+  if (top <= 0 || bot >= 2.7) return false;
+  return openings.some((o) => x > o.x0 - radius && x < o.x1 + radius
+    && z > o.z0 - radius && z < o.z1 + radius);
+}
+
 function blocked(x, z, y, radius = PLAYER_R) {
+  /* Option B from the playtest: windows are sight/bullet/actor openings but
+   * never player traversal routes. Keeping this out of the level collider
+   * registry is intentional — it is policy, not a wall, and Rico's authored
+   * bathroom-window escape must continue to path through it. */
+  if (playerWindowTraversalBlocked(x, z, y, radius)) return true;
   const bot = y + 0.25;
   const top = y + 2.6;
   for (const c of colliders) {
     if (!c.enabled) continue;
+    if (top <= c.y0 || bot >= c.y1) continue;
+    if (x > c.x0 - radius && x < c.x1 + radius && z > c.z0 - radius && z < c.z1 + radius) return true;
+  }
+  return false;
+}
+
+/** NPCs may use authored window escapes; Tony may not use the one-way sill. */
+function actorBlocked(x, z, y, radius = PLAYER_R) {
+  const bot = y + 0.25;
+  const top = y + 2.6;
+  for (const c of colliders) {
+    if (!c.enabled || c.tag === 'window-traversal') continue;
     if (top <= c.y0 || bot >= c.y1) continue;
     if (x > c.x0 - radius && x < c.x1 + radius && z > c.z0 - radius && z < c.z1 + radius) return true;
   }
@@ -649,26 +744,38 @@ function pointBlocked(x, y, z, r = 0.3) {
   return false;
 }
 
+/**
+ * IS THERE A MOTEL BETWEEN THESE TWO POINTS?
+ *
+ * Owner: "Also you start getting shot thro walls I think as well." He was.
+ *
+ * This used to march ten points down the segment and ask whether any of them
+ * had landed inside a blocker. Motel walls are 0.3 m thick and a shot from
+ * the lot into room twelve is twelve to thirty metres long, which put the
+ * samples 1.2-3 m apart, so the front of the building routinely fell between
+ * two of them and `damagePlayer` ran anyway -- measured on the built level,
+ * from 22 of 144 sampled firing positions in the lot. Raising the sample count
+ * would only have made the player walk further back before finding the same
+ * hole. The whole march is gone; `level.js` now answers this with the
+ * shared slab test in `src/core/combat/spatial.js`, against the real box, at
+ * any thickness and any range. The long version of why -- including the two
+ * furniture tags that still do not block, and the measurement behind that --
+ * is the comment over `motelSegmentBlocked` in `src/motel/level.js`.
+ *
+ * The signature and the return value are deliberately unchanged. Callers pass
+ * (x, z, y) triples in that order and compare the result against 0.95, reading
+ * a contact in the last five percent of the line as the target itself rather
+ * than cover in front of it -- which is what lets an interaction prompt sit on
+ * the door it belongs to. 1 means nothing is in the way.
+ */
 function segmentBlocked(x0, z0, y0, x1, z1, y1) {
-  const steps = 10;
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const x = THREE.MathUtils.lerp(x0, x1, t);
-    const z = THREE.MathUtils.lerp(z0, z1, t);
-    const y = THREE.MathUtils.lerp(y0, y1, t);
-    for (const c of colliders) {
-      if (!c.enabled || c.tag === 'bed' || c.tag === 'table') continue;
-      if (y <= c.y0 || y >= c.y1) continue;
-      if (x > c.x0 - 0.25 && x < c.x1 + 0.25 && z > c.z0 - 0.25 && z < c.z1 + 0.25) return t;
-    }
-  }
-  return 1;
+  return level.segmentBlocked({ x: x0, y: y0, z: z0 }, { x: x1, y: y1, z: z1 });
 }
 
 const actorCtx = {
   player: pos,
   floorAt: (x, z, y) => level.floorAt(x, z, y),
-  blocked: (x, z, y, r) => blocked(x, z, y, r),
+  blocked: (x, z, y, r) => actorBlocked(x, z, y, r),
   onMeleeAttack: (a) => enemyMelee(a),
   onRangedAttack: (a) => enemyShoot(a),
   onGrabAttempt: (a) => startGrapple(a),
@@ -676,6 +783,10 @@ const actorCtx = {
   onStuck: (a) => actorStuck(a),
   onAllyAttack: (a, foe) => allyAttack(a, foe),
   nearestHostile: (x, z, r) => nearestHostile(x, z, r),
+  onStep: (a, { running = false } = {}) => sfx.step(
+    surfaceAtFoot(a.position.x, a.position.z, a.position.y),
+    { sourceId: `actor:${a.id}`, position: a.position, running },
+  ),
 };
 
 // ---------- HUD helpers ----------
@@ -704,9 +815,12 @@ const authoredMotelVoice = motelVoiceCueSet();
 
 /** Every line this scene has put on screen, oldest first. See `begin` below. */
 const spokenLog = [];
+/** Dead speakers lose current, queued, ambient, and future dialogue authority. */
+const silencedSpeakers = new Set();
+let currentSpeechSpeaker = null;
 
 function say(who, line, seconds = 3.4, cue = null) {
-  if (phase === 'end') return 0;
+  if (phase === 'end' || silencedSpeakers.has(who)) return 0;
   const cls = who === 'Prospect' ? 'who prospect' : who === '*' ? 'stage' : 'who';
   const show = () => {
   subtitleEl.innerHTML = who === '*'
@@ -724,6 +838,10 @@ function say(who, line, seconds = 3.4, cue = null) {
   const hold = resolveLineHold(seconds, prepared.duration);
   const slot = speechFloor.reserve(hold);
   const begin = () => {
+    /* `say()` reserves before it speaks. A Rico line can therefore be waiting
+     * in a timer when the shot that kills him lands. Death wins that race. */
+    if (silencedSpeakers.has(who)) return;
+    currentSpeechSpeaker = who;
     show();
     /* WHAT WAS ACTUALLY SAID, in order, as it reaches the screen.
      *
@@ -750,7 +868,7 @@ function say(who, line, seconds = 3.4, cue = null) {
   if (slot.delaySeconds > 0) {
     const timer = setTimeout(() => {
       speechTimers.delete(timer);
-      if (phase !== 'end') begin();
+      if (phase !== 'end' && !silencedSpeakers.has(who)) begin();
     }, slot.delaySeconds * 1000);
     speechTimers.add(timer);
   } else {
@@ -784,6 +902,8 @@ function sayThrottled(key, who, line, seconds = 3, cooldown = REPEAT_COOLDOWN_SE
 
 function resetSpeechFloor() {
   lastSpokenAt.clear();
+  silencedSpeakers.clear();
+  currentSpeechSpeaker = null;
   for (const timer of speechTimers) clearTimeout(timer);
   speechTimers.clear();
   speechFloor.reset();
@@ -1010,10 +1130,16 @@ function renderDealBoard() {
 }
 
 function syncArrivalSeats() {
-  const passenger = refs.manCar.passengerPosition();
+  const occupants = refs.manCar.occupants;
+  if (occupants.object('passengerActor') !== player.group) {
+    occupants.attach('passengerActor', player.group, { localYaw: Math.PI / 2 });
+  }
+  const passenger = occupants.worldPoint('passengerEye');
   pos.set(passenger.x, 0, passenger.z);
   feetY = 0;
-  if (snow && S.snowSeated) poseMotelSnowInDriverSeat(snow, refs.manCar);
+  if (snow && S.snowSeated && occupants.object('driverActor') !== snow.group) {
+    poseMotelSnowInDriverSeat(snow, refs.manCar);
+  }
 }
 
 /** Mostly windscreen, with Snow retained as a readable three-quarter profile. */
@@ -1079,9 +1205,8 @@ function finishArrival() {
  *   3. his own case goes into both hands,
  *   4. and he walks into room twelve carrying it.
  *
- * The glovebox prompt still exists and still works; this only means a player
- * who never touches it is armed anyway, and a player who does gets the "still
- * six" line rather than a second draw. The holster is not cosmetic: see
+ * The glovebox prompt is the fallback while this sequence is unresolved and
+ * retires once the automatic check finishes. The holster is not cosmetic: see
  * `dealSealed()` -- nothing can be fired while the deal is still a deal.
  */
 function runArrivalInventory() {
@@ -1192,6 +1317,12 @@ function startScene() {
   S.holstered = false;
   S.caseHeld = false;
   S.caseDown = false;
+  S.casePlacementReady = false;
+  S.casePlacementConfirmed = false;
+  casePlacementMarker.visible = false;
+  casePlacementAnim = null;
+  evidence.reset();
+  for (const marker of Object.values(evidenceMarkers)) marker.visible = false;
   S.weaponRefusals = 0;
   setObjective('reach', 'Pulling into the Flamingo with Snow. Room twelve, tonight.');
   renderObjectiveList();
@@ -1241,12 +1372,19 @@ function finishScene(kind) {
       packagesIntact: S.packagesIntact,
       freshness: freshness.value,
       policeHeat: S.policeHeat,
+      shotsFired: S.shotsFired,
+      peopleKilled: S.lethalKills,
     })) {
       return;
     }
+    // Boarding is only the start of the escape. The objective retires at the
+    // successful campaign seam, after the car has actually reached safety.
+    completeObjective('escape', true);
   }
   lastEndingKind = kind;
   phase = 'end';
+  refs.manCar.occupants.release('passengerActor');
+  refs.manCar.occupants.release('driverActor');
   resetSpeechFloor();
   sfx.setMusic('none');
   sfx.stopAmbience();
@@ -1331,17 +1469,15 @@ addInteract({
  * over." Two causes, both fixed: held [E] repeated at the keyboard's auto-
  * repeat rate (see the keydown handler), and the act itself had no gate at
  * all, so every deliberate press re-delivered the same sentence and
- * re-equipped a gun that was already in his hand. The pickup happens once;
- * going back to it afterwards gets a different, throttled line. */
+ * re-equipped a gun that was already in his hand. The arrival now performs
+ * this check automatically, so the resolved glovebox retires instead of
+ * competing with the passenger-door prompt forever. */
 addInteract({
   id: 'glovebox', x: -6.2, y: 1.1, z: 17.6, r: 3.0,
   requiresAim: true,
-  /* The arrival sequence has already opened it, so in practice this is always
-   * the second label -- it is kept because the glovebox is still a thing in
-   * the car a player will look at, and it should answer him. */
   label: () => (S.weaponChecked ? 'The .45 is checked and put away' : 'Check your weapon'),
   follow: () => refs.manCar.gloveboxPosition(),
-  enabled: () => phase === 'car',
+  enabled: () => phase === 'car' && !S.weaponChecked,
   act: () => {
     if (S.weaponChecked) {
       sayThrottled('glovebox.again', 'Prospect', 'Still six. They do not breed in there.', 2.6);
@@ -1368,7 +1504,7 @@ addInteract({
     ? 'The Commander rides under your coat'
     : 'Snow offers you the Silverback Commander'),
   follow: () => (snow ? { x: snow.position.x, y: snow.position.y + 1.1, z: snow.position.z } : null),
-  enabled: () => phase === 'car' || phase === 'lot',
+  enabled: () => (phase === 'car' || phase === 'lot') && !S.silverbackTaken,
   act: () => {
     if (S.silverbackTaken) {
       sayThrottled('silverback.again', 'Prospect', 'It is under my coat. It stays under my coat.', 3.0);
@@ -1400,7 +1536,9 @@ addInteract({
 addInteract({
   id: 'trunk', x: -8, y: 1.0, z: 20.2, r: 3.2,
   label: () => (refs.manCar.trunk.opened ? "Snow's trunk" : "Check the trunk"),
-  enabled: () => phase === 'lot' || phase === 'escape',
+  // Optional loadout happens before the meeting. Once the fight is over this
+  // target must not steal the one prompt that advances the mission.
+  enabled: () => phase === 'lot',
   act: () => {
     if (!refs.manCar.trunk.opened) {
       refs.manCar.trunk.opened = true;
@@ -1552,13 +1690,6 @@ addInteract({
   act: () => knockOnTwelve(),
 });
 
-addInteract({
-  id: 'enterRoom', x: 0, y: 1.2, z: -5.4, r: 3.0,
-  label: () => 'Step inside',
-  enabled: () => phase === 'door' && S.doorOpened,
-  act: () => enterRoom(),
-});
-
 /* And the way back out of it.
  *
  * The door shuts behind you and its blocker comes back on, which is right —
@@ -1587,6 +1718,14 @@ addInteract({
 const stepPriority = (...steps) => () => (steps.includes(dealStepNow()) ? 0.7 : 0);
 
 addInteract({
+  id: 'placeOwnCase', x: MOTEL_YOUR_CASE.x, y: 1.0, z: MOTEL_YOUR_CASE.z, r: 3.8,
+  priority: () => (S.casePlacementReady ? 2 : 0),
+  label: () => "Place Lou's case on the highlighted table spot",
+  enabled: () => phase === 'room' && S.casePlacementReady && !S.caseDown,
+  act: () => confirmOwnCasePlacement(),
+});
+
+addInteract({
   id: 'sample', x: 1.4, y: 1.0, z: -6.4, r: 3.4,
   priority: stepPriority('sample'),
   label: () => (inspecting ? 'Step back from their sample' : 'Inspect their sample'),
@@ -1597,7 +1736,10 @@ addInteract({
 addInteract({
   id: 'chair', x: 3.0, y: 0.8, z: -6.4, r: 2.6,
   label: () => (S.sat ? 'Stand up' : 'Sit at the table (optional)'),
-  enabled: () => phase === 'room',
+  /* Optional flavour only after the required placement and inspection. Before
+   * that it sat inside the same interaction cluster and stole [E] from the
+   * mission-critical table spot. */
+  enabled: () => phase === 'room' && S.casePlacementConfirmed && S.sampleChecked,
   act: () => {
     S.sat = !S.sat;
     if (S.sat) {
@@ -1674,7 +1816,7 @@ addInteract({
     if (!S.packagesCounted) return 'Push your case across (their eight are still uncounted)';
     return 'Push your case across the table';
   },
-  enabled: () => phase === 'room' && S.sampleOut
+  enabled: () => phase === 'room' && S.caseDown && S.sampleOut
     && (S.carryingMoney || S.moneyOnTable) && !S.moneyOpened,
   act: () => {
     if (!S.moneyOnTable) {
@@ -1915,14 +2057,24 @@ addInteract({
 
 addInteract({
   id: 'takeStash', x: refs.stash.x, y: 0.4, z: refs.stash.z, r: 3.0,
-  label: () => 'Take the premium stash',
+  label: () => "Take Rico's premium evidence case",
   enabled: () => S.stashFound && !S.stashTaken && (phase === 'fight' || phase === 'recover' || phase === 'escape'),
   act: () => {
-    S.stashTaken = true;
-    refs.stash.group.visible = false;
     freshness.value = Math.min(100, freshness.value + 15);
-    toast('STASH SECURED', 'ach', 'Premium packages added to the haul');
+    collectEvidenceCase('premium', { title: 'PREMIUM CASE SECURED' });
     sfx.packaging();
+  },
+});
+
+addInteract({
+  id: 'recoverMoneyCase', x: MOTEL_YOUR_CASE.x, y: 0.8, z: MOTEL_YOUR_CASE.z, r: 3.4,
+  label: () => "Recover Lou's money evidence case",
+  enabled: () => S.betrayed && !evidence.has('money') && !S.moneyTakenByRico
+    && (phase === 'fight' || phase === 'recover' || phase === 'escape')
+    && carriedCases.money?.visible !== false,
+  act: () => {
+    collectEvidenceCase('money', { title: 'MONEY CASE SECURED' });
+    sfx.caseLatch();
   },
 });
 
@@ -2136,7 +2288,15 @@ addInteract({
 // -- getaway --
 addInteract({
   id: 'getaway', x: -6.6, y: 1.2, z: 17.0, r: 4.2,
-  label: () => 'Get in the car',
+  label: () => {
+    const status = evidenceStatus();
+    return status.complete ? 'Get into the passenger seat' : `Check the car · ${evidenceCounter(status)}`;
+  },
+  // The authored point lives on clear pavement beside the passenger door.
+  // A hard-coded lot coordinate drifted toward the bonnet and made the prompt
+  // depend on which side of the car Tony approached.
+  follow: () => refs.manCar.passengerBoardPosition(),
+  priority: 4,
   enabled: () => phase === 'escape' || phase === 'recover',
   act: () => boardGetaway(),
 });
@@ -2152,6 +2312,7 @@ function exitCar() {
    * spawned, no prompt, no explanation. */
   closeDialogue();
   const outside = refs.manCar.passengerExitPosition();
+  refs.manCar.occupants.release('passengerActor');
   feetY = level.floorAt(outside.x, outside.z, 0);
   pos.set(outside.x, 0, outside.z);
   refs.manCar.collider.enabled = true;
@@ -2163,6 +2324,7 @@ function exitCar() {
   player.armR.rotation.x = 0;
   player.head.rotation.set(0, 0, 0);
   sfx.carDoor();
+  playerFootstepReadyAt = performance.now() + 360;
   /* He says he is facing the exit, so he faces the exit. The road is +z. */
   if (snow) snow.faceAt(snow.group.position.x, ROAD_Z);
   sayThenInstruct(ALLY, 'Right here. Facing the exit.', 3.2, () => {
@@ -2203,8 +2365,8 @@ function moveRicoAsideForEntry() {
 /** Make the invitation actionable on the same beat that Rico says it. */
 function inviteIntoRoomTwelve() {
   if (phase !== 'door') return;
-  setObjective('reach', 'Step inside room twelve. [E] at the doorway.');
-  toast('DOOR OPEN', '', 'Go in when you are ready — nobody is pushing you');
+  setObjective('reach', 'Walk into room twelve. The door is open.');
+  toast('DOOR OPEN', '', 'Walk in when you are ready — nobody is pushing you');
   updateInteract();
 }
 
@@ -2250,8 +2412,9 @@ const CASE_DOWN_BEATS = Object.freeze([
 ]);
 
 function enterRoom() {
-  /* Two callers now — the [E] prompt and the doorway itself — so this has to
-   * be safe to run twice on the same frame. It spawns three actors. */
+  /* Three callers — the doorway volume, the room rectangle behind it, and the
+   * seatbelt — so this has to be safe to run twice on the same frame. It
+   * spawns three actors. */
   if (S.enteredRoom || phase === 'room') return;
   phase = 'room';
   S.enteredRoom = true;
@@ -2260,7 +2423,7 @@ function enterRoom() {
   feetY = 0;
   closeDialogue();
   completeObjective('reach');
-  setObjective('inspect', 'Their case is open on the table. Put yours down and let Rico lay the sample out.');
+  setObjective('place', "Wait for the door, then place Lou's case on the highlighted table spot.");
   renderDealBoard();
 
   /* Everyone takes their positions.
@@ -2290,24 +2453,16 @@ function enterRoom() {
     addHeat(6);
     addRead(10);
     sfx.packaging();
-    /* AND THE CASE GOES DOWN.
-     *
-     * He walked in holding it; the first thing he does in room twelve is put
-     * it on the table next to theirs. Two cases, one table, before a word is
-     * said about either -- which is what the whole deal is, staged physically
-     * instead of explained by the HUD. */
-    putOwnCaseDown();
-    const downHold = say('Prospect', 'Two cases, one table. Mine stays shut until I like what I see.', 4.0);
-    /* Establish all three objects, in words, before the inspection becomes
-     * clickable: their sample, their case of eight, and Lou's money case.
-     * These are existing recorded Motel takes played by the shared floor. */
-    speakAuthoredBeats(CASE_DOWN_BEATS, downHold, () => {
-      if (phase !== 'room' || S.betrayed) return;
-      S.sampleOut = true;
-      advanceDeal();
-      toast('THEIR SAMPLE IS ON THE TABLE', '', 'One strip. [E] at the table to work it over.');
-      scheduleRoomEvents();
-    });
+    S.casePlacementReady = true;
+    casePlacementMarker.visible = true;
+    setObjective('place', "Place Lou's case on the highlighted table spot beside their sample.");
+    const placementBeat = CASE_DOWN_BEATS[0];
+    const placementHold = say(placementBeat.speaker, placementBeat.line, placementBeat.seconds);
+    afterLine(placementHold, () => {
+      if (phase === 'room' && S.casePlacementReady) {
+        toast('MARKED TABLE SPOT', '', "Lou's case goes on the glowing tray · [E]");
+      }
+    }, dialogueBeatLeadSeconds(placementBeat));
   };
   setTimeout(closeBehind, 1400);
 }
@@ -2465,8 +2620,9 @@ function pickDialogue(style) {
   }
   const afterReply = () => {
     if (phase === 'end') return;
-    /* The invitation and its [E] prompt are the same beat. Rico has already
-     * spent Tony's answer and his own reply walking clear of the threshold. */
+    /* The invitation and a walkable doorway are the same beat. Rico has
+     * already spent Tony's answer and his own reply walking clear of the
+     * threshold, so the opening he was filling is open as he says it. */
     if (nodeId === 'atDoor') {
       inviteIntoRoomTwelve();
       say('Rico', 'Come in before the neighbours smell it.', 3);
@@ -2639,6 +2795,7 @@ function maybeBetray(trigger, { fastDraw = false } = {}) {
     : 'They are between you and the door');
   closeInspection();
   closeDialogue();
+  beginEvidenceRecovery();
   sfx.setMusic('fight');
   sfx.setTension(1);
 
@@ -2759,21 +2916,69 @@ function drawSilverback() {
   }
 }
 
+/**
+ * HE SAYS IT WHEN HE GETS HERE.
+ *
+ * Owner, 2026-08-24: *"Snow arrives long before his voiceline."* He did, and
+ * both halves of why were in this function.
+ *
+ * `snow.state = 'follow'` starts him walking from the LOT, which is fifteen
+ * metres and a doorway away. `say()` does not speak — it reserves a slot on
+ * `speechFloor` and returns immediately — and the moment the room turns is
+ * the chattiest second in the mission: the Prospect's challenge, Rico's
+ * answer, Chino, the toasts. So Snow's entrance line went to the back of a
+ * queue while Snow himself went in a straight line, and he was standing next
+ * to the player with a crowbar several seconds before the room heard him
+ * announce himself.
+ *
+ * The fix is not a delay guessed at the call site; that is the same bug with a
+ * number in it. He is HANDED the line and says it when he arrives. Distance to
+ * the player decides, because whichever way he comes in — the front door, the
+ * window he has just put through — being next to the man he is helping is what
+ * arriving means.
+ */
+const SNOW_ARRIVAL_RANGE = 3.4;
+/** And if the room is a maze tonight, he still gets to say his piece. */
+const SNOW_ARRIVAL_PATIENCE = 9;
+let snowEntrance = null;
+
 function snowJoins(reason) {
   if (S.snowInside || !snow || phase === 'end' || phase === 'drive') return;
   S.snowInside = true;
   snow.state = 'follow';
   snow.hp = Math.max(60, snow.hp);
-  const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
-  const entranceHold = say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
-  toast('SNOW IS IN', '', `He heard ${reason}`);
-  /* He lets himself in through the window only when the room has actually
-   * turned. The front door starts closed now, so without the `betrayed` test
-   * a warning shot in the LOT would blow the window out of a room nobody has
-   * entered yet — glass first, deal second. */
-  if (S.betrayed && !S.windowBroken && !refs.frontDoor.open) breakWindow(true);
-  // He brings the crowbar from the trunk — thrown to you if you're
-  // empty-handed, kept and visibly wielded if you're not.
+  snowEntrance = {
+    barkIdx: Math.floor(Math.random() * SNOW_FIGHT_BARKS.length),
+    waited: 0,
+    via: 'front door',
+  };
+  toast('SNOW IS COMING IN', '', `He heard ${reason} · watch the front door`);
+  /* The entrance is a visible six-step sequence, not an NPC walking through a
+   * closed leaf: unlock/open, cross, clear, then fight. The door stays open
+   * once he clears because combat and evidence recovery need a guaranteed
+   * return route; closing it here would recreate the lockout from item 19. */
+  if (S.betrayed && !S.doorBroken && !refs.frontDoor.open) {
+    openDoor(refs.frontDoor);
+    sfx.doorOpen();
+  }
+}
+
+/** Every frame while he is on his way in; silent until he is. */
+function updateSnowEntrance(dt) {
+  if (!snowEntrance || !snow || !snow.alive || phase === 'end') return;
+  snowEntrance.waited += Math.max(0, Number(dt) || 0);
+  const reach = Math.hypot(snow.position.x - pos.x, snow.position.z - pos.z);
+  if (reach > SNOW_ARRIVAL_RANGE && snowEntrance.waited < SNOW_ARRIVAL_PATIENCE) return;
+  const { barkIdx, via } = snowEntrance;
+  snowEntrance = null;
+  toast('SNOW IS IN', '', `Through the ${via} · the escape door stays open`);
+  const entranceHold = say(
+    ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`),
+  );
+  /* The crowbar comes with him — thrown to you if you are empty-handed, kept
+   * and visibly wielded if you are not. It waits for him too: a crowbar
+   * landing at your feet from a man still in the car park was the same fault
+   * in a second place. */
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
     afterLine(entranceHold, () => say(ALLY, 'Crowbar. Catch it.', 3, cueFor(ALLY, 'crowbar')));
@@ -2981,6 +3186,7 @@ function onReload() {
 
 /** What one round costs Tony, whoever it hit. */
 function spendRangedShot() {
+  S.shotsFired++;
   S.firedWeapon = true;
   S.usedNonImprovised = true;
   S.policeHeat += 12;
@@ -3199,14 +3405,23 @@ function damagePlayer(amount, source = '') {
   if (S.hp <= 0) onProspectDown(source);
 }
 
-// Whatever they were swinging stays on the carpet for you.
+// Whatever they were swinging stays on the carpet. Routine enemy gear is
+// presentation, not a fresh permanent [E] target competing with evidence.
 let droppedId = 0;
-function dropWeaponPickup(kind, x, z) {
+function dropWeaponProp(kind, x, z) {
   if (!kind || !WEAPON_STATS[kind]) return;
   const m = buildWeaponMesh(kind);
   m.position.set(x, 0.35, z);
   m.rotation.set(Math.PI / 2, Math.random() * 3, 0);
   scene.add(m);
+  return m;
+}
+
+// Authored handoffs (Snow's crowbar) remain deliberate pickups. Enemy deaths
+// call dropWeaponProp instead, so a room of bodies cannot become a prompt wall.
+function dropWeaponPickup(kind, x, z) {
+  const m = dropWeaponProp(kind, x, z);
+  if (!m) return;
   const id = `drop${++droppedId}`;
   let taken = false;
   addInteract({
@@ -3222,11 +3437,19 @@ function dropWeaponPickup(kind, x, z) {
 }
 
 function onActorDown(a, lethal) {
+  silencedSpeakers.add(a.name);
+  if (dialogue?.node?.speaker === a.name) closeDialogue();
+  if (currentSpeechSpeaker === a.name) {
+    stopMotelVoice();
+    currentSpeechSpeaker = null;
+    subtitleT = 0;
+    subtitleEl.classList.remove('show');
+  }
   sfx.bodyFall();
   if (lethal) S.lethalKills++;
   toast(lethal ? 'KILLED' : 'PUT DOWN', lethal ? 'warn' : '', a.name);
   if (a.weapon) {
-    dropWeaponPickup(a.weapon, a.position.x + (Math.random() - 0.5), a.position.z + (Math.random() - 0.5));
+    dropWeaponProp(a.weapon, a.position.x + (Math.random() - 0.5), a.position.z + (Math.random() - 0.5));
     a.equip(null);
   }
 
@@ -3238,11 +3461,10 @@ function onActorDown(a, lethal) {
   }
 
   if (a === rico) {
-    if (a.carryingCase) dropCaseAt(a.position.x, a.position.z);
     if (S.moneyTakenByRico) {
-      S.moneyRecovered = true;
-      S.moneyTakenByRico = false;
-      toast('MONEY RECOVERED', '', 'All $40,000, minus dignity');
+      a.carryingMoneyCase = false;
+      dropMoneyCaseAt(a.position.x + 0.55, a.position.z + 0.25);
+      toast('MONEY CASE DROPPED', '', 'Rico is down. The marked case still needs picking up');
     }
   }
   if (a === chino && a.carryingCase) dropCaseAt(a.position.x, a.position.z);
@@ -3395,12 +3617,105 @@ function burnShipment() {
   failObjective('intact');
   toast('WELL DONE', 'ach', 'The Reserve is smoke. Again.');
   say('Prospect', 'Nobody sells this to anybody now.', 3.4);
-  setObjective('escape', 'Get back to the car');
+  collectEvidenceCase('reserve', { title: 'RESERVE CASE DESTROYED' });
   phase = 'escape';
+  updateRecoveryObjective();
   spawnReinforcements();
 }
 
 // ---------- Cases ----------
+function evidenceStatus() {
+  return evidence.snapshot();
+}
+
+function evidencePose(id) {
+  if (id === 'reserve') {
+    const p = refs.jerkyCase.group.position;
+    return { x: p.x, y: Math.max(0.45, p.y) + 0.35, z: p.z };
+  }
+  if (id === 'money') {
+    const p = carriedCases.money?.position;
+    return p
+      ? { x: p.x, y: Math.max(0.45, p.y) + 0.35, z: p.z }
+      : { x: MOTEL_YOUR_CASE.x, y: MOTEL_YOUR_CASE.y + 0.35, z: MOTEL_YOUR_CASE.z };
+  }
+  return { x: refs.stash.x, y: 0.5, z: refs.stash.z };
+}
+
+function updateEvidenceMarkers(dt = 0) {
+  evidenceMarkerClock += Math.max(0, Number(dt) || 0);
+  for (const [id, marker] of Object.entries(evidenceMarkers)) {
+    const unavailable = (id === 'money' && S.moneyTakenByRico)
+      || (id === 'reserve' && actors.some((a) => a.carryingCase));
+    marker.visible = S.betrayed && !evidence.has(id) && !unavailable;
+    if (!marker.visible) continue;
+    const p = evidencePose(id);
+    marker.position.set(p.x, p.y + 0.13 + Math.sin(evidenceMarkerClock * 3.2 + id.length) * 0.09, p.z);
+    marker.rotation.y += dt * 0.8;
+  }
+}
+
+function updateRecoveryObjective() {
+  const status = evidenceStatus();
+  if (phase !== 'recover' && phase !== 'escape') return status;
+  if (status.complete) {
+    completeObjective('recover');
+    phase = 'escape';
+    setObjective('escape', "All three evidence cases are secured. Return to the passenger side of Snow's car.");
+  } else {
+    setObjective('recover', evidenceObjectiveCopy(status));
+  }
+  return status;
+}
+
+function beginEvidenceRecovery() {
+  evidence.reset();
+  S.moneyRecovered = false;
+  /* Rico's hidden case stops being an optional pixel hunt once the room turns.
+   * It is one of three required hard cases, so it becomes visible and marked. */
+  S.stashFound = true;
+  refs.stash.found = true;
+  refs.stash.group.visible = true;
+  updateEvidenceMarkers();
+  const status = evidenceStatus();
+  toast(evidenceCounter(status), 'warn', evidenceMissingCopy(status));
+  updateGear();
+}
+
+function collectEvidenceCase(id, { title = 'EVIDENCE CASE SECURED' } = {}) {
+  if (!evidence.collect(id)) return false;
+  evidenceMarkers[id].visible = false;
+  if (id === 'money') {
+    S.moneyRecovered = true;
+    S.moneyTakenByRico = false;
+    S.carryingMoney = true;
+    if (carriedCases.money) carriedCases.money.visible = false;
+    completeObjective('money');
+  } else if (id === 'premium') {
+    S.stashTaken = true;
+    refs.stash.group.visible = false;
+    completeObjective('stash');
+  }
+  const status = evidenceStatus();
+  toast(title, status.complete ? 'ach' : '', `${evidenceCounter(status)} · ${evidenceMissingCopy(status)}`);
+  updateRecoveryObjective();
+  updateGear();
+  return true;
+}
+
+function dropMoneyCaseAt(x, z) {
+  placeMoneyCase({ x, y: 0.18, z, ry: 0.18 });
+  carriedCases.money.visible = true;
+  S.moneyTakenByRico = false;
+  S.moneyRecovered = false;
+  const pickup = ix('recoverMoneyCase');
+  if (pickup) {
+    pickup.x = x;
+    pickup.z = z;
+  }
+  updateEvidenceMarkers();
+}
+
 function makeCarryCase(color) {
   const c = makeJerkyCase(color);
   c.group.scale.setScalar(0.8);
@@ -3415,16 +3730,59 @@ function makeCarryCase(color) {
  * inspection is played against. `S.carryingMoney` is deliberately untouched --
  * nobody has been paid, and pushing it across is still its own decision.
  */
-function putOwnCaseDown() {
+function confirmOwnCasePlacement() {
+  if (!S.casePlacementReady || S.caseDown || phase !== 'room') return false;
+  S.casePlacementReady = false;
+  S.casePlacementConfirmed = true;
+  casePlacementMarker.visible = false;
+  putOwnCaseDown({ animate: true });
+  completeObjective('place');
+  toast('CASE PLACED', '', "Lou's case is shut, beside their sample");
+  const downHold = say('Prospect', 'Two cases, one table. Mine stays shut until I like what I see.', 4.0);
+  /* Establish their sample, their eight and Lou's case only after the physical
+   * placement has happened. The HUD cannot get ahead of the table anymore. */
+  speakAuthoredBeats(ROOM_ENTRY_BEATS, downHold, () => {
+    if (phase !== 'room' || S.betrayed) return;
+    S.sampleOut = true;
+    advanceDeal();
+    toast('THEIR SAMPLE IS ON THE TABLE', '', 'One strip. [E] at the table to work it over.');
+    scheduleRoomEvents();
+  });
+  return true;
+}
+
+function putOwnCaseDown({ animate = false } = {}) {
   if (S.caseDown) return;
   S.caseDown = true;
   S.caseHeld = false;
   placeMoneyCase(MOTEL_YOUR_CASE);
+  if (animate && carriedCases.money) {
+    carriedCases.money.position.y = MOTEL_YOUR_CASE.y + 0.52;
+    carriedCases.money.rotation.y = MOTEL_YOUR_CASE.ry + 0.22;
+    carriedCases.money.scale.setScalar(0.68);
+    casePlacementAnim = { elapsed: 0, duration: 0.55 };
+  }
   sfx.caseLatch();
   const i = ix('placeMoney');
   i.x = MOTEL_YOUR_CASE.x;
   i.z = MOTEL_YOUR_CASE.z;
   updateGear();
+}
+
+function updateCasePlacement(dt) {
+  if (casePlacementMarker.visible) {
+    const pulse = 0.34 + Math.sin(performance.now() * 0.006) * 0.12;
+    placementTray.material.opacity = pulse;
+    casePlacementMarker.position.y = MOTEL_YOUR_CASE.y + Math.sin(performance.now() * 0.004) * 0.025;
+  }
+  if (!casePlacementAnim || !carriedCases.money) return;
+  casePlacementAnim.elapsed = Math.min(casePlacementAnim.duration, casePlacementAnim.elapsed + dt);
+  const linear = casePlacementAnim.elapsed / casePlacementAnim.duration;
+  const k = 1 - ((1 - linear) ** 3);
+  carriedCases.money.position.y = THREE.MathUtils.lerp(MOTEL_YOUR_CASE.y + 0.52, MOTEL_YOUR_CASE.y, k);
+  carriedCases.money.rotation.y = THREE.MathUtils.lerp(MOTEL_YOUR_CASE.ry + 0.22, MOTEL_YOUR_CASE.ry, k);
+  carriedCases.money.scale.setScalar(THREE.MathUtils.lerp(0.68, 0.8, k));
+  if (linear >= 1) casePlacementAnim = null;
 }
 
 /** Build (or move) the money case model at one of the authored table poses. */
@@ -3447,12 +3805,12 @@ function placeMoneyCase(pose = MOTEL_YOUR_CASE_PAID) {
 function takeJerkyCase() {
   S.carryingJerky = true;
   refs.jerkyCase.group.visible = false;
-  completeObjective('recover');
+  collectEvidenceCase('reserve', { title: 'RESERVE CASE SECURED' });
   if (phase !== 'escape' && phase !== 'drive') {
     phase = 'escape';
-    setObjective('escape', 'Back to Snow — front walkway, upstairs, the pool, or through the office');
     spawnReinforcements();
   }
+  updateRecoveryObjective();
   toast('THE RESERVE IS YOURS', '', `${S.packagesIntact}/8 packages · ${freshness.grade}`);
   sfx.caseLatch();
   updateGear();
@@ -3519,8 +3877,8 @@ function checkRoomCleared() {
   if (standing.length === 0 && phase === 'fight') {
     completeObjective('survive');
     if (!S.usedNonImprovised) award('snack');
-    setObjective('recover', 'Take the Reserve');
     phase = 'recover';
+    updateRecoveryObjective();
     say('Prospect', 'Now. Where is my meat.', 3);
   }
 }
@@ -3533,14 +3891,24 @@ function actorReachedTarget(a) {
     return;
   }
   if (a === rico && a.afterGoto === 'grabmoney') {
+    if (evidence.has('money')) {
+      a.afterGoto = null;
+      a.target = null;
+      a.state = 'chase';
+      return;
+    }
     S.moneyTakenByRico = true;
     S.moneyRecovered = false;
-    a.carryingCase = true;
+    if (carriedCases.money) carriedCases.money.visible = false;
+    a.carryingMoneyCase = true;
     a.afterGoto = null;
-    a.state = 'flee';
-    a.target = pickRicoExit();
+    ricoBreaksFor(a);
     say('Rico', 'Nothing personal. Everything financial.', 3.2);
-  } else if (a === rico && a.state === 'flee') {
+    toast('RICO IS RUNNING', 'warn', `He is going for ${a.target.via}`);
+  } else if (a === rico && a.afterGoto === 'ricoThrough') {
+    /* He is at the opening. The second leg takes him out of it. */
+    ricoRunsOut(a);
+  } else if (a === rico && (a.afterGoto === 'ricoGone' || a.state === 'flee')) {
     ricoEscapes(a);
   } else if (a === chino && a.carryingCase) {
     throwCaseInPool(a);
@@ -3550,16 +3918,78 @@ function actorReachedTarget(a) {
   }
 }
 
-function pickRicoExit() {
-  if (refs.frontDoor.open || S.doorBroken) return { x: 0, z: 8, via: 'the front walkway' };
-  if (S.windowBroken) return { x: 3.0, z: -5.2, via: 'the smashed front window' };
-  return { x: 3.3, z: -14.4, via: 'the bathroom window' }; // over the tub and out
+/**
+ * WHERE HE IS RUNNING, AND HOW MANY WAYS HE HAS LEFT.
+ *
+ * `skip` is the routes he has already failed to reach. A seller who cannot get
+ * through the front door tries the window before he tries evaporating.
+ */
+function pickRicoExit(skip = new Set()) {
+  const routes = [];
+  if (refs.frontDoor.open || S.doorBroken) routes.push({ x: 0, z: 8, via: 'the front walkway' });
+  if (S.windowBroken) routes.push({ x: 3.0, z: -5.2, via: 'the smashed front window' });
+  routes.push({ x: 3.3, z: -14.4, via: 'the bathroom window' }); // over the tub and out
+  return routes.find((route) => !skip.has(route.via)) ?? routes[0];
+}
+
+/**
+ * HE HAS TO BE SEEN LEAVING.
+ *
+ * Owner, 2026-08-24, on the Motel: *"Rico slips out real quick."* He did, and
+ * not because he was fast. There were two ways for him to simply cease to
+ * exist. `actorReachedTarget` deleted him the frame he touched the exit point,
+ * which for the bathroom window is a spot INSIDE the bathroom -- so he
+ * vanished on the tub rather than going over it. And `actorStuck` deleted him
+ * outright: one blocked step behind a chair and the man with the forty
+ * thousand was gone, from the middle of the room, in front of the player.
+ *
+ * So an exit is two legs now. The first is the opening itself, which is the
+ * part the player can contest -- he is in the room, he is running, and he can
+ * be stopped. The second is a point out in the dark beyond it, and only
+ * reaching THAT ends him. Being stuck costs him a route rather than the scene:
+ * he picks another way and runs again, and he is only gone when he has run out
+ * of ways, which is the honest version of giving up.
+ */
+const RICO_EXIT_RUN = 5.5;
+
+function ricoBreaksFor(a, { skip = a.exitsTried ?? new Set() } = {}) {
+  const exit = pickRicoExit(skip);
+  a.exitOpening = null;
+  a.exitsTried = skip;
+  a.state = 'flee';
+  a.afterGoto = 'ricoThrough';
+  a.target = { ...exit };
+  return exit;
+}
+
+/** Past the opening and into the dark. This leg is the one that ends him. */
+function ricoRunsOut(a) {
+  const from = a.target ?? { x: a.position.x, z: a.position.z, via: 'a gap you did not cover' };
+  a.exitOpening = { x: from.x, z: from.z, via: from.via };
+  const away = Math.hypot(from.x - pos.x, from.z - pos.z) || 1;
+  a.state = 'flee';
+  a.afterGoto = 'ricoGone';
+  a.target = {
+    x: from.x + ((from.x - pos.x) / away) * RICO_EXIT_RUN,
+    z: from.z + ((from.z - pos.z) / away) * RICO_EXIT_RUN,
+    via: from.via,
+  };
 }
 
 // A seller who cannot reach where they were running gives up on the idea.
 function actorStuck(a) {
+  if (a === rico && a.state === 'flee') {
+    /* A blocked step is not an exit. He loses the route and tries another;
+     * only a man out of routes is a man who got away. See `ricoBreaksFor`. */
+    const tried = a.exitsTried ?? new Set();
+    tried.add(a.target?.via ?? '');
+    const next = ricoBreaksFor(a, { skip: tried });
+    if (tried.has(next.via)) ricoEscapes(a);
+    return;
+  }
   if (a === rico) {
-    ricoEscapes(a);
+    a.state = 'chase';
+    a.target = null;
     return;
   }
   if (a.carryingCase) {
@@ -3591,21 +4021,44 @@ function ricoEscapes(a) {
   S.ricoEscaped = true;
   const via = a.target?.via || 'a gap you did not cover';
   if (S.moneyTakenByRico) {
-    S.moneyRecovered = false;
-    failObjective('money');
-    toast('RICO IS GONE', 'warn', `Out through ${via}, with the forty thousand`);
+    /* Escape is not deletion. He loses the case squeezing through the opening,
+     * so every checkpoint remains completable and the exact marker follows it. */
+    const dropX = a.exitOpening?.x ?? a.position.x;
+    const dropZ = a.exitOpening?.z ?? a.position.z;
+    dropMoneyCaseAt(dropX, dropZ);
+    toast('RICO GOT OUT', 'warn', `Out through ${via}. He dropped Lou's marked case at the opening`);
   } else {
     toast('RICO IS GONE', '', `Out through ${via}`);
   }
   checkRoomCleared();
 }
 
+function seatProspectForGetaway() {
+  refs.manCar.collider.enabled = false;
+  S.snowSeated = true;
+  S.snowExitedCar = false;
+  refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = 'snow';
+  refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = 'tony';
+  if (snow) snow.state = 'idle';
+  syncArrivalSeats();
+  frameSnowFromPassenger();
+}
+
 function boardGetaway() {
-  if (phase === 'drive' || phase === 'boarding' || phase === 'end') return;
+  if (phase === 'drive' || phase === 'boarding' || phase === 'end') return false;
+  const status = evidenceStatus();
+  if (!status.complete) {
+    toast(evidenceCounter(status), 'warn', evidenceMissingCopy(status));
+    updateRecoveryObjective();
+    return false;
+  }
   phase = 'boarding';
-  completeObjective('escape');
   if (S.betrayed) completeObjective('survive');
   closeInspection();
+  closeDialogue();
+  seatProspectForGetaway();
+  setObjective('escape', 'Seated with the evidence. Answer Snow, then get clear.');
+  motelPrompt.hidePrompt();
   if (S.carryingJerky || S.caseBurned || S.stashTaken || S.cratesFound) {
     // fine either way
   } else if (!S.carryingJerky) {
@@ -3616,6 +4069,7 @@ function boardGetaway() {
    * saying it here made Snow ask the question twice with a four-second pause
    * in the middle. The wheel owns it. */
   setTimeout(() => { if (phase === 'boarding') openDialogue('getaway'); }, 700);
+  return true;
 }
 
 // ---------- Doors ----------
@@ -3649,13 +4103,42 @@ function updateDoors(dt) {
  *      wheel Rico is standing in the opening, and `refs.roomTwelveThreshold`
  *      is his body — actors do not collide with the player in this scene, so
  *      without it the doorstep conversation is walkable-past.
- *   3. Crossing the threshold IS stepping inside. Once he has moved, walking
- *      through the door runs `enterRoom()` — the same function [E] runs.
- *      There is no path into that room that does not go through the state
- *      machine.
+ *   3. Crossing the threshold IS stepping inside, and is the only way in.
+ *      Once he has moved, walking through the door runs `enterRoom()`. There
+ *      is no path into that room that does not go through the state machine,
+ *      and no key that opens a second one.
  */
 function doorwayIsHeld() {
   return phase === 'door' && !S.doorOpened && !S.doorBroken;
+}
+
+/**
+ * THE DOORWAY IS THE PROMPT.
+ *
+ * Owner: "The E to walk in the hotel room thing is weird -- how about you just
+ * walk into it and it starts that scene? It's easy to miss and will be a scene
+ * breaker for a lot of people." He is right about the failure, and the reason
+ * it bites is that the scene spends the previous minute teaching the opposite:
+ * the leaf is solid until the knock is answered, and Rico's body
+ * (`roomTwelveThreshold`, `level.js`) fills the opening after it, so a player
+ * who tries the obvious thing bounces off twice before the prompt ever lights.
+ * By the time walking in is allowed, they have learned it is not.
+ *
+ * So the opening itself is the trigger. `x` is room twelve's authored doorway
+ * -- `level.js` builds the gap at -1.1..1.0 -- with a shoulder of slack either
+ * side. `z` starts just under the header: the front wall band is -4.5..-4.2,
+ * so -4.3 fires as they pass beneath it rather than after their centre has
+ * cleared the wall, and -5.4 is the spot `enterRoom()` already puts them.
+ *
+ * It cannot fire early. The gate below is `S.doorOpened`, the same flag the
+ * departed [E] prompt used, and Rico is still standing in this rectangle until
+ * the doorstep wheel is answered.
+ */
+const ROOM12_DOORWAY = Object.freeze({ x0: -1.25, x1: 1.15, z0: -5.4, z1: -4.3 });
+
+function inRoomTwelveDoorway(x, z) {
+  return x >= ROOM12_DOORWAY.x0 && x <= ROOM12_DOORWAY.x1
+    && z >= ROOM12_DOORWAY.z0 && z <= ROOM12_DOORWAY.z1;
 }
 
 function updateRoomTwelveThreshold() {
@@ -3671,13 +4154,20 @@ function beforeTheDeal() {
 /**
  * Walking in is entering; being in without entering is impossible.
  *
- * The first half is the feature — the doorway is a doorway, and [E] on it is
- * a convenience rather than the only key. The second half is the seatbelt: if
- * a collider is ever disabled at the wrong moment, or a future prop opens a
- * hole in that wall, the player is put back on the walkway instead of
- * standing in a room whose script has not started.
+ * The first half is the feature — the doorway is a doorway, and walking
+ * through it is now the only way in; there is no key to press and none is
+ * offered. The second half is the seatbelt: if a collider is ever disabled at
+ * the wrong moment, or a future prop opens a hole in that wall, the player is
+ * put back on the walkway instead of standing in a room whose script has not
+ * started.
  */
 function enforceRoomTwelveEntry(prevX, prevZ) {
+  /* Walking into the opening IS stepping inside -- tested before the room
+   * rectangle, not after it, so the scene starts on the door line. */
+  if (phase === 'door' && S.doorOpened && inRoomTwelveDoorway(pos.x, pos.z)) {
+    enterRoom();
+    return;
+  }
   if (!insideRoom()) return;
   if (phase === 'door' && S.doorOpened) { enterRoom(); return; }
   if (!beforeTheDeal() && phase !== 'door') return;
@@ -3716,7 +4206,10 @@ function onProspectDown(source) {
     if (!S.carryingJerky && !S.caseInPool && !S.caseBurned) {
       // Whoever is still standing dragged it off; if nobody is, it is on the bed
       const holder = actors.find((a) => a.role === 'seller' && a.alive);
-      if (holder) { dropCaseAt(holder.position.x + 1.2, holder.position.z); }
+      if (holder) {
+        holder.carryingCase = false;
+        dropCaseAt(holder.position.x + 1.2, holder.position.z);
+      }
     }
   } else {
     // Outside, or a second time: you wake up in the lot with sirens closer
@@ -3751,16 +4244,20 @@ function computeMove() {
   return _move;
 }
 
-// What Prospect is standing on, for footstep and landing sounds.
-function surfaceUnderfoot() {
+// What a pair of feet is standing on, for player and positional NPC steps.
+function surfaceAtFoot(x, z, y = 0) {
   const r = level.rects;
-  if (feetY < -1) return 'pool';
-  if (pos.x > r.BATH.x0 && pos.x < r.BATH.x1 && pos.z > r.BATH.z0 && pos.z < r.BATH.z1) return 'tile';
-  if (insideRoom()) return 'carpet';
-  if (pos.x > r.ROOM11.x0 && pos.x < r.ROOM11.x1 && pos.z > r.ROOM11.z0 && pos.z < r.ROOM11.z1) return 'carpet';
-  if (feetY > 0.6) return 'stairs';
-  if (pos.z > 0 && pos.z < 26) return 'asphalt';
+  if (y < -1) return 'pool';
+  if (x > r.BATH.x0 && x < r.BATH.x1 && z > r.BATH.z0 && z < r.BATH.z1) return 'tile';
+  if (level.insideRoom12(x, z)) return 'carpet';
+  if (x > r.ROOM11.x0 && x < r.ROOM11.x1 && z > r.ROOM11.z0 && z < r.ROOM11.z1) return 'carpet';
+  if (y > 0.6) return 'stairs';
+  if (z > 0 && z < 26) return 'asphalt';
   return 'concrete';
+}
+
+function surfaceUnderfoot() {
+  return surfaceAtFoot(pos.x, pos.z, feetY);
 }
 
 function tryJump() {
@@ -3773,22 +4270,14 @@ function tryJump() {
 }
 
 function updatePlayer(dt) {
-  if (phase === 'arrival' || phase === 'car') {
+  if (phase === 'arrival' || phase === 'car' || phase === 'boarding') {
     syncArrivalSeats();
-    player.group.position.copy(refs.manCar.passengerActorPosition());
     player.group.scale.setScalar(PLAYER_SEATED_SCALE);
-    player.group.rotation.y = refs.manCar.forwardYaw();
     player.legL.rotation.x = -1.15;
     player.legR.rotation.x = -1.15;
     player.armL.rotation.x = -0.55;
     player.armR.rotation.x = -0.55;
     player.head.rotation.set(0, 0, 0);
-    return;
-  }
-  if (phase === 'boarding') {
-    pos.set(-6.9, 0, 16.4);
-    player.group.position.set(pos.x, 0.55, pos.z);
-    player.group.rotation.y = Math.PI;
     return;
   }
   if (grapple || stunT > 0) {
@@ -3808,7 +4297,13 @@ function updatePlayer(dt) {
   const prevX = pos.x;
   const prevZ = pos.z;
   player.group.position.set(pos.x, 0, pos.z);
-  player.update(dt, move, speed, sprinting, () => sfx.step(surfaceUnderfoot()));
+  player.update(dt, move, speed, sprinting, () => {
+    /* Holding movement while pressing Q used to stack Person's immediate
+     * first footfall on top of the full-gain door sample. That pair, not a
+     * collision, was the metallic scrape heard on vehicle exit. */
+    if (performance.now() < playerFootstepReadyAt) return;
+    sfx.step(surfaceUnderfoot(), { sourceId: 'player', running: sprinting });
+  });
   const bob = player.group.position.y;
   let nx = player.group.position.x;
   let nz = player.group.position.z;
@@ -3856,6 +4351,12 @@ function updatePlayer(dt) {
 
 const _camPos = new THREE.Vector3();
 const _lookAt = new THREE.Vector3();
+const _listenerForward = new THREE.Vector3();
+
+function syncListenerPose() {
+  camera.getWorldDirection(_listenerForward);
+  sfx.setListenerPose(camera.position, _listenerForward);
+}
 
 function updateCamera(dt) {
   if (keys.has('turnL')) camYaw += dt * 2.2;
@@ -3875,16 +4376,21 @@ function updateCamera(dt) {
   const dirX = Math.sin(camYaw) * Math.cos(camPitch);
   const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
   const dirY = Math.sin(camPitch);
-  const bodyBob = phase === 'arrival' || phase === 'car' || phase === 'boarding'
+  const seatedInArrivalCar = phase === 'arrival' || phase === 'car' || phase === 'boarding';
+  const bodyBob = seatedInArrivalCar
     ? 0
     : Math.max(-0.06, Math.min(0.08, player.group.position.y - feetY));
-  const eyeY = (phase === 'arrival' || phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)
-    + bodyBob * 0.45;
+  const passengerEye = seatedInArrivalCar
+    ? refs.manCar.occupants.worldPoint('passengerEye', null, _camPos)
+    : null;
+  const eyeY = (passengerEye?.y
+    ?? (phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)) + bodyBob * 0.45;
 
   // Motel play is first-person in every walkable phase. The old trailing
   // camera repeatedly wedged Tony's body between the lens, room furniture,
   // and doors, making the already-dense room unreadable.
-  _camPos.set(pos.x, eyeY, pos.z);
+  if (passengerEye) _camPos.copy(passengerEye);
+  else _camPos.set(pos.x, eyeY, pos.z);
   camera.position.copy(_camPos);
   player.group.visible = false;
 
@@ -4049,6 +4555,15 @@ weapons.modelFor(WEAPON_IDS.REVOLVER).traverse((node) => {
 /** The catalog id behind a Motel weapon name, or null if it is a prop. */
 function sharedWeaponId(kind) {
   return (kind && WEAPON_STATS[kind]?.shared) || null;
+}
+
+/** The number every player-facing firearm readout uses. Shared guns read the
+ * Firearm directly; `S.ammo` remains only the local pool for Motel props such
+ * as the Commander. Firing, dry-fire, flash, recoil, reload and HUD therefore
+ * all resolve the revolver against the same six chambers. */
+function authoritativeAmmo(kind = S.weapon) {
+  const shared = sharedWeaponId(kind);
+  return shared ? weapons.firearm(shared).rounds : S.ammo;
 }
 
 /**
@@ -4227,7 +4742,7 @@ function inventoryItems() {
       id: `weapon:${S.weapon}`,
       icon: weapon.ammo ? '🔫' : '🔧',
       text: `${weapon.name} · ${S.holstered ? 'PUT AWAY' : 'EQUIPPED'}`
-        + `${weapon.ammo ? ` · ${S.ammo}/${weapon.ammo}` : ''}`,
+        + `${weapon.ammo ? ` · ${authoritativeAmmo()}/${weapon.ammo}` : ''}`,
       dim: S.holstered,
       selected: !S.holstered,
     });
@@ -4298,7 +4813,7 @@ function updateGear() {
     weaponNameEl.textContent = `${st.name} · PUT AWAY`;
     weaponSubEl.textContent = 'CARRIED, NOT DRAWN · the deal comes first';
   } else {
-    weaponNameEl.textContent = st.name + (st.ammo ? ` · ${S.ammo}/${st.ammo}` : '');
+    weaponNameEl.textContent = st.name + (st.ammo ? ` · ${authoritativeAmmo()}/${st.ammo}` : '');
     weaponSubEl.textContent = `EQUIPPED · ${st.improvised === false ? 'seized' : 'improvised'} · ${st.lethal ? 'lethal' : 'non-lethal'}`;
   }
   const carry = [];
@@ -4328,6 +4843,13 @@ function buildDriveScene() {
 
 function startDrive() {
   if (!drive.scene) buildDriveScene();
+  refs.manCar.occupants.release('passengerActor');
+  refs.manCar.occupants.release('driverActor');
+  refs.manCar.group.getObjectByName('cockpit.seat.driver').userData.occupant = null;
+  refs.manCar.group.getObjectByName('cockpit.seat.passenger').userData.occupant = null;
+  refs.manCar.collider.enabled = true;
+  S.snowSeated = false;
+  player.group.scale.setScalar(PLAYER_SCALE);
   phase = 'drive';
   driveHudEl.classList.add('show');
   metersEl.classList.remove('show');
@@ -4728,9 +5250,9 @@ function updateFightLogic(dt) {
     }
   }
   if (rico && rico.alive && rico.hp < rico.maxHp * 0.35 && rico.state !== 'flee') {
-    rico.state = 'flee';
-    rico.target = pickRicoExit();
+    ricoBreaksFor(rico);
     say('Rico', 'Not worth it, not worth it!', 2.6);
+    toast('RICO IS RUNNING', 'warn', `He is going for ${rico.target.via}`);
   }
   // The clerk has a button under the counter and an opinion about all this
   if (clerk && clerk.alive && !S.clerkCowed && !S.alarmPulled && level.rects.OFFICE
@@ -4796,6 +5318,7 @@ function tick() {
      * The drive renders a different scene, which never walks that graph, so
      * the camera's world matrix has to be brought up to date by hand. */
     camera.updateMatrixWorld();
+    syncListenerPose();
     renderer.render(drive.scene, camera);
     return;
   }
@@ -4820,6 +5343,9 @@ function tick() {
     syncSharedAmmo();
     updateRoomBeats(dt);
     updateFightLogic(dt);
+    updateSnowEntrance(dt);
+    updateCasePlacement(dt);
+    updateEvidenceMarkers(dt);
 
     // Grapple timer
     if (grapple) {
@@ -4838,6 +5364,7 @@ function tick() {
           vy = 0;
           say('Prospect', 'Motel bathtubs are not built for this species.', 3.2);
           phase = S.carryingJerky ? 'escape' : 'recover';
+          updateRecoveryObjective();
         }
       } else if (grapple.t > 3.4) {
         damagePlayer(22, grapple.actor?.name || 'them');
@@ -4861,6 +5388,7 @@ function tick() {
   debris.update(dt);
   effects.update(dt);
   updateCamera(raw);
+  syncListenerPose();
   updateHud(raw);
   renderer.render(scene, camera);
 }
@@ -4896,6 +5424,11 @@ window.MOTEL = {
   /** What has actually been said, in order. Race-free; the subtitle is not. */
   get spoken() { return spokenLog.map((entry) => `${entry.who} — ${entry.line}`); },
   S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory, player,
+  input: browserInput,
+  get heldInput() {
+    return ['up', 'down', 'left', 'right', 'sprint', 'turnL', 'turnR', 'lookU', 'lookD']
+      .filter((action) => motelInputPolicy.isDown(action));
+  },
   get phase() { return phase; },
   get arrival() {
     const driver = refs.manCar.driverActorPosition();
@@ -4920,6 +5453,11 @@ window.MOTEL = {
   get pos() { return pos; },
   get feetY() { return feetY; },
   get objectives() { return { done: [...objDone], failed: [...objFailed] }; },
+  get evidence() { return evidenceStatus(); },
+  evidenceTest: {
+    collect: (id) => collectEvidenceCase(id),
+    reset: (ids = []) => { evidence.reset(ids); updateEvidenceMarkers(); updateRecoveryObjective(); return evidenceStatus(); },
+  },
   /* What the HUD is asking for right now, and where the transaction is up to.
    * A verifier that can only see `phase` cannot tell whether the scene ever
    * told the player what to do, which is the failure this scene keeps having. */
@@ -4979,6 +5517,10 @@ window.MOTEL = {
     get played() { return sfx.voicePlayed.map((entry) => ({ ...entry })); },
     busy: () => speechFloor.busy(),
     playing: () => sfx.voiceBusy(),
+  },
+  audio: {
+    get events() { return sfx.audioEvents.map((entry) => ({ ...entry })); },
+    music: () => sfx.driveMusicStatus(),
   },
   /* The HUD inventory and the thing in his hands, for the verifier. */
   get inventory() { return inventoryItems(); },
@@ -5055,14 +5597,12 @@ window.MOTEL = {
   activeInteract: () => (activeInteract ? activeInteract.id : null),
   forceInteract: (id) => { const i = ix(id); if (i && (!i.enabled || i.enabled())) i.act(); return !!i; },
   betray: () => maybeBetray('debug'),
-  /* Put a weapon in his hands, the way the drive does.
+  /* Put a weapon in his hands, the way the betrayal does.
    *
-   * The revolver is picked up in the arrival sequence and out of the glovebox,
-   * and the glovebox interaction is `enabled: () => phase === 'car'` -- so a
-   * page that jumps straight into the room has no way to be armed and no way
-   * to say so. A browser check of the betrayal hinge needs the gun he would
-   * really be carrying; without this it can only prove that a man with empty
-   * hands still has empty hands. */
+   * The revolver is checked by the arrival sequence and the resolved glovebox
+   * retires. A browser check that jumps straight into the room still needs the
+   * gun Tony would really be carrying; without this it can only prove that a
+   * man with empty hands still has empty hands. */
   equip: (kind) => { equipWeapon(kind); return S.weapon; },
   /* Open a wheel by name, so a verifier can reproduce the soft-lock this
    * scene used to have: a conversation the player walked away from. */

@@ -15,10 +15,17 @@ import {
  * about golf: whether he was there when Lou said why he was invited, and
  * whether he took the ride out instead of walking on his own.
  *
- * The round is gated the way every other mission is: the Silver Room must be
- * finished, Day 4 must be in its golf chapter, and Lou's call must have exposed
- * the mission. Preview seeds those same prerequisites; a production direct
- * load cannot invent campaign progress.
+ * The round is gated the way every other mission is: THE TAKE must be
+ * finished, Day 6 must be in its golf chapter, and Lou's call must have
+ * exposed the mission. Preview seeds those same prerequisites; a production
+ * direct load cannot invent campaign progress.
+ *
+ * IT USED TO REQUIRE THE SILVER ROOM, and that inversion is the whole of the
+ * beats 12-19 reorder seen from this file. The owner put the bank before the
+ * course -- "the job is what earns the upgrade" -- so the round is now the
+ * morning after THE TAKE rather than the morning before it, and the date is
+ * the night AFTER the round rather than the night before. A gate left
+ * pointing at the Silver Room would have refused every legitimate arrival.
  */
 
 class GolfStory {
@@ -38,8 +45,8 @@ class GolfStory {
     const state = this.campaign.state;
     const status = this.mission.status;
     if (status === 'complete') return { ok: false, reason: 'already_complete' };
-    if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
-      return { ok: false, reason: 'silver_incomplete' };
+    if (state.missions[MISSION_IDS.BANK_HEIST].status !== 'complete') {
+      return { ok: false, reason: 'heist_incomplete' };
     }
     if (state.story.chapter !== 'golf_morning') {
       return { ok: false, reason: 'wrong_chapter' };
@@ -127,20 +134,21 @@ class GolfStory {
     }
     if (this.mission.holesPlayed < 3) return false;
 
+    /* BEAT 13's EXIT IS THE KEYS. Three holes of being included, and then
+     * somebody hands him an address. The chapter it hands control to is the
+     * luxury apartment's, not another morning in the starter flat -- the Home
+     * Ladder climbs here and never comes back down, so this is the last
+     * campaign write that mentions the old chapter machine at all. */
+    const handOver = (state) => {
+      state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
+      state.story.chapter = 'luxury_apartment';
+    };
     const completion = this.campaign.advanceTime(
       TIME_EVENT_IDS.COMPLETE_SILVER_PINES,
-      (state) => {
-        state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
-        state.story.chapter = 'heist_day';
-      },
+      handOver,
       { required: true },
     );
-    if (!completion.applied) {
-      this.campaign.updateRequired((state) => {
-        state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
-        state.story.chapter = 'heist_day';
-      });
-    }
+    if (!completion.applied) this.campaign.updateRequired(handOver);
     return true;
   }
 }

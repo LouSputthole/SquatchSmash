@@ -89,13 +89,30 @@ export class WebApp {
    * @param {boolean} o.sameOrigin  can we talk to it once it is up?
    * @param {string}  o.loading     what the screen says underneath
    */
-  constructor({ os, audio, id, label, src, sameOrigin = false, loading = 'loading…' }) {
+  constructor({
+    os,
+    audio,
+    id,
+    label,
+    src,
+    sameOrigin = false,
+    loading = 'loading…',
+    onExitRequest = null,
+    exitPresentation = null,
+  }) {
     this.id = id;
     this.label = label;
     this.os = os;
     this.audio = audio;
     this.loading = loading;
     this.sameOrigin = sameOrigin;
+    /* A scene may need an app's ordinary escape affordance to mean something
+     * more specific than "show the desktop". The cold open is that case: all
+     * three exits must begin the authored pull-back, not silently discard the
+     * app while the player is still locked in the chair. Returning true says
+     * the request was consumed; every other scene keeps the original route. */
+    this.onExitRequest = onExitRequest;
+    this.exitPresentation = exitPresentation;
     this.requiresDomInput = true;
     this.overlay = new ScreenOverlay(src);
     this.t = 0;
@@ -206,7 +223,7 @@ export class WebApp {
       if (e.code !== 'Tab') return;
       e.preventDefault();
       e.stopPropagation();
-      this._cancelHold();
+      this._releaseHold();
       /* Let go of Tab with the pointer already gone from the corner and the
        * game would be left with no keyboard and nobody holding anything. */
       if (!this.quit.matches(':hover')) this.overlay.focusFrame();
@@ -244,6 +261,22 @@ export class WebApp {
     this._paintExit();
   }
 
+  /**
+   * Finish a physical hold even if rendering kept the timeout from running.
+   *
+   * Parent and iframe share one busy browser thread. On a slow WebGL frame a
+   * real 800 ms key hold can deliver keyup before the queued 600 ms timeout;
+   * blindly cancelling there made the documented escape route do nothing.
+   */
+  _releaseHold() {
+    if (this._holding && performance.now() - this._holdStart >= EXIT_HOLD * 1000) {
+      this._toDesktop();
+      return true;
+    }
+    this._cancelHold();
+    return false;
+  }
+
   /** Fill the bar in. The hold itself is on the clock, not on the frames. */
   _tickHold() {
     if (!this._holding) return;
@@ -254,11 +287,19 @@ export class WebApp {
 
   _toDesktop() {
     this._cancelHold();
+    if (this.onExitRequest?.(this) === true) return true;
     this.os?.toDesktop();
+    return true;
   }
 
   /** Say which route is live right now rather than which one we wish were. */
   _paintExit() {
+    const presentation = this.exitPresentation?.(this) ?? null;
+    this.quitLabel.textContent = presentation?.label ?? EXIT_LABEL;
+    this.quit.setAttribute(
+      'aria-label', presentation?.ariaLabel ?? 'Exit to the SquatchOS desktop',
+    );
+    this.quit.title = presentation?.title ?? EXIT_TITLE;
     const live = this._armed || this._holding;
     this.quitHow.textContent = this._holding ? EXIT_HINT.holding
       : this._armed ? EXIT_HINT.armed
@@ -329,7 +370,7 @@ export class WebApp {
       up: (e) => {
         if (e.code !== 'Tab') return;
         e.preventDefault();
-        this._cancelHold();
+        this._releaseHold();
       },
     };
     this.overlay.withWindow((w) => {

@@ -40,7 +40,8 @@ const EXPECTED = Object.freeze({
     'ape', 'bartender', 'basement', 'booski', 'booth', 'deathmegatron', 'eric',
     'gateMan', 'gratin', 'hogmama', 'irish', 'lag', 'lou', 'numbskull', 'oldStove',
     'patrol0', 'patrol1', 'patrol2', 'poolPerformer0', 'poolPerformer1',
-    'poolPerformer2', 'rippin', 'sasole', 'sauce', 'seff', 'shubes', 'snow',
+    'poolPerformer2', 'poolPerformer3', 'poolPerformer4',
+    'rippin', 'sasole', 'sauce', 'seff', 'shubes', 'snow',
     'stairs', 'suitePerformer0', 'suitePerformer1', 'vault',
   ],
 });
@@ -49,7 +50,13 @@ const built = new Map();
 async function actorsOf(id) {
   if (!built.has(id)) {
     const state = await buildGeometrySceneState(id);
-    built.set(id, state.roots.flatMap(({ root }) => collectActors(root, THREE)));
+    /* This suite inventories authored marker coverage, including mutually
+     * exclusive rigs hidden in the selected rendered state. Player-facing
+     * staging uses collectActors' rendered-only default; the marker floor is
+     * deliberately the explicit includeHidden audit surface. */
+    built.set(id, state.roots.flatMap(({ root }) => (
+      collectActors(root, THREE, { includeHidden: true })
+    )));
   }
   return built.get(id);
 }
@@ -90,6 +97,6 @@ test('the mansion tells a guard from the family from the floor show', async () =
    * FACING_UNIFORM — which groups BY ROLE, so that a rank of guards facing one
    * way reads differently from a party facing one way — had nothing to group. */
   assert.deepEqual([...byRole.entries()].sort(), [
-    ['bystander', 6], ['crew', 16], ['guard', 8], ['principal', 1],
+    ['bystander', 8], ['crew', 16], ['guard', 8], ['principal', 1],
   ]);
 });

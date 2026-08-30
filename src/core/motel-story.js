@@ -1,4 +1,5 @@
 import { MISSION_IDS, TIME_EVENT_IDS } from './campaign.js';
+import { recordCampaignMissionBoundary } from './campaign-stats.js';
 
 class MotelStory {
   constructor({ campaign }) {
@@ -26,6 +27,8 @@ class MotelStory {
     packagesIntact = 0,
     freshness = 0,
     policeHeat = 0,
+    shotsFired = 0,
+    peopleKilled = 0,
   } = {}) {
     const mission = this.campaign.state.missions[MISSION_IDS.JERKY_MOTEL];
     if (mission.status !== 'in_progress' || ending !== 'home') return false;
@@ -37,6 +40,10 @@ class MotelStory {
       completed.packagesIntact = packagesIntact;
       completed.freshness = freshness;
       completed.policeHeat = policeHeat;
+      recordCampaignMissionBoundary(state, MISSION_IDS.JERKY_MOTEL, {
+        shotsFired,
+        peopleKilled,
+      });
     });
     this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL);
     return true;

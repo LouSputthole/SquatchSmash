@@ -40,9 +40,11 @@ import {
 /** Every cue this module can play. Read by the tests; not by the code. */
 export const AMBIENCE_CUES = Object.freeze([
   'footstep.leaves',
+  'footstep.grass',
   'footstep.gravel',
   'footstep.dirt',
-  'footstep.wood',
+  'footstep.wood.a',
+  'footstep.wood.b',
   'door.creak',
   'car.engine.idle',
   'car.door.close.heavy',
@@ -87,7 +89,7 @@ export function sayFrom(audio, cue, speaker, options = {}) {
  *
  * The owner's line for the approach is "boots on leaves and gravel", and the
  * change between them is the only thing on the walk in that tells the player
- * he has arrived somewhere: leaves under the trees, dirt on the track, wet
+ * he has arrived somewhere: mixed forest floor under the trees, dirt on the track, wet
  * gravel in the clearing, and then boards, once, on the porch.
  */
 export function footingAt(x, z) {
@@ -98,7 +100,7 @@ export function footingAt(x, z) {
   if (distanceToPath(TRACK, { x, z }) < TRACK_HALF_WIDTH + 0.6) return 'dirt';
   if (distanceToPath(TRAIL, { x, z }) < TRAIL_HALF_WIDTH + 0.5) return 'dirt';
   if (Math.hypot(x - CABIN.x, z - CABIN.z) < 14) return 'dirt';
-  return 'leaves';
+  return 'forest';
 }
 
 /**
@@ -108,15 +110,17 @@ export function footingAt(x, z) {
  * whole job is telling the player where his own body is, and a flat one makes
  * a first-person walk feel like a slideshow with a soundtrack.
  */
-export function playFootstep(audio, x, z, { volume = 0.5 } = {}) {
+export function playFootstep(audio, x, z, { volume = 0.5, cadenceKey = 'player' } = {}) {
   if (!audio) return null;
+  if (typeof audio.footstep !== 'function') {
+    throw new TypeError('Initiation footsteps require the shared AudioEngine.footstep() path');
+  }
   const surface = footingAt(x, z);
   const position = { x, y: 0.1, z };
-  const options = { volume, position, ref: 1.1, maxDist: 12, rolloff: 1.1 };
-  if (surface === 'wood') audio.play('footstep.wood', options);
-  else if (surface === 'gravel') audio.play('footstep.gravel', options);
-  else if (surface === 'dirt') audio.play('footstep.dirt', options);
-  else audio.play('footstep.leaves', options);
+  audio.footstep(surface, 1, {
+    volume, position, ref: 1.1, maxDist: 12, rolloff: 1.1,
+    cadenceKey, requiredRecorded: true,
+  });
   return surface;
 }
 

@@ -147,6 +147,28 @@ canvas#scene {
 }
 body.playing #hud { opacity: 1; }
 
+/* THE ARCADE OWNS THE WHOLE SCREEN, OR THE JOKE DOES NOT WORK.
+ *
+ * The opening of the campaign depends on the player believing Squatch Smash IS
+ * the game until the camera pulls back off the monitor and reveals a bedroom.
+ * Measured before this rule: with Squatch Smash up, `#hud` computed to opacity
+ * 1 over the top of it, carrying an interaction prompt, the inventory bar, a
+ * day clock reading "Day 1 6:04 AM" and a bladder meter -- a status bar
+ * belonging to a character the player does not yet know he has.
+ *
+ * `#hud` is the ancestor of all of them, so one rule takes the lot. The class
+ * is set by `src/arcade/mount.js` and by nothing else; every scene that links
+ * this sheet and has no arcade in it never sees this selector match.
+ *
+ * `visibility` as well as `opacity`, and not for belt and braces: `#hud` has a
+ * 0.4 s opacity transition, so opacity alone is a value that spends half a
+ * second being neither one thing nor the other, and a gate that samples it
+ * reads the animation rather than the state. Visibility is not transitioned
+ * here, so it flips on the same frame the class does, which is what makes this
+ * assertable. Coming back it returns instantly while the opacity fades up,
+ * which is also the nicer of the two directions to have be abrupt. */
+body.arcade-owns-screen #hud { opacity: 0; visibility: hidden; }
+
 #crosshair {
   position: absolute;
   left: 50%;
@@ -512,7 +534,13 @@ kbd.key, .controls kbd {
 }
 .finale-recap { min-width: 0; }
 .finale-eyebrow { margin: 0 0 5px; color: var(--amber); font-size: 11px; letter-spacing: 3px; }
-.campaign-finale-card h2 { margin: 0; color: var(--paper); font-size: clamp(38px, 7vw, 68px); line-height: 1; }
+.campaign-finale-card h2 {
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(30px, 5vw, 52px);
+  line-height: 1;
+  text-wrap: balance;
+}
 .finale-subtitle { margin: 10px 0 18px; color: #a99e8c; font-size: 13px; }
 .finale-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
 .finale-stats div { padding: 9px 10px; background: rgba(255, 255, 255, .035); border-left: 2px solid #72552e; }

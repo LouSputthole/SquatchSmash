@@ -497,7 +497,13 @@ export function makeHeistViewModel(camera, { skin = 0xd2a074, sleeve = 0x22252a 
   function holder(key, build, { position, rotation = [0, 0, 0], twoHanded = false }) {
     const g = new THREE.Group();
     g.name = `heist.viewmodel.${key}`;
-    g.add(build());
+    const model = build();
+    /* The two guns carry the catalog's `userData.muzzle` contract; the mask,
+     * the ties and the bags do not. Keeping the model itself is what lets
+     * `muzzleWorld()` below answer where the barrel is without the caller
+     * having to know which child of which holder it lives on. */
+    g.userData.model = model;
+    g.add(model);
     g.add(hands({ two: twoHanded }));
     g.position.fromArray(position);
     g.rotation.fromArray(rotation);
@@ -551,6 +557,27 @@ export function makeHeistViewModel(camera, { skin = 0xd2a074, sleeve = 0x22252a 
       return true;
     },
     fire() { recoil = 1; },
+    /**
+     * Where the held gun's barrel is, in world space.
+     *
+     * The tracer for the player's own round starts here rather than at the
+     * camera. A streak born on the near plane starts BEHIND the barrel the
+     * player is looking at and reads as coming out of his own face. Measured
+     * on the built view model, in camera space: the carbine's muzzle is at
+     * (0.149, -0.158, -0.989) and the sidearm's at (0.162, -0.234, -0.583) --
+     * about a metre and about 58 cm out in front respectively, which is where
+     * a player watching his own gun expects the flash to be.
+     *
+     * @returns {THREE.Vector3|null} null for empty hands or a non-weapon item
+     */
+    muzzleWorld() {
+      const group = current ? holders.get(current) : null;
+      const model = group?.userData.model ?? null;
+      const muzzle = model?.userData?.muzzle;
+      if (!muzzle?.isVector3) return null;
+      model.updateWorldMatrix(true, false);
+      return model.localToWorld(muzzle.clone());
+    },
     update(dt, { speed = 0 } = {}) {
       swap = Math.max(0, swap - dt * 4.2);
       recoil = Math.max(0, recoil - dt * 6.4);

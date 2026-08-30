@@ -177,6 +177,20 @@ export const STAND_MARK = Object.freeze({
 });
 
 /**
+ * Where Booskibro performs the first, standing execution.
+ *
+ * The old generic execution walk stopped him wherever he first came within
+ * 2.2 m of Prospect One. From Seff's ring position that point was almost
+ * exactly between Tony and the victim, so the player saw the shooter's back
+ * instead of the execution. This authored mark stays in front of Prospect One
+ * as the script requires, but half a metre to Tony's left of the sightline.
+ */
+export const STANDING_SHOOTER_MARK = Object.freeze({
+  x: STAND_MARK.x - 0.58,
+  z: STAND_MARK.z + 1.72,
+});
+
+/**
  * How far behind a kneeling prospect their executioner stands.
  *
  * A man putting a pistol to the back of somebody's head does not press it
@@ -521,11 +535,12 @@ export const TRACK_HALF_WIDTH = 1.85;
 /**
  * The trail up to the cabin.
  *
- * Thirty-six metres, unlit, one man wide, and it bends twice — so the porch
- * light does not appear until the second bend, and once it does the clearing
- * behind is out of sight. Nothing on this trail is signed and nothing on it
- * is explained; the player works out where he is going when the light shows
- * up through the trunks.
+ * Thirty-six metres, one man wide, and it bends twice — so the porch light
+ * does not appear until the second bend, and once it does the clearing behind
+ * is out of sight. There are no signs or electric guide lights. Low stone
+ * cairns at the trail edge catch the moon instead: enough confirmation at a
+ * bend to keep a first-time player moving without turning the walk into a HUD
+ * waypoint course. The porch light remains the destination reveal.
  */
 export const TRAIL = Object.freeze([
   Object.freeze({ x: 6.2, z: -2.2 }),

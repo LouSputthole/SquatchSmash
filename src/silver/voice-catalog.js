@@ -2,6 +2,7 @@ import {
   BARKS,
   DATE,
   DATE_BARKS,
+  DINER_VOICE_PROFILES,
   PROFILE_OF,
   VOICE_OF,
   WALK_GREETS,
@@ -51,10 +52,10 @@ const CASES = Object.freeze([
 /** Every unique character-spoken line in Front and Center. */
 export function allSilverVoiceLines() {
   const found = new Map();
-  const add = (name, bank, displayText, context) => {
+  const add = (name, bank, displayText, context, profile = null) => {
     const text = silverSpokenWords(displayText);
     if (!name || !bank || !/[\p{L}\p{N}]/u.test(text)) return;
-    const voice = PROFILE_OF[bank] ?? bank;
+    const voice = profile ?? PROFILE_OF[bank] ?? bank;
     const line = { name, bank, voice, text, context };
     const prior = found.get(name);
     if (prior && (prior.text !== text || prior.voice !== voice)) {
@@ -105,8 +106,14 @@ export function allSilverVoiceLines() {
   for (const [key, lines] of Object.entries(DATE_BARKS)) {
     lines.forEach((line, i) => add(`vo.silver.margo.bark.${key}.${i + 1}`, 'margo', line, `Margo bark: ${key}`));
   }
+  let dinerVoice = 0;
   for (const [key, lines] of Object.entries(BARKS)) {
-    lines.forEach(([, line], i) => add(`vo.silver.room.${key}.${i + 1}`, 'room', line, `room bark: ${key}`));
+    lines.forEach(([who, line], i) => {
+      const profile = who === 'a diner'
+        ? DINER_VOICE_PROFILES[dinerVoice++ % DINER_VOICE_PROFILES.length]
+        : null;
+      add(`vo.silver.room.${key}.${i + 1}`, 'room', line, `room bark: ${key}`, profile);
+    });
   }
   /* The walk-in greetings land in each speaker's own bank, so recasting the
    * chef never touches the cook's welcome. */

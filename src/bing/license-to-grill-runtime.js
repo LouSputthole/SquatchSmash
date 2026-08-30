@@ -33,6 +33,10 @@
  */
 import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import {
+  applyConnectedDeathPivot,
+  beginDeathTransition,
+} from '../core/death-transition.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 import { WARDROBE } from '../core/wardrobe.js';
 import { BloodImpactSystem, DeathBloodPool } from '../world/blood.js';
@@ -775,6 +779,7 @@ export function createLicenseToGrill({
     phase: restored ? 'done' : 'closed',
     grill: null,
     blond: null,
+    blondDeathTransition: null,
     restraints: null,
     /* Where the Family were standing before this started, so the floor is put
      * back exactly as it was rather than approximately. */
@@ -1224,16 +1229,37 @@ export function createLicenseToGrill({
     return true;
   }
 
-  function poseDeadBlond() {
+  function beginBlondDeath() {
     const blond = runtime.blond;
-    if (!blond) return;
+    if (!blond) return null;
+    if (!runtime.blondDeathTransition?.active) {
+      runtime.blondDeathTransition = beginDeathTransition(blond.group, {
+        mode: 'seated',
+        pivot: blond.parts.hips,
+        stop: [() => blond.hush?.()],
+      });
+    }
     blond.hush?.();
     blond.job = 'dead';
     blond.group.userData.dead = true;
     if (blond.group.userData.npc) blond.group.userData.npc.dead = true;
+    return runtime.blondDeathTransition;
+  }
+
+  function poseDeadBlond() {
+    const blond = runtime.blond;
+    const transition = beginBlondDeath();
+    if (!blond || !transition) return;
     const { body, head, armL, armR, foreL, foreR } = blond.parts;
-    body.position.set(0.08, 0, -0.04);
-    body.rotation.set(0.12, 0, -0.34);
+    /* `makePerson` keeps both legs beside `body`. Rotating or translating
+     * only that branch tears the trunk away from the folded legs; pivot the
+     * complete figure around its hips and leave the anatomy parent map alone. */
+    body.position.set(0, 0, 0);
+    body.rotation.set(0, 0, 0);
+    applyConnectedDeathPivot(transition, {
+      rotationDelta: { x: 0.08, z: -0.18 },
+      pivotOffset: { y: -0.015 },
+    });
     head.rotation.set(0.5, 0, -0.24);
     armL.rotation.set(0.1, 0, -1.05);
     armR.rotation.set(0.1, 0, 1.05);
@@ -1293,11 +1319,18 @@ export function createLicenseToGrill({
   function poseShotBlond(progress) {
     const blond = runtime.blond;
     if (!blond?.parts) return;
+    const transition = beginBlondDeath();
+    if (!transition) return;
     const p = Math.max(0, Math.min(1, progress));
     const ease = p * p * (3 - 2 * p);
     const { body, head, armL, armR, foreL, foreR } = blond.parts;
     head.rotation.set(0.66 * ease, 0, -0.10 * ease);
-    body.rotation.set(0.14 * ease, 0, -0.06 * ease);
+    body.position.set(0, 0, 0);
+    body.rotation.set(0, 0, 0);
+    applyConnectedDeathPivot(transition, {
+      rotationDelta: { x: 0.06 * ease, z: -0.035 * ease },
+      pivotOffset: { y: -0.01 * ease },
+    });
     armL.rotation.set(0.06 * ease, 0, -0.18 * ease);
     armR.rotation.set(0.06 * ease, 0, 0.18 * ease);
     foreL.rotation.set(0.10 * ease, 0, 0);
@@ -1352,10 +1385,7 @@ export function createLicenseToGrill({
     }
     runtime.executed = true;
     if (blond) {
-      blond.hush?.();
-      blond.job = 'dead';
-      blond.group.userData.dead = true;
-      if (blond.group.userData.npc) blond.group.userData.npc.dead = true;
+      beginBlondDeath();
     }
   }
 

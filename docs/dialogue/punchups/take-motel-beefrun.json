@@ -4,16 +4,19 @@
   "diagnosis": "THE TAKE has one outright doctrine violation — the Counter-Strike line winks directly at the player mid-standoff — and a debrief where a mob boss reacts to a dead civilian like a middle manager reviewing a quarter. The Motel keeps putting mission objectives in mouths ('Buy. Leave. No speeches.') and then has two different characters recite the same rulebook phrase at each other. Across all three, the Prospect answers everything in one flat word: 'Yes.' 'Why?' 'Understood.' He is the player's mouth and right now he has no tongue.",
   "lines": [
     {
-      "cue": "heist.prospect_counterstrike",
+      "cue": "heist.prospect_lobby_quiet",
       "character": "player",
-      "current": "Good thing about all that Counter-Strike I've been playing.",
+      "current": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
       "why": "CUT OR REWRITE — this is the doctrine violation. It names a real game, acknowledges the player, and tells the audience the scene is a joke at the exact moment the scene has to be a bank robbery. Everything the tone doc protects dies on this line.",
       "house": "[cut it — or, if the beat is needed] Everything's slower than I thought it'd be. Why is everything so slow.",
       "tarantino": "Nobody tells you it's quiet. You think it's going to be loud, and it's this. It's a man breathing through a mask and a woman's shoe squeaking on a floor.",
       "mcdonagh": "It's not like I thought. In me head there was music. There's no music. There's just this fella breathin' on me.",
       "houser": "Turns out the whole thing is admin. Stand here, count that, watch the door. Nobody mentions the admin.",
       "coen": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
-      "status": "open"
+      "status": "ACCEPTED 2026-08-28",
+      "picked": "Huh. It's a lot slower than you'd think. That's the part nobody mentions.",
+      "retiredText": "Good thing about all that Counter-Strike I've been playing.",
+      "retiredCue": "heist.prospect_counterstrike"
     },
     {
       "cue": "heist.shubes_signature_cleanup",
@@ -37,7 +40,9 @@
       "mcdonagh": "I'm set. Vest, mags, the whole lot. And I've been sick twice, but I'm set.",
       "houser": "Vest on, mags full, plan understood. And I want it on record I have never done anything like this and I am doing it anyway.",
       "coen": "I'm ready. Everything's on, everything's full. I heard the plan twice. I'd hear it a third time if there was time.",
-      "status": "open"
+      "status": "ACCEPTED 2026-08-28",
+      "picked": "I'm set. Vest is on, mags are full, and my hands won't stop.",
+      "retiredText": "Armor is on. Magazines are full. I heard the plan."
     },
     {
       "cue": "heist.prospect_order_down",
@@ -63,7 +68,9 @@
       "mcdonagh": "Mask's on. I can see grand. I can hear me own heart, which is new.",
       "houser": "Mask down. Visibility's fine. Everything else about me is a work in progress.",
       "coen": "Mask's down. I can see okay. It's warm in here, is all.",
-      "status": "open"
+      "status": "ACCEPTED 2026-08-28",
+      "picked": "Mask's down. I can hear my own heart in this thing.",
+      "retiredText": "Mask is down. I can see fine."
     },
     {
       "cue": "heist.guard_warning",
@@ -114,28 +121,18 @@
       "status": "open"
     },
     {
-      "cue": "heist.prospect_home",
-      "character": "player",
-      "current": "We got out. Everybody came home.",
-      "why": "Mission-complete recap with no adrenaline in it after a shootout and a chase.",
-      "house": "We're out. Everybody's home. I can't feel my hands.",
-      "tarantino": "We got out. Everybody came home. And I'm sitting in a car outside my own building and I can't make myself open the door.",
-      "mcdonagh": "We got out. Everyone's home. And I've not stopped shakin' since the second car.",
-      "houser": "We're out, everybody's home, and I've just realised I'm still wearing the vest.",
-      "coen": "We got out. Everybody came home. That's — I keep saying that. I've said it about four times now.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.motel.snow.4wspkp.1",
+      "cue": "vo.motel.snow.1om0zo2.1",
       "character": "snow",
-      "current": "Buy the meat. Leave. No speeches.",
+      "current": "Buy it and leave. I said no speeches, and I can see one forming.",
       "why": "An on-screen objective in a mouth. It is also said twice, near-verbatim, later in the scene — which is what exposes it as tutorial text.",
       "house": "You buy the meat, you get in the car. You don't make friends and you don't make a speech.",
       "tarantino": "Here's the whole night. You buy the meat. You get in the car. Anything you say in between those two things is a mistake you haven't made yet.",
       "mcdonagh": "Buy the meat. Get in the car. And whatever you're plannin' on sayin' — don't. I can see you plannin' it.",
       "houser": "Transaction, then exit. No conversation, no negotiation, no personality. You're a wallet with legs tonight.",
       "coen": "You buy the meat and then you leave. That's it. No speeches. People get hurt in the speeches.",
-      "status": "open"
+      "status": "ACCEPTED 2026-08-28",
+      "picked": "Buy it and leave. I said no speeches, and I can see one forming.",
+      "retiredCue": "vo.motel.snow.4wspkp.1"
     },
     {
       "cue": "vo.motel.snow.gqd56p.1",
@@ -147,7 +144,9 @@
       "mcdonagh": "Buy. Leave. No speeches. That's twice. There'll not be a third, there'll just be me disappointed in a car.",
       "houser": "Buy. Leave. And I'm repeating myself, which is a thing I do exactly once before I stop bringing somebody places.",
       "coen": "Buy it. Leave. No speeches. I've said that now. I'd hate to have said it for nothing.",
-      "status": "open"
+      "status": "KEEP 2026-08-28",
+      "picked": "Buy. Leave. No speeches.",
+      "decision": "Keep this first warning terse; the later ambient follow-up now escalates instead of repeating it."
     },
     {
       "cue": "vo.motel.rico.1l3y0w1.1",
@@ -159,18 +158,6 @@
       "mcdonagh": "Meat first, money second. That's how it goes. Ask me why and I'll tell you about a fella in a lake.",
       "houser": "Product first, payment second. Non-negotiable. I lost a lot of money learning that order and I'm not paying that tuition twice.",
       "coen": "Meat first. Then the money. That's how we do it here. It's not how everybody does it. It's how we do it.",
-      "status": "open"
-    },
-    {
-      "cue": "vo.motel.snow.8x9w8s.1",
-      "character": "snow",
-      "current": "Room twelve. Meat first. Money second.",
-      "why": "Snow repeating Rico's catchphrase back at him is the flattest kind of copy-paste. Snow should have his own read on the same rule, and it should be contemptuous.",
-      "house": "Room twelve. And he'll tell you meat first, money second, like it's scripture. Let him.",
-      "tarantino": "Room twelve. He's going to say meat first, money second, like he invented it. He didn't. Everybody says it. Let him have it.",
-      "mcdonagh": "Room twelve. He'll give you the meat-first-money-second speech. Nod along. He does love that speech.",
-      "houser": "Room twelve. He'll recite his little order-of-operations at you like it's a founding document. Let him finish, it's shorter that way.",
-      "coen": "Room twelve. He'll tell you meat first, money second. Just let him say it. He likes to say it.",
       "status": "open"
     },
     {

@@ -36,6 +36,7 @@
  */
 
 import * as THREE from 'three';
+import { ENVIRONMENT_VISIBILITY } from '../../core/environment-visibility.js';
 import {
   clamp01, corridorHalfWidth, heightAt, hollowAt, landSlopeAt, roadFrame,
   smootherstep, surfaceAt, surfaceProps,
@@ -44,10 +45,10 @@ import { buildFoliage, scatterChunk, Undergrowth } from './foliage.js';
 import { roadSamples } from './road.js';
 import { groundDetailTexture, softCardTexture, tiled } from './textures.js';
 
-const CHUNK = 48;
-const RADIUS = 2;
+const CHUNK = ENVIRONMENT_VISIBILITY.forestDrive.terrainChunkSize;
+const RADIUS = ENVIRONMENT_VISIBILITY.forestDrive.terrainChunkRadius;
 const DETAIL = [16, 12, 7];
-const TREE_RINGS = 1;
+const TREE_RINGS = ENVIRONMENT_VISIBILITY.forestDrive.treeChunkRadius;
 /** How far a chunk's skirt hangs below its edge. Deeper than any LOD gap. */
 const SKIRT = 2.2;
 /** Metres of ground per tile of the detail texture. */

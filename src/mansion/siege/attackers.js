@@ -84,7 +84,7 @@ import { CombatWeaponAim } from '../../core/combat/aim.js';
 import { CombatActor } from '../../core/combat/actors.js';
 import { DEFAULT_FACTION_MATRIX, FACTIONS } from '../../core/combat/factions.js';
 import { CombatFireControl } from '../../core/combat/fire-control.js';
-import { CombatImpactResolver } from '../../core/combat/impact.js';
+import { COMBAT_HIT_ZONE_DAMAGE, CombatImpactResolver } from '../../core/combat/impact.js';
 import { CombatImpairments } from '../../core/combat/impairments.js';
 import { CombatPerception } from '../../core/combat/perception.js';
 import { CombatProjectilePattern } from '../../core/combat/projectile-pattern.js';
@@ -97,6 +97,7 @@ import { playWeaponCue } from '../../core/weapons/audio.js';
 import { WEAPON_CATALOG } from '../../core/weapons/catalog.js';
 import { buildWeaponModel } from '../../core/weapons/models.js';
 import { HeistFigure } from '../../heist/people.js';
+import { dressInATeamColours } from '../../world/ateam.js';
 import { CombatArmorPresentation } from '../../world/combat-armor.js';
 import {
   SIEGE_WEAPON_MOUNT_ROLL,
@@ -203,16 +204,13 @@ export function groundHeightAt(x, z) {
 /* ================================================================== */
 /* WHERE A ROUND LANDS ON A MAN                                         */
 /*                                                                       */
-/* The multiplier is applied to the damage handed to CombatImpactResolver, */
-/* which is still the only thing that decides whether the hit lands. A     */
-/* headshot is 2.6 rounds' worth of one round; it is not a special case in  */
-/* the damage model, because there is only one damage model.               */
+/* These numbers were written here and were right here, so THE TAKE spent  */
+/* its whole street fight with every zone worth the same and nothing        */
+/* tagged. The table is `COMBAT_HIT_ZONE_DAMAGE` in                         */
+/* src/core/combat/impact.js now, value for value; this name stays because  */
+/* the siege's own tests and `main.js` ask for it.                          */
 /* ================================================================== */
-export const HIT_ZONES = Object.freeze({
-  head: 2.6,
-  chest: 1.0,
-  limb: 0.58,
-});
+export const HIT_ZONES = COMBAT_HIT_ZONE_DAMAGE;
 
 /* ================================================================== */
 /* THE CARTEL, DRESSED                                                  */
@@ -366,6 +364,33 @@ export const CARTEL_ROLE_KITS = Object.freeze({
   }),
 });
 
+
+/* ================================================================== */
+/* THE A-TEAM'S COLOURS                                                 */
+/*                                                                      */
+/* Owner, 2026-08-24: *"I also want to give them more identifiable A     */
+/* team outfits."*                                                      */
+/*                                                                      */
+/* The role kits above answer WHAT EACH MAN DOES -- webbing, a plate, a  */
+/* radio -- and they do that job. What none of them says is WHO THEY     */
+/* ARE. Eight different silhouettes in eight shades of olive is eight    */
+/* men, not one crew, and the crew is the entire point of the barks:     */
+/* these people are a TEAM and they will tell you so while they shoot    */
+/* at you.                                                              */
+/*                                                                      */
+/* The garment itself lives in `src/world/ateam.js` and not here, because */
+/* since 2026-08-25 it is worn in two scenes: this one, and the wave Mark */
+/* sends into his own dining room in the Cartel Palace. Same organisation, */
+/* same vest, one definition of the red.                                 */
+/*                                                                      */
+/* THE HEADBAND STAYS RED AND STAYS AS IT WAS. It is the friend-or-foe   */
+/* read at forty metres on a dark landing and there is a test on it.     */
+/* The vest is the same red, so the two agree instead of competing.      */
+/* ================================================================== */
+
+/* The crew's own red and bone are NOT in here. They live with the garment, in
+ * src/world/ateam.js, because the Palace wears them too and one cloth cannot
+ * have two definitions of its own colour. */
 const CARTEL_KIT_MATERIALS = Object.freeze({
   web: new THREE.MeshStandardMaterial({ color: 0x4a3a26, roughness: 0.96 }),
   pouch: new THREE.MeshStandardMaterial({ color: 0x32372a, roughness: 0.94 }),
@@ -899,6 +924,27 @@ export const ATEAM_IDENTITY_BARKS = Object.freeze([
   ateam('ateam3', 'next-man-up', 'Next man up!'),
 ]);
 
+/**
+ * The A-Team's recorded takes, for whoever is decoding the scene's audio.
+ *
+ * Owner, 2026-08-24: *"I also didnt hear the A team voice lines during the
+ * siege."* He would not have. Every other part of this was wired -- the table
+ * carries the cue, `bark()` hands it up through `onBark`, and the scene's
+ * `renderCombatBark` calls `speak()` with it -- but nothing ever LOADED the
+ * bank. `AudioEngine.play` on a cue with no decoded buffer does not fail; it
+ * falls through to the synth stand-in, so forty-two recorded lines were being
+ * answered by a blip while the subtitle said the words.
+ *
+ * The list belongs here, beside the table, for the same reason the `vo.ateam.`
+ * prefix does: a bark pool that names its own cues and then leaves somebody
+ * else to remember them is a pool that goes quiet the next time a line is
+ * added. One and a half megabytes for the crew, decoded with the rest of the
+ * mission's voices.
+ */
+export function ateamBarkCueNames() {
+  return [...new Set(ATEAM_IDENTITY_BARKS.map((entry) => entry.cue))];
+}
+
 const BARKS = Object.freeze({
   contact: Object.freeze([
     'Contact, the stairs!',
@@ -1361,25 +1407,50 @@ export function createAttackerPool({
     }
   }
 
-  function dressCartelRole(figure, roleId) {
-    const kit = CARTEL_ROLE_KITS[roleId];
-    if (!kit) throw new Error(`No cartel outfit kit for ${roleId}`);
-    for (let index = 0; index < kit.pieces.length; index++) {
-      const piece = kit.pieces[index];
-      const geometry = piece.shape === 'round'
+  /* One geometry per authored piece rather than per man. Twenty-two attackers
+   * wearing the same seven-panel vest was twenty-two uploads of seven shapes
+   * before this cache; the transform is on the mesh, which is where it was
+   * already. */
+  const kitGeometries = new Map();
+  function kitGeometry(piece) {
+    const key = piece.shape === 'round'
+      ? `r:${piece.radius}:${piece.height}`
+      : `b:${piece.size.join(':')}`;
+    let geometry = kitGeometries.get(key);
+    if (!geometry) {
+      geometry = piece.shape === 'round'
         ? new THREE.CylinderGeometry(piece.radius, piece.radius, piece.height, 8)
         : new THREE.BoxGeometry(...piece.size);
-      const mesh = new THREE.Mesh(geometry, CARTEL_KIT_MATERIALS[piece.material]);
-      mesh.name = `cartel.outfit.${roleId}.${index}`;
+      kitGeometries.set(key, geometry);
+    }
+    return geometry;
+  }
+
+  function wearKit(figure, kit, { name, tag, roleId = null }) {
+    for (let index = 0; index < kit.pieces.length; index++) {
+      const piece = kit.pieces[index];
+      const mesh = new THREE.Mesh(kitGeometry(piece), CARTEL_KIT_MATERIALS[piece.material]);
+      mesh.name = `${name}.${index}`;
       mesh.position.set(...piece.pos);
       if (piece.rotation) mesh.rotation.set(...piece.rotation);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.userData.cartelOutfitPiece = true;
-      mesh.userData.cartelRole = roleId;
+      mesh.userData[tag] = true;
+      if (roleId) mesh.userData.cartelRole = roleId;
       mesh.userData.cartelKit = kit.label;
       figure.parts.body.add(mesh);
     }
+  }
+
+  function dressCartelRole(figure, roleId) {
+    const kit = CARTEL_ROLE_KITS[roleId];
+    if (!kit) throw new Error(`No cartel outfit kit for ${roleId}`);
+    wearKit(figure, kit, {
+      name: `cartel.outfit.${roleId}`, tag: 'cartelOutfitPiece', roleId,
+    });
+    /* And over the top of it, whoever he is, the crew's own colours -- the
+     * shared garment, so the Palace's wave is dressed off the same red. */
+    dressInATeamColours(figure.parts.body, { extra: { cartelRole: roleId } });
   }
 
   function buildFigure(order, index) {
@@ -2173,13 +2244,17 @@ export function createAttackerPool({
     if (wantsMove) {
       _step.multiplyScalar(Math.min(1, (speed * dt) / planar));
       SIEGE_COMBAT_SPACE.move(position, _step, {
-        boxes: ctx.colliders,
+        /* Floors and ceilings belong in the sight/ballistic model, but a
+         * body must not read the landing slab it is stepping onto as a wall.
+         * The scene publishes both lists; keep locomotion on the movement
+         * contract while perception and fire continue using `colliders`. */
+        boxes: ctx.movementColliders,
         /* The authored clamp below owns pulledBack diagnostics. */
         bounds: null,
       });
     }
     const separation = SIEGE_COMBAT_SPACE.separate(entry, entries.values(), {
-      boxes: ctx.colliders,
+      boxes: ctx.movementColliders,
       bounds: null,
       positionOf: attackerPosition,
       idOf: attackerId,
@@ -2369,7 +2444,7 @@ export function createAttackerPool({
      * rather than re-timed here; it hands back an anchor outside the house
      * for the one case a route cannot recover from itself. */
     if (entry.path.length && entry.blocked) {
-      const recovery = navigator.blocked(entry.id, dt);
+      const recovery = navigator.blocked(entry.id, dt, entry.anchor);
       if (recovery.recover && recovery.anchor) {
         const point = laneWaypoints([entry.anchor ?? recovery.anchor, recovery.anchor], {
           from: position, laneT: entry.laneT, kindFor: kindForAnchor,
@@ -2379,6 +2454,7 @@ export function createAttackerPool({
     }
 
     /* --- fire --- */
+    if (ctx.holdFire === true) return;
     const fireTarget = entry.targetVisible ? entry.target : entry.areaTarget;
     if (!fireTarget || entry.awareness < 0.7 || entry.impairments.interrupted) return;
     if (entry.suppression.value > 0.82) {
@@ -3012,8 +3088,10 @@ export function createAttackerPool({
    *              through the shared resolver; if it carries `.suppression`,
    *              near misses go into it. With neither he is still a man to
    *              shoot at and the fight still reads.
-   *   colliders  the scene's live collider array. This is the line-of-sight
-   *              model: no colliders means every shot is a clean shot.
+   *   colliders  the scene's live line-of-sight/ballistic collider array: no
+   *              colliders means every shot is a clean shot.
+   *   movementColliders the subset bodies may not enter. Defaults to
+   *              `colliders` for headless callers with only one model.
    *   alive      the crew the cartel may engage -- pass `ensemble.targets()`,
    *              which never contains Snow. An array or a function.
    *   audio, onImpact, onBark, onBreach, onPlayerHit, playerDamageScale
@@ -3031,11 +3109,15 @@ export function createAttackerPool({
     const frame = {
       audio: context.audio,
       colliders: ctx.colliders ?? [],
+      movementColliders: ctx.movementColliders ?? ctx.colliders ?? [],
       player: ctx.player ?? null,
       /* The scene raises this when the active wave is nearly done: every
        * wave attacker still standing drops his standoff and pushes at the
        * player. See the note in `think()`. */
       hunt: ctx.hunt === true,
+      /* A hero story line can hold reports without freezing movement,
+       * perception, aiming, cooldowns, or the rest of the assault. */
+      holdFire: ctx.holdFire === true,
       onBreach: context.onBreach,
       onPlayerHit: context.onPlayerHit,
       onStep: ctx.onStep ?? null,

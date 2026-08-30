@@ -57,6 +57,9 @@ const _dir = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 
+/** Below a slow shuffle, the weapon treats the player as planted. */
+export const DELIBERATE_SHOT_MAX_SPEED = 0.08;
+
 function worldHitNormal(hit, fallbackDirection) {
   let normal = fallbackDirection.clone().negate();
   if (hit?.face?.normal?.isVector3 && hit.object?.matrixWorld) {
@@ -283,6 +286,7 @@ export class WeaponSystem {
     this.aimBlend = 0;
     this.suppression = 0;
     this.aimStability = 1;
+    this.movementSpeed = 0;
     this._baseFov = Number.isFinite(Number(camera?.fov)) ? Number(camera.fov) : null;
     this._managingFov = false;
 
@@ -446,7 +450,14 @@ export class WeaponSystem {
   _pullTrigger() {
     if (!this.enabled || !this.current) return null;
     const f = this.firearm(this.current);
-    const shot = f.fire({ aimed: this.aimed, aimStability: this.aimStability });
+    const shot = f.fire({
+      aimed: this.aimed,
+      aimStability: this.aimStability,
+      /* Firearm applies this request only to a settled pistol9. Supplying it
+       * from the shared movement state means the policy follows the gun into
+       * every scene without a Siege-name conditional. */
+      settledFirstShot: this.movementSpeed <= DELIBERATE_SHOT_MAX_SPEED,
+    });
     if (shot.fired) { this._onShot(f, shot); return shot; }
     if (shot.reason === 'empty') {
       /* The dry click, and only on the transition. `fire()` returns 'semi'
@@ -468,15 +479,36 @@ export class WeaponSystem {
     const model = this.model;
     const triggerId = this.stats.shots;
 
-    // Muzzle, in world space, off the model's own userData.
+    /* Muzzle, in world space, off the model's own userData. This is where the
+     * TRACER leaves from and where the flash is drawn. It is deliberately not
+     * where the round starts: see below. */
     const muzzleLocal = model?.userData?.muzzle ?? _v.set(0, 0, -0.3);
-    const from = model ? model.localToWorld(_v.copy(muzzleLocal)) : this.camera.getWorldPosition(_v);
-    const origin = from.clone();
+    const muzzle = (model
+      ? model.localToWorld(_v.copy(muzzleLocal))
+      : this.camera.getWorldPosition(_v)).clone();
 
-    /* The round goes where the camera is looking, not where the held model
-     * is pointing — the model sits low and right of the eye so it does not
-     * cover the screen, and a player who aims at a light switch expects to
-     * hit the light switch. Spread is applied about that ray. */
+    /* THE ROUND STARTS AT THE EYE, NOT AT THE BARREL.
+     *
+     * The direction has always been the camera's, because a player who aims
+     * at a light switch expects to hit the light switch. The ORIGIN used to
+     * be the muzzle, and those two together are a parallel offset: the held
+     * model sits 0.2 m right and 0.2 m below the eye so it does not cover the
+     * screen, so the shot travelled down a line 0.2 m right and 0.2 m below
+     * the one the crosshair is on -- and stayed there, at every range,
+     * because the two lines never converge.
+     *
+     * Owner, 2026-08-24, on the Siege: *"there is also room for the decals to
+     * be more accurate on the target where you hit it."* That is this. Aim at
+     * a man's head at five metres and the hole appears on his shoulder; aim
+     * at the edge of a doorway and the round goes through the frame. It was
+     * never the decal system, which places a mark exactly where it is told --
+     * it was being told a point on the wrong line.
+     *
+     * So the ballistic ray is the SIGHT ray, eye to crosshair, and the muzzle
+     * is demoted to what it always should have been: the visual start of the
+     * tracer, which converges on the impact the way a real barrel does.
+     * Spread is applied about the sight ray. */
+    const origin = this.camera.getWorldPosition(new THREE.Vector3());
     this.camera.getWorldDirection(_dir).normalize();
     _right.set(1, 0, 0).applyQuaternion(this.camera.getWorldQuaternion(_q));
     _up.set(0, 1, 0).applyQuaternion(_q);
@@ -589,6 +621,8 @@ export class WeaponSystem {
         penetration: def.penetration,
         remainingEnergy: materialPath.remainingEnergy,
         remainingPenetration: materialPath.remainingPenetration,
+        spread,
+        deliberate: shot.deliberate === true,
       });
       pelletTruths.push(pelletTruth);
 
@@ -596,8 +630,14 @@ export class WeaponSystem {
         for (const planned of impactPlan) this._impact(planned.hit, def, planned.ray, planned);
       } : null;
       if (shot.tracer) {
+        /* The streak leaves the barrel and converges on the impact. Where the
+         * contact is nearer than the muzzle is far forward -- a man at arm's
+         * length, a wall the player is pressed against -- the muzzle is past
+         * the end of the round's travel, and a streak drawn from there would
+         * run backwards. Start those at the eye. */
+        const muzzleAhead = _v2.copy(muzzle).sub(origin).dot(direction);
         this.tracers.fire({
-          from: origin,
+          from: origin.distanceTo(end) > muzzleAhead ? muzzle : origin,
           to: end,
           speed: def.tracer.speed,
           colour: def.tracer.colour,
@@ -794,6 +834,7 @@ export class WeaponSystem {
   /* ---------------------------------------------------------------- */
   update(dt, { speed = 0 } = {}) {
     const step = Math.max(0, Math.min(0.1, Number(dt) || 0));
+    this.movementSpeed = Number.isFinite(Number(speed)) ? Math.max(0, Number(speed)) : 0;
     this.tracers.update(step);
     this.ejecta.update(step);
 
@@ -823,7 +864,7 @@ export class WeaponSystem {
     // Hold pose: swap dip, recoil kick, walking sway.
     this.swap = Math.max(0, this.swap - step * 3.6);
     this.recoilKick = Math.max(0, this.recoilKick - step * 7);
-    this.sway += step * (1.5 + Math.min(4, speed));
+    this.sway += step * (1.5 + Math.min(4, this.movementSpeed));
     const aimTarget = this.aimed && this.current ? 1 : 0;
     const aimEase = 1 - Math.exp(-step * 12);
     this.aimBlend += (aimTarget - this.aimBlend) * aimEase;
@@ -844,7 +885,7 @@ export class WeaponSystem {
       pump.position.z = pump.userData.combatRestZ + Math.sin(elapsed * Math.PI) * 0.15;
     }
     const hold = model.userData.hold;
-    const bob = Math.min(1, speed / 4);
+    const bob = Math.min(1, this.movementSpeed / 4);
     const reloadDip = this.firearm(id).reloading ? 0.09 : 0;
     const hipX = hold.position[0] + Math.sin(this.sway) * 0.006 * bob;
     const hipY = hold.position[1] + Math.abs(Math.cos(this.sway)) * 0.007 * bob
@@ -890,6 +931,7 @@ export class WeaponSystem {
     const spread = firearm.spreadNow({
       aimed: this.aimed,
       aimStability: this.aimStability,
+      settledFirstShot: this.movementSpeed <= DELIBERATE_SHOT_MAX_SPEED,
     });
     const settled = firearm.def.spread * (this.aimed ? 0.48 : 1);
     return {

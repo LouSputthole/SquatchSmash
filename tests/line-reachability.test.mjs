@@ -41,6 +41,7 @@ import {
   applyReachabilityAllowlist,
   dispatchTemplatePrefixes,
   memberReferences,
+  portableSourcePath,
   reachableTreeNodes,
   scanRuntime,
   stringLiterals,
@@ -126,6 +127,13 @@ test('scanRuntime reads the real beefrun scene and finds its one template dispat
   assert.ok(nav, 'the landmark template at mission.js is no longer being seen');
   assert.match(nav.source, /^src\/beefrun\/mission\.js:\d+$/);
   assert.ok(runtime.literals.has('takeoff.rotate'), 'the takeoff call went missing from the scan');
+});
+
+test('source provenance uses repository separators on every host', () => {
+  assert.equal(
+    portableSourcePath('src\\beefrun\\mission.js'),
+    'src/beefrun/mission.js',
+  );
 });
 
 /* ------------------------------------------------------------------ */

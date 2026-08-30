@@ -1,0 +1,364 @@
+:root {
+  --luxury-ink: #090b10;
+  --luxury-panel: rgba(13, 16, 22, .91);
+  --luxury-gold: #d4b06c;
+  --luxury-gold-bright: #f2d597;
+  --luxury-stone: #ddd7cc;
+  --luxury-blue: #9fc6eb;
+}
+
+body.luxury-apartment {
+  background: #080b12;
+  color: #f0ebe1;
+}
+
+body.luxury-apartment #scene {
+  filter: saturate(.94) contrast(1.045);
+}
+
+#luxury-grade,
+#luxury-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+#luxury-grade {
+  background:
+    linear-gradient(180deg, rgba(89, 117, 155, .10), transparent 42%, rgba(190, 135, 76, .07)),
+    radial-gradient(circle at 78% 22%, rgba(156, 194, 235, .12), transparent 34%),
+    radial-gradient(circle at 36% 64%, rgba(218, 173, 96, .055), transparent 42%);
+  mix-blend-mode: screen;
+}
+
+#luxury-vignette {
+  background:
+    linear-gradient(90deg, rgba(3, 5, 9, .16), transparent 18%, transparent 82%, rgba(3, 5, 9, .13)),
+    radial-gradient(ellipse at center, transparent 52%, rgba(4, 6, 10, .30) 100%);
+}
+
+#luxury-rest {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(38, 47, 61, .36), transparent 42%),
+    #06080d;
+  color: var(--luxury-gold);
+  font: 700 11px/1.2 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .38em;
+  text-transform: uppercase;
+  transition: opacity .8s ease;
+}
+
+#luxury-rest::before,
+#luxury-rest::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: min(340px, 58vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 176, 108, .54), transparent);
+  transform: translateX(-50%);
+}
+
+#luxury-rest::before { top: calc(50% - 38px); }
+#luxury-rest::after { top: calc(50% + 34px); }
+#luxury-rest.active { opacity: 1; }
+
+#luxury-elevator-exit {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(45, 55, 70, .26), transparent 38%),
+    #05070b;
+  color: var(--luxury-gold-bright);
+  font: 700 10px/1.2 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .31em;
+  text-align: center;
+  text-transform: uppercase;
+  transition: opacity .72s ease;
+}
+
+#luxury-elevator-exit::before,
+#luxury-elevator-exit::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: min(380px, 64vw);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 176, 108, .58), transparent);
+  transform: translateX(-50%);
+}
+
+#luxury-elevator-exit::before { top: calc(50% - 38px); }
+#luxury-elevator-exit::after { top: calc(50% + 34px); }
+#luxury-elevator-exit.active { opacity: 1; }
+
+body.luxury-apartment #overlay {
+  background:
+    linear-gradient(90deg, rgba(5, 7, 11, .96), rgba(6, 9, 15, .62) 56%, rgba(5, 7, 11, .82)),
+    radial-gradient(circle at 76% 25%, rgba(151, 188, 225, .20), transparent 30%),
+    radial-gradient(circle at 64% 70%, rgba(207, 161, 85, .13), transparent 36%),
+    #080b12;
+}
+
+body.luxury-apartment #overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .20;
+  background:
+    linear-gradient(115deg, transparent 0 63%, rgba(255, 255, 255, .14) 63.1% 63.22%, transparent 63.35%),
+    repeating-linear-gradient(90deg, transparent 0 9.95%, rgba(212, 176, 108, .10) 10% 10.08%);
+}
+
+body.luxury-apartment #overlay .panel {
+  position: relative;
+  max-width: 710px;
+  padding: 38px 42px 34px;
+  border: 1px solid rgba(212, 176, 108, .25);
+  border-top-color: rgba(242, 213, 151, .52);
+  background:
+    linear-gradient(145deg, rgba(17, 20, 27, .96), rgba(10, 13, 19, .88)),
+    var(--luxury-panel);
+  box-shadow:
+    0 46px 120px rgba(0, 0, 0, .62),
+    inset 0 1px rgba(255, 246, 222, .055),
+    inset 14px 0 rgba(212, 176, 108, .022);
+  backdrop-filter: blur(15px);
+}
+
+body.luxury-apartment #overlay .panel::after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 38px;
+  height: 38px;
+  border-top: 1px solid rgba(212, 176, 108, .48);
+  border-right: 1px solid rgba(212, 176, 108, .48);
+}
+
+body.luxury-apartment #overlay .eyebrow {
+  color: var(--luxury-gold);
+  letter-spacing: .22em;
+}
+
+body.luxury-apartment #overlay h1 {
+  margin-bottom: 13px;
+  color: #f3eee5;
+  letter-spacing: -.035em;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, .46);
+}
+
+body.luxury-apartment #overlay h1 span {
+  color: var(--luxury-gold-bright);
+}
+
+body.luxury-apartment #overlay .tag {
+  max-width: 600px;
+  color: #c9c3b8;
+  line-height: 1.68;
+}
+
+body.luxury-apartment #overlay button {
+  border-color: #e0bc78;
+  background: linear-gradient(180deg, #e0bd79, #ad8446);
+  color: #17130e;
+  box-shadow:
+    0 12px 32px rgba(151, 105, 45, .22),
+    inset 0 1px rgba(255, 247, 219, .46);
+}
+
+body.luxury-apartment #overlay button:hover {
+  background: linear-gradient(180deg, #edcf91, #bc9252);
+  box-shadow: 0 16px 42px rgba(168, 123, 61, .31);
+}
+
+body.luxury-apartment #overlay .controls {
+  border-top-color: rgba(212, 176, 108, .17);
+  color: #a9a69f;
+}
+
+body.luxury-apartment #overlay kbd,
+body.luxury-apartment #prompt kbd,
+body.luxury-apartment #posture kbd {
+  border-color: rgba(212, 176, 108, .38);
+  background: rgba(212, 176, 108, .09);
+  color: #edd49e;
+}
+
+body.luxury-apartment #overlay .fine {
+  color: #777d83;
+}
+
+body.luxury-apartment #clock {
+  border-color: rgba(212, 176, 108, .20);
+  background: rgba(8, 10, 15, .77);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .025);
+  backdrop-filter: blur(10px);
+}
+
+body.luxury-apartment #clock .time,
+body.luxury-apartment #clock .day {
+  color: var(--luxury-gold-bright);
+}
+
+body.luxury-apartment #prompt {
+  border-color: rgba(212, 176, 108, .32);
+  background: rgba(7, 9, 14, .88);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(12px);
+}
+
+body.luxury-apartment #prompt .holdbar i {
+  background: linear-gradient(90deg, #9c7745, var(--luxury-gold-bright));
+}
+
+body.luxury-apartment #hotbar,
+body.luxury-apartment #hand-item,
+body.luxury-apartment #radio-osd,
+body.luxury-apartment #posture {
+  border-color: rgba(212, 176, 108, .20);
+  background: rgba(8, 10, 15, .80);
+  backdrop-filter: blur(10px);
+}
+
+body.luxury-apartment #toast-stack > * {
+  border-color: rgba(212, 176, 108, .22);
+  background: rgba(9, 11, 16, .88);
+}
+
+#luxury-game-panel {
+  position: fixed;
+  top: max(86px, env(safe-area-inset-top));
+  left: max(20px, env(safe-area-inset-left));
+  z-index: 16;
+  display: grid;
+  width: min(330px, calc(100vw - 40px));
+  gap: 7px;
+  padding: 17px 19px 16px;
+  border: 1px solid rgba(212, 176, 108, .34);
+  border-left: 3px solid var(--luxury-gold);
+  background:
+    linear-gradient(130deg, rgba(22, 26, 34, .96), rgba(9, 11, 16, .91));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .46), inset 0 1px rgba(255, 255, 255, .04);
+  backdrop-filter: blur(13px);
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+#luxury-game-panel.hidden {
+  display: grid !important;
+  opacity: 0;
+  transform: translateX(-14px);
+  visibility: hidden;
+}
+
+#luxury-game-panel .game-kicker {
+  color: var(--luxury-gold);
+  font: 700 9px/1.2 ui-monospace, monospace;
+  letter-spacing: .24em;
+}
+
+#luxury-game-panel strong {
+  color: #f3ede2;
+  font: 800 26px/1.05 ui-monospace, monospace;
+  letter-spacing: -.035em;
+}
+
+#luxury-game-panel [data-game-secondary] {
+  min-height: 1.35em;
+  color: #b9b7b0;
+  font: 600 12px/1.4 system-ui, sans-serif;
+}
+
+#luxury-game-panel small {
+  padding-top: 8px;
+  border-top: 1px solid rgba(212, 176, 108, .13);
+  color: #7f8790;
+  font: 600 10px/1.4 ui-monospace, monospace;
+}
+
+#luxury-game-panel.darts-active::after {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(255, 239, 199, .92);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(12, 14, 18, .72), 0 0 12px rgba(212, 176, 108, .32);
+  transform: translate(-50%, -50%);
+}
+
+#luxury-game-panel.darts-active::before {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff3d2;
+  transform: translate(-50%, -50%);
+}
+
+body.luxury-apartment #loading {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(44, 56, 75, .30), transparent 36%),
+    #070a10;
+  color: #a9a69e;
+}
+
+body.luxury-apartment #loading .bar {
+  border-color: rgba(212, 176, 108, .16);
+  background: rgba(255, 255, 255, .025);
+}
+
+body.luxury-apartment #loading .bar i {
+  background: linear-gradient(90deg, #495a73, var(--luxury-gold));
+  box-shadow: 0 0 18px rgba(212, 176, 108, .28);
+}
+
+body.luxury-apartment .boot-failure {
+  border-color: rgba(212, 176, 108, .30);
+  background: rgba(10, 12, 17, .96);
+}
+
+@media (max-width: 720px) {
+  body.luxury-apartment #overlay .panel {
+    padding: 26px 20px 23px;
+  }
+
+  body.luxury-apartment #overlay .controls li {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #luxury-game-panel {
+    top: auto;
+    bottom: max(92px, calc(env(safe-area-inset-bottom) + 72px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #luxury-rest,
+  #luxury-elevator-exit,
+  #luxury-game-panel,
+  body.luxury-apartment #overlay button {
+    transition: none;
+  }
+}

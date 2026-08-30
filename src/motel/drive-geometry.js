@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { lambert } from '../../game/src/world.js';
+import { aimHeadlightBeam, createHeadlightBeam } from '../core/vehicles/headlights.js';
 
 export const MOTEL_DRIVE_SEGMENT_COUNT = 24;
 export const MOTEL_DRIVE_SEGMENT_LENGTH = 50;
@@ -142,18 +143,15 @@ export function buildMotelDriveCar(color, player = false) {
     spot.target.position.set(sx * 1.3, 0, -16);
     spot.userData.role = 'headlight';
     group.add(spot, spot.target);
-    const beam = new THREE.Mesh(
-      new THREE.ConeGeometry(0.9, 13, 10, 1, true),
-      lambert(0xfff2c8, {
-        emissive: 0xd8be78,
-        transparent: true,
-        opacity: 0.05,
-        depthWrite: false,
-      }),
-    );
-    beam.name = 'motel.drive.headlight-beam';
-    beam.position.set(sx * 1.15, 0.5, -8.9);
-    beam.rotation.x = Math.PI / 2;
+    const beam = createHeadlightBeam({
+      reach: 13,
+      farRadius: 0.9,
+      name: 'motel.drive.headlight-beam',
+      color: 0xfff2c8,
+      opacity: 0.05,
+    });
+    beam.position.copy(spot.position);
+    aimHeadlightBeam(beam, spot.target.position.clone().sub(spot.position));
     beam.renderOrder = -1;
     beam.userData.role = 'headlight-beam';
     beam.userData.sceneAuditIgnore = true;

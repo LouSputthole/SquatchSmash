@@ -13,6 +13,28 @@ owner set, now standing:
 3. **The sheet's voice wins over whatever was recorded.** Every line spoken by
    a recast character regenerates. The old ids were stock placeholder
    castings; none of them survive.
+4. **And two characters are not one person.** *(Added 2026-08-24.)* Rule 2 only
+   ever ran one way — one character, one id, every scene — and nothing here
+   said the reverse, so ids drifted onto each other one paste at a time and the
+   first anybody heard of it was the owner asking why Rico in the Jerky Motel
+   sounded like Captain Lou Sasole. An id belongs to one character. Sharing one
+   is still allowed, but only as a decision somebody made on purpose and wrote
+   down where the next person will find it: the sanctioned pools all do, in
+   their own `_note` in `assets/sfx/manifest.json` — `npc-male` is *"neutral by
+   design — this voice has to sit behind a dozen different faces without
+   becoming a character"*, `mansion-guard` is *"one voice across all of them on
+   purpose: they are the same job, not the same man"* — and the GATE/BOOTH pair
+   at `src/mansion/script.js:77-89` argues the case in full before letting two
+   speakers share `mansion-gate`. This is the prohibition already sitting in
+   the Cecilio row below (*"LOCKED; never reuse for a scene-local Motel
+   antagonist"*), generalised from one voice to every voice.
+
+   `tests/voice-casting-distinctness.test.mjs` holds the half of this a machine
+   can hold: any two profiles sharing an id fail the suite unless the group is
+   allowlisted there with its reason. Read its header before you trust it — it
+   compares ids, so it is green on Rico, whose id is genuinely his own and
+   merely sounds like Sasole's. Nothing but a person listening catches that,
+   and this rule is owed one listening pass per new cast.
 
 The `voices` block of `assets/sfx/manifest.json` now carries these ids —
 that block is what the generator reads, so the manifest is the lock and this
@@ -58,11 +80,11 @@ recast — his voice stands.
 3. Station voices `uncle` (98.8) and `ksqch` (101.7) keep their old stock
    ids — the sheet supplied one radio voice and 97.8 got it. Shout if those
    two should recast as well.
-4. Still provisional: `hr`, `unknown` (the caller), `lookout`, `motel-rico`,
-   `motel-chino`, and `npc-male`. The last three now use the owner's reserved
-   Boston, Southern, and old-man NPC rows respectively so their lines can be
-   auditioned without borrowing Cecilio or the Bing doorman. The voice lead
-   must approve or replace those three ids before locking the final cast.
+4. Still provisional: `hr`, `unknown` (the caller), `lookout`, `motel-chino`,
+   and `npc-male`. Chino and the scene-local pool use the owner's reserved
+   Southern and old-man NPC rows respectively so their lines can be auditioned
+   without borrowing Cecilio or the Bing doorman. Rico is no longer in this
+   list: the owner recast him and all 39 takes were regenerated on 2026-08-25.
 5. **Two ids reserved, no character built yet (2026-08-05).** The owner
    supplied ElevenLabs ids ahead of the NPCs they're for — not bound to a
    profile in `assets/sfx/manifest.json` because no `voiceProfile:` in code
@@ -101,11 +123,11 @@ spellings for the existing Eric identity and `eric` voice.
 
 | Sheet row | profile | id | where it speaks |
 |---|---|---|---|
-| Date Copacabana **Margo** | `margo` | `XlDdozLmuTofIxK4BjPD` | Silver Room date + her call (4 lines to redo — this closes the "recast Margo off the hogmama placeholder" item) |
+| Date Copacabana **Margo** | `margo` | `XlDdozLmuTofIxK4BjPD` | Cabin date call, Silver Room date, and luxury-apartment stayover; locked to her dedicated voice. |
 | Don Cecilio Barriga | `cecilio` | `IpCcRCVYm2nsZJjBFn4H` | The Beef Run's other end (`vo.beefrun.*`). LOCKED; never reuse for a scene-local Motel antagonist. |
-| Boston side character *(provisional Rico)* | `motel-rico` | `UZvBfqEdvCFLqsBOo9Zr` | Rico's exact Motel catalog. Audition takes exist; voice-lead approval required before locking the cast. |
+| Jerky Motel antagonist **Rico** | `motel-rico` | `5sPGxVw5vqj7a08c5Xbw` | Owner-approved 2026-08-24 recast. All 39 Motel takes were regenerated and performer-stamped on 2026-08-25. |
 | Southern NPC *(provisional Chino)* | `motel-chino` | `x9G2ivoqdzPgvaOC8XUa` | Chino's exact Motel catalog. Audition takes exist; voice-lead approval required before locking the cast. |
-| Old man NPC pool *(provisional scene locals)* | `npc-male` | `NOpBlnGInO9m6vDvFkFC` | Motel sellers/lookouts/clerk and the Bing contractor. Audition takes exist; voice-lead approval required before locking the cast. |
+| Old man NPC pool *(scene locals)* | `npc-male` | `THy3prVIjAFnT9vQVvCB` | Motel sellers/lookouts/clerk and the Bing contractor. **Row corrected 2026-08-24.** It read `NOpBlnGInO9m6vDvFkFC` for the nineteen days since the owner recast this pool onto its own id on 2026-08-05, and that older id is now `heist-guard`'s alone — the bank customer, the manager and this pool were all moved off it. So the ledger was quietly naming the bank security guard as the motel clerk. Gap 4 below still lists the profile as provisional: the id is the owner's own old-man NPC row, the voice lead's approval is not on record. |
 | Dealer, cards, in Bada | `dealer` *(new)* | `snyKKuaGYk1VUEh42zbW` | blackjack VO below |
 | Bartender in Bada | `bartender` *(new)* | `nUEpF21E0nXsKMw4L4CS` | bar barks below |
 | Side guards / doorman, Bing | `doorman` *(new)* | `fhZTG3MTnv8OnksvofJI` | door barks below; backups `7fbQ7yJuEo56rYjrYaEh` (deep), `Je8d8oi82sj0l8L1VM0l` |

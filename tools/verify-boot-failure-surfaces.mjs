@@ -66,7 +66,7 @@ const CASES = [
   {
     page: 'enolasquatch.html',
     module: 'src/enolasquatch/main.js',
-    scene: 'Enola Squatch',
+    scene: 'SQUATCHOLA GAY',
     surface: 'loading',
     title: 'Could not load the mission code',
   },
@@ -105,6 +105,19 @@ const CASES = [
     page: 'golf.html',
     module: 'src/golf/main.js',
     scene: 'Silver Pines',
+  },
+  {
+    page: 'cabin.html',
+    module: 'src/cabin/main.js',
+    scene: 'The Hideout',
+    title: 'Could not load the cabin',
+  },
+  {
+    page: 'luxury-apartment.html',
+    module: 'src/luxury-apartment/main.js',
+    scene: 'THE HIGH LIFE',
+    title: 'Could not load the luxury apartment',
+    recovery: './preview.html',
   },
   {
     page: 'silvercase.html',

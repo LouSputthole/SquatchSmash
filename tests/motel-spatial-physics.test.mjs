@@ -251,6 +251,7 @@ test('the Motel arrival car is the complete shared maroon convertible with two s
   const driver = car.driverActorPosition();
   const passengerDoor = car.passengerDoorPosition();
   const passengerExit = car.passengerExitPosition();
+  const passengerBoard = car.passengerBoardPosition();
   const driverFacing = new THREE.Vector3(
     Math.sin(car.driverFacingPassengerYaw()),
     0,
@@ -273,6 +274,10 @@ test('the Motel arrival car is the complete shared maroon convertible with two s
     'the exterior pull-in proof camera is clipped into the shared cabin');
   assert.ok(passenger.distanceTo(passengerDoor) < 1.5,
     'the [E] target is not on the passenger door beside Tony');
+  assert.ok(Math.hypot(passengerBoard.x - passengerExit.x, passengerBoard.z - passengerExit.z) < 0.001,
+    'the return-trip boarding prompt is not on the clear passenger-side pavement');
+  assert.ok(passengerBoard.distanceTo(passengerDoor) < 1.3,
+    'the return-trip boarding prompt no longer reads as the passenger door');
   const doorRayBlockers = [];
   for (let i = 1; i <= 10; i++) {
     const t = i / 10;
@@ -298,6 +303,12 @@ test('the Motel arrival car is the complete shared maroon convertible with two s
       || passengerExit.z < car.collider.z0 || passengerExit.z > car.collider.z1,
     true,
     'the public passenger exit still places Tony inside the car blocker',
+  );
+  assert.equal(
+    passengerBoard.x < car.collider.x0 || passengerBoard.x > car.collider.x1
+      || passengerBoard.z < car.collider.z0 || passengerBoard.z > car.collider.z1,
+    true,
+    'the public return-trip prompt is buried inside the car blocker',
   );
 });
 

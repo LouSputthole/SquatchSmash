@@ -13,6 +13,15 @@ export const BADA_BING_TWO_CLEANUP_TASKS = Object.freeze([
   'final_sweep',
 ]);
 
+const BADA_BING_TWO_CHECKPOINT_ORDER = Object.freeze([
+  'party',
+  'attack',
+  'cleanup',
+  'body_loaded',
+  'graveyard',
+  'buried',
+]);
+
 class BadaBingTwoStory {
   constructor({ campaign }) {
     this.campaign = campaign;
@@ -44,9 +53,16 @@ class BadaBingTwoStory {
   recordAttack({ attackResolved = false } = {}) {
     const mission = this.campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
     if (mission.status !== 'in_progress' || attackResolved !== true) return false;
+    const checkpointIndex = BADA_BING_TWO_CHECKPOINT_ORDER.indexOf(mission.checkpoint);
+    const attackIndex = BADA_BING_TWO_CHECKPOINT_ORDER.indexOf('attack');
+    // Restoring a later checkpoint replays the attack's runtime presentation.
+    // That replay is idempotent campaign truth, not permission to move a
+    // durable cleanup/body checkpoint backwards to `attack`.
+    if (mission.attackResolved && checkpointIndex >= attackIndex) return true;
     this.campaign.update((state) => {
       const incident = state.missions[MISSION_IDS.BADA_BING_TWO];
-      incident.checkpoint = 'attack';
+      const currentIndex = BADA_BING_TWO_CHECKPOINT_ORDER.indexOf(incident.checkpoint);
+      if (currentIndex < attackIndex) incident.checkpoint = 'attack';
       incident.attackResolved = true;
     });
     return true;

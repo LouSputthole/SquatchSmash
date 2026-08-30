@@ -289,6 +289,7 @@ export function makeSaintCard() {
   resetBurn();
   return {
     group,
+    size: Object.freeze({ width, height }),
     card: backing,
     backing,
     front,
@@ -303,7 +304,14 @@ export function makeSaintCard() {
     get burnProgress() { return burnProgress; },
     /* Face up on the table. */
     rest: { x: -Math.PI / 2, y: 0.22, z: 0 },
-    grip: { rotation: { x: -0.5, y: 0, z: 0 } },
+    /* The hand socket is the centre of a 16 x 16 x 17 cm fist. A prop placed
+     * at its origin is therefore inside the hand and raycasts to FOREARM before
+     * they ever reach the card. This offset sits the paper on the palm surface;
+     * the rotation presents its printed face to the player. */
+    grip: {
+      offset: { x: 0.024, y: 0.045, z: 0.082 },
+      rotation: { x: -0.5, y: 0, z: 0 },
+    },
   };
 }
 

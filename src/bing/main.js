@@ -13,8 +13,9 @@
 import * as THREE from 'three';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale, get as getSetting } from '../core/settings.js';
+import { shakeScale, get as getSetting } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
@@ -41,7 +42,7 @@ import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
-import { makeHeldDrinks } from '../world/props.js';
+import { makeHeldDrinks, poseHeldDrink } from '../world/props.js';
 import { buildBooskiShotProps, createBooskiShotBeat } from './booski-shot.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -52,6 +53,7 @@ import { createShubenatorSignature } from '../core/shubenator-signature.js';
 import { createLicenseToGrill } from './license-to-grill-runtime.js';
 import { QUEST as LICENSE_TO_GRILL_QUEST } from './license-to-grill.js';
 import { BingAudioEngine } from './audio.js';
+import { createBingInputPolicy } from './controls.js';
 import { populate, makeAssociate } from './cast.js';
 import {
   BING_PERFORMER_BATHROOM_ACTOR_MARKER,
@@ -74,7 +76,7 @@ import {
   AMBIENT,
   NOTES,
 } from './script.js';
-import { createObjectivePanel } from '../core/objective-panel.js';
+import { conciseObjectiveItems, createObjectivePanel } from '../core/objective-panel.js';
 import { Mission, ENDINGS } from './mission.js';
 import {
   SecondVisitMission,
@@ -382,7 +384,9 @@ const mission = new MissionType({
  * Attempts land in game.voLog either way, so the verifier can prove the
  * wiring fires before a single mp3 has been generated.
  * ------------------------------------------------------------------ */
-function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
+function voiceCue(name, {
+  volume = 0.9, delay = 0, solo = true, position = null,
+} = {}) {
   if (!name) return null;
   game.voLog.push(name);
   if (game.voLog.length > 60) game.voLog.shift();
@@ -396,7 +400,7 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!audio.ready) return null;
   const bank = audio.buffers?.get(name);
   if (!bank?.length) return null;
-  const src = audio.play(name, { volume, delay });
+  const src = audio.play(name, { volume, delay, ...(position ? { position } : {}) });
   if (solo) audio._vo = src;
   const secs = src?.buffer ? src.buffer.duration : 1.6;
   audio.hold(delay + secs + 0.25);
@@ -464,7 +468,7 @@ const dialogue = new Dialogue(ui.dialogue, {
        * away from. Keep the camera where it is, clear held movement, and
        * return to the exact prior posture once the authored thread ends. */
       game.dialogueModeBeforeLock = player.mode;
-      player.clearKeys();
+      input.clear('dialogue-lock');
       /* `briefing` disables locomotion while leaving the mouse-look path
        * live. The old `frozen` state made Lou's required conversation feel
        * like the camera had been taken away in the office doorway. */
@@ -473,7 +477,7 @@ const dialogue = new Dialogue(ui.dialogue, {
     }
     if (game.dialogueModeBeforeLock === 'walk' && player.mode === 'briefing') {
       player.mode = 'walk';
-      player.clearKeys();
+      input.clear('dialogue-unlock');
     }
     game.dialogueModeBeforeLock = null;
   },
@@ -796,6 +800,10 @@ const carRadio = new Radio(audio, hud, carRadioClock, {
     defaultPower: true,
   }),
   canPlayNotice: () => campaign.state.story.chapter === 'day_one',
+  /* The station card belongs to the dashboard, not the whole club. The
+   * receiver may keep its saved switch while Tony is inside, but its HUD is
+   * only actionable while he is actually in the driver seat. */
+  hudVisible: () => game.seatedIn === 'car',
 });
 const carRadioPosition = new THREE.Vector3();
 car.radioFace.getWorldPosition(carRadioPosition);
@@ -826,18 +834,7 @@ const shot = buildBooskiShotProps({
   bartender: cast.byName.bartender,
   barService: club.anchors.barService,
 });
-function poseDrink(which, k) {
-  const can = heldDrinks.can;
-  const bottle = heldDrinks.bottle;
-  can.visible = which === 'can';
-  bottle.visible = which === 'bottle';
-  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
-  if (!m) return;
-  const e = k * k * (3 - 2 * k);
-  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
-  m.rotation.set(-1.30 * e, 0, 0.34 * e);
-}
-poseDrink(null, 0);
+poseHeldDrink(heldDrinks, null, 0);
 
 function switchClubRecord(record, { requested = false } = {}) {
   if (!record || game.clubRecord === record.file) {
@@ -956,9 +953,14 @@ function paintObjectives(list) {
     ...(o.total ? { tally: { count: o.count ?? 0, total: o.total } } : {}),
   });
   const items = list.filter((o) => !o.optional).map(item);
-  const optional = list.filter((o) => o.optional);
+  const optional = list.filter((o) => o.optional)
+    .sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)));
   if (optional.length) items.push({ rule: 'WHILE YOU ARE HERE' }, ...optional.map(item));
-  objectivePanel.set({ title: OBJECTIVE_TITLE, items, hint: missionHint() });
+  objectivePanel.set({
+    title: OBJECTIVE_TITLE,
+    items: conciseObjectiveItems(items, { optionalLimit: 1 }),
+    hint: missionHint(),
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -1004,7 +1006,8 @@ function optionalObjectives() {
     list.push({
       id: 'grill',
       text: LICENSE_TO_GRILL_QUEST.objective,
-      optional: false,
+      optional: true,
+      featured: true,
       done: licenseToGrill?.phase === 'done',
     });
   }
@@ -1025,7 +1028,6 @@ function repaintObjectives() {
 let objectiveSig = '';
 function objectivesTick() {
   if (!game.hudReady) return;
-  if (mission.flags.metHer) mission.complete('margo');
   if (game.booskiShotDone) mission.complete('shot');
   const sig = `${mission.objectives.map((o) => (o.done ? 1 : 0)).join('')}`
     + `|${mission.objectives.length}|${spokeTo.size}|${mission.spins || 0}|${mission.hands || 0}`
@@ -1084,20 +1086,16 @@ function drinkTick(dt) {
   /* Booski's glass is an E-key story beat, not a bottle Tony can nurse by
    * holding F. Its camera animation and consumption live in shotDrinkTick. */
   if (game.heldDrink === 'booski-shot') return;
-  /* `autoDrink` is seconds of hold the game is doing on the player's behalf.
-   * The shot beat uses it: Booski says drink, so Tony drinks, and it goes
-   * through the same pose, the same units and the same swallow as [F]. */
-  if (game.autoDrink > 0) game.autoDrink = Math.max(0, game.autoDrink - dt);
-  if (!keys.has('KeyF') && game.autoDrink <= 0) {
+  if (!bingInputPolicy.isDown('KeyF')) {
     if (game.drinking > 0) {
       game.drinking = 0;
-      poseDrink(null, 0);
+      poseHeldDrink(heldDrinks, null, 0);
     }
     return;
   }
   game.drinking += dt;
   const k = Math.min(1, game.drinking / DRINK_TIME);
-  poseDrink(game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
+  poseHeldDrink(heldDrinks, game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
   if (k < 1) return;
   // Down it
   const units = game.heldDrink === 'whiskey' ? WHISKEY_UNITS : BEER_UNITS;
@@ -1106,7 +1104,7 @@ function drinkTick(dt) {
   inventory.remove?.(game.heldDrink === 'whiskey' ? 'whiskey' : 'beer');
   game.heldDrink = null;
   game.drinking = 0;
-  poseDrink(null, 0);
+  poseHeldDrink(heldDrinks, null, 0);
   hud.setHand(null);
   hud.setInventory(inventory, ITEMS);
   hud.say(drunk.level > 0.5
@@ -1470,14 +1468,14 @@ reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
 /* Scene One only, so she is registered only when she is actually in the room. */
 if (cast.byName.margo) {
   reg(cast.byName.margo.group, {
-    label: () => (mission.flags.gaveNumber || mission.flags.metHer
+    label: () => (mission.flags.hasMargoNumber || mission.flags.metHer
       ? 'Talk to <b>Margo</b>'
       : 'Talk to the <b>woman at the end of the bar</b>'),
     onUse: () => {
       const her = cast.byName.margo;
       her.faceToward(player.position.x, player.position.z);
       noteSpokeTo(her);
-      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her, { resume: true });
+      dialogue.start(scripts.margo, mission.flags.hasMargoNumber ? 'number' : 'open', her, { resume: true });
     },
   });
 }
@@ -2307,12 +2305,16 @@ function leaveByFrontDoor() {
     hold: 1.4,
     onTap: () => hud.say(mission.readyToLeave
       ? 'Hold it. You are leaving.'
-      : 'Not until you have got what you came for.', 3000),
+      : (!isSecondVisit && mission.leaveBlocker === 'margo_number'
+        ? 'Margo is still at the bar. Get her number before you leave.'
+        : 'Not until you have got what you came for.'), 3000),
     onUse: () => {
       if (!mission.readyToLeave) {
         hud.say(isSecondVisit
           ? 'Not until Lou gives you the motel assignment.'
-          : 'Not until you have got what you came for.', 3000);
+          : (mission.leaveBlocker === 'margo_number'
+            ? 'Margo is still at the bar. Get her number before you leave.'
+            : 'Not until you have got what you came for.'), 3000);
         return;
       }
       driveAway();
@@ -2619,6 +2621,19 @@ function recordSecondVisit() {
   return false;
 }
 
+/** Release every audio owner before the router replaces this page. */
+function teardownBingAudio() {
+  /* The end card intentionally keeps the club alive while the player reads
+   * it; the click that leaves is the ownership seam. Iterate the live keys so
+   * a future signature sting cannot be omitted from a hand-maintained list.
+   * The physical car receiver is separate HTML media, so pause it without
+   * changing the player's persisted power preference. */
+  carRadio.pause();
+  for (const key of [...audio.loops.keys()]) audio.stopLoop(key, 0.18);
+  audio.stopSpeech?.(0.08);
+  return audio.loops.size === 0;
+}
+
 function driveAway() {
   if (game.over) return;
   game.over = true;
@@ -2655,9 +2670,10 @@ function finish() { /* the ending card is driven by driveAway() */ }
 function showEnding(kind) {
   const e = isSecondVisit
     ? {
-      title: 'ROOM TWELVE IS WAITING',
+      title: 'THE GRAVEYARD IS WAITING',
       body: 'Lou gave you the job in the same office, but this visit ends differently. '
-        + 'Snow is already outside the Jerky Motel with the payment, and the apartment is not on the route.',
+        + 'Snow has Billy in the trunk and the headlights pointed at the Squatch graveyard. '
+        + 'The Motel comes later; it is not this handoff.',
     }
     : (ENDINGS[kind] || ENDINGS.followed);
   if (isSecondVisit) {
@@ -2700,14 +2716,15 @@ function showEnding(kind) {
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
   if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
-  /* Offered rather than forced, and no link out of here: the campaign owns
-   * where he goes next, and where he goes next is home with the package. */
-  if (mission.flags.gaveNumber) {
-    extras.push('You gave somebody at the end of the bar your number, which is not a thing you do.');
+  /* Offered rather than forced. The Family driver who brought Tony is still
+   * waiting outside and owns the direct restaurant handoff; the retired trip
+   * home remains only as a scene-graph fallback for legacy saves. */
+  if (mission.flags.hasMargoNumber) {
+    extras.push('You left with Margo’s number, which is not a thing you usually manage.');
   }
   extras.push(isSecondVisit
-    ? '<br><b>NEXT: DRIVE DIRECTLY TO THE JERKY MOTEL</b>'
-    : '<br><b>NEXT: RETURN HOME WITH LOU’S PACKAGE</b>');
+    ? '<br><b>NEXT: RIDE WITH SNOW TO THE SQUATCH GRAVEYARD</b>'
+    : '<br><b>NEXT: THE FAMILY DRIVER TAKES YOU STRAIGHT TO THE SQUATCHFATHER</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   startBtn.style.display = 'none';
   let next = document.getElementById('next-level');
@@ -2716,15 +2733,17 @@ function showEnding(kind) {
     next.id = 'next-level';
     overlay.querySelector('.panel').appendChild(next);
   }
-  next.href = isSecondVisit ? 'motel.html' : 'index.html';
+  next.href = isSecondVisit ? 'graveyard.html' : 'squatchfather.html';
   next.textContent = isSecondVisit
-    ? 'Drive to the Jerky Motel →'
-    : 'Return to the apartment →';
+    ? 'Ride with Snow to the graveyard →'
+    : 'Ride with the Family driver →';
   next.onclick = (event) => {
     event.preventDefault();
-    if (isSecondVisit) campaign.advanceTime(TIME_EVENT_IDS.DEPART_JERKY_MOTEL);
-    navigateCampaign(campaign, isSecondVisit ? SCENE_IDS.JERKY_MOTEL : SCENE_IDS.APARTMENT, {
-      spawn: isSecondVisit ? 'passenger_seat' : 'front_door',
+    teardownBingAudio();
+    if (isSecondVisit) campaign.advanceTime(TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD);
+    navigateCampaign(campaign,
+      isSecondVisit ? SCENE_IDS.SQUATCH_GRAVEYARD : SCENE_IDS.SQUATCHFATHER, {
+      spawn: isSecondVisit ? 'headlights' : 'restaurant_exterior',
       location,
     });
   };
@@ -2805,41 +2824,25 @@ function paintMachine() {
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
-const keys = new Set();
-let dragLook = false;
-let dragging = false;
-
-function enableInput() {
-  player.enabled = true;
-  document.body.classList.remove('unlocked');
-}
-
-/* Drag-look is a FALLBACK, never a life sentence: every attempt asks the
- * browser for real pointer lock again, and the moment one succeeds the drag
- * mode retires itself. Losing lock once (an alt-tab, an overlay, a denied
- * request) used to latch dragLook forever and no click could undo it. */
 let dragLookHinted = false;
+let input;
 
-function requestLock() {
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
+const primaryControl = Object.freeze({
+  press() {
+    // The violent cord action owns mouse one, never the ordinary E action.
+    if (licenseToGrill.press()) return true;
+    interaction.press();
+    return false;
+  },
+  release: () => interaction.release(),
+  cancel: () => interaction.cancel(),
+});
+
+function paintInputCapture({ captured = false } = {}) {
+  document.body.classList.toggle('unlocked', !captured);
 }
 
-function fallBackToDragLook() {
-  if (document.pointerLockElement === canvas) return;
-  if (!dragLook && !dragLookHinted) {
-    dragLookHinted = true;
-    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
-      + 'Any click keeps retrying the real thing.', 7000);
-  }
-  dragLook = true;
-  enableInput();
-}
-
-const pauseMenu = createPauseMenu({
+const _pauseMenu = createPauseMenu({
   title: isSecondVisit ? 'Back to the Bada Bing' : 'A Quick Stop at the Bada Bing',
   canPause: () => game.started && !game.over,
   getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
@@ -2855,19 +2858,18 @@ const pauseMenu = createPauseMenu({
   onPause: () => {
     if (performerBathroom.active) performerBathroom.abandon();
     game.paused = true;
-    player.enabled = false;
-    keys.clear();
-    player.clearKeys();
-    interaction.release();
+    input.suspend();
     interaction.setPaused(true);
+    carRadio.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     interaction.setPaused(false);
     audio.ctx?.resume?.();
+    if (game.seatedIn === 'car' && game.radioOn) carRadio.resume();
     clock.getDelta();
-    requestLock();
+    input.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -2876,44 +2878,13 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
-document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  if (locked) dragLook = false;   // the real thing won; retire the fallback
-  player.enabled = locked || dragLook;
-  document.body.classList.toggle('unlocked', !locked && !dragLook);
-  if (!locked && !dragLook) player.clearKeys();
-});
-
-document.addEventListener('mousemove', (e) => {
-  if (dragLook && !dragging) return;
-  if (!dragLook && document.pointerLockElement !== canvas) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
-canvas.addEventListener('mousedown', (e) => {
-  if (game.paused) return;
-  if (dragLook) dragging = true;
-  // The cord's timing bar owns the click while it is sweeping.
-  if (e.button === 0 && licenseToGrill.press()) return;
-  if (e.button === 0) interaction.press();
-});
-window.addEventListener('mouseup', (e) => {
-  dragging = false;
-  if (e.button === 0) interaction.release();
-});
-
-window.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  if (e.code === 'Space') e.preventDefault();
-  keys.add(e.code);
-  player.setKey(translateKey(e.code), true);
-
+function handleBingKeyDown(e, code) {
   if (performerBathroom.active) {
-    if (e.code === 'KeyE') { performerBathroom.press(); e.preventDefault(); return; }
-    if (e.code === 'KeyQ') { performerBathroom.abandon(); e.preventDefault(); return; }
+    if (code === 'KeyE') { performerBathroom.press(); e.preventDefault(); return true; }
+    if (code === 'KeyQ') { performerBathroom.abandon(); e.preventDefault(); return true; }
   }
 
-  if (e.code === 'KeyE') {
+  if (code === 'KeyE') {
     /* The phone takes [E] first while it is out. Same rule as the flat: a
      * ringing phone is the most interactive thing in the room. */
     if (game.phoneUp) {
@@ -2921,9 +2892,9 @@ window.addEventListener('keydown', (e) => {
       else phone.press();
       paintPhone();
       paintKit();
-      return;
+      return true;
     }
-    if (startBooskiShotDrink()) return;
+    if (startBooskiShotDrink()) return true;
     // At the table and the machine, E is the game's own button
     if (game.seatedIn === 'table' && blackjack.state !== 'off' && !interaction.current) {
       if (blackjack.state === 'bet') {
@@ -2949,7 +2920,7 @@ window.addEventListener('keydown', (e) => {
          * which is the one worth hearing. */
         if (blackjack.state === 'player') tableSay('bj.dealer.hit', { chance: 0.3, gap: 6 });
       }
-      return;
+      return true;
     }
     /* [E] deliberately does NOT swing the cord.
      *
@@ -2969,16 +2940,17 @@ window.addEventListener('keydown', (e) => {
     if (game.atMachine) {
       slots.spin();
       paintMachine();
-      return;
+      return true;
     }
     interaction.press();
+    return true;
   }
-  if (e.code === 'KeyQ') {
+  if (code === 'KeyQ') {
     if (game.phoneUp) {
       if (phone.call) phone.hangUp();
       else showPhone(false);
       paintPhone();
-      return;
+      return true;
     }
     /* In the store room, [Q] is "put his thing back on the table" before it is
      * anything else — same shape as pocketing the phone or standing up. */
@@ -2988,17 +2960,25 @@ window.addEventListener('keydown', (e) => {
     else if (game.seatedIn === 'car') getOutOfCar();
     else if (game.atMachine) leaveMachine();
     else recoverIfStuck();
+    return true;
   }
   if (game.seatedIn === 'table' && blackjack.state === 'player') {
-    if (e.code === 'KeyF') {
+    if (code === 'KeyF') {
       blackjack.stand();
       tableSay('bj.dealer.stand', { chance: 0.35, gap: 6 });
+      return true;
     }
     /* Nothing from the dealer on a double -- the prospect has his own line for
      * how that one turns out, and the croupier calling it first would step on it. */
-    if (e.code === 'KeyR') blackjack.double();
+    if (code === 'KeyR') {
+      blackjack.double();
+      return true;
+    }
   }
-  if (e.code === 'KeyR' && game.seatedIn === 'car' && carRadio.on) carRadio.next();
+  if (code === 'KeyR' && game.seatedIn === 'car' && carRadio.on) {
+    carRadio.next();
+    return true;
+  }
   /* One through nine, not one through four.
    *
    * The club's own menus never went past four options, so this was written to
@@ -3010,8 +2990,8 @@ window.addEventListener('keydown', (e) => {
    *
    * The branches below take a raw index, so each now checks its own range
    * rather than relying on the key filter to have done it. */
-  if (/^Digit[1-9]$/.test(e.code)) {
-    const n = Number(e.code.slice(-1)) - 1;
+  if (/^Digit[1-9]$/.test(code)) {
+    const n = Number(code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) {
       if (n < dialogue.options.length) dialogue.choose(n);
     } else if (game.seatedIn === 'table' && blackjack.state === 'bet') {
@@ -3021,39 +3001,52 @@ window.addEventListener('keydown', (e) => {
       if (n === 1) slots.changeWager(1);
       paintMachine();
     }
+    return true;
   }
-  if (e.code === 'KeyI') showKit(!game.kitOpen);
-  if (e.code === 'KeyP') showPhone(!game.phoneUp);
-  if (e.code === 'Escape') document.exitPointerLock?.();
-  if (e.code === 'Tab') {
-    e.preventDefault();
-    pauseMenu.toggle();
+  if (code === 'KeyI') {
+    showKit(!game.kitOpen);
+    return true;
   }
+  if (code === 'KeyP') {
+    showPhone(!game.phoneUp);
+    return true;
+  }
+  if (code === 'Escape') {
+    document.exitPointerLock?.();
+    return true;
+  }
+  return false;
+}
+
+const bingInputPolicy = createBingInputPolicy({
+  isActive: () => game.started && !game.paused && !game.over,
+  primaryControl,
+  routeKeyDown: handleBingKeyDown,
+});
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction: primaryControl,
+  ...bingInputPolicy.adapterOptions,
+  onCaptureChange: (_event, state) => paintInputCapture(state),
+  onCaptureError: (_error, state) => {
+    paintInputCapture(state);
+    if (!state.recovered || dragLookHinted) return;
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  },
 });
 
-window.addEventListener('keyup', (e) => {
-  keys.delete(e.code);
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-});
 window.addEventListener('wheel', (e) => {
   if (!game.phoneUp || (phone.screen !== 'messages' && phone.screen !== 'thread')) return;
   e.preventDefault();
   phone.cycle(e.deltaY > 0 ? 1 : -1);
   paintPhone();
 }, { passive: false });
-window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) carRadio.pause();
   else if (!game.paused && game.seatedIn === 'car' && game.radioOn) carRadio.resume();
-});
-
-canvas.addEventListener('click', () => {
-  if (!game.started || game.paused) return;
-  // Every canvas click while unlocked re-attempts REAL pointer lock, even
-  // from drag-look -- the browser may grant it now that this is a fresh
-  // user gesture, and pointerlockchange retires the fallback when it does.
-  if (document.pointerLockElement !== canvas) requestLock();
 });
 
 startBtn.addEventListener('click', async () => {
@@ -3086,7 +3079,6 @@ startBtn.addEventListener('click', async () => {
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
-  requestLock();
 
   if (!game.started) {
     game.started = true;
@@ -3131,6 +3123,8 @@ startBtn.addEventListener('click', async () => {
     setTimeout(() => hud.say('<em>[Q]</em> to get out of the car.', 4200), 6400);
   }
   game.paused = false;
+  input.refresh('scene-start');
+  input.requestPointerLock();
   carRadio.resume();
 });
 
@@ -3337,8 +3331,15 @@ function ambientChatter(dt) {
   let i = (Math.random() * AMBIENT.length) | 0;
   if (i === game.lastAmbient) i = (i + 1) % AMBIENT.length;
   game.lastAmbient = i;
-  const [who, line, cue] = AMBIENT[i];
-  voiceCue(cue, { volume: 0.58 });
+  const [who, line, cue, , speakerKey] = AMBIENT[i];
+  const speaker = cast.byName[speakerKey] ?? null;
+  speaker?.faceToward(player.position.x, player.position.z);
+  const take = voiceCue(cue, {
+    volume: 0.58,
+    position: speaker?.group?.position ?? null,
+  });
+  const spokenSeconds = take?.seconds ?? Math.max(1.6, line.split(/\s+/u).length / 2.7);
+  speaker?.say(spokenSeconds, take);
   hud.say(`<em>${who}:</em> ${line}`, 4200);
 }
 
@@ -3347,6 +3348,7 @@ function ambientChatter(dt) {
 /* ------------------------------------------------------------------ */
 
 const clock = new THREE.Clock();
+let renderedFrameCount = 0;
 
 /**
  * The clock, everywhere at once.
@@ -3377,6 +3379,7 @@ function frame() {
   paintCampaignClock();
   if (!game.started || game.paused) {
     renderer.render(scene, camera);
+    renderedFrameCount += 1;
     return;
   }
   const dt = raw * highs.timeScale;
@@ -3436,6 +3439,7 @@ function frame() {
   audio.updateListener(camera);
 
   postfx.render(dt);
+  renderedFrameCount += 1;
   postfx.sample(raw);
 }
 
@@ -3452,7 +3456,7 @@ if (isSecondVisit) {
 loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
-  interaction, drunk, highs, focusRush, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
+  interaction, input, drunk, highs, focusRush, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
   family, familyScripts, faceIndex,
   licenseToGrill, shubenatorSignature, performerBathroom,
   isSecondVisit, secondVisitStory,
@@ -3462,6 +3466,7 @@ window.__bing = {
   startFocus, focusTick, moneyBurst, noteSpokeTo,
   giveShot, startBooskiShotDrink, shotDrinkTick,
   switchClubRecord,
+  get renderedFrameCount() { return renderedFrameCount; },
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

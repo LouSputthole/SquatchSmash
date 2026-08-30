@@ -13,6 +13,7 @@ import {
   SILVER_CASE_CHECKPOINT_IDS,
   TIME_EVENT_IDS,
 } from './campaign.js';
+import { recordCampaignMissionBoundary } from './campaign-stats.js';
 
 class SilverCaseCampaignStory {
   constructor({ campaign }) {
@@ -159,6 +160,10 @@ class MansionSiegeCampaignStory {
       mission.sasoleMet ||= report.sasoleMet === true;
       state.missions[MISSION_IDS.ENOLA_SQUATCH].status = 'available';
       state.story.chapter = 'enola_squatch';
+      recordCampaignMissionBoundary(state, MISSION_IDS.MANSION_SIEGE, {
+        shotsFired: report.shotsFired,
+        peopleKilled: report.peopleKilled,
+      });
     });
     return true;
   }
@@ -229,6 +234,10 @@ class EnolaSquatchCampaignStory {
       mission.returnedHome = report.returnedHome !== false;
       state.missions[MISSION_IDS.MANSION_RETURN].status = 'available';
       state.story.chapter = 'mansion_return';
+      recordCampaignMissionBoundary(state, MISSION_IDS.ENOLA_SQUATCH, {
+        shotsFired: report.shotsFired,
+        peopleKilled: report.peopleKilled,
+      });
     });
     return true;
   }
@@ -371,6 +380,10 @@ class CartelPalaceCampaignStory {
       }
       state.missions[MISSION_IDS.INITIATION].status = 'available';
       state.story.chapter = 'big_night';
+      recordCampaignMissionBoundary(state, MISSION_IDS.CARTEL_PALACE, {
+        shotsFired: report.shotsFired,
+        peopleKilled: report.peopleKilled,
+      });
     });
     return true;
   }

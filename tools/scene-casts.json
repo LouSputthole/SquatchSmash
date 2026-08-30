@@ -155,7 +155,7 @@
     },
     {
       "id": "enola-squatch",
-      "label": "The Enola Squatch",
+      "label": "SQUATCHOLA GAY",
       "cuePrefixes": [
         "vo.enolasquatch."
       ],
@@ -171,7 +171,7 @@
         "numbskull"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "crew.js's createCrew() builds exactly four men (sasole/irish/numbskull/shubes) and says so in its own header: 'Big Uncle Lou is not on this aeroplane.' 'lou1' (4 lines) is DELIBERATELY NOT in `staged`. Two of its four lines ('call.opening') are the pre-flight phone call and are exempted by cue-name in the checker. The other two ('arrival.lou') are NOT exempted: MissionController.js's own comment calls the epilogue 'the one deliberate stub... no populated hangar/crowd-of-Family-NPCs scene' -- Lou's arrival line plays over an empty apron. A second Snow-in-lab, caught by this tool."
+      "notes": "crew.js's createCrew() builds exactly four men (Sasole, Irish, Numbskull and Shubes). Every Enola line is now owned by one of those staged men or the Prospect; Sasole closes the flight on the apron, and Lou waits for the repaired-mansion debrief where he is physically present."
     },
     {
       "id": "the-take",
@@ -243,10 +243,12 @@
         "sauce",
         "performer",
         "lou2",
-        "npc-male"
+        "npc-male",
+        "npc-reserve-1",
+        "npc-reserve-2"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js's populate() builds the floor staff (doorman/bouncer/hallGuard/security -> 'doorman' voice per script.js's VOICE_BY_SCOPE, bartender, dealer, dj -> 'announcer', margo, plus generic 'regular'/'patron'/'tabler'/'stander' background bodies that carry the 'npc-male' ambient lines) and family.js's FAMILY table seats the rest by name, including James Blond ('blond', license-to-grill-runtime.js's makeBlond()) and Aubbie/Sauce off the clock. NOTE, not a violation: vo.bj.dealer.* cues carry voice 'uncle' while VOICE_BY_SCOPE casts the scope as 'dealer' and a second cue family (vo.bing.blackjack.dealer.*, vo.bing.full.dealer.*) carries voice 'dealer' for what reads like the same blackjack table -- two profile ids for one body. Both resolve to the same physically staged dealer NPC, so neither is a presence violation, but it looks like the kind of casting drift PLAYTEST-PUNCH-LIST.md S5 describes and is worth a human look."
+      "notes": "cast.js's populate() builds the floor staff (doorman/bouncer/hallGuard/security -> 'doorman' voice per script.js's VOICE_BY_SCOPE, bartender, dealer, dj -> 'announcer', margo, plus visible generic regular/patron/gossip bodies carrying 'npc-male', 'npc-reserve-1', and 'npc-reserve-2' ambient lines). script.js pins every ambient cue to one of those cast keys and main.js spatializes the take and drives that body. family.js's FAMILY table seats the rest by name, including James Blond ('blond', license-to-grill-runtime.js's makeBlond()) and Aubbie/Sauce off the clock. The hand-named vo.bj.dealer.* blackjack bank is locked to the same 'dealer' profile as the generated blackjack families, so the single staged dealer no longer changes actor between table lines."
     },
     {
       "id": "silver-pines",
@@ -292,10 +294,14 @@
         "ape",
         "doorman",
         "manager",
-        "announcer"
+        "announcer",
+        "bandleader",
+        "silver-diner-a",
+        "silver-diner-b",
+        "silver-diner-c"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', the featured date waiter ('silver-waiter'), ambient staff on the shared 'waiter' profile (mover1/mover2/server<N>), and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
+      "notes": "cast.js's populate() builds Vinny/the doorman ('doorman'), 'manager', the featured date waiter ('silver-waiter'), ambient staff on the shared 'waiter' profile (mover1/mover2/server<N>), the three physically staged diner voice rotations ('silver-diner-a/b/c'), and 'the host'; Ape is spread in as the exact Bing FAMILY figure (identifySilverApe()). The room also stages the dedicated 'bandleader' on the Midnight Pines figure. The single 'announcer' line ('...the Silver Room is proud... the Midnight Pines') is the room's own host introducing the act on stage, not an offscreen PA."
     },
     {
       "id": "silver-case",
@@ -305,15 +311,40 @@
       ],
       "sourceFiles": [
         "src/silvercase/cast/cast.js",
-        "src/silvercase/main.js"
+        "src/silvercase/main.js",
+        "src/silvercase/dialogue/script.js"
       ],
       "staged": [
         "ape",
         "chester",
-        "npc-male"
+        "npc-male",
+        "npc-reserve-1",
+        "npc-reserve-2"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast/cast.js builds ape, chester, Deke and Winston (both voiced 'npc-male' per dialogue/script.js's VOICE_OF) and Pruitt (hidden until revealed, also 'npc-male')."
+      "notes": "cast/cast.js builds Ape, Chester, Deke, Winston and Pruitt. dialogue/script.js gives the three disposable men distinct existing profiles: Deke 'npc-male', anxious Winston 'npc-reserve-1', and silent bathroom ambusher Pruitt 'npc-reserve-2'."
+    },
+    {
+      "id": "countryside-cabin",
+      "label": "The Countryside Cabin",
+      "cuePrefixes": [
+        "vo.cabin."
+      ],
+      "sourceFiles": [
+        "src/cabin/lag.js",
+        "src/cabin/world.js",
+        "src/cabin/main.js",
+        "src/cabin/dungeon.js",
+        "src/cabin/script.js"
+      ],
+      "staged": [
+        "lag",
+        "gratin",
+        "ateam1",
+        "npc-reserve-1"
+      ],
+      "sceneVoiceExemptions": {},
+      "notes": "world.js builds Lag as the visible shared Npc rig. dungeon.js builds Cabin-local Gratin, a generic A-Team prisoner and a generic Counter-Strike prisoner; main.js binds their exact Npc mouth rigs to script.js dialogue and later stages Lag and Gratin at the fire."
     },
     {
       "id": "no-wake",
@@ -405,8 +436,10 @@
         "sal",
         "mcclawsky"
       ],
-      "sceneVoiceExemptions": {},
-      "notes": "Both principals have dedicated controllers."
+      "sceneVoiceExemptions": {
+        "doorman": "The one vo.sf.extraction.driver.cabin line is Lou's anonymous family driver speaking from the waiting car at the front-door seam. The owner explicitly wants him offscreen; the car interaction remains the physical source and the line finishes before that interaction unlocks."
+      },
+      "notes": "Sal and McClawsky have dedicated controllers. The family driver's single extraction line is deliberately offscreen at the waiting car."
     },
     {
       "id": "cartel-palace",
@@ -425,15 +458,15 @@
         "mark",
         "sauce",
         "mark-wife",
-        "short-one",
-        "short-two",
+        "lola",
+        "johnny",
         "cleaner",
         "cartel-guard1",
         "cartel-guard2",
         "cartel-guard3"
       ],
       "sceneVoiceExemptions": {},
-      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'short-one', 'short-two'); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Added 2026-08-20 with the owner playtest pass: PALACE_BYSTANDER_POSTS builds the entry-hall cleaner (voice 'cleaner', spoken through bystanders.js's PalaceBystanders) and PALACE_GUARD_POSTS builds nine guards through voice.js's PalaceVoice, which gates every line on radius AND line of sight to a specific live body. The single 'cartel-guard' profile was split three ways on 2026-08-20 with the owner's ids: voice.js's PALACE_GUARD_VOICE_CAST gives each of the nine posted men one of cartel-guard1/2/3 so every idle two-hander in conversations.js is two different throats, and PALACE_GUARD_BARK_CAST spreads the eight contact/search/ally-down barks across all three. Tony's lines are voice 'player', globally exempt."
+      "notes": "cast.js builds Mark (makeCombatant 'mark', voice 'mark') and Sauce ('sauce') at the dining-room anchors plus the three begging civilians (PALACE_CIVILIAN_POSTS: 'wife' -> voice 'mark-wife', 'lola', 'johnny' -- renamed 2026-08-25 from 'short-one'/'short-two' on the owner's instruction); finale.js's PalaceFinaleDirector plays every vo.palace.finale.* line through those bodies. Added 2026-08-20 with the owner playtest pass: PALACE_BYSTANDER_POSTS builds the entry-hall cleaner (voice 'cleaner', spoken through bystanders.js's PalaceBystanders) and PALACE_GUARD_POSTS builds nine guards through voice.js's PalaceVoice, which gates every line on radius AND line of sight to a specific live body. The single 'cartel-guard' profile was split three ways on 2026-08-20 with the owner's ids: voice.js's PALACE_GUARD_VOICE_CAST gives each of the nine posted men one of cartel-guard1/2/3 so every idle two-hander in conversations.js is two different throats, and PALACE_GUARD_BARK_CAST spreads the eight contact/search/ally-down barks across all three. Tony's lines are voice 'player', globally exempt."
     },
     {
       "id": "initiation",

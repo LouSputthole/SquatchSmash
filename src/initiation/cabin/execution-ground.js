@@ -29,6 +29,7 @@
 
 import * as THREE from 'three';
 import { makeCar } from '../../bing/vehicles.js';
+import { createHeadlightBeam } from '../../core/vehicles/headlights.js';
 
 import {
   assembly, bakedTexture, between, boxPart, cylinderPart, effect, glowMaterial,
@@ -290,17 +291,16 @@ function buildCar(spec) {
   if (spec.lights) {
     for (const head of car.heads) {
       head.material = glowMaterial(0xfff2d0, 1.9);
-      const beam = effect(new THREE.Mesh(
-        new THREE.ConeGeometry(1.5, 16, 10, 1, true),
-        glowMaterial(0xffe9c0, 0.14, {
+      const beam = effect(createHeadlightBeam({
+        reach: 16,
+        farRadius: 1.5,
+        material: glowMaterial(0xffe9c0, 0.14, {
           transparent: true, opacity: 0.09, depthWrite: false,
           blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
         }),
-      ));
+      }));
       beam.name = 'headlight.beam.fog.volume';
-      /* The cone is built along +y, so it is laid down the car's own +x. */
-      beam.rotation.z = -Math.PI / 2;
-      beam.position.set(head.position.x + 8, head.position.y, head.position.z);
+      beam.position.copy(head.position);
       car.group.add(beam);
     }
     const spot = new THREE.SpotLight(0xfff0d2, 140, 34, 0.44, 0.55, 1.4);

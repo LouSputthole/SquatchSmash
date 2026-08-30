@@ -4,14 +4,18 @@ import test from 'node:test';
 import {
   CAMPAIGN_STORAGE_KEY,
   CAMPAIGN_VERSION,
+  EVENT_IDS,
   MISSION_IDS,
+  SCENES,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
   normalizeCartelPalaceCheckpointSnapshot,
 } from '../src/core/campaign.js';
 import {
   HEIST_CLEANUP_ITEMS,
+  NEW_SPACE_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createBankHeistStory } from '../src/core/bank-heist-story.js';
@@ -30,9 +34,10 @@ class MemoryStorage {
   setItem(key, value) { this.values.set(key, String(value)); }
 }
 
-function follow(campaign, sceneId, href) {
+function follow(campaign, sceneId, href, spawn) {
   const assigned = [];
   navigateCampaign(campaign, sceneId, {
+    spawn,
     location: { assign: (next) => assigned.push(next) },
   });
   assert.deepEqual(assigned, [href]);
@@ -40,14 +45,35 @@ function follow(campaign, sceneId, href) {
 }
 
 test('the final arc has stable scene ids, URLs, spawns, and one ending edge home', () => {
+  assert.equal(SCENE_IDS.COUNTRYSIDE_CABIN, 'countryside_cabin');
   assert.equal(SCENE_IDS.SILVER_CASE, 'silver_case');
   assert.equal(SCENE_IDS.MANSION, 'mansion');
   assert.equal(SCENE_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(SCENE_IDS.ENOLA_SQUATCH, 'enola_squatch');
   assert.equal(SCENE_IDS.MANSION_RETURN, 'mansion_return');
   assert.equal(SCENE_IDS.CARTEL_PALACE, 'cartel_palace');
+  assert.equal(SCENES[SCENE_IDS.APARTMENT].next.includes(SCENE_IDS.SILVER_CASE), false);
+  /* THE LUXURY APARTMENT IS THE SILVER CASE'S ONLY DOORWAY, and that is the
+   * thing worth asserting rather than the exact length of any array.
+   *
+   * The cabin held it while the post-heist lay-low was the only route into
+   * the last third of the game. Beat 19 -- "after a quiet period, Lou/Booski
+   * contacts Prospect about moving a highly sensitive Silver Case" -- is
+   * where the bible always had it, and once something routed through that
+   * edge the cabin's could come out. Add first, remove last. */
+  assert.equal(SCENES[SCENE_IDS.COUNTRYSIDE_CABIN].next.includes(SCENE_IDS.SILVER_CASE), false);
+  const caseDoorways = Object.entries(SCENES)
+    .filter(([, scene]) => scene.next.includes(SCENE_IDS.SILVER_CASE))
+    .map(([id]) => id);
+  assert.deepEqual(caseDoorways, [SCENE_IDS.LUXURY_APARTMENT],
+    'exactly one scene may reach the Silver Case, and it is the flat he lives in');
 
   const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.enter(SCENE_IDS.LUXURY_APARTMENT);
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.LUXURY_APARTMENT,
+    spawn: 'arrival',
+  });
   campaign.enter(SCENE_IDS.SILVER_CASE);
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.SILVER_CASE, spawn: 'car_ride' });
   follow(campaign, SCENE_IDS.MANSION, 'mansion.html');
@@ -55,9 +81,9 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
   follow(campaign, SCENE_IDS.ENOLA_SQUATCH, 'enolasquatch.html');
   follow(campaign, SCENE_IDS.MANSION_RETURN, 'mansion.html?visit=return');
   follow(campaign, SCENE_IDS.CARTEL_PALACE, 'cartel-palace.html');
-  /* And the Palace no longer runs straight into the ceremony. He goes home,
-   * Booskibro rings, and three men come and collect him — see
-   * `src/specialmeeting/`, which hands off at the treeline. */
+  /* Palace goes home for the call in the apartment the Prospect owns. The
+   * private lift reaches the kerb; the Meeting then hands off at the treeline. */
+  follow(campaign, SCENE_IDS.LUXURY_APARTMENT, 'luxury-apartment.html', 'main');
   follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
 
@@ -73,7 +99,7 @@ test('the final arc has stable scene ids, URLs, spawns, and one ending edge home
 });
 
 test('a fresh schema carries locked durable records for every final-arc mission', () => {
-  assert.equal(CAMPAIGN_VERSION, 19);
+  assert.equal(CAMPAIGN_VERSION, 26);
   assert.equal(MISSION_IDS.SILVER_CASE, 'silver_case');
   assert.equal(MISSION_IDS.MANSION_SIEGE, 'mansion_siege');
   assert.equal(MISSION_IDS.ENOLA_SQUATCH, 'enola_squatch');
@@ -329,7 +355,7 @@ test('a v12 save already standing in Initiation cannot migrate back to locked', 
   assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
 });
 
-test('v12 saves before the old invitation open the final arc at The Silver Case', () => {
+test('v12 saves before the old invitation retain The Silver Case behind the cabin hub', () => {
   const storage = new MemoryStorage();
   const legacy = legacyV12();
   legacy.story.chapter = 'post_heist';
@@ -344,7 +370,16 @@ test('v12 saves before the old invitation open the final arc at The Silver Case'
   assert.equal(state.scene.id, SCENE_IDS.APARTMENT);
 });
 
-test('THE TAKE cleanup opens The Silver Case instead of skipping to Initiation', () => {
+/**
+ * THE TAKE's cleanup routes through beat 12's telephone, not a road north.
+ *
+ * The old shape of this test drove the post-heist flat to Lou's lay-low
+ * message, up the county road to a cabin the campaign had already finished,
+ * and out the far side into the Silver Case. All three of those were the
+ * pre-bible order. What the flat's last evening does now is wash the bank
+ * off, take a call about a new space, and go to bed.
+ */
+test('THE TAKE cleanup routes through beat 12’s call and into the round', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     const heist = state.missions[MISSION_IDS.BANK_HEIST];
@@ -352,19 +387,34 @@ test('THE TAKE cleanup opens The Silver Case instead of skipping to Initiation',
     heist.checkpoint = 'vehicle_swap';
     heist.vaultOpened = true;
     heist.crewSurvived = true;
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
   });
 
-  assert.equal(createBankHeistStory({ campaign }).complete(), true);
+  const heistStory = createBankHeistStory({ campaign });
+  assert.equal(heistStory.checkpoint('safehouse_debrief'), true);
+  assert.equal(heistStory.answerDebriefCall(), true);
+  assert.equal(heistStory.complete(), true);
   assert.equal(campaign.state.story.chapter, 'post_heist');
   assert.equal(campaign.state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');
+  /* Available, and still two days early. Beat 19's telephone is what actually
+   * opens that door -- see the narrow inference on BOOSKI_SILVER_CASE_CALL in
+   * `normalize()`, which deliberately does NOT read `available` as proof. */
+  assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_SILVER_CASE_CALL].status, 'pending');
 
   const apartment = createApartmentStory({ campaign, ring: () => true });
   for (const item of HEIST_CLEANUP_ITEMS) {
     assert.equal(apartment.completeHeistCleanup(item.id), true);
   }
-  assert.deepEqual(apartment.tryLeave(campaign.state.activities), {
-    kind: 'go', destination: SCENE_IDS.SILVER_CASE,
+  assert.equal(
+    apartment.tryLeave(campaign.state.activities).id,
+    EVENT_IDS.LOU_GOLF_CALL,
+  );
+  assert.equal(apartment.callAnswered(NEW_SPACE_LOU_CALL), true);
+  assert.equal(apartment.tryLeave(campaign.state.activities).kind, 'stay');
+  assert.equal(apartment.sleep().chapter, 'golf_morning');
+  assert.deepEqual(apartment.tryLeave({ playedSquatchShoot: true }), {
+    kind: 'go', destination: SCENE_IDS.SILVER_PINES,
   });
 });
 
@@ -586,11 +636,15 @@ test('Cartel Palace records the betrayal and only opens Initiation after the fin
   assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
   assert.equal(state.story.chapter, 'big_night');
 
-  campaign.update((next) => {
+  // Home for Special Meeting Act One, then through the existing car scene.
+  follow(campaign, SCENE_IDS.LUXURY_APARTMENT, 'luxury-apartment.html', 'main');
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
+  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'available');
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (next) => {
     next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
   });
-  // Through the Special Meeting, which is the only way out of the Palace now.
-  follow(campaign, SCENE_IDS.SPECIAL_MEETING, 'specialmeeting.html');
   follow(campaign, SCENE_IDS.INITIATION, 'initiation.html');
   campaign = createCampaign({ storage });
   state = campaign.state;

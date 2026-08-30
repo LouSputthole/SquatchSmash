@@ -24,8 +24,8 @@
  * Cues carrying `needsRerecord` (see assets/sfx/rerecord.json) are regenerated
  * without --force: their words changed after they were recorded, so the take
  * on disk is stale rather than done.
- *   --only <name,...>  generate just these cues
- *   --cast <voice,...> just the spoken lines of these voice profiles
+ *   --only <name,...>  generate just these cues; the flag may be repeated
+ *   --cast <voice,...> just these voice profiles; the flag may be repeated
  *   --voice-only       just the spoken lines
  *   --live-only        exclude authored dialogue that is not reachable yet
  *   --include-future   explicitly allow unreachable future dialogue
@@ -54,9 +54,18 @@ const VOICES = 'https://api.elevenlabs.io/v1/voices';
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
-const valueOf = (f) => {
-  const i = args.indexOf(f);
-  return i >= 0 ? args[i + 1] : null;
+const valuesOf = (f) => {
+  const values = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== f) continue;
+    const value = args[i + 1];
+    if (!value || value.startsWith('--')) {
+      console.error(`${f} requires a comma-separated value after every occurrence.`);
+      process.exit(1);
+    }
+    values.push(...value.split(',').map((item) => item.trim()).filter(Boolean));
+  }
+  return values.length ? [...new Set(values)] : null;
 };
 
 /* A flag this build does not know is a stop, not a shrug.
@@ -87,10 +96,23 @@ const VOICE_ONLY = has('--voice-only');
 const SFX_ONLY = has('--sfx-only');
 const LIVE_ONLY = has('--live-only');
 const INCLUDE_FUTURE = has('--include-future');
-const ONLY = valueOf('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
-const CAST = valueOf('--cast')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
+/* Both comma lists and repeated flags are accepted. Silently reading only the
+ * first --only is dangerous in production: a two-cue handoff can report a
+ * clean dry run while omitting the second missing recording. */
+const ONLY = valuesOf('--only');
+const CAST = valuesOf('--cast');
 
 const isSpoken = (cue) => typeof cue.say === 'string';
+
+/* Which profile speaks a cue, in ONE place.
+ *
+ * `player` is the default because Tony carries every unattributed line, and
+ * that default used to be written out at each of the four sites that needed
+ * it -- the --cast filter, the unset-id check, `speak()`, and now the take
+ * ledger's voice stamp. Four copies of a default is three chances for the
+ * ledger to record a different answer than the request actually used, which
+ * would make the provenance stamp worse than no stamp at all. */
+const voiceOf = (cue) => cue.voice || 'player';
 
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.XI_API_KEY;
 
@@ -98,11 +120,26 @@ async function main() {
   const manifest = JSON.parse(await fs.readFile(MANIFEST, 'utf8'));
   const voices = manifest.voices || {};
 
+  const manifestCues = manifest.sfx || [];
+  if (ONLY) {
+    const manifestNames = new Set(manifestCues.map((cue) => cue.name));
+    const missingSelectors = ONLY.filter((name) => !manifestNames.has(name));
+    if (missingSelectors.length) {
+      console.error(
+        `Unknown --only cue selector(s): ${missingSelectors.join(', ')}\n\n`
+        + 'Every --only value must exactly match a cue name in assets/sfx/manifest.json.\n'
+        + 'Nothing was generated.',
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   if (LIST_VOICES) return listVoices();
 
-  let cues = manifest.sfx || [];
+  let cues = manifestCues;
   if (ONLY) cues = cues.filter((c) => ONLY.includes(c.name));
-  if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(c.voice || 'player'));
+  if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(voiceOf(c)));
   if (VOICE_ONLY) cues = cues.filter(isSpoken);
   if (SFX_ONLY) cues = cues.filter((c) => !isSpoken(c));
   /* Future dialogue is opt-in even for a hand-built --only list. This guards
@@ -115,12 +152,13 @@ async function main() {
   const unset = new Set();
   for (const cue of cues) {
     if (!isSpoken(cue)) continue;
-    const v = voices[cue.voice || 'player'];
-    if (!v?.id || /^<.*>$/.test(v.id)) unset.add(cue.voice || 'player');
+    const v = voices[voiceOf(cue)];
+    if (!v?.id || /^<.*>$/.test(v.id)) unset.add(voiceOf(cue));
   }
-  if (unset.size && !DRY) {
+  if (unset.size) {
     console.error(
-      `\nNo voice id set for: ${[...unset].join(', ')}\n\n`
+      `\nCasting is required before these spoken cues can be generated.\n`
+      + `No ElevenLabs voice id set for: ${[...unset].join(', ')}\n\n`
       + 'Pick a voice, then put its id in the "voices" block of\n'
       + 'assets/sfx/manifest.json. To see what is on your account:\n'
       + '  npm run sfx -- --voices\n\n'
@@ -186,13 +224,25 @@ async function main() {
     try {
       const bytes = isSpoken(cue) ? await speak(cue, voices) : await generate(cue);
       await fs.writeFile(dest, bytes);
-      /* Stamp the WORDS this file was made from, here, where they are known to
-       * agree. A rewritten line keeps its cue id and its filename, so without
-       * this record nothing on disk ever changes when the script does and the
-       * game ships the retired wording under the new subtitle -- exactly the
-       * "old lines are still playing" the owner reported on the Silent
-       * Squatch. See tools/take-ledger.mjs. */
-      if (isSpoken(cue)) recordTake(TAKE_LEDGER, cue.name, cue.say);
+      /* Stamp the WORDS and the PERFORMER this file was made from, here, where
+       * all three are known to agree. A rewritten line keeps its cue id and
+       * its filename, so without this record nothing on disk ever changes when
+       * the script does and the game ships the retired wording under the new
+       * subtitle -- exactly the "old lines are still playing" the owner
+       * reported on the Silent Squatch.
+       *
+       * The voice half is the same failure one column over, and it went
+       * unrecorded until 2026-08-24: recasting a profile in the manifest
+       * changes nothing on disk, so every mp3 rendered before the recast keeps
+       * playing in the old performer's voice and no gate can tell. The id was
+       * always right here -- `voices[voiceOf(cue)].id` is what `speak()` just
+       * posted to -- and it was being thrown away four lines later. Stamping
+       * it is what lets `npm run check:takes` say STALE VOICE.
+       * See tools/take-ledger.mjs. */
+      if (isSpoken(cue)) {
+        const profile = voiceOf(cue);
+        recordTake(TAKE_LEDGER, cue.name, cue.say, { name: profile, id: voices[profile]?.id });
+      }
       console.log(`ok  (${(bytes.length / 1024).toFixed(0)} KB → assets/sfx/${file})`);
       ok++;
     } catch (err) {
@@ -213,8 +263,8 @@ async function main() {
  * tuned in one place rather than per line.
  */
 async function speak(cue, voices) {
-  const v = voices[cue.voice || 'player'];
-  if (!v?.id) throw new Error(`no voice id for "${cue.voice || 'player'}"`);
+  const v = voices[voiceOf(cue)];
+  if (!v?.id) throw new Error(`no voice id for "${voiceOf(cue)}"`);
 
   const res = await fetchWithRetry(TTS(v.id) + '?output_format=mp3_44100_128', {
     method: 'POST',

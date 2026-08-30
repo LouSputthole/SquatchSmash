@@ -16,7 +16,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createObjectivePanel } from '../src/core/objective-panel.js';
+import {
+  OBJECTIVE_DISPLAY_MS,
+  activeObjectiveItems,
+  conciseObjectiveItems,
+  createObjectivePanel,
+} from '../src/core/objective-panel.js';
 
 /** Just enough document for what the panel actually touches. */
 function fakeDoc() {
@@ -36,6 +41,7 @@ function fakeDoc() {
       },
       classes,
       append: (...kids) => node.children.push(...kids),
+      prepend: (...kids) => node.children.unshift(...kids),
       replaceChildren: (...kids) => { node.children = kids; },
       remove: () => {},
       querySelector: (selector) => {
@@ -77,6 +83,29 @@ function panelWith(items, extra = {}) {
   return { panel, rows: panel.element.querySelector('.olist').children };
 }
 
+function fakeScheduler() {
+  let now = 0;
+  let nextId = 1;
+  const jobs = new Map();
+  return {
+    setTimeout(fn, delay) {
+      const id = nextId++;
+      jobs.set(id, { at: now + delay, fn });
+      return id;
+    },
+    clearTimeout(id) { jobs.delete(id); },
+    advance(ms) {
+      now += ms;
+      for (const [id, job] of [...jobs].sort((a, b) => a[1].at - b[1].at)) {
+        if (job.at > now) continue;
+        jobs.delete(id);
+        job.fn();
+      }
+    },
+    get pending() { return jobs.size; },
+  };
+}
+
 test('a page with no panel gets one, and one with a panel keeps it', () => {
   const bare = fakeDoc();
   const made = createObjectivePanel({ doc: bare });
@@ -92,6 +121,28 @@ test('a page with no panel gets one, and one with a panel keeps it', () => {
   const adopted = createObjectivePanel({ doc: withCard });
   assert.equal(adopted.adopted, true);
   assert.equal(adopted.element, existing);
+});
+
+test('the injected sheet goes FIRST, so a scene stylesheet can still place the panel', () => {
+  /* The Palace, golf and the heist all write `#objectives.op-panel { top: ... }`
+   * in their own linked stylesheet -- exactly the specificity this module's own
+   * block uses. Equal specificity means source order decides, and a link in the
+   * head is parsed long before a module runs, so appending this sheet beat all
+   * three of them: measured in Chromium, the Palace's panel sat at the module's
+   * `top: 18px` instead of its authored `top: 70px`, on top of the evidence
+   * strip at `top: 24px`. That is the owner's "Rescue ... covers Evidence 3/3".
+   *
+   * The scene stylesheet is a LINK the page owns, so nothing here can reorder
+   * it. What this module owes it is to arrive first and be a default. */
+  const doc = fakeDoc();
+  const linked = doc.createElement('link');
+  linked.id = 'a-scene-stylesheet';
+  doc.head.append(linked);
+
+  createObjectivePanel({ doc });
+
+  const ids = doc.head.children.map((node) => node.id);
+  assert.deepEqual(ids, ['objective-panel-style', 'a-scene-stylesheet']);
 });
 
 test('a headless scene runs and the panel does nothing', () => {
@@ -131,13 +182,66 @@ test('optional and required are the same fact, and both class names ship', () =>
   assert.equal(rows[1].className, 'optional');
 });
 
-test('the line he is on is marked, which is the Silver Room', () => {
+test('completed lines leave immediately and the line he is on is marked', () => {
   const { rows } = panelWith([
     { label: 'done that', done: true },
     { label: 'doing this', current: true },
   ]);
-  assert.equal(rows[0].className, 'done required');
-  assert.equal(rows[1].className, 'required now');
+  assert.equal(rows.length, 1);
+  assert.equal(words(rows[0]), 'doing this');
+  assert.equal(rows[0].className, 'required now');
+});
+
+test('an empty section heading leaves with its completed objectives', () => {
+  assert.deepEqual(activeObjectiveItems([
+    { label: 'see Lou' },
+    { rule: 'WHILE YOU ARE HERE' },
+    { label: 'buy a round', done: true, required: false },
+  ]), [{ label: 'see Lou' }]);
+});
+
+test('pending work stays out of every shared projection until it is actionable', () => {
+  const plan = [
+    { id: 'walk', label: 'Walk the grounds', done: true },
+    { id: 'call', label: 'Answer Lou’s call', pending: true, required: true },
+    { id: 'door', label: 'Find the cellar', pending: true, required: true },
+  ];
+  assert.deepEqual(activeObjectiveItems(plan), []);
+  assert.deepEqual(conciseObjectiveItems(plan), []);
+
+  plan[1].pending = false;
+  assert.deepEqual(conciseObjectiveItems(plan), [{
+    id: 'call', label: 'Answer Lou’s call', pending: false, required: true, current: true,
+  }]);
+});
+
+test('completed errands retire by default while an explicit final tally remains', () => {
+  const projected = conciseObjectiveItems([
+    { id: 'old', label: 'Move one bag', done: true },
+    {
+      id: 'receipt', label: 'Evidence moved', done: true, retire: false,
+      required: false, tally: { count: 7, total: 7 },
+    },
+    { id: 'leave', label: 'Leave in the clean car', required: true },
+  ]);
+  assert.deepEqual(projected.map(({ id }) => id), ['receipt', 'leave']);
+  assert.deepEqual(projected[0].tally, { count: 7, total: 7 });
+  assert.equal(projected[1].current, true);
+});
+
+test('the concise projection shows one main step and only the allowed soft work', () => {
+  const projected = conciseObjectiveItems([
+    { id: 'main-one', label: 'See Lou', done: true },
+    { id: 'main-two', label: 'Hear Lou out', required: true },
+    { id: 'future', label: 'Leave the club', required: true },
+    { rule: 'WHILE YOU ARE HERE' },
+    { id: 'soft-one', label: 'Help Gratin', required: false },
+    { id: 'soft-two', label: 'Play blackjack', required: false },
+  ], { optionalLimit: 1 });
+  assert.deepEqual(projected.map((item) => item.rule ?? item.id), [
+    'main-two', 'WHILE YOU ARE HERE', 'soft-one',
+  ]);
+  assert.equal(projected[0].current, true);
 });
 
 test('an unchanged plan does not rebuild the list: it is set from a tick', () => {
@@ -163,4 +267,50 @@ test('an empty plan hides the card rather than leaving the last order up', () =>
   assert.equal(panel.element.classList.contains('hidden'), false);
   panel.setLine('');
   assert.equal(panel.element.classList.contains('hidden'), true);
+});
+
+test('the first clear and disposing an adopted panel both remove stale UI', () => {
+  const doc = fakeDoc();
+  const existing = doc.createElement('div');
+  existing.id = 'objectives';
+  doc.byId.set('objectives', existing);
+  const panel = createObjectivePanel({ doc });
+  panel.clear();
+  assert.equal(existing.classList.contains('hidden'), true);
+
+  existing.classList.remove('hidden');
+  panel.dispose();
+  assert.equal(existing.classList.contains('hidden'), true);
+});
+
+test('a changed objective is prominent for twelve seconds, then collapses without tick resets', () => {
+  assert.ok(OBJECTIVE_DISPLAY_MS >= 10_000 && OBJECTIVE_DISPLAY_MS <= 15_000);
+  const doc = fakeDoc();
+  const scheduler = fakeScheduler();
+  const panel = createObjectivePanel({ doc, scheduler });
+  const plan = { title: 'THE JOB', items: [{ label: 'Reach the cabin' }] };
+
+  panel.set(plan);
+  assert.equal(panel.element.classList.contains('hidden'), false);
+  scheduler.advance(OBJECTIVE_DISPLAY_MS - 1);
+  assert.equal(panel.element.classList.contains('hidden'), false);
+
+  /* This is the production shape: scenes call set() from their frame loop.
+   * Identical state must not buy another twelve seconds every frame. */
+  panel.set({ title: 'THE JOB', items: [{ label: 'Reach the cabin' }] });
+  scheduler.advance(1);
+  assert.equal(panel.element.classList.contains('hidden'), true);
+
+  /* Progress is new information. It comes back up, gets its own complete
+   * reading window, and can still be reviewed explicitly after collapsing. */
+  panel.set({
+    title: 'THE JOB',
+    items: [{ label: 'Help the guests', tally: { count: 2, total: 6 } }],
+  });
+  assert.equal(panel.element.classList.contains('hidden'), false);
+  assert.equal(scheduler.pending, 1);
+  scheduler.advance(OBJECTIVE_DISPLAY_MS);
+  assert.equal(panel.element.classList.contains('hidden'), true);
+  panel.reveal();
+  assert.equal(panel.element.classList.contains('hidden'), false);
 });

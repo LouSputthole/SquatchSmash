@@ -225,6 +225,35 @@ const BANKS = {
   ],
 };
 
+/* Erican, Gratin, Sasole and Snow used to draw every word from UTILITY. Four
+ * visibly different recurring characters therefore welcomed Tony, raised a
+ * glass and became suspicious in the same voice on the page even though their
+ * actors were correctly cast. Their own three load-bearing beats come first;
+ * UTILITY remains available only after a member-specific bank has nothing
+ * eligible left, so nobody becomes mute during a long party. */
+const MEMBER_BANKS = Object.freeze({
+  erican: Object.freeze([
+    { occasion: 'welcome', text: 'Welcome, brother. I saved you a chair and immediately lost track of which one. It is one of the wet ones.', tier: ['prospect', 'brother', 'beloved'] },
+    { occasion: 'toast', text: 'To Tony. He survived the ceremony and, more impressively, the parking.', state: ['merry', 'drunk', 'wrecked'] },
+    { occasion: 'suspicion', text: 'You keep counting exits. I do that in airports. This is not an airport. What are you waiting to depart from?', route: 'rat' },
+  ]),
+  gratin: Object.freeze([
+    { occasion: 'welcome', text: 'Welcome, brother. I put the tools away for the toast. Most of them.', tier: ['prospect', 'brother', 'beloved'] },
+    { occasion: 'toast', text: 'To Tony. May every difficult conversation end as politely as his did.', state: ['merry', 'drunk', 'wrecked'] },
+    { occasion: 'suspicion', text: 'You keep watching Booski. Would you mind telling me why before I have to ask impolitely?', route: 'rat' },
+  ]),
+  captain_lou_sasole: Object.freeze([
+    { occasion: 'welcome', text: 'Welcome aboard, brother. No safety card, no exits, and Booski has the only parachute.', tier: ['prospect', 'brother', 'beloved'] },
+    { occasion: 'toast', text: 'To Tony. You walked in under your own power. Better arrival than most.', state: ['merry', 'drunk', 'wrecked'] },
+    { occasion: 'suspicion', text: 'You checked the tree line four times. Either you expect company or you forgot where you parked. Which is it?', route: 'rat' },
+  ]),
+  snow: Object.freeze([
+    { occasion: 'welcome', text: 'Welcome, brother. Stand left of the fire. I just got the blood off the right side.', tier: ['prospect', 'brother', 'beloved'] },
+    { occasion: 'toast', text: 'To Tony. One round left in the cylinder and none of it had your name on it.', state: ['merry', 'drunk', 'wrecked'] },
+    { occasion: 'suspicion', text: 'You keep watching my hands. Smart. Now tell me what yours are waiting to do.', route: 'rat' },
+  ]),
+});
+
 // Snow (executioner) gets a couple of specials layered on the utility bank.
 const EXECUTIONER_LINES = [
   { text: "No hard feelings on the first guy. Job's a job. You I like — you knew the founders.", tier: ['prospect', 'brother', 'beloved'] },
@@ -252,9 +281,25 @@ export const AMBIENT = [
   [['lou', "Booski, do your toast where people can see your hands."], ['booski', "Why."], ['lou', "Humor me."], null, { rat: true }],
 ];
 
+function primaryBankFor(member) {
+  const authored = MEMBER_BANKS[member.id]
+    ?? BANKS[member.archetype]
+    ?? BANKS[ARCHETYPE.UTILITY];
+  return member.executioner ? authored.concat(EXECUTIONER_LINES) : authored;
+}
+
+function fallbackBankFor(member) {
+  return MEMBER_BANKS[member.id] ? BANKS[ARCHETYPE.UTILITY] : [];
+}
+
+function bankPriorityFor(member) {
+  const primary = primaryBankFor(member);
+  const fallback = fallbackBankFor(member);
+  return fallback.length ? [primary, fallback] : [primary];
+}
+
 function bankFor(member) {
-  const base = BANKS[member.archetype] || BANKS[ARCHETYPE.UTILITY];
-  return member.executioner ? base.concat(EXECUTIONER_LINES) : base;
+  return bankPriorityFor(member).flat();
 }
 
 function voicedPartyLine(member, line) {
@@ -264,6 +309,7 @@ function voicedPartyLine(member, line) {
     voice: member.voice,
     who: member.name,
     text: line.text,
+    ...(line.occasion ? { occasion: line.occasion } : {}),
   });
 }
 
@@ -371,33 +417,40 @@ export class NpcSystem {
   }
 
   _pick(n, { probing, ignoreSaid = false }) {
-    const bank = this._bankFor(n);
+    const banks = bankPriorityFor(n);
     const tier = tierOf(n.standing);
     const states = stateOf(n);
-    const pool = bank.filter((l) => {
+    const eligible = (bank, relaxed = false) => bank.filter((l) => {
       const isRat = l.route === 'rat';
       if (probing ? !isRat : isRat) return false;
-      if (l.tier && !l.tier.includes(tier)) return false;
-      if (l.state && !l.state.some((s) => states.includes(s))) return false;
+      if (!relaxed && l.tier && !l.tier.includes(tier)) return false;
+      if (!relaxed && l.state && !l.state.some((s) => states.includes(s))) return false;
       if (l.flag && !this.flags[l.flag]) return false;
       if (!ignoreSaid && n.said.has(l.text)) return false;
       return true;
     });
-    // Prefer lines nobody said in the last handful of exchanges, so two
-    // utility members in a row don't parrot the same welcome. Only if that
-    // leaves them nothing do we allow a recently-heard line back in.
-    if (!ignoreSaid) {
-      const fresh = pool.filter((l) => !this._recent.includes(l.text));
-      if (fresh.length) return fresh[Math.floor(this.rng() * fresh.length)];
+
+    /* Named recurring members consume their authored bank before UTILITY.
+     * Within each bank, retain the room-wide recent-line protection. */
+    for (const bank of banks) {
+      const pool = eligible(bank);
+      if (!ignoreSaid) {
+        const fresh = pool.filter((l) => !this._recent.includes(l.text));
+        if (fresh.length) return fresh[Math.floor(this.rng() * fresh.length)];
+      }
+      if (pool.length) return pool[Math.floor(this.rng() * pool.length)];
     }
-    if (!pool.length) {
-      // Widen: drop the tier constraint before giving up, so a freshly-met NPC
-      // in an odd state still finds something in voice.
-      const relaxed = bank.filter((l) => (l.route === 'rat') === probing && (ignoreSaid || !n.said.has(l.text)) && (!l.flag || this.flags[l.flag]));
-      if (relaxed.length) { if (ignoreSaid) n.said.clear(); return relaxed[Math.floor(this.rng() * relaxed.length)]; }
-      return null;
+
+    // Widen: drop tier/state before giving up, still respecting authored-bank
+    // priority so an odd intoxication state does not erase a character.
+    for (const bank of banks) {
+      const relaxed = eligible(bank, true);
+      if (relaxed.length) {
+        if (ignoreSaid) n.said.clear();
+        return relaxed[Math.floor(this.rng() * relaxed.length)];
+      }
     }
-    return pool[Math.floor(this.rng() * pool.length)];
+    return null;
   }
 
   _bankFor(n) {

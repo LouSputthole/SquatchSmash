@@ -1,3 +1,8 @@
+import {
+  INITIATION_PROCESSION_PHASES,
+  INITIATION_PROCESSION_POLICY,
+} from './trail-formation.js';
+
 /**
  * INITIATION NIGHT — the state machine, as a table.
  *
@@ -86,27 +91,23 @@ const OBJ_LINE = 'Take your place in the line';
 const KEYS_LINE = 'Stand in the light';
 const OBJ_TREES = 'Follow Booskibro into the trees';
 const OBJ_INSIDE = 'Go inside';
+const OBJ_STAND_BEFORE_LOU = 'Stand before Uncle Lou';
 const OBJ_ANSWER = 'Answer';
 const KEYS_THREE = '1 · 2 · 3';
 const OBJ_ANSWER_LOU = 'Answer Lou';
 const KEYS_TWO = '1 or 2';
-const OBJ_HAND = 'Hold out your hand';
+const OBJ_HAND = 'Hold out your hands';
+const OBJ_TAKE_SHOT = 'Take the shot';
 const KEYS_PRESS = 'Space or Click';
 const OBJ_PRESS = 'Press on';
 const OBJ_REPEAT = 'Repeat the words';
 const OBJ_HOLD = 'HOLD';
 
-const CABIN_CUTSCENE_CAMERAS = new Set([
-  'room', 'oath', 'ritual', 'room_wide', 'pullback', 'black', 'hold',
-]);
-
 function phase(id, spec) {
   const exits = Object.freeze([...(spec.exits ?? [])]);
   const control = spec.control ?? (spec.canMove
     ? CONTROL_MODES.PLAYABLE
-    : CABIN_CUTSCENE_CAMERAS.has(spec.camera)
-      ? CONTROL_MODES.CUTSCENE
-      : CONTROL_MODES.LOOK_ONLY);
+    : CONTROL_MODES.LOOK_ONLY);
   return Object.freeze({
     id,
     /** HUD string, or '' for the scene's watch-this convention. */
@@ -138,6 +139,10 @@ function phase(id, spec) {
      * what to do — it is a player looking at the only thing on screen.
      */
     card: spec.card === true,
+    /** Per-phase policy consumed by the shared Player adapter. */
+    moveScale: Number.isFinite(spec.moveScale) ? spec.moveScale : 1,
+    allowSprint: spec.allowSprint !== false,
+    dialogueTiming: spec.dialogueTiming ?? 'readable',
     beat: spec.beat ?? null,
     exits,
   });
@@ -225,33 +230,51 @@ export const PHASES = Object.freeze({
 
   /* ---- ACT THREE ---- */
   walk_out: phase('walk_out', {
+    ...INITIATION_PROCESSION_POLICY,
     objective: OBJ_TREES, camera: 'follow', advance: 'player', canMove: true,
     beat: 'IN-200', exits: ['trail'],
   }),
   trail: phase('trail', {
+    ...INITIATION_PROCESSION_POLICY,
     objective: OBJ_TREES, camera: 'follow', advance: 'player', canMove: true,
     exits: ['trail_choice', 'trail_reply', 'cabin_arrive'],
   }),
   trail_choice: phase('trail_choice', {
+    ...INITIATION_PROCESSION_POLICY,
     objective: OBJ_TREES, camera: 'follow', advance: 'input', canMove: true,
     timeout: 9, choice: true, beat: 'IN-245', exits: ['trail_reply'],
   }),
   trail_reply: phase('trail_reply', {
+    ...INITIATION_PROCESSION_POLICY,
     objective: OBJ_TREES, camera: 'follow', advance: 'event', canMove: true,
     timeout: 16, exits: ['trail', 'cabin_arrive'],
   }),
   cabin_arrive: phase('cabin_arrive', {
+    ...INITIATION_PROCESSION_POLICY,
     objective: OBJ_TREES, camera: 'follow', advance: 'player', canMove: true,
     beat: 'IN-250', exits: ['cabin_door'],
   }),
   cabin_door: phase('cabin_door', {
     objective: OBJ_INSIDE, camera: 'follow', advance: 'player', canMove: true,
-    beat: 'IN-260', exits: ['ceremony'],
+    beat: 'IN-260', exits: ['cabin_settle'],
+  }),
+  cabin_settle: phase('cabin_settle', {
+    /* The moving group is the content. This timed event watchdog is not a
+     * hidden delay: production leaves as soon as Lou, Rippin and Booski reach
+     * their measured marks; timeout only guards a malformed route. */
+    camera: 'follow', advance: 'event', timeout: 18,
+    exits: ['ceremony'],
   }),
 
   /* ---- ACT FOUR ---- */
   ceremony: phase('ceremony', {
-    camera: 'room', advance: 'event', timeout: 180, beat: 'IN-300', exits: ['oath_question'],
+    camera: 'room', advance: 'event', timeout: 180, beat: 'IN-300',
+    exits: ['ceremony_approach', 'oath_question'],
+  }),
+  ceremony_approach: phase('ceremony_approach', {
+    objective: OBJ_STAND_BEFORE_LOU, keys: KEYS_MOVE,
+    camera: 'follow', advance: 'player', canMove: true,
+    beat: 'IN-310', exits: ['ceremony'],
   }),
   /* The one beat in the game where the pause before the input is the content.
    * No timeout, deliberately — Lou will wait, and the room will wait. It is
@@ -319,10 +342,22 @@ export const PHASES = Object.freeze({
 
   /* ---- ACT SIX ---- */
   room: phase('room', {
-    camera: 'room_wide', advance: 'timer', timeout: 22, beat: 'IN-500', exits: ['room_aside'],
+    /* The delivered-VO room-reaction schedule owns this beat. It erupts for
+     * roughly fifteen seconds; twenty-four is only the missing-callback drain. */
+    camera: 'room_wide', advance: 'event', timeout: 24, beat: 'IN-500', exits: ['room_aside'],
   }),
   room_aside: phase('room_aside', {
-    camera: 'room_wide', advance: 'event', timeout: 40, beat: 'IN-520', exits: ['pullback'],
+    camera: 'room_wide', advance: 'event', timeout: 40, beat: 'IN-520', exits: ['shot_offer'],
+  }),
+  shot_offer: phase('shot_offer', {
+    objective: OBJ_TAKE_SHOT, keys: KEYS_PRESS,
+    camera: 'ritual', advance: 'event', timeout: 10, exits: ['shot_toast'],
+  }),
+  shot_toast: phase('shot_toast', {
+    camera: 'ritual', advance: 'event', timeout: 5, exits: ['shot_drink'],
+  }),
+  shot_drink: phase('shot_drink', {
+    camera: 'ritual', advance: 'timer', timeout: 1.8, exits: ['pullback'],
   }),
   pullback: phase('pullback', {
     camera: 'pullback', advance: 'timer', timeout: 14, beat: 'IN-540', exits: ['complete'],
@@ -335,6 +370,12 @@ export const PHASES = Object.freeze({
 export const PHASE_IDS = Object.freeze(Object.keys(PHASES));
 
 export const START_PHASE = 'approach';
+
+/* Guard the phase table against policy drift. An added/renamed procession
+ * phase must be configured here rather than quietly regaining sprint. */
+for (const id of INITIATION_PROCESSION_PHASES) {
+  if (!PHASES[id]) throw new Error(`Initiation procession phase "${id}" is missing`);
+}
 
 export function phaseById(id) {
   return PHASES[id] ?? null;

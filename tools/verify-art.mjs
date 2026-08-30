@@ -244,6 +244,20 @@ const report = await page.evaluate(async (TILE) => {
     total: items.length,
     placeholders: items.filter((i) => !i.real).map((i) => i.slot),
     bath, onDoor, doors: doors.length, problems,
+    /* Debug: the exact boxes behind a door foul, so a fix is measured rather
+     * than nudged. Only ever read by a human running this by hand. */
+    debug: {
+      doorSwings: blockers.map((b) => ({
+        name: b.name,
+        min: b.box.min.toArray().map((n) => +n.toFixed(3)),
+        max: b.box.max.toArray().map((n) => +n.toFixed(3)),
+      })),
+      pieces: items.map((it) => ({
+        slot: it.slot,
+        min: it.bb.min.toArray().map((n) => +n.toFixed(3)),
+        max: it.bb.max.toArray().map((n) => +n.toFixed(3)),
+      })),
+    },
   };
 }, TILE_TOP);
 
@@ -258,6 +272,15 @@ if (report.placeholders.length) {
 }
 for (const e of runtimeErrors) console.error(`  FAIL  runtime error: ${e}`);
 for (const pr of report.problems) console.error(`  FAIL  ${pr}`);
+if (process.env.VERIFY_ART_DEBUG === '1') {
+  console.error('\n--- measured boxes ---');
+  for (const d of report.debug.doorSwings) console.error(`  ${d.name}  ${JSON.stringify(d.min)} .. ${JSON.stringify(d.max)}`);
+  for (const pr of report.problems) {
+    const slot = pr.split(' ')[0];
+    const piece = report.debug.pieces.find((x) => x.slot === slot);
+    if (piece) console.error(`  ${piece.slot}  ${JSON.stringify(piece.min)} .. ${JSON.stringify(piece.max)}`);
+  }
+}
 
 const failures = report.problems.length + runtimeErrors.length;
 if (failures) {

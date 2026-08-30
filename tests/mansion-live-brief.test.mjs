@@ -111,11 +111,22 @@ test('the living ensemble, theatre encourager and pool dress-help path are autho
   assert.match(castSource, /poolEvening\.dressHelped = true/);
 
   assert.deepEqual(SEQUENCES.louAfterLab.map(({ cue }) => cue), [
-    'vo.silentsquatch.exit.lou.stayingtonight',
+    'vo.silentsquatch.exit.lou.hotstayingtonight',
     'vo.silentsquatch.exit.lou.guestroomdownstairs',
     'vo.silentsquatch.exit.lou.enjoythehouse',
   ]);
   assert.equal(SEQUENCES.oldStoveTheatre[0].cue, 'vo.silentsquatch.evening.stove.putsomethingon');
   assert.equal(SEQUENCES.poolGirlHello[0].cue, 'vo.silentsquatch.evening.performer.sayhello');
   assert.equal(SEQUENCES.poolGirlDressHelp[0].cue, 'vo.silentsquatch.evening.performer.useful');
+});
+
+test('the peaceful first Mansion visit names the case and explains the overnight stay', () => {
+  assert.doesNotMatch(html, /Initiation Night/i);
+  assert.match(html, /FIRST NIGHT AT LOU.S/i);
+  assert.match(html, /arrives carrying the Silver Case.*house is calm.*Lou is waiting upstairs/is);
+  assert.match(html, /id="startBtn"[^>]*>[^<]*CARRY THE CASE INSIDE/i);
+  assert.match(SEQUENCES.arrivalProspect[0].text, /first time at Lou.s place/i);
+  assert.match(SEQUENCES.officeOpen.find(({ speaker }) => speaker === 'LOU')?.text ?? '', /Squatchanium/i);
+  assert.match(SEQUENCES.louAfterLab[0].text, /things are hot right now.*staying here tonight/i);
+  assert.match(SEQUENCES.louAfterLab[1].text, /guest room.*downstairs/i);
 });

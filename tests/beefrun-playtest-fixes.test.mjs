@@ -11,6 +11,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { buildAirstrip } from '../src/beefrun/airstrip.js';
+import { FlightHud } from '../src/beefrun/hud.js';
 import { buildLandmarks } from '../src/beefrun/landmarks.js';
 import { MissionController } from '../src/beefrun/mission.js';
 import { BIG_UNCLE_LOU, CAPTAIN_LOU_SASOLE } from '../src/core/wardrobe.js';
@@ -27,6 +28,7 @@ const beefAircraft = read('../src/beefrun/aircraft.js');
 const beefAirfield = read('../src/beefrun/airfield.js');
 const beefMission = read('../src/beefrun/mission.js');
 const beefDetection = read('../src/beefrun/detection.js');
+const firstPersonInput = read('../src/core/first-person-input.js');
 
 test('the whole river is one connected ribbon instead of rotated rectangular patches or course seams', () => {
   const scene = new THREE.Scene();
@@ -197,17 +199,16 @@ test('the pointer is requested inside the click, before the sample bank loads', 
 });
 
 test('a refused lock is retryable rather than a life sentence', () => {
-  /* `fallBackToDragLook` used to latch a flag that BOTH it and the
-   * pointerlockchange listener early-returned on, and nothing else ever asked
-   * again — so one refusal meant no pointer for the rest of the session. */
-  assert.match(beefMain, /canvas\.addEventListener\('click'/,
-    'a canvas click has to be able to retry the real thing');
-  const change = beefMain.slice(beefMain.indexOf("document.addEventListener('pointerlockchange'"));
-  assert.match(change.slice(0, 400), /if \(locked\) dragLook = false;/,
+  /* This lifecycle moved into the canonical Adapter. Keep the owner playtest
+   * invariant, but assert the actual owner instead of demanding stale local
+   * event plumbing in Beef Run. */
+  assert.match(beefMain, /createFlightFirstPersonPolicy/);
+  assert.match(firstPersonInput, /this\.canvas\.addEventListener\('mousedown', this\._mousedown\)/,
+    'a canvas press has to be able to retry the real thing');
+  assert.match(firstPersonInput, /this\.requestPointerLock\(\)/,
+    'the canonical press route must retry pointer lock');
+  assert.match(firstPersonInput, /if \(this\.locked\) \{\s*this\.dragFallback = false;/,
     'winning the real lock must retire the fallback');
-  const fallback = beefMain.slice(beefMain.indexOf('function fallBackToDragLook'));
-  assert.doesNotMatch(fallback.slice(0, 200), /^\s*if \(dragLook\) return;/m,
-    'the fallback must not latch itself permanently');
 });
 
 test('nothing takes the pointer back over the report card', () => {
@@ -250,6 +251,27 @@ test('the preview-only preflight link starts the walkaround instead of a flight 
   assert.match(beefMain, /preflight:\s*'PREFLIGHT CHECK'/);
   const start = beefMain.slice(beefMain.indexOf("startBtn.addEventListener('click'"));
   assert.match(start, /game\.resume === 'preflight'\s*\? mission\.startPreviewPreflight\(\)/);
+});
+
+test('the walkaround HUD removes completed checks while the mission keeps its recovery ledger', () => {
+  const ledger = [
+    { label: 'Pull both chocks', count: 2, need: 2, state: 'done' },
+    { label: 'Check both fuel caps', count: 1, need: 2, state: 'next' },
+    { label: 'Inspect the propellers', count: 0, need: 2, state: 'todo' },
+  ];
+  let rendered = [];
+  const list = { replaceChildren: (...nodes) => { rendered = nodes; } };
+  const hud = { _checkSig: null, checklist: { querySelector: () => list } };
+
+  FlightHud.prototype.setChecklist.call(hud, ledger);
+
+  assert.deepEqual(rendered.map((row) => row.textContent), [
+    '▸ Check both fuel caps 1/2',
+    '· Inspect the propellers 0/2',
+  ]);
+  assert.deepEqual(rendered.map((row) => row.className), ['next', 'todo']);
+  assert.equal(ledger.length, 3, 'projecting the HUD must not discard recovery state');
+  assert.equal(ledger[0].state, 'done');
 });
 
 test('Old Stove finishes close enough to share the handoff mark with Sasole', () => {

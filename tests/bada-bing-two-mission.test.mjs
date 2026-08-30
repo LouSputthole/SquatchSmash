@@ -18,7 +18,7 @@ import {
   SHUBENATOR_SIGNATURE_TEXT,
 } from '../src/core/shubenator-signature.js';
 
-test('party colliders follow moving props and park themselves when hidden', () => {
+test('party actor colliders follow moving rigs, park, and disable when hidden', () => {
   const scene = new THREE.Scene();
   const parent = new THREE.Group();
   const target = new THREE.Group();
@@ -28,9 +28,17 @@ test('party colliders follow moving props and park themselves when hidden', () =
   target.position.set(1, 0.5, 2);
 
   const collision = createPartyCollider({
-    id: 'test.mover', target, halfX: 0.3, halfZ: 0.2, minY: -0.1, maxY: 1.1,
+    id: 'test.mover',
+    target,
+    halfX: 0.3,
+    halfZ: 0.2,
+    minY: -0.1,
+    maxY: 1.1,
+    kind: 'cast',
+    ownerActorId: 'test-actor',
   });
   assert.equal(collision.active, true);
+  assert.equal(collision.box.enabled, true);
   assert.deepEqual(collision.snapshot(), {
     active: true,
     min: [2.7, 0.65, -1.2],
@@ -42,6 +50,7 @@ test('party colliders follow moving props and park themselves when hidden', () =
 
   parent.visible = false;
   assert.equal(collision.active, false);
+  assert.equal(collision.box.enabled, false, 'hidden party bodies do not publish active collision');
   assert.ok(collision.box.min.x > 10_000);
 });
 
@@ -102,7 +111,11 @@ test('the second Bing visit turns the closed party into a short cleanup mission'
   assert.equal(mission.completeCleanup('final_sweep'), true);
   assert.equal(mission.readyToLeave, true);
   assert.equal(mission.beginDeparture(), true);
-  assert.ok(mission.objectives.some((o) => o.id === 'leave'));
+  assert.deepEqual(mission.objectives.find((o) => o.id === 'leave'), {
+    id: 'leave',
+    text: 'Leave through the service exit.',
+    done: false,
+  });
   assert.equal(mission.finish(), 'graveyard');
   assert.equal(mission.state, 'done');
   assert.equal(mission.objectives.find((objective) => objective.id === 'load')?.done, true);
@@ -204,19 +217,33 @@ test('the HotDog runtime uses canonical faces and one Snow/Lawnmower body', () =
   assert.doesNotMatch(source, /makeNpc\(scene, club, \{\s*name: 'Lawnmower'/);
 });
 
-test('closed-party Lou wears the canonical Bing three-piece without moving his party mark', () => {
+test('closed-party Lou wears his private camp shirt without moving his party mark', () => {
   const source = fs.readFileSync(new URL('../src/bing/hotdog-party.js', import.meta.url), 'utf8');
   const start = source.indexOf('const lou = makeNpc(scene, club, {');
   const end = source.indexOf('const hotdog = makeNpc', start);
   assert.ok(start >= 0 && end > start, 'the closed-party Lou call site is missing');
   const lou = source.slice(start, end);
 
-  assert.match(source, /import \{[^}]*BIG_UNCLE_LOU_BING[^}]*\} from '\.\.\/core\/wardrobe\.js';/s);
+  assert.match(source, /import \{[^}]*BIG_UNCLE_LOU_MANSION[^}]*\} from '\.\.\/core\/wardrobe\.js';/s);
   assert.match(lou, /x: -16\.2, z: 2\.0, yaw: 2\.25, job: 'stand'/,
     'Lou moved or changed pose during the wardrobe reuse');
-  assert.match(lou, /model: \{ \.\.\.BIG_UNCLE_LOU_BING, face: faces\.has\('lou\.png'\) \? 'assets\/faces\/lou\.png' : null \}/,
-    'closed-party Lou is not the Bing variant with the existing face decision');
+  assert.match(lou, /model: \{ \.\.\.BIG_UNCLE_LOU_MANSION, face: faces\.has\('lou\.png'\) \? 'assets\/faces\/lou\.png' : null \}/,
+    'closed-party Lou is not the private camp-shirt variant with the existing face decision');
   assert.doesNotMatch(lou, /\.\.\.BIG_UNCLE_LOU(?:[, }])/, 'the plain Lou model returned');
+});
+
+test('the party has no TABLE CLOSED sign and the cleanup case belongs to Old Stove', () => {
+  const party = fs.readFileSync(new URL('../src/bing/hotdog-party.js', import.meta.url), 'utf8');
+  const runtime = fs.readFileSync(new URL('../src/bing/hotdog-main.js', import.meta.url), 'utf8');
+  const voices = fs.readFileSync(new URL('../src/bing/hotdog-room-voices.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(party, /TABLE CLOSED|FAMILY PARTY|blackjack-closed-party/);
+  assert.match(party, /\["STOVE'S", 'CLEANING KIT'\]/);
+  assert.match(party, /bathroom floor[\s\S]{0,360}opacity: 0\.01, depthWrite: false/);
+  assert.doesNotMatch(runtime, /Aubbie(?:'|’|\\')s (?:correct )?(?:cleanup )?kit/i);
+  assert.match(runtime, /Stove\\'s Cleaning Kit/);
+  assert.match(voices, /Snow\\'s kit is for Billy/);
+  assert.match(voices, /'Old Stove'[\s\S]{0,180}'That case is mine\./);
+  assert.match(voices, /Stove\\'s Cleaning Kit/);
 });
 
 test('completed cleanup tasks restore every matching party prop and pad', () => {
@@ -252,7 +279,7 @@ test('completed cleanup tasks restore every matching party prop and pad', () => 
 /*                                                                     */
 /* The order used to live in one interaction in hotdog-main.js, so the  */
 /* model itself would happily close the sweep first and leave the       */
-/* bathrooms, Aubbie's kit and HotDog's jewellery standing as finished   */
+/* bathrooms, Stove's kit and HotDog's jewellery standing as finished    */
 /* business behind a mission that had already moved on. The rule is the  */
 /* mission's now, and these walk the tasks in the order a confused       */
 /* player, a replayed checkpoint or a new caller would.                  */

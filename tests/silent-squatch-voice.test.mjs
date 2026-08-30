@@ -106,6 +106,21 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
    * bodies and a speaker key picks the mouth the line comes out of. */
   gate: 12, // the man on the front door, and the man in the booth
   guards: 9, // perimeter, stairs, basement, vault
+
+  /* THE MORNING AFTER, and only then. Owner playtest: *"Repaired mansion is
+   * really just the same thing as the original mansion. The guards should have
+   * some voicelines acknowledging your actions. Welcome back, nice work the
+   * other night. Etc."* -- plus Snow, off the same note, in a work vest with a
+   * quote for the foyer.
+   *
+   * 19: the five guard posts get nine between them (the three perimeter
+   * walkers one each, and the stairs, basement and vault men a bark and an
+   * idle apiece), Snow gets four, and the repaired-mansion debrief gets six.
+   * Those six pay off the cockpit's wrong-city instrument clue before sending
+   * the Prospect after Sauce. The whole scope is unreachable on the night of
+   * PROJECT SILENT SQUATCH and `MANSION_RETURN_SCOPES` is what keeps it out of
+   * that visit's audio banks. */
+  return: 19, // guard/Snow acknowledgements plus the wrong-city debrief
   bar: 3, // the Bada Bing's bartender, working Lou's bar
   /* 2026-08-05: the whip became a HANDOVER and a repeatable swing rather than
    * one press on Gratin, so this scope gained the handover line, four
@@ -155,7 +170,7 @@ const SPEC_LINES = Object.freeze([
   ['SNOW', 'Try not to make more work for me tonight.'],
 
   ['PROSPECT', "What's inside?"],
-  ['LOU', "You’ll find out. And then you’ll wish you’d enjoyed not knowing more than you did."],
+  ['LOU', 'Squatchanium. Booski will show you what that means downstairs. Then you’ll wish I hadn’t named it.'],
   ['LOU', "Go deliver it to Booski. He's in the basement."],
   ['LOU', 'Hey, kid.'],
   ['LOU', 'Nice job.'],

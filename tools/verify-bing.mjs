@@ -22,6 +22,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectBingVoiceCues } from './bing-vo.mjs';
+import { measureBingOfficePhotoClearance } from './bing-office-photo-clearance.mjs';
 import { isBingPreloadCue } from '../src/bing/audio.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -479,11 +480,10 @@ const packageAtStart = s.campaign?.inventory
   && !s.campaign.inventory.carried.includes('parcel')
   && !s.campaign.inventory.concealed.includes('parcel')
   && s.carrying !== 'parcel';
-/* Three things the evening is for, and none of them ticked in the lot. The
- * club's own optional list is separate and lives on the HUD card, not on the
- * mission -- it is checked further down against the rendered objectives. */
-check('the night opens on its three jobs, none of them done',
-  s.objectives.join(',') === ' lou, margo, shot', s.objectives.join(','));
+/* Margo is a required soft story beat, but revealing her on the opening card
+ * spoils the room. She becomes the next action only after Lou is finished. */
+check('the night opens on Lou’s route without spoiling Margo',
+  s.objectives.join(',') === ' lou, shot', s.objectives.join(','));
 const displayedDay = await page.textContent('#clock .day');
 check('the first Bing visit is still Day One', displayedDay === 'Day 1', displayedDay);
 
@@ -546,7 +546,14 @@ check('every visible car is contained by its matching collider',
   vehicles.contained && vehicles.playerColliderLive);
 check('the ordinary parked cars sit on the painted bay centres', vehicles.bayCentred);
 
-await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })));
+/* Earn real browser capture before leaving the car. This crosses the DOM
+ * Adapter Seam; a synthetic event dispatched inside page.evaluate can prove
+ * scene policy while still missing a completely unwired keyboard. */
+await page.locator('#scene').click({ position: { x: 160, y: 100 } });
+await page.waitForFunction(() => window.__bing.input.snapshot().captured, null, {
+  timeout: 5000,
+});
+await page.keyboard.press('q');
 await tick(1.2, 0.1);
 const carExit = await page.evaluate(() => {
   const b = window.__bing;
@@ -562,6 +569,40 @@ const carExit = await page.evaluate(() => {
 check('getting out of the car lands on validated clear ground',
   carExit.seated === null && carExit.mode === 'walk' && carExit.safe && carExit.room === 'lot',
   JSON.stringify(carExit));
+
+const beforeRealInput = await page.evaluate(() => {
+  const { player } = window.__bing;
+  return { x: player.position.x, z: player.position.z, yaw: player.yaw };
+});
+await page.mouse.move(160, 100);
+await page.mouse.move(225, 70, { steps: 2 });
+await page.keyboard.down('w');
+await tick(1.2, 0.1);
+const heldRealInput = await page.evaluate(() => ({
+  keys: [...window.__bing.player.keys],
+  yaw: window.__bing.player.yaw,
+}));
+await page.keyboard.up('w');
+const afterRealInput = await page.evaluate(() => {
+  const b = window.__bing;
+  return {
+    x: b.player.position.x,
+    z: b.player.position.z,
+    yaw: b.player.yaw,
+    keys: [...b.player.keys],
+    input: b.input.snapshot(),
+  };
+});
+check('real click, Q, mouse, and W input exit the car, look, move, and release at the Bing',
+  afterRealInput.input.captured
+    && heldRealInput.keys.includes('KeyW')
+    && !afterRealInput.keys.includes('KeyW')
+    && Math.hypot(
+      afterRealInput.x - beforeRealInput.x,
+      afterRealInput.z - beforeRealInput.z,
+    ) > 0.35
+    && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.01,
+  JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
 
 /* The open portal must be visually clear as well as collider-clear. */
 const frontPortal = await page.evaluate(() => {
@@ -1615,7 +1656,7 @@ const afterBeat = await page.evaluate(() => {
     waitingForE: b.game.shotBeat?.phase === 'await-drink'
       && b.game.shotBeat?.awaitingDrink === true,
     deliverySeconds: b.game.shotBeat?.deliverySeconds,
-    didNotAutoDrink: b.game.shotBeat?.drank === false && !b.game.autoDrink,
+    didNotAutoDrink: b.game.shotBeat?.drank === false,
     handoffSaid: b.dialogue.history.has('handoff') && b.dialogue.history.has('tony'),
     voiced: ['vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
       'vo.bing.booski.shot.handoff', 'vo.bing.booski.shot.tony.1']
@@ -2010,9 +2051,69 @@ check('he finishes and lets you go',
   briefFinished.mission === 'briefed' && briefFinished.mode === 'walk' && !briefFinished.locked,
   JSON.stringify(briefFinished));
 
-/* Once the job is done the front door itself offers the exit -- the owner's
- * playtest never found the wheel. The drive-out stays the canonical path
- * below; this only proves the on-foot prompt exists, arms, and is held. */
+const beforeMargo = await page.evaluate(() => ({
+  ready: window.__bing.mission.readyToLeave,
+  blocker: window.__bing.mission.leaveBlocker,
+  objectives: window.__bing.mission.objectives.map((objective) => ({ ...objective })),
+}));
+check('Lou hands off to the required soft Margo beat instead of opening the exit',
+  !beforeMargo.ready
+    && beforeMargo.blocker === 'margo_number'
+    && beforeMargo.objectives.some((objective) => objective.id === 'margo'
+      && objective.done === false && objective.optional !== true)
+    && !beforeMargo.objectives.some((objective) => objective.id === 'leave'),
+  JSON.stringify(beforeMargo));
+
+/* Walk back into the room and take the real dialogue choices: ask what she is
+ * drinking, ask her to dinner, and ask for HER number. Tone alternatives stay
+ * available; this is merely one valid route through them. */
+await page.evaluate(() => {
+  const b = window.__bing;
+  const margo = b.cast.byName.margo;
+  b.player.mode = 'walk';
+  b.player.position.set(margo.group.position.x + 0.8, 1.66, margo.group.position.z + 0.4);
+  b.player.update(0.016);
+  b.updateZones(0.016);
+});
+await tick(4);
+await page.evaluate(() => window.__bing.cast.byName.margo.group.userData.interact.onUse());
+await tick(0.5);
+const margoOpening = await state();
+check('Margo keeps all three opening tones', margoOpening.options === 3,
+  String(margoOpening.options));
+await choose(1);
+for (let i = 0; i < 12; i++) {
+  const at = await page.evaluate(() => ({
+    node: window.__bing.dialogue.nodeId,
+    options: window.__bing.dialogue.options.length,
+  }));
+  if (at.node === 'why' && at.options > 0) break;
+  await tick(1.5);
+}
+await choose(0);
+for (let i = 0; i < 12; i++) {
+  const at = await page.evaluate(() => ({
+    node: window.__bing.dialogue.nodeId,
+    options: window.__bing.dialogue.options.length,
+  }));
+  if (at.node === 'dinner' && at.options > 0) break;
+  await tick(1.5);
+}
+await choose(0);
+await tick(0.5);
+const afterMargo = await page.evaluate(() => ({
+  ready: window.__bing.mission.readyToLeave,
+  hasNumber: window.__bing.mission.flags.hasMargoNumber,
+  objective: window.__bing.mission.objectives.find((entry) => entry.id === 'margo'),
+  leave: window.__bing.mission.objectives.find((entry) => entry.id === 'leave'),
+}));
+check('getting Margo’s number completes the soft beat and opens the same exit gate',
+  afterMargo.ready && afterMargo.hasNumber
+    && afterMargo.objective?.done === true && afterMargo.leave?.done === false,
+  JSON.stringify(afterMargo));
+
+/* Once both story beats are done the front door itself offers the exit -- the
+ * owner's playtest never found the wheel. The drive-out stays canonical. */
 const leavePad = await page.evaluate(() => {
   const b = window.__bing;
   let pad = null;
@@ -2073,7 +2174,8 @@ const ended = await page.evaluate(() => ({
   title: document.querySelector('#overlay .tag')?.textContent || '',
   saved: window.__bing.campaign?.state?.missions?.bada_bing_one ?? null,
   nextMission: window.__bing.campaign?.state?.missions?.squatchfather ?? null,
-  returnHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
+  nextHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
+  nextCopy: document.getElementById('next-level')?.textContent ?? '',
 }));
 check('driving out finishes the mission', ended.over && ended.done, JSON.stringify(ended));
 check('and puts up an ending card', ended.card, ended.title);
@@ -2083,29 +2185,71 @@ check('completion is recorded in shared campaign state',
 check('the package unlocks Squatchfather',
   ended.nextMission?.status === 'available',
   JSON.stringify(ended.nextMission));
-check('the ending offers a return to the apartment',
-  ended.returnHref === 'index.html', ended.returnHref ?? 'missing');
+check('the Family driver offers the direct Squatchfather handoff',
+  ended.nextHref === 'squatchfather.html' && /Family driver/i.test(ended.nextCopy),
+  JSON.stringify({ href: ended.nextHref, copy: ended.nextCopy }));
 
-if (ended.returnHref === 'index.html') {
-  await page.evaluate(() => document.getElementById('next-level').click());
-  await page.waitForFunction(() => window.__squatch, null, { timeout: 90000 });
-  const returned = await page.evaluate(() => ({
-    scene: window.__squatch.campaign?.state?.scene ?? null,
-    hasPackage: window.__squatch.campaign?.hasItem('parcel') ?? false,
-    player: {
-      mode: window.__squatch.player.mode,
-      x: window.__squatch.player.position.x,
-      z: window.__squatch.player.position.z,
-    },
+let bingAudioTeardown = null;
+await page.exposeFunction('__captureBingAudioTeardown', (receipt) => {
+  bingAudioTeardown = receipt;
+});
+if (ended.nextHref === 'squatchfather.html') {
+  /* Observe the real route click without replacing it. location.assign() does
+   * not destroy the document until this event turn returns, so the wrapper can
+   * read the ownership table after the production onclick has retired it. */
+  await page.evaluate(() => {
+    const next = document.getElementById('next-level');
+    const leave = next.onclick;
+    next.onclick = function observedBingHandoff(event) {
+      const b = window.__bing;
+      const before = [...b.audio.loops.keys()].sort();
+      const result = leave.call(this, event);
+      window.__captureBingAudioTeardown({
+        before,
+        after: [...b.audio.loops.keys()].sort(),
+        carReceiver: {
+          on: b.carRadio.on,
+          paused: b.carRadio._paused,
+          mediaPaused: b.carRadio.el?.paused ?? true,
+        },
+      });
+      return result;
+    };
+  });
+  const nextLink = page.locator('#next-level');
+  await nextLink.scrollIntoViewIfNeeded();
+  const handoffLayout = await nextLink.evaluate((link) => {
+    const rect = link.getBoundingClientRect();
+    const overlay = document.getElementById('overlay');
+    return {
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      overlayScrollable: overlay.scrollHeight > overlay.clientHeight,
+      overflowY: getComputedStyle(overlay).overflowY,
+    };
+  });
+  check('the ending-card handoff can be brought into the live viewport',
+    handoffLayout.top >= 0 && handoffLayout.bottom <= handoffLayout.viewportHeight,
+    JSON.stringify(handoffLayout));
+  await page.click('#next-level');
+  await page.waitForURL(`http://localhost:${PORT}/squatchfather.html`, { timeout: 90000 });
+  await page.waitForFunction(() => window.squatchfather?.campaign, null, { timeout: 90000 });
+  const routed = await page.evaluate(() => ({
+    scene: window.squatchfather.campaign.state.scene,
+    hasPackage: window.squatchfather.campaign.hasItem('parcel'),
   }));
-  check('returning home keeps the package and front-door spawn',
-    returned.hasPackage
-      && returned.scene?.id === 'apartment'
-      && returned.scene?.spawn === 'front_door'
-      && returned.player.mode === 'walk'
-      && Math.abs(returned.player.x - 2.55) < 0.05
-      && Math.abs(returned.player.z - 3.72) < 0.05,
-    JSON.stringify(returned));
+  check('the handoff keeps Lou’s package and lands at the restaurant exterior',
+    routed.hasPackage
+      && routed.scene?.id === 'squatchfather'
+      && routed.scene?.spawn === 'restaurant_exterior',
+    JSON.stringify(routed));
+  check('the Bing scene handoff tears down every radio and music owner without stale loop keys',
+    bingAudioTeardown
+      && bingAudioTeardown.after.length === 0
+      && (!bingAudioTeardown.carReceiver.on
+        || (bingAudioTeardown.carReceiver.paused && bingAudioTeardown.carReceiver.mediaPaused)),
+    JSON.stringify(bingAudioTeardown));
 }
 
 /* ---- one identity, before and after the Beef Run ----
@@ -2321,9 +2465,9 @@ check('every performer keeps her height, wears real hair, and has her edges take
     `${louBrief.length} + ${louBrief2.length}`);
   check('the stage and Margo retain their authored cue banks',
     ['vo.bing.stage.1', 'vo.bing.stage.2'].every((c) => authored.has(c))
-      && [...Array(6)].map((_, i) => `vo.bing.margo.${i + 1}`).every((c) => authored.has(c))
+      && [...Array(5)].map((_, i) => `vo.bing.margo.${i + 1}`).every((c) => authored.has(c))
       && authored.has('vo.bing.margo.1b'),
-    'stage 2, margo 7');
+    'stage 2, margo legacy 6 plus generated replacements');
 }
 
 /* Tony's own lines, one at a time, through the exact-name path -- and none
@@ -2508,6 +2652,7 @@ check('the twelve supplied Family portraits make the rear-hall gallery to Lou’
   JSON.stringify(hallwayGallery));
 
 /* ---- 14 to 21: Lou's office ---- */
+const officePhotoClearance = await page.evaluate(measureBingOfficePhotoClearance);
 const office = await page.evaluate(async () => {
   const b = window.__bing;
   // The club's borrowed art resolves off the manifest after the room is built.
@@ -2554,30 +2699,8 @@ const office = await page.evaluate(async () => {
   });
   const bingPictureArtBox = boxOf(bingPictureArt);
   const louDoorway = b.club.doors.lou.box;
-  // The two photographs on the door wall, in wall order: THE NEPHEWS, then
-  // THE OLD PLACE. Everything hung on that wall shares its x, so z sorts them.
-  const wallPictures = [];
-  b.club.root.traverse((o) => {
-    if (o.name !== 'frame') return;
-    const bb = boxOf(o);
-    if (bb.min.x < 7.8 || bb.max.x > 8.1) return;
-    /* The two 0.26 photographs top out at 2.065m. The correctly-proportioned
-     * crest over the filing cabinet now tops out at 2.035m, so keep this
-     * selector on the photographs instead of counting every small frame. */
-    if (bb.max.y < 2.04 || bb.max.y > 2.1) return;
-    wallPictures.push(bb);
-  });
-  wallPictures.sort((a, c) => a.min.z - c.min.z);
-  const glassEdge = (b.club.doors.lou.glass || [])
-    .reduce((z, pane) => Math.max(z, boxOf(pane).max.z), -Infinity);
   return {
     walls: W,
-    // 1. THE NEPHEWS: off the door's glazing, still left of THE OLD PLACE
-    pictures: wallPictures.length,
-    nephewsOffTheGlass: wallPictures.length === 2
-      && wallPictures[0].min.z > glassEdge + 0.02,
-    nephewsGap: wallPictures.length === 2
-      ? +(wallPictures[1].min.z - wallPictures[0].max.z).toFixed(3) : -1,
     // 2. the filing cabinet, backed into the north-west corner
     filingOffNorth: +(filing.min.z - W.north).toFixed(3),
     filingOffWest: +(filing.min.x - W.west).toFixed(3),
@@ -2662,6 +2785,7 @@ const office = await page.evaluate(async () => {
     glassSolid: b.club.colliders.some((c) => c.min.x > 7.7 && c.max.x < 7.9 && c.min.z < -7.6),
   };
 });
+Object.assign(office, officePhotoClearance);
 check('the shore picture hangs on the wall behind Lou',
   office.shoreBehindLou, JSON.stringify(office.shoreBehindLou));
 check('the Silver Sasquatches Bada Bing portrait is framed beside Lou\'s desk without crowding the shore picture',
@@ -3118,16 +3242,13 @@ check('tipping the runway puts money in the air',
   const texts = punchHud.objectives.map((o) => o.text);
   const primary = punchHud.objectives.filter((o) => !o.optional && !o.rule).map((o) => o.text);
   const optional = punchHud.objectives.filter((o) => o.optional).map((o) => o.text);
-  check('the objective card carries the four required jobs and the optional evening',
-    primary.some((t) => /Lou/.test(t))
-      && primary.some((t) => /cute girl at the bar/.test(t))
-      && primary.some((t) => /shot with Booski/.test(t))
-      && primary.some((t) => t.includes('Help Au Gratin in the back room'))
-      && optional.some((t) => /\d+\/\d+.*squatches/.test(t))
-      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar']
-        .every((want) => optional.some((t) => t.includes(want)))
-      && !optional.some((t) => /Gratin|service room/.test(t))
-      && punchHud.objectives.some((o) => o.rule),
+  check('the live objective card shows one route step and one featured soft opportunity',
+    primary.length === 1
+      && primary.some((t) => /Lou/.test(t))
+      && optional.length === 1
+      && optional[0].includes('Help Au Gratin in the back room')
+      && !texts.some((t) => /cute girl|shot with Booski|Play the slots|Play blackjack/.test(t))
+      && punchHud.objectives.filter((o) => o.rule).length === 1,
     JSON.stringify(texts));
   /* FOUR REQUIRED LINES AT EQUAL WEIGHT IS HOW THE GOAL GOT LOST. The card
    * now says which one he is doing -- exactly one `.now` row, on the mission

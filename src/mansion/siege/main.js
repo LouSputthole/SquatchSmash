@@ -16,7 +16,7 @@
  * WHAT LIVES WHERE:
  *   state.js      the six damage states, and what is standing in each
  *   waves.js      who attacks, from where, and when they are released
- *   mission.js    the beat chain, the objectives and the four checkpoints
+ *   mission.js    the beat chain, the objectives and the five checkpoints
  *   night.js      emergency light and the alarm's clock
  *   dressing.js   wrecks, fire, bodies, debris, the wrecked centrepiece
  *   glass.js      intact / cracked / broken, and the collider that goes with
@@ -37,12 +37,13 @@ import {
 } from '../scenes/MansionGrounds.js';
 import { buildMansionInterior, FOYER, OFFICE, GALLERY } from '../scenes/MansionInterior.js';
 import { Player } from '../../core/player.js';
+import { createFirstPersonInput } from '../../core/first-person-input.js';
 import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
 import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
-import { translateKey, shakeScale } from '../../core/settings.js';
+import { shakeScale } from '../../core/settings.js';
 import { createPromptHud } from '../../core/hud.js';
 import { createCampaignSceneRecovery } from '../../core/campaign-scene-skip.js';
 import { prewarmAudio, prewarmScene } from '../../core/prewarm.js';
@@ -71,6 +72,11 @@ import {
 } from '../../core/final-arc-runtime.js';
 import { createMansionSiegeCampaignStory } from '../../core/final-arc-story.js';
 import { isPreviewMode, previewNavigationHref } from '../../core/preview-mode.js';
+/* The shared primitive builders, for the one prop this file owns outright --
+ * the foyer line cache. Same three helpers ./armor-cache.js builds the plate
+ * carrier from, so the crate is made of exactly what the rest of the house is
+ * made of and shares its material cache. */
+import { box, cylinder, mat } from '../../world/build.js';
 import { SmokeSystem } from '../../world/smoke.js';
 import { BloodImpactSystem, DeathBloodPool } from '../../world/blood.js';
 import { BallisticImpactSystem } from '../../world/impacts.js';
@@ -78,16 +84,18 @@ import { BallisticImpactSystem } from '../../world/impacts.js';
 import { MansionDamageState } from './state.js';
 import { SiegeMission, B, CHECKPOINTS } from './mission.js';
 import { isSiegeLineWeapon, resolveArmoryTake } from './armory-policy.js';
-import { SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeVoiceCueNames } from './script.js';
+import {
+  SiegeDialogue, SIEGE_SPEAKER_NAMES, siegeDialogueEffectCueNames, siegeVoiceCueNames,
+} from './script.js';
 import { REQUIRED_SIEGE_EFFECT_CUES, SIEGE_AMBIENCE_CUES, SiegeMissionAudio } from './audio.js';
 import {
   COMBAT_BOUNDARY, DEFENCE_POST, ENCOUNTERS, totalAttackers,
 } from './waves.js';
 import { buildSiegeNight, scoreSiegeLight } from './night.js';
-import { buildSiegeDressing } from './dressing.js';
+import { buildSiegeDressing, tippedRestY } from './dressing.js';
 import { buildSiegeArmorCache } from './armor-cache.js';
 import { buildSiegeGlass } from './glass.js';
-import { createAttackerPool } from './attackers.js';
+import { ateamBarkCueNames, createAttackerPool } from './attackers.js';
 import { buildSiegeEnsemble } from './ensemble.js';
 import { flattenTransmission, capShadowCasters, SHADOW_CAP } from '../perf.js';
 
@@ -215,6 +223,36 @@ const interior = buildMansionInterior(grounds.shell);
 scene.add(grounds.root, interior.root);
 
 const colliders = [...grounds.colliders, ...interior.colliders];
+/* TWO LISTS, BECAUSE THEY ANSWER TWO DIFFERENT QUESTIONS.
+ *
+ * `colliders` is what a body may not walk into, and it deliberately contains
+ * no floor slab: a slab in it is read as a wall by `core/player.js` and ejects
+ * anyone standing on it sideways off its own footprint. Both builders carry
+ * scar tissue from exactly that, and neither list changed here.
+ *
+ * `combatBlockers` is the other half -- every floor, ceiling and roof slab in
+ * the house, plus the thirteen interior walls whose movement colliders are
+ * trimmed 0.3 m clear of the floor above, each tagged with its real Combat
+ * material. Nothing walks into it and everything shoots into it.
+ *
+ * They were one list until now, and the missing half is the owner's report:
+ * *"In the siege I'm getting killed in the cellar before I even go up, no one
+ * is down there."* Nobody was. A rifleman standing in the foyer on the ground
+ * floor had a clear line of sight AND a clear ballistic path down into the
+ * basement armory, because as far as `AabbCombatSpace.trace` was concerned
+ * there was nothing between them -- a vertical ray from the player's head
+ * crossed zero boxes. Simulated against the real geometry, he was dead in
+ * 10.9 seconds without the man ever coming downstairs.
+ *
+ * So: perception, ballistics and suppression get `combatColliders`. Movement,
+ * the damage overlay and the player's own world keep `colliders`. Anything
+ * that asks "can this be seen or shot through" takes the first; anything that
+ * asks "can a body stand here" takes the second. */
+const combatColliders = [
+  ...colliders,
+  ...(grounds.combatBlockers ?? []),
+  ...(interior.combatBlockers ?? []),
+];
 const anchors = { ...grounds.anchors, ...interior.anchors };
 
 /* The nearest-N local light rig, same shape as the tour's: a late-arriving
@@ -455,13 +493,273 @@ const playerActor = new CombatActor({
   id: 'prospect', faction: FACTIONS.CREW, maxHealth: 100, armor: 0, maxArmor: 75,
 });
 const combatHud = new CombatStatusHud({ actor: playerActor, visible: false });
-const combatSupplies = new CombatSupplyState({
-  triageCharges: 2,
-  resupplyCharges: 2,
-  triageHeal: 45,
-  armorPerUse: 45,
-  magazinesPerWeapon: 2,
+
+/* ================================================================== */
+/* THE SUPPLY ECONOMY                                                    */
+/*                                                                        */
+/* Owner, 2026-08-24: "In the siege we should have backup ammo up top      */
+/* plus more health."                                                      */
+/*                                                                          */
+/* WHAT HE WAS ACTUALLY RUNNING OUT OF, counted rather than felt.            */
+/*                                                                           */
+/* One `CombatSupplyState` used to hold two triage charges and two resupply   */
+/* charges FOR THE WHOLE MISSION, and every visible supply surface drew on     */
+/* that single instance. There were two ammunition caches on the gallery --    */
+/* the firing-step crate at (-2.25, 6.0, 46.45) and the west flank cans at     */
+/* (-4.25, 6.0, 50.75) -- sharing two charges between them, so pressing E at   */
+/* each one exhausted the entire upstairs supply and both prompts then read    */
+/* "empty" for the remaining twenty-two men. Two caches you can see is two     */
+/* caches a player counts on; one pool behind them is a promise the scene      */
+/* was not keeping.                                                            */
+/*                                                                              */
+/* And between the basement armory at BASEMENT_Y and the balcony bay there was  */
+/* nothing at all: the player climbed the cellar stair, crossed the rear hall,  */
+/* fought the foyer three (rifle + smg + flanker, 250 effective HP) and climbed */
+/* the horseshoe dry, arriving at the fight he is supposed to hold with         */
+/* whatever the corridor and the foyer had left him.                            */
+/*                                                                               */
+/* THE DEMAND, off the real tables. Twenty-seven men: five authored             */
+/* (`ENCOUNTERS` in ./waves.js) and twenty-two across the two waves (`WAVES`).  */
+/* Their `ROLES` health and armour add up to 2425 health + 104 armour, and      */
+/* `CombatActor.applyHit` spends armour one-for-one against the damage it       */
+/* absorbs, so the mission's whole target pool is 2529 effective points. Of     */
+/* that, 420 stands on the ground floor and 2109 upstairs.                       */
+/*                                                                               */
+/* An AK-47 is 46 points a chest hit (`WEAPON_CATALOG`), and `HIT_ZONES` in     */
+/* ./attackers.js multiplies that by 2.6 for a head and 0.58 for a limb. Killing */
+/* all twenty-seven with nothing but chest hits and no misses costs 60 rounds;   */
+/* the twenty-two upstairs cost 50. Nobody fires at a 100% chest rate off a rail */
+/* six metres above a forecourt at night, and at a realistic 40% effective-hit   */
+/* rate the staircase defence wants about 125 rounds and closer to 150 once limb */
+/* hits are in the mix. A 30-round magazine plus its 150-round catalog reserve   */
+/* is 180 rounds; a resupply charge tops that reserve up by                       */
+/* `capacity * magazinesPerWeapon` = 60. So the upstairs fight needs somewhere    */
+/* between two and four charges' worth of rifle ammunition on top of what he      */
+/* carries up, and it used to be given two -- shared with the armour it also      */
+/* dispenses, and shared across two caches.                                       */
+/*                                                                                 */
+/* THE INCOMING SIDE. An attacker's AK is scaled by PLAYER_DAMAGE_SCALE 0.45 to    */
+/* 20.7 raw a round. Armour eats 55% of a raw hit and pays for it one-for-one       */
+/* (`CombatActor.applyHit`), so an armour point is a raw point absorbed and a       */
+/* health point is a raw point taken. The old economy was 100 health + 2x45 triage  */
+/* = 190 health and 75 + 2x45 = 165 armour: 355 raw damage, SEVENTEEN AK rounds     */
+/* spread across twenty-seven attackers. The plan below is 325 health and 345       */
+/* armour, which is 670 raw and thirty-two rounds -- and the upstairs half of it    */
+/* alone (100 + 4x45 health, 75 + 5x45 armour) is 580 raw and twenty-eight. Still   */
+/* about one hit per attacker, which is what "survivable, not free" means on a      */
+/* rail you are supposed to be using as cover.                                      */
+/*                                                                                 */
+/* WHY FOUR `CombatSupplyState`s AND NOT A NEW SYSTEM. The shared class already    */
+/* is the per-station model -- it owns a station's charges and its bounded grants, */
+/* and `CombatActor`/`Firearm` stay the health and ammunition authorities either   */
+/* way. Nothing in it says a scene may only own one. This is a scene-configuration */
+/* fix: four instances, one per physical cache, and the contract in               */
+/* tests/combat-supplies.test.mjs is untouched.                                    */
+/* ================================================================== */
+const SIEGE_SUPPLY_CACHES = Object.freeze({
+  /* THE GROUND-FLOOR LEG. A guard's crate shoved against the foyer's east
+   * wall at the foot of the east flight -- see `SIEGE_FOYER_CACHE_SPOT`. One
+   * dressing and one resupply, deliberately small: this is a top-up taken
+   * under the front door's guns on the way past, not a depot. Two charges
+   * here would mostly be wasted anyway, because a player arriving from the
+   * armory is close enough to full that `useResupply()` refuses the press. */
+  foyerLine: Object.freeze({
+    triageCharges: 1,
+    resupplyCharges: 1,
+    triageHeal: 45,
+    armorPerUse: 45,
+    magazinesPerWeapon: 2,
+  }),
+  /* The firing step's own belt crate: the hero position, so the deepest
+   * cache. Three charges is 180 rifle rounds and 135 armour, which is the
+   * bulk of the 150-round staircase estimate above. */
+  firingStep: Object.freeze({
+    triageCharges: 0,
+    resupplyCharges: 3,
+    triageHeal: 0,
+    armorPerUse: 45,
+    magazinesPerWeapon: 2,
+  }),
+  /* The west flank cans on the gallery rail. Two, and they are the reason a
+   * player who has spent the step's crate holding the east flight has
+   * somewhere to go that is not the end of the mission. */
+  flankCache: Object.freeze({
+    triageCharges: 0,
+    resupplyCharges: 2,
+    triageHeal: 0,
+    armorPerUse: 45,
+    magazinesPerWeapon: 2,
+  }),
+  /* Gratin's field case on the east gallery flank, and the only healing in
+   * the house. Four dressings at 45 is 180 health on top of the player's
+   * 100, which is the "more health" half of the owner's note: the ceiling for
+   * the staircase defence moves from 190 to 280, and to 325 once the foyer
+   * satchel on the way up is counted. There is no regeneration anywhere in
+   * src/core/combat/actors.js, so this number IS the health ceiling. */
+  triageCase: Object.freeze({
+    triageCharges: 4,
+    resupplyCharges: 0,
+    triageHeal: 45,
+    armorPerUse: 0,
+    magazinesPerWeapon: 0,
+  }),
 });
+
+/**
+ * The four caches, live.
+ *
+ * Declaration order is load-bearing in one narrow place: the aggregate
+ * `window.mansionSiege.supplies` view below drains them in this order, so a
+ * headless drain empties the ground floor before the gallery, which is the
+ * order a player walks them in.
+ */
+const combatSupplyCaches = Object.freeze(Object.fromEntries(
+  Object.entries(SIEGE_SUPPLY_CACHES)
+    .map(([id, plan]) => [id, new CombatSupplyState(plan)]),
+));
+
+/**
+ * WHAT A CHECKPOINT GUARANTEES, AND THE RETRY TRAP IT EXISTS TO KILL.
+ *
+ * `supplies` is a checkpoint field (mission.js CHECKPOINT_FIELDS) and it was
+ * captured and restored exactly: whatever charges were left at the moment the
+ * checkpoint was written are the charges every retry from it gets back. That
+ * reads as fair and is not, because `CHECKPOINTS.wave_one` resumes at B.LULL
+ * -- the checkpoint is written when wave one ENDS. A player who spent both his
+ * charges holding wave one had the checkpoint record "zero", and then every
+ * single retry of wave two started at zero, forever, with `respawnFromCheckpoint()`
+ * handing back full health and the same empty crates. Each attempt was poorer
+ * than the last real one, so the death that cost him the most was the one that
+ * made the fight hardest. That is the opposite of what a checkpoint is for.
+ *
+ * The rule now: A CHECKPOINT RESTORE TOPS EACH CACHE UP TO THE FLOOR THE BEAT
+ * AHEAD OF IT NEEDS, AND NEVER TAKES ANYTHING AWAY. `max(saved, floor)`,
+ * clamped to the cache's own maximum. Three things follow from it.
+ *
+ *   - A retry is never poorer than the guarantee. Wave two from `wave_one` is
+ *     always fought with at least two firing-step charges, one flank charge
+ *     and two dressings -- enough for fourteen men including the armoured
+ *     three of 2C -- however badly wave one went.
+ *   - Conserving still pays. A player who reaches the lull with everything
+ *     intact keeps everything intact; the floor only ever raises a shortfall.
+ *     Refilling to full instead would have made spending the crates free and
+ *     turned "hold the house" into "hold the house, then die on purpose".
+ *   - The floor is smaller than the stock. Two of three, one of two, two of
+ *     four. Dying is still expensive, it is just no longer cumulative.
+ *
+ * A cache BEHIND the checkpoint gets no floor. `foyerLine` is not listed at
+ * `briefed` or `wave_one` because it stands on the ground floor with the
+ * cartel coming through the front door: guaranteeing a refill the player
+ * cannot safely reach would be a promise about a crate, not about the fight.
+ *
+ * Keyed by checkpoint id. Missing cache => floor of zero, i.e. keep what was
+ * saved and add nothing.
+ */
+const SIEGE_SUPPLY_FLOORS = Object.freeze({
+  wake: Object.freeze({
+    foyerLine: Object.freeze({ triage: 1, resupply: 1 }),
+    firingStep: Object.freeze({ resupply: 3 }),
+    flankCache: Object.freeze({ resupply: 2 }),
+    triageCase: Object.freeze({ triage: 4 }),
+  }),
+  /* Armory reached, before a gun is chosen: the whole mission is still ahead. */
+  armory: Object.freeze({
+    foyerLine: Object.freeze({ triage: 1, resupply: 1 }),
+    firingStep: Object.freeze({ resupply: 3 }),
+    flankCache: Object.freeze({ resupply: 2 }),
+    triageCase: Object.freeze({ triage: 4 }),
+  }),
+  /* Armed, in the cellar: the whole mission is still ahead of him. */
+  armed: Object.freeze({
+    foyerLine: Object.freeze({ triage: 1, resupply: 1 }),
+    firingStep: Object.freeze({ resupply: 3 }),
+    flankCache: Object.freeze({ resupply: 2 }),
+    triageCase: Object.freeze({ triage: 4 }),
+  }),
+  /* Briefed, on the landing: both waves ahead, the foyer behind. */
+  briefed: Object.freeze({
+    firingStep: Object.freeze({ resupply: 3 }),
+    flankCache: Object.freeze({ resupply: 2 }),
+    triageCase: Object.freeze({ triage: 4 }),
+  }),
+  /* The lull: fourteen men left, which is 64% of the staircase defence. */
+  wave_one: Object.freeze({
+    firingStep: Object.freeze({ resupply: 2 }),
+    flankCache: Object.freeze({ resupply: 1 }),
+    triageCase: Object.freeze({ triage: 2 }),
+  }),
+});
+
+/** Which checkpoint a beat belongs to; every checkpoint owns a distinct beat. */
+const SIEGE_CHECKPOINT_BY_BEAT = new Map(
+  Object.values(CHECKPOINTS).map((entry) => [entry.beat, entry.id]),
+);
+
+const supplyCacheIds = Object.freeze(Object.keys(combatSupplyCaches));
+
+function totalSupplyCharges() {
+  let triage = 0;
+  let resupply = 0;
+  for (const state of Object.values(combatSupplyCaches)) {
+    triage += state.triageRemaining;
+    resupply += state.resupplyRemaining;
+  }
+  return { triage, resupply };
+}
+
+/**
+ * The mission's supply state, as one record.
+ *
+ * `triageCharges` / `resupplyCharges` are the MISSION TOTALS and they stay at
+ * the top level on purpose: `window.mansionSiege.supplies.snapshot()` is what
+ * tools/verify-mansion-siege.mjs reads to drain and re-check the stations, and
+ * the campaign's own `normalizeMansionSiegeCheckpointSnapshot()` in
+ * src/core/campaign.js accepts nothing else. `caches` carries the truth the
+ * scene restores from.
+ */
+function supplySnapshot(checkpointId = null) {
+  const totals = totalSupplyCharges();
+  const caches = {};
+  for (const id of supplyCacheIds) caches[id] = combatSupplyCaches[id].snapshot();
+  return {
+    triageCharges: totals.triage,
+    resupplyCharges: totals.resupply,
+    checkpoint: checkpointId,
+    caches,
+  };
+}
+
+/**
+ * Put the caches back, then raise them to the checkpoint's floor.
+ *
+ * The `caches` half can be missing entirely -- a campaign resume arrives
+ * through `normalizeMansionSiegeCheckpointSnapshot()`, which is a src/core
+ * function this pass does not own and which flattens the whole supply state to
+ * two integers clamped to 0..2. Four counters do not fit in two clamped
+ * integers, and inventing a distribution from them would be a lie about where
+ * the player left his ammunition. So a snapshot with no `caches` restores to
+ * the checkpoint's floor and nothing more: the guarantee is honest, and a
+ * resumed campaign is a fresh session anyway.
+ */
+function restoreSiegeSupplies(snapshot, checkpointId = snapshot?.checkpoint ?? null) {
+  const saved = snapshot?.caches ?? null;
+  const floor = SIEGE_SUPPLY_FLOORS[checkpointId] ?? null;
+  for (const id of supplyCacheIds) {
+    const state = combatSupplyCaches[id];
+    state.restore(saved?.[id] ?? { triageCharges: 0, resupplyCharges: 0 });
+    const guarantee = floor?.[id];
+    if (!guarantee) continue;
+    state.triageCharges = Math.max(state.triageCharges, Math.min(
+      state.maxTriageCharges, Math.trunc(Number(guarantee.triage) || 0),
+    ));
+    state.resupplyCharges = Math.max(state.resupplyCharges, Math.min(
+      state.maxResupplyCharges, Math.trunc(Number(guarantee.resupply) || 0),
+    ));
+  }
+  refreshSupplyProps();
+  return supplySnapshot(checkpointId);
+}
+
 const combatAudio = new CombatAudio({ audio });
 const combatSteps = new CombatStepCadence({ audio: combatAudio });
 const ballisticImpacts = new BallisticImpactSystem(scene, { audio: combatAudio });
@@ -498,13 +796,15 @@ function grantSiegeArmor() {
 }
 
 function completeArmoryPickup(id) {
-  if (mission.beat !== B.ARM || !isSiegeLineWeapon(id)) return false;
+  if (!isSiegeLineWeapon(id)) return false;
+  if (mission.beat === B.TO_OFFICE) return mission.optionalWeaponTaken(id);
+  if (mission.beat !== B.ARM) return false;
   const armorAdded = grantSiegeArmor();
-  const finished = mission.weaponTaken(id);
-  if (finished && armorAdded > 0 && running && checkpointReconstructionDepth === 0) {
+  const advanced = mission.weaponTaken(id);
+  if (advanced && armorAdded > 0 && running && checkpointReconstructionDepth === 0) {
     nudge(`Plate carrier secured — ${Math.round(playerActor.armor)} armor.`, 2.8);
   }
-  return finished;
+  return advanced;
 }
 
 const finalArcLoadout = createFinalArcLoadout();
@@ -514,8 +814,11 @@ let attackers = null;
 let hitConfirmTimer = 0;
 let hitConfirmKind = null;
 let playerHitCount = 0;
+const playerKillIds = new Set();
 let playerDamageEvents = 0;
 let pointerLockRejected = false;
+let explainPointerLockFailure = false;
+let input = null;
 let lastPlayerSuppression = null;
 const playerTriggerDamage = new Map();
 const playerTriggerPresentation = new Map();
@@ -623,6 +926,11 @@ function presentActorImpact(resolved, impact) {
     caliber: combatCaliber(impact?.weapon ?? resolved?.weapon),
     position: contact.point,
     result,
+    /* A plate carrier cracks and drops ceramic; a light vest does neither.
+     * The pool has carried the tier since it was built -- see
+     * `CombatAudio.impact`, and the Palace, where the owner heard it. */
+    armorTier: (resolved?.entry ?? resolved?.combatant)?.armorPresentation?.tier === 'heavy'
+      ? 'heavy' : 'light',
   });
 }
 
@@ -759,7 +1067,8 @@ function applyPlayerShotSuppression(shot) {
     const result = suppressionField.applyPlayerShot({
       shot: { ...pellet, hit },
       combatants,
-      colliders,
+      /* A suppression field is blocker-clipped, and a floor is a blocker. */
+      colliders: combatColliders,
     });
     for (const suppressed of result.suppressed) alreadySuppressed.add(suppressed.combatant);
     results.push(result);
@@ -825,6 +1134,7 @@ function resolvePlayerWeaponImpact(impact) {
   for (const hit of applied) {
     if (!groupedPresentation) presentActorImpact(hit, budget.impact);
     showEnemyBlood(hit, budget.impact);
+    if (hit.result?.fatal && hit.entry?.id) playerKillIds.add(hit.entry.id);
   }
   playerHitCount += applied.length;
   const best = applied.find((hit) => hit.zone === 'head')
@@ -969,7 +1279,12 @@ const armory = mountArmory({
     }
     if (acquisition.ok) captureSiegeLoadout();
     loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-    completeArmoryPickup(decision.weaponId);
+    /* A full inherited loadout may satisfy the FIRST pickup with a gun the
+     * player already owns, but it must not manufacture an optional pickup on
+     * every refused rack interaction after that. Only a retained rack gun is
+     * written into the optional-pickup ledger. */
+    const takingFirstWeapon = mission.beat === B.ARM;
+    if (takingFirstWeapon || acquisition.ok) completeArmoryPickup(decision.weaponId);
     if (decision.nudge) nudge(decision.nudge);
   },
 });
@@ -1022,28 +1337,54 @@ function ownedFirearms() {
     .map((id) => weaponSystem.firearm(id));
 }
 
-function useTriageStation() {
-  const result = combatSupplies.useTriage(playerActor);
+/** Whether any OTHER cache still has something of this kind left in it. */
+function elsewhereHas(cacheId, remaining) {
+  return supplyCacheIds
+    .some((id) => id !== cacheId && combatSupplyCaches[id][remaining] > 0);
+}
+
+/**
+ * Use one named cache's dressings.
+ *
+ * `cacheId` rather than a bare call: the whole point of the 2026-08-24 pass is
+ * that a press at the gallery case must not spend the foyer satchel, so the
+ * station that was touched is the state that pays.
+ */
+function useTriageStation(cacheId) {
+  const supplies = combatSupplyCaches[cacheId];
+  if (!supplies) return { used: false, healed: 0, remaining: 0 };
+  const result = supplies.useTriage(playerActor);
   if (!result.used) {
+    /* An empty station now means one empty STATION, so the refusal has to say
+     * whether there is anything left in the house. Telling a bleeding player
+     * "empty" when there are three dressings on the gallery is the same
+     * failure the shared pool was: a true sentence about the wrong thing. */
     nudge(result.remaining <= 0
-      ? 'The field case is empty.'
+      ? (elsewhereHas(cacheId, 'triageRemaining')
+        ? 'This field case is empty. There are dressings on the gallery.'
+        : 'Every field dressing in the house is gone.')
       : 'Save the bandages. You are already at full health.', 2.4);
     return result;
   }
   combatAudio.triage({ position: player.position });
   combatHud.update();
+  refreshSupplyProps();
   nudge(`Treated ${Math.round(result.healed)} health. ${result.remaining} field dressing${result.remaining === 1 ? '' : 's'} left.`, 2.8);
   return result;
 }
 
-function useResupplyStation() {
-  const result = combatSupplies.useResupply({
+function useResupplyStation(cacheId) {
+  const supplies = combatSupplyCaches[cacheId];
+  if (!supplies) return { used: false, armor: 0, ammunition: 0, remaining: 0 };
+  const result = supplies.useResupply({
     actor: playerActor,
     firearms: ownedFirearms(),
   });
   if (!result.used) {
     nudge(result.remaining <= 0
-      ? 'The firing-step ammunition is spent.'
+      ? (elsewhereHas(cacheId, 'resupplyRemaining')
+        ? 'This cache is spent. There is another one.'
+        : 'Every cache in the house is spent.')
       : 'Armor and carried ammunition are already full.', 2.4);
     return result;
   }
@@ -1055,29 +1396,256 @@ function useResupplyStation() {
   captureSiegeLoadout();
   combatHud.update();
   ammoDirty = true;
+  refreshSupplyProps();
   nudge(`Resupplied ${Math.round(result.ammunition)} rounds and ${Math.round(result.armor)} armor. ${result.remaining} cache use${result.remaining === 1 ? '' : 's'} left.`, 3);
   return result;
 }
 
-const triageSurface = dressing.props.defenceStations.zones.triage.group;
-const resupplySurfaces = [
-  dressing.props.firingStep.ammo,
-  dressing.props.defenceStations.zones.resupply.group,
-].filter(Boolean);
-interaction.register(triageSurface, {
-  label: () => combatSupplies.triageCharges > 0
-    ? `Use <b>triage</b> &mdash; ${combatSupplies.triageCharges} dressing${combatSupplies.triageCharges === 1 ? '' : 's'} left`
-    : '<b>Triage</b> &mdash; empty',
-  enabled: () => running && triageSurface.visible,
-  onUse: useTriageStation,
+/* ================================================================== */
+/* THE FOYER LINE CACHE -- the one supply point on the ground floor      */
+/*                                                                       */
+/* PART IV of docs/MANSION-SIEGE-NIGHT.md is the beat this stands in: up  */
+/* the basement stair into the rear hall, then south down a 22 m entrance  */
+/* hall with three men already inside it -- one behind the wrecked         */
+/* centrepiece, one on the front-door line at z 36, one coming out of the   */
+/* lounge arch -- and up one of the two flights. It was the longest stretch  */
+/* of the mission and it had nothing on it.                                  */
+/*                                                                            */
+/* WHERE IT STANDS, and every one of these numbers came off the live scene     */
+/* rather than off the floor plan. (8.28, 1.20, 40.00), against the foyer's    */
+/* east partition, whose inner face is at x 8.83. Yawed -0.16 rad, so its      */
+/* rotated footprint spans x 7.81..8.75 and z 39.45..40.41. That leaves:       */
+/*                                                                             */
+/*   - 6 cm to the east wall, which is what makes it read as SHOVED against    */
+/*     the wall rather than parked in the room;                                */
+/*   - 57 cm to the burning console wreck (`SIEGE_ANCHORS.foyerFire`, collider */
+/*     x 6.88..8.82, z 36.93..38.87), so the fire lights it and does not       */
+/*     intersect it;                                                           */
+/*   - 57 cm to the `foyer_stair_east` attacker anchor at (7.0, 41.0), which   */
+/*     carries a 0.7 m lane spread. A cache standing in a navigation anchor is */
+/*     how ./nav.js's own comments describe every routing fault this house has */
+/*     ever had, and it is the first thing tools/probe-siege-anchors.mjs looks */
+/*     for.                                                                     */
+/*                                                                              */
+/* WHY THERE AND NOT THE REAR HALL. The rear hall is where he arrives, which    */
+/* makes a cache there a free top-up before the fight. This one is two metres   */
+/* south of the east flight's foot, in the open, on the front door's sight line */
+/* -- he has to step out to take it while three men are shooting, or climb past */
+/* it dry. That is the difference between a supply point and a vending machine. */
+/*                                                                               */
+/* WHY IT IS CHEST HIGH. ./dressing.js's debris section states the house rule    */
+/* out loud: this engine has no step-over, so anything solid on the floor of a   */
+/* firefight is a wall you cannot see over and cannot walk round in a hurry, and */
+/* the only solids the siege adds are the ones it MEANS as cover. So the crate   */
+/* stack is 0.98 m -- chest height on a crouching man, the same as the foyer's   */
+/* two overturned pieces -- and it is cover as well as ammunition.               */
+/*                                                                               */
+/* WHY IT IS BUILT HERE AND NOT IN ./dressing.js. Same reason ./armor-cache.js   */
+/* exists: this is an INTERACTION with mission state behind it, not set          */
+/* dressing, and the damage-state overlay must not be able to withdraw it in a   */
+/* state change the way it withdraws a wrecked chair. It goes straight onto the  */
+/* scene and straight into `colliders`, exactly as the plate-carrier stand does. */
+/* ================================================================== */
+const SIEGE_FOYER_CACHE_SPOT = Object.freeze({
+  x: 8.28, y: GROUND_Y, z: 40.00, rotY: -0.16,
 });
-for (const surface of resupplySurfaces) {
-  interaction.register(surface, {
-    label: () => combatSupplies.resupplyCharges > 0
-      ? `Resupply <b>armor and ammunition</b> &mdash; ${combatSupplies.resupplyCharges} use${combatSupplies.resupplyCharges === 1 ? '' : 's'} left`
-      : '<b>Resupply</b> &mdash; empty',
+/** Top of the two-crate stack, in the group's local frame. Cover height. */
+const FOYER_CACHE_TOP = 0.98;
+/** How far the levered-off lid is tipped back off the floor, in radians. */
+const FOYER_CACHE_LID_TILT = 1.32;
+const M_CACHE_CRATE = mat({ color: 0x4b4531, roughness: 0.82, metalness: 0.08 });
+const M_CACHE_STEEL = mat({ color: 0x53585f, roughness: 0.5, metalness: 0.6 });
+const M_CACHE_BRASS = mat({ color: 0xb08a3c, roughness: 0.34, metalness: 0.82 });
+const M_CACHE_CANVAS = mat({ color: 0x2c3a30, roughness: 0.92 });
+const M_CACHE_CROSS = mat({ color: 0xd23c34, roughness: 0.55 });
+
+const foyerCache = new THREE.Group();
+foyerCache.name = 'siege.foyer-cache';
+foyerCache.position.set(
+  SIEGE_FOYER_CACHE_SPOT.x, SIEGE_FOYER_CACHE_SPOT.y, SIEGE_FOYER_CACHE_SPOT.z,
+);
+foyerCache.rotation.y = SIEGE_FOYER_CACHE_SPOT.rotY;
+scene.add(foyerCache);
+
+/* Two crates, the lower one bearing the upper. Local y is measured off the
+ * foyer floor, so every box sits at half its own height and nothing floats.
+ *
+ * NOTHING HERE CASTS. The only shadow-casting light in this scene is the moon,
+ * outside; ../perf.js's `capShadowCasters` exists because the siege was paying
+ * a shadow pass for a house full of objects that could never be reached by it,
+ * and this crate is under the gallery slab in an entrance hall. It is big
+ * enough (0.82 m against the cap's 0.469 m minimum) that the size rule would
+ * KEEP it, so the honest place to say "indoors" is here. */
+foyerCache.add(box({
+  name: 'siege.foyer-cache.crate.low',
+  size: [0.82, 0.52, 0.66], pos: [0, 0.26, 0], mat: M_CACHE_CRATE, cast: false,
+}));
+foyerCache.add(box({
+  name: 'siege.foyer-cache.crate.high',
+  size: [0.7, 0.46, 0.56], pos: [0.03, 0.75, 0.02], mat: M_CACHE_CRATE, rotY: 0.11, cast: false,
+}));
+/* Steel banding, so it reads as an ammunition crate at a glance and not as a
+ * packing case somebody left in a hallway. */
+for (const [i, y] of [[0, 0.14], [1, 0.4], [2, 0.63], [3, 0.88]]) {
+  foyerCache.add(box({
+    name: `siege.foyer-cache.band.${i}`,
+    size: [0.84, 0.035, 0.68], pos: [0, y, 0.01], mat: M_CACHE_STEEL, cast: false,
+  }));
+}
+/* The lid, levered off and stood against the stack's south face.
+ *
+ * `tippedRestY` IS IMPORTED RATHER THAN RE-DERIVED, and ./dressing.js's
+ * docblock on it is the reason: a rotated box's resting height is not
+ * `floor + height / 2`, and every prop in this house that assumed it was ended
+ * up 5 to 13 cm buried in the marble with `scene-audit` calling it FLOATING.
+ * A panel tipped about X mixes its 4 cm thickness with its 50 cm depth, so the
+ * two arguments go in depth-first. Its z centre puts the top edge against the
+ * crate's south face at z = -0.33 and its bottom edge on the floor. */
+foyerCache.add(box({
+  name: 'siege.foyer-cache.lid',
+  size: [0.68, 0.04, 0.5],
+  pos: [-0.06, tippedRestY(0, 0.5, 0.04, FOYER_CACHE_LID_TILT), -0.41],
+  mat: M_CACHE_CRATE,
+  rotX: FOYER_CACHE_LID_TILT,
+  cast: false,
+}));
+
+/* THE CONSUMABLES. Loose magazines on the top crate and a medic satchel
+ * beside them: the two things that vanish when their charge is spent, so a
+ * picked-over cache reads as picked over from across the hall instead of
+ * looking full and printing "empty" at arm's length. That was the exact
+ * complaint about the gallery pair. */
+const foyerCacheRounds = new THREE.Group();
+foyerCacheRounds.name = 'siege.foyer-cache.rounds';
+foyerCache.add(foyerCacheRounds);
+for (let i = 0; i < 4; i++) {
+  const tip = -0.2 + i * 0.09;
+  foyerCacheRounds.add(box({
+    name: `siege.foyer-cache.magazine.${i}`,
+    size: [0.09, 0.24, 0.045],
+    /* Tipped, so seated with `tippedRestY` off the crate lid rather than off
+     * the floor -- the same correction, one storey up. */
+    pos: [-0.2 + i * 0.11, tippedRestY(FOYER_CACHE_TOP, 0.09, 0.24, tip), -0.14 + (i % 2) * 0.06],
+    mat: M_CACHE_STEEL,
+    rotZ: tip,
+    cast: false,
+  }));
+}
+/* Loose rounds spilled at the stack's south-east corner. Laid on their sides,
+ * so what holds them up is the radius, not half the length. */
+for (let i = 0; i < 5; i++) {
+  foyerCacheRounds.add(cylinder({
+    name: `siege.foyer-cache.round.${i}`,
+    r: 0.0075, h: 0.058,
+    pos: [0.18 + (i % 3) * 0.03, FOYER_CACHE_TOP + 0.0075, -0.2 + Math.floor(i / 3) * 0.04],
+    mat: M_CACHE_BRASS, rotX: Math.PI / 2, cast: false,
+  }));
+}
+
+/* The satchel is a CHILD of the crate and registered separately.
+ * `InteractionSystem._ownerOf` walks up from the mesh the ray hit to the
+ * nearest ancestor carrying a descriptor, so looking at the bag gives the
+ * dressing and looking at the crate gives the ammunition, off one object --
+ * the same two-surfaces-one-prop shape the gallery's defence stations use. */
+const foyerCacheSatchel = new THREE.Group();
+foyerCacheSatchel.name = 'siege.foyer-cache.satchel';
+foyerCacheSatchel.position.set(-0.12, FOYER_CACHE_TOP, 0.16);
+foyerCacheSatchel.rotation.y = 0.24;
+foyerCache.add(foyerCacheSatchel);
+foyerCacheSatchel.add(box({
+  name: 'siege.foyer-cache.satchel.body',
+  size: [0.34, 0.2, 0.19], pos: [0, 0.1, 0], mat: M_CACHE_CANVAS, cast: false,
+}));
+foyerCacheSatchel.add(box({
+  name: 'siege.foyer-cache.satchel.flap',
+  size: [0.34, 0.02, 0.14], pos: [0, 0.205, -0.03], mat: M_CACHE_CANVAS, cast: false,
+}));
+foyerCacheSatchel.add(box({
+  name: 'siege.foyer-cache.satchel.cross.h',
+  size: [0.13, 0.012, 0.045], pos: [0, 0.212, -0.03], mat: M_CACHE_CROSS, cast: false,
+}));
+foyerCacheSatchel.add(box({
+  name: 'siege.foyer-cache.satchel.cross.v',
+  size: [0.045, 0.012, 0.13], pos: [0, 0.212, -0.03], mat: M_CACHE_CROSS, cast: false,
+}));
+foyerCacheSatchel.add(box({
+  name: 'siege.foyer-cache.satchel.strap',
+  size: [0.05, 0.21, 0.2], pos: [0.14, 0.1, 0], mat: M_CACHE_STEEL, cast: false,
+}));
+
+/* The collider: the yawed footprint's own axis-aligned bounds, INCLUDING the
+ * leaning lid, and NAMED -- an anonymous box is a box no collider report can
+ * point at, which is the whole lesson of ./armor-cache.js's docblock.
+ *
+ * The rotated extent is worked out rather than eyeballed, and then MEASURED:
+ * a Box3 over the built group in the live scene reads 0.937 m of x and
+ * 0.961 m of z about the anchor, running from -0.549 to +0.412 in z because
+ * of the lid leaning off the south face. The numbers below enclose every
+ * piece of it. Only the loose magazines stand above the box, and they are
+ * 12 cm of dressing on a surface, not a thing to walk into.
+ *
+ * What that leaves, symmetrically: 6 cm to the east partition's inner face at
+ * x 8.83, 57 cm north of the burning console wreck's collider (x 6.88..8.82,
+ * z 36.93..38.87) -- beside the fire, which lights it, and not in it -- and
+ * 57 cm south of the `foyer_stair_east` attacker anchor at (7.0, 41.0), the
+ * nearest anchor in the house. Checked against the live collider list and the
+ * live anchor table rather than against the floor plan: nothing it intersects,
+ * nothing standing in it. */
+colliders.push(Object.assign(
+  new THREE.Box3(
+    new THREE.Vector3(7.80, GROUND_Y, 39.44),
+    new THREE.Vector3(8.76, GROUND_Y + FOYER_CACHE_TOP, 40.43),
+  ),
+  { name: 'siege.foyer-cache.crate' },
+));
+
+/* ================================================================== */
+/* EVERY SUPPLY SURFACE IN THE HOUSE, AND THE CACHE BEHIND EACH ONE      */
+/*                                                                       */
+/* This table is the fix for the shared pool. Two visible caches on the    */
+/* gallery are now two `CombatSupplyState`s, so a use at the firing step   */
+/* cannot empty the west flank cans, and neither of them can empty the      */
+/* triage case or the foyer crate downstairs.                               */
+/* ================================================================== */
+const SIEGE_SUPPLY_SURFACES = [
+  { cache: 'foyerLine', kind: 'resupply', surface: foyerCache },
+  { cache: 'foyerLine', kind: 'triage', surface: foyerCacheSatchel },
+  { cache: 'triageCase', kind: 'triage', surface: dressing.props.defenceStations.zones.triage.group },
+  { cache: 'firingStep', kind: 'resupply', surface: dressing.props.firingStep.ammo },
+  { cache: 'flankCache', kind: 'resupply', surface: dressing.props.defenceStations.zones.resupply.group },
+].filter((entry) => entry.surface);
+
+/**
+ * Show what is left.
+ *
+ * Only the foyer crate has anything to hide today -- the gallery stations are
+ * ./dressing.js's and this file does not reach into another module's props to
+ * switch pieces of them off. Called from both station handlers and from every
+ * checkpoint restore, so a rewind that hands the dressing back also hands the
+ * satchel back.
+ */
+function refreshSupplyProps() {
+  const foyer = combatSupplyCaches.foyerLine;
+  if (!foyer) return;
+  foyerCacheRounds.visible = foyer.resupplyRemaining > 0;
+  foyerCacheSatchel.visible = foyer.triageRemaining > 0;
+}
+refreshSupplyProps();
+
+for (const { cache, kind, surface } of SIEGE_SUPPLY_SURFACES) {
+  const supplies = combatSupplyCaches[cache];
+  interaction.register(surface, kind === 'triage' ? {
+    label: () => (supplies.triageRemaining > 0
+      ? `Use <b>triage</b> &mdash; ${supplies.triageRemaining} dressing${supplies.triageRemaining === 1 ? '' : 's'} left`
+      : '<b>Triage</b> &mdash; empty'),
     enabled: () => running && surface.visible,
-    onUse: useResupplyStation,
+    onUse: () => useTriageStation(cache),
+  } : {
+    label: () => (supplies.resupplyRemaining > 0
+      ? `Resupply <b>armor and ammunition</b> &mdash; ${supplies.resupplyRemaining} use${supplies.resupplyRemaining === 1 ? '' : 's'} left`
+      : '<b>Resupply</b> &mdash; empty'),
+    enabled: () => running && surface.visible,
+    onUse: () => useResupplyStation(cache),
   });
 }
 
@@ -1105,6 +1673,12 @@ const shadowCap = capShadowCasters({
 /* The mission                                                           */
 /* ================================================================== */
 let running = false;
+/* The browser verifier owns its simulation clock while sampling exact
+ * trigger/impact frames. Keep that hold separate from the player-facing pause
+ * menu: pausing releases pointer lock and clears a held trigger, which makes
+ * it impossible to verify that one real mouse-down continues automatic fire.
+ * Ordinary play never changes this flag. */
+let ambientSimulationEnabled = true;
 let starting = false;
 let checkpointReconstructionDepth = 0;
 let ammoDirty = true;
@@ -1133,15 +1707,32 @@ let siegeCampaignComplete = false;
 /* ================================================================== */
 const dialogue = new SiegeDialogue({
   audio,
+  resolveSpeaker: (speakerId) => {
+    const memberId = speakerId === 'sasole' ? 'captain_lou_sasole' : speakerId;
+    return ensemble.members?.get?.(memberId)?.root ?? null;
+  },
+  onLeadIn: () => {
+    combatBarkTimer = 0;
+    if (!subtitleEl) return;
+    subtitleEl.hidden = true;
+    subtitleEl.classList.remove('hero');
+    delete subtitleEl.dataset.priority;
+  },
   onLine: (line) => {
     if (!subtitleEl) return;
     combatBarkTimer = 0;
     subtitleEl.hidden = false;
+    subtitleEl.classList.toggle('hero', line.protected === true);
+    subtitleEl.dataset.priority = line.priority ?? 'story';
     subtitleWhoEl.textContent = (SIEGE_SPEAKER_NAMES[line.speaker] ?? line.speaker).toUpperCase();
     subtitleTextEl.textContent = line.say;
   },
   onDone: (sequence) => {
-    if (subtitleEl) subtitleEl.hidden = true;
+    if (subtitleEl) {
+      subtitleEl.hidden = true;
+      subtitleEl.classList.remove('hero');
+      delete subtitleEl.dataset.priority;
+    }
     /* THE THREE HANDOFFS. Each of these is a mission method that existed
      * from the first commit and that nothing in the scene ever called. */
     if (sequence === 'briefing') mission.briefingEnded();
@@ -1153,8 +1744,13 @@ const dialogue = new SiegeDialogue({
 /** Barks are already authored by the cast Adapters; this only renders them. */
 function renderCombatBark(event = {}) {
   const line = typeof event.line === 'string' ? event.line.trim() : '';
-  if (!line || dialogue.line || !subtitleEl) return false;
+  /* The phone ring is part of the authored sequence even though no subtitle
+   * is up yet. Letting a combat bark into that 1.2-second answer beat can
+   * overwrite the first line just as the receiver comes up. */
+  if (!line || dialogue.active || !subtitleEl) return false;
   subtitleEl.hidden = false;
+  subtitleEl.classList.remove('hero');
+  subtitleEl.dataset.priority = 'ambient';
   subtitleWhoEl.textContent = String(event.name ?? event.role ?? event.id ?? '').toUpperCase();
   subtitleTextEl.textContent = line;
   combatBarkTimer = THREE.MathUtils.clamp(line.length * 0.055, 1.4, 3.2);
@@ -1185,9 +1781,14 @@ function renderCombatBark(event = {}) {
 }
 
 function updateCombatBark(dt) {
-  if (dialogue.line || combatBarkTimer <= 0) return;
+  if (dialogue.active || combatBarkTimer <= 0) return;
   combatBarkTimer = Math.max(0, combatBarkTimer - Math.max(0, Number(dt) || 0));
   if (combatBarkTimer === 0 && subtitleEl) subtitleEl.hidden = true;
+}
+
+/** The one authored line allowed to hold every gun report for its own take. */
+function heroDialogueProtected() {
+  return dialogue.line?.protected === true;
 }
 
 /**
@@ -1215,18 +1816,35 @@ function recordSiegeCheckpoint(id) {
     ? mission.checkpoint.scene?.supplies
     : null;
   missionAudio.checkpoint(id);
-  siegeCampaign.checkpoint(id, {
+  /* `armory` is a high-value in-page death retry but not yet one of the four
+   * durable campaign checkpoint ids. Keep the full mission snapshot locally
+   * and let a hard page reload fall back to `wake`; never write an id the
+   * campaign normalizer would discard together with its combat snapshot. */
+  if (id !== 'armory') siegeCampaign.checkpoint(id, {
     attackersDown: mission.attackersDown,
     littleFriendSaid: mission.littleFriendSaid,
     sasoleMet: mission.beat === B.COMPLETE,
     /* The large scene checkpoint stays in memory. These four bounded numbers
      * are the combat state a full campaign/page reload cannot reconstruct
-     * honestly from the checkpoint name alone. */
+     * honestly from the checkpoint name alone.
+     *
+     * `supplies` IS DELIBERATELY LOSSY HERE, and the loss is the campaign's
+     * rather than this scene's. `normalizeMansionSiegeCheckpointSnapshot()` in
+     * src/core/campaign.js is the durable gate and it accepts exactly two
+     * integers clamped to 0..2, dropping the entire snapshot -- health and
+     * armour with it -- if they are missing. The mission owns four caches now,
+     * which does not fit and cannot be made to fit without editing a src/core
+     * schema this pass does not own. So the durable record carries the honest
+     * TOTALS (clamped by that gate) and `restoreSiegeSupplies()` rebuilds a
+     * resumed campaign from the checkpoint's guaranteed floor instead of
+     * inventing a distribution. In-page death retries -- the ones the retry
+     * trap was actually about -- go through the full in-memory record and lose
+     * nothing. */
     checkpointSnapshot: {
       name: id,
       health: capturedHealth?.health ?? playerActor.health,
       armor: capturedHealth?.armor ?? playerActor.armor,
-      supplies: capturedSupplies ?? combatSupplies.snapshot(),
+      supplies: capturedSupplies ?? supplySnapshot(id),
     },
   });
   checkpointEl.textContent = (CHECKPOINTS[id]?.label ?? 'CHECKPOINT').toUpperCase();
@@ -1253,6 +1871,12 @@ const mission = new SiegeMission({
     }
   },
   onBeat: (beat) => {
+    /* Fire permission belongs to the mission beat, not to how many seconds a
+     * line happens to take. Clear an already-held trigger at the boundary so
+     * walking into Lou's office while firing cannot leak one automatic round
+     * into the briefing. The BRIEFING -> LITTLE_FRIEND transition restores
+     * permission immediately through `mission.playerFireEnabled`. */
+    if (!mission.playerFireEnabled) weaponSystem.setTrigger(false);
     ensemble.stage(beat);
     waveDirty = true;
     if (beat === B.WAVE_ONE) missionAudio.waveIncoming('one');
@@ -1267,6 +1891,8 @@ const mission = new SiegeMission({
         attackersDown: mission.attackersDown,
         littleFriendSaid: mission.littleFriendSaid,
         sasoleMet: true,
+        shotsFired: weaponSystem.stats.shots,
+        peopleKilled: playerKillIds.size,
       }) || siegeCampaignPreview;
       showMissionCard();
     }
@@ -1374,8 +2000,13 @@ mission
     },
   })
   .provide('supplies', {
-    capture: () => combatSupplies.snapshot(),
-    restore: (snapshot) => combatSupplies.restore(snapshot),
+    /* `mission.beat` is already the checkpoint's own beat when this runs --
+     * `SiegeMission._enter` assigns the beat before it calls `saveCheckpoint`
+     * -- so the record can stamp WHICH checkpoint it belongs to, and the
+     * restore below knows which floor to apply without having to guess from
+     * whatever `mission.checkpoint` happens to hold at restore time. */
+    capture: () => supplySnapshot(SIEGE_CHECKPOINT_BY_BEAT.get(mission.beat) ?? null),
+    restore: (snapshot) => restoreSiegeSupplies(snapshot),
   });
 
 /** Apply the campaign-safe combat subset to the canonical rebuilt checkpoint. */
@@ -1389,7 +2020,7 @@ function restoreDurableCombatCheckpoint(snapshot, checkpointId) {
   });
   /* Refresh the derived injury grade after replacing raw health. */
   playerActor.heal(0);
-  combatSupplies.restore(snapshot.supplies);
+  restoreSiegeSupplies(snapshot.supplies, checkpointId);
   combatHud.reset();
   resetCombatPresentation();
 
@@ -1398,7 +2029,7 @@ function restoreDurableCombatCheckpoint(snapshot, checkpointId) {
    * that manufactures the resources we just restored. */
   if (mission.checkpoint?.id === checkpointId) {
     mission.checkpoint.scene.health = playerActor.snapshot();
-    mission.checkpoint.scene.supplies = combatSupplies.snapshot();
+    mission.checkpoint.scene.supplies = supplySnapshot(checkpointId);
   }
   return true;
 }
@@ -1529,7 +2160,7 @@ function shatterNearest({ x, z, opening }) {
  * He went down.
  *
  * This used to restore the checkpoint silently and say so in this comment:
- * "there is no death screen and no retry menu, because the four checkpoints
+ * "there is no death screen and no retry menu, because the five checkpoints
  * are placed so that the longest thing a death can cost is one wave." The
  * owner asked for one, so there is one, and the comment is corrected rather
  * than left contradicting the code underneath it.
@@ -1565,7 +2196,7 @@ function onPlayerDown() {
   weaponSystem.setTrigger(false);
   weaponSystem.setAimed(false);
   weaponSystem.cancelPendingImpacts();
-  player.clearKeys?.();
+  input?.clear('player-down');
   /* Let the mouse go. A card with two buttons on it behind a locked pointer
    * is a card nobody can press. */
   try { document.exitPointerLock?.(); } catch { /* not locked */ }
@@ -1685,9 +2316,12 @@ function updateTriggers(dt) {
     if (inRect(CELLAR_HALL, x, z) && feet < GROUND_Y - 1) dialogue.play('guide_armory');
     return;
   }
-  if (mission.beat === B.TO_OFFICE && inRect(OFFICE, x, z) && feet > UPPER_Y - 1) {
-    mission.enteredOffice();
-    return;
+  if (mission.beat === B.TO_OFFICE) {
+    if (!inRect(BASEMENT_ROOM, x, z) || feet >= GROUND_Y - 1) mission.leftArmory();
+    if (inRect(OFFICE, x, z) && feet > UPPER_Y - 1) {
+      mission.enteredOffice();
+      return;
+    }
   }
   /* The handoff. He is standing on the landing in a flight jacket; walk up to
    * him and the mission ends. */
@@ -1714,47 +2348,10 @@ function holdTheLine() {
 /* ================================================================== */
 /* Input                                                                 */
 /*                                                                       */
-/* `Player` DOES NOT LISTEN FOR ITS OWN KEYS. It exposes setKey/clearKeys */
-/* and every scene wires its own handlers -- see the identical block in    */
-/* src/mansion/main.js and src/heist/main.js. Leaving this out is a scene  */
-/* that boots, renders, locks the pointer and simply never moves, with no  */
-/* error anywhere to say why. It cost this file one verifier run.          */
+/* The shared Adapter owns browser capture, Player input, held-state cleanup */
+/* and the rejected-capture lifecycle. Scene routes below retain weapon,    */
+/* dialogue and loadout policy without rebuilding that plumbing.            */
 /* ================================================================== */
-window.addEventListener('keydown', (e) => {
-  /* Tab never gets here — the pause menu's own capture-phase listener owns it
-   * (src/core/pause-menu.js). Everything below mutates the live mission, so it
-   * must go dark while the overlay is up, same as the mousedown handler. */
-  if (!running || pauseMenu.isPaused()) return;
-  if (e.code === 'Space') e.preventDefault();
-  player.setKey(translateKey(e.code), true);
-  if (e.code === 'KeyE' && !e.repeat) interaction.press();
-  if (e.code === 'KeyR' && !e.repeat) { weaponSystem.reload(); ammoDirty = true; }
-  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
-    weaponSystem.setAimed(false);
-    finalArcLoadout.stow(weaponSystem);
-    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-    ammoDirty = true;
-  }
-  if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
-    weaponSystem.setAimed(false);
-    finalArcLoadout.select(Number(e.code.slice(5)) - 1, weaponSystem);
-    loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
-    ammoDirty = true;
-    e.preventDefault();
-  }
-  /* The line. Once, ever, with any catalog gun up on the landing. */
-  if (e.code === 'KeyF' && !e.repeat) tryTheLine();
-  /* Skip the rest of whoever is talking. Enter, deliberately: Space is jump,
-   * and putting "skip the briefing" on the jump key means a first-time player
-   * who hops on the spot in Lou's office never hears the mission explained.
-   *
-   * NOT a cancel -- `finish()` runs the sequence's `onDone`, so skipping the
-   * briefing still ENDS the briefing. A skip that quietly left the mission in
-   * the beat it was skipping is the softlock this whole pass removed. */
-  if (e.code === 'Enter' && !e.repeat && dialogue.active) dialogue.finish();
-  // B — the same bloom toggle every PostFX-mounted scene answers to.
-  if (e.code === 'KeyB' && !e.repeat) postfx.toggle();
-});
 window.addEventListener('wheel', (e) => {
   if (!running || pauseMenu.isPaused()) return;
   const occupied = finalArcLoadout.items;
@@ -1770,21 +2367,7 @@ window.addEventListener('wheel', (e) => {
     break;
   }
 }, { passive: true });
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interaction.release();
-});
-window.addEventListener('blur', () => {
-  player.clearKeys();
-  interaction.release();
-  weaponSystem.setTrigger(false);
-  weaponSystem.setAimed(false);
-});
 window.addEventListener('pagehide', () => captureSiegeLoadout());
-window.addEventListener('mousemove', (e) => {
-  if (document.pointerLockElement !== renderer.domElement) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
 
 /**
  * Ask for mouse capture without leaving a rejected promise or a silent dead
@@ -1793,75 +2376,10 @@ window.addEventListener('mousemove', (e) => {
  * a later canvas click is the reliable recovery gesture.
  */
 function requestSiegePointerLock({ explain = false } = {}) {
-  if (document.pointerLockElement === renderer.domElement) return true;
-  if (typeof renderer.domElement.requestPointerLock !== 'function') {
-    pointerLockRejected = true;
-    if (explain) nudge('Mouse capture is unavailable. Open this page directly, or allow pointer lock.');
-    return false;
-  }
-  try {
-    const pending = renderer.domElement.requestPointerLock();
-    pending?.catch?.(() => {
-      pointerLockRejected = true;
-      if (explain) nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
-    });
-    return true;
-  } catch {
-    pointerLockRejected = true;
-    if (explain) nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
-    return false;
-  }
+  if (input?.locked) return true;
+  explainPointerLockFailure ||= explain;
+  return input?.requestPointerLock() ?? false;
 }
-
-document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement === renderer.domElement) {
-    pointerLockRejected = false;
-    return;
-  }
-  weaponSystem.setTrigger(false);
-  weaponSystem.setAimed(false);
-});
-document.addEventListener('pointerlockerror', () => {
-  pointerLockRejected = true;
-  weaponSystem.setTrigger(false);
-  weaponSystem.setAimed(false);
-  if (running && !pauseMenu.isPaused()) {
-    nudge('Mouse capture was blocked. Click the game again or allow pointer lock.');
-  }
-});
-
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running || pauseMenu.isPaused()) return;
-  if (e.button === 2) {
-    e.preventDefault();
-    if (weaponSystem.equipped) weaponSystem.setAimed(true);
-    return;
-  }
-  if (e.button !== 0) return;
-  if (document.pointerLockElement !== renderer.domElement) {
-    /* After an explicit browser rejection, do not turn every later click into
-     * another invisible no-op. A deliberate click still fires one round; the
-     * HUD explains why mouse-look is unavailable, while the same fresh user
-     * gesture retries capture in case the browser permission has changed. */
-    if (pointerLockRejected) {
-      requestSiegePointerLock({ explain: true });
-      if (weaponSystem.equipped) weaponSystem.triggerPress();
-      else nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
-      return;
-    }
-    requestSiegePointerLock({ explain: true });
-    return;
-  }
-  if (!weaponSystem.equipped) {
-    nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
-    return;
-  }
-  weaponSystem.setTrigger(true);
-});
-window.addEventListener('mouseup', (e) => {
-  if (e.button === 0) weaponSystem.setTrigger(false);
-  if (e.button === 2) weaponSystem.setAimed(false);
-});
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ================================================================== */
@@ -1917,7 +2435,7 @@ function updateNudge(dt) {
 }
 
 /**
- * "Say hello to my little friend."
+ * The staircase threat.
  *
  * Conditions, all of them: the briefing is over, a weapon is in his hands,
  * and he is standing on the firing step. Then the line plays, full control
@@ -2124,7 +2642,7 @@ function showMissionCard({ attackersDown = mission.attackersDown } = {}) {
    * a card nobody can click, which is how a "clean ending" becomes a
    * softlock with better typography. */
   document.exitPointerLock?.();
-  player.clearKeys?.();
+  input?.clear('mission-complete');
   weaponSystem.setTrigger(false);
   running = false;
 }
@@ -2223,21 +2741,138 @@ const pauseMenu = createPauseMenu({
   }),
   onPause: () => {
     interaction.setPaused(true);
-    weaponSystem.setTrigger(false);
-    weaponSystem.setAimed(false);
-    player.clearKeys();
+    input?.refresh('pause');
     if (audio.ctx?.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
     interaction.setPaused(false);
+    input?.refresh('resume');
     if (audio.ctx?.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
     requestSiegePointerLock({ explain: true });
   },
 });
 
+/**
+ * The one player-fire gate for both a held trigger and the pointer-lock retry
+ * shot. Equipping, reloading, looking and moving stay available while the
+ * office briefing owns this permission; only emission of a round is refused.
+ */
+function tryPlayerFire({ single = false } = {}) {
+  if (!mission.playerFireEnabled || heroDialogueProtected()) {
+    weaponSystem.setTrigger(false);
+    return false;
+  }
+  if (!weaponSystem.equipped) {
+    nudge('No weapon in hand. Press 1–5 to equip an owned gun.');
+    return false;
+  }
+  if (single) weaponSystem.triggerPress();
+  else weaponSystem.setTrigger(true);
+  return true;
+}
+
+input = createFirstPersonInput({
+  player,
+  canvas: renderer.domElement,
+  interaction,
+  canEnable: () => running && !pauseMenu.isPaused(),
+  canHandleInput: () => running && !pauseMenu.isPaused(),
+  controlState: () => ({
+    /* The 1.6-second wake animation owns the camera and body even if capture
+     * arrives immediately from the start gesture. */
+    playerEnabled: waking <= 0,
+    movementEnabled: waking <= 0,
+    defaultLookEnabled: waking <= 0,
+    interactionEnabled: waking <= 0,
+  }),
+  routes: {
+    keyDown(e) {
+      if (e.code === 'KeyR' && !e.repeat) {
+        weaponSystem.reload();
+        ammoDirty = true;
+        return true;
+      }
+      if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) {
+        weaponSystem.setAimed(false);
+        finalArcLoadout.stow(weaponSystem);
+        loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+        ammoDirty = true;
+        return true;
+      }
+      if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
+        weaponSystem.setAimed(false);
+        finalArcLoadout.select(Number(e.code.slice(5)) - 1, weaponSystem);
+        loadoutBar.set(finalArcLoadout.items, finalArcLoadout.selected);
+        ammoDirty = true;
+        e.preventDefault();
+        return true;
+      }
+      /* The line. Once, ever, with any catalog gun up on the landing. */
+      if (e.code === 'KeyF' && !e.repeat) { tryTheLine(); return true; }
+      /* Enter deliberately skips the active line. Space remains jump. */
+      if (e.code === 'Enter' && !e.repeat && dialogue.active) {
+        dialogue.finish();
+        return true;
+      }
+      if (e.code === 'KeyB' && !e.repeat) { postfx.toggle(); return true; }
+      return false;
+    },
+    mouseDown(e, controls) {
+      if (e.button === 2) {
+        e.preventDefault();
+        if (weaponSystem.equipped) weaponSystem.setAimed(true);
+        return true;
+      }
+      if (e.button !== 0) return true;
+      if (!controls.locked) {
+        /* After an explicit rejection, the next deliberate click retries
+         * capture and fires one fallback round. The rejected click itself
+         * never fires; verify:mansion-siege depends on that distinction. */
+        const fallbackShot = pointerLockRejected;
+        requestSiegePointerLock({ explain: true });
+        if (fallbackShot) tryPlayerFire({ single: true });
+        return true;
+      }
+      tryPlayerFire();
+      return true;
+    },
+    mouseUp(e) {
+      if (e.button === 0) weaponSystem.setTrigger(false);
+      if (e.button === 2) weaponSystem.setAimed(false);
+      return e.button === 0 || e.button === 2;
+    },
+  },
+  onClear: () => {
+    interaction.release();
+    weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
+  },
+  onCaptureChange: (_event, controls) => {
+    if (controls.locked) {
+      pointerLockRejected = false;
+      explainPointerLockFailure = false;
+    }
+    weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
+  },
+  onCaptureError: (_error, controls) => {
+    pointerLockRejected = true;
+    weaponSystem.setTrigger(false);
+    weaponSystem.setAimed(false);
+    const explain = explainPointerLockFailure || controls.reason === 'pointer-lock-error';
+    explainPointerLockFailure = false;
+    if (explain && running && !pauseMenu.isPaused()) {
+      const message = controls.reason === 'pointer-lock-unavailable'
+        ? 'Mouse capture is unavailable. Open this page directly, or allow pointer lock.'
+        : 'Mouse capture was blocked. Click the game again or allow pointer lock.';
+      nudge(message);
+    }
+  },
+});
+
 /* ================================================================== */
-/* CHECKPOINT ENTRY -- ?checkpoint=wake|armed|briefed|wave_one            */
+/* CHECKPOINT ENTRY -- ?checkpoint=wake|armory|armed|briefed|wave_one    */
 /*                                                                       */
 /* WHY THIS IS PARSED HERE AND NOT IN `src/core/preview-mode.js`.        */
 /*                                                                       */
@@ -2256,11 +2891,29 @@ const CHECKPOINT_ENTRIES = Object.freeze({
   wake: Object.freeze({
     label: 'WAKE UP', blurb: 'The guest room, from the top. The whole mission.',
   }),
+  armory: Object.freeze({
+    label: 'ARMORY',
+    blurb: 'Inside the armory before the first pickup. Take any one weapon.',
+    /* The builder's canonical armory marker, not the basement stair shaft.
+     * Yaw 90 faces the west rack while leaving the door at the player's back. */
+    at: Object.freeze({
+      x: anchors.armoryCenter.x,
+      y: anchors.armoryCenter.y,
+      z: anchors.armoryCenter.z,
+      yaw: 90,
+    }),
+  }),
   armed: Object.freeze({
     label: 'ARMED',
-    blurb: 'Out of the armory with a weapon, on the way up to Lou.',
-    /* At the foot of the basement stair, facing the way up. */
-    at: Object.freeze({ x: 7.2, y: BASEMENT_Y, z: 55.5, yaw: 0 }),
+    blurb: 'First weapon taken; the remaining rack guns are optional.',
+    /* Still in the safe armory bay so an armed preview can compare optional
+     * pickups. The old (7.2, 55.5) marker was inside BASEMENT_SHAFT itself. */
+    at: Object.freeze({
+      x: anchors.armoryCenter.x,
+      y: anchors.armoryCenter.y,
+      z: anchors.armoryCenter.z,
+      yaw: 90,
+    }),
   }),
   briefed: Object.freeze({
     label: 'BRIEFED',
@@ -2317,6 +2970,7 @@ function jumpToCheckpoint(id) {
   const restored = withCheckpointReconstruction(() => {
     mission.wokeUp();
     mission.enteredArmory();
+    if (id === 'armory') return mission.beat === B.ARM;
     equipOwnedWeapon(WEAPON_IDS.CARBINE);
     completeArmoryPickup(WEAPON_IDS.CARBINE);
     if (id === 'armed') return true;
@@ -2381,7 +3035,14 @@ async function beginSiege() {
      * real recording is never replaced by a one-shot synth fallback. */
     await audio.loadManifest({ names: siegeEffectCueNames() }).catch(() => {});
     await audio.loadAdditional({
-      names: [...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()],
+      names: [
+        ...weaponCueNames(), ...siegeVoiceCueNames(), ...siegeDialogueEffectCueNames(),
+        ...siegeCombatCueNames(),
+        /* The crew's own forty-two lines. They are barks rather than script,
+         * so they were never in `siegeVoiceCueNames()`, and a bark whose bank
+         * is not decoded plays the synth stand-in rather than the take. */
+        ...ateamBarkCueNames(),
+      ],
     }).catch(() => {});
     /* The banks above were awaited, so this normally resolves at once. It
      * exists to pin the exact cues the first trigger pull reaches for as
@@ -2422,7 +3083,9 @@ async function beginSiege() {
         return jumpToCheckpoint(entryCheckpoint);
       });
       if (!restored) throw new Error(`Could not restore Siege checkpoint: ${entryCheckpoint}`);
-      restoreDurableCombatCheckpoint(campaignEntry.checkpointSnapshot, entryCheckpoint);
+      if (entryCheckpoint !== 'armory') {
+        restoreDurableCombatCheckpoint(campaignEntry.checkpointSnapshot, entryCheckpoint);
+      }
       recordSiegeCheckpoint(entryCheckpoint);
       const at = CHECKPOINT_ENTRIES[entryCheckpoint].at;
       if (at) teleport(at.x, at.y, at.z, at.yaw);
@@ -2473,7 +3136,11 @@ export function siegeCombatCueNames() {
 }
 
 export function siegeCueNames() {
-  return [...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeCombatCueNames()];
+  return [
+    ...siegeEffectCueNames(), ...siegeVoiceCueNames(), ...siegeDialogueEffectCueNames(),
+    ...siegeCombatCueNames(),
+    ...ateamBarkCueNames(),
+  ];
 }
 
 function presentCombatStep(event = {}, dt = 0) {
@@ -2635,8 +3302,16 @@ function updateGame(dt) {
   updateHuntPip(huntActive);
   attackers.update(dt, {
     player: playerTarget,
-    colliders,
+    /* Sight and shot truth both come off this list. It is the one with floors
+     * in it -- see `combatColliders` above. */
+    colliders: combatColliders,
+    /* Body motion uses the movement list without floor/ceiling slabs. The
+     * combat list above remains authoritative for sight, suppression and
+     * bullets; mixing the two made a climber treat the gallery floor as a
+     * wall and eventually abandon his route through blocked recovery. */
+    movementColliders: colliders,
     hunt: huntActive,
+    holdFire: heroDialogueProtected(),
     alive: () => ensemble.targets(),
     audio: combatAdapterAudio,
     onBark: renderCombatBark,
@@ -2670,8 +3345,10 @@ function updateGame(dt) {
   updateRevive(dt);
   ensemble.update(dt, {
     player: playerTarget,
-    colliders,
+    /* The friendlies shoot through the same model the attackers do. */
+    colliders: combatColliders,
     attackers,
+    holdFire: heroDialogueProtected(),
     audio: combatAdapterAudio,
     onBark: renderCombatBark,
     onWeaponEvent: (event) => presentCombatWeaponEvent(event, 'friendly'),
@@ -2709,7 +3386,12 @@ function updateGame(dt) {
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
-  if (running && !pauseMenu.isPaused()) updateGame(dt);
+  if (running && ambientSimulationEnabled && !pauseMenu.isPaused()) updateGame(dt);
+  /* Where the player's ears are. Without this the WebAudio listener sits at
+   * the world origin facing -Z for the whole scene and every positioned cue is
+   * panned as heard from there -- see the long note in
+   * src/cartel-palace/main.js, where the owner caught it. */
+  audio.updateListener(camera);
   if (renderEnabled) { postfx.render(); postfx.sample(dt); framesRendered++; }
 }
 requestAnimationFrame(frame);
@@ -2749,6 +3431,7 @@ window.mansionSiege = {
   postfx,
   lightStatus,
   player,
+  input,
   playerActor,
   audio,
   missionAudio,
@@ -2760,6 +3443,10 @@ window.mansionSiege = {
   interaction,
   armory,
   armorCache,
+  /* The one supply object this file builds rather than dresses. Published so a
+   * verifier can measure where it stands instead of hunting the scene graph
+   * for it by name -- the same reason `armorCache` is on this list. */
+  foyerCache,
   grounds,
   interior,
   colliders,
@@ -2849,10 +3536,37 @@ window.mansionSiege = {
     return weaponSystem.feedback();
   },
   combatImpact: (impact) => resolvePlayerWeaponImpact(impact),
+  /**
+   * The supply economy, from two directions.
+   *
+   * `snapshot()`, `useTriage()` and `useResupply()` are the AGGREGATE view --
+   * the mission as one pool -- because that is what a headless drain wants and
+   * what tools/verify-mansion-siege.mjs has always read: fill a baseline, spend
+   * exactly that many charges, watch each `remaining` count down to zero, then
+   * restore the checkpoint and find the baseline again. Draining takes the
+   * caches in declaration order, which is the order the player walks them.
+   *
+   * `cache()` and the two `...At()` calls are the per-station view, which is
+   * the one that proves the fix: spending the firing step must not move the
+   * flank cans. Both views run through the same station handlers, so neither
+   * is a second code path with its own arithmetic.
+   */
   supplies: {
-    snapshot: () => combatSupplies.snapshot(),
-    useTriage: () => useTriageStation(),
-    useResupply: () => useResupplyStation(),
+    snapshot: () => supplySnapshot(),
+    ids: () => [...supplyCacheIds],
+    cache: (id) => (combatSupplyCaches[id] ? combatSupplyCaches[id].snapshot() : null),
+    useTriageAt: (id) => useTriageStation(id),
+    useResupplyAt: (id) => useResupplyStation(id),
+    useTriage: () => {
+      const id = supplyCacheIds.find((key) => combatSupplyCaches[key].triageRemaining > 0);
+      const result = useTriageStation(id ?? 'triageCase');
+      return { ...result, remaining: totalSupplyCharges().triage };
+    },
+    useResupply: () => {
+      const id = supplyCacheIds.find((key) => combatSupplyCaches[key].resupplyRemaining > 0);
+      const result = useResupplyStation(id ?? 'firingStep');
+      return { ...result, remaining: totalSupplyCharges().resupply };
+    },
   },
   blood: {
     marks(id) {
@@ -2947,6 +3661,11 @@ window.mansionSiege = {
     for (let elapsed = 0; elapsed < seconds; elapsed += step) {
       updateGame(Math.min(step, seconds - elapsed));
     }
+  },
+  /** Headless verifier clock hold; unlike pause, it preserves pointer input. */
+  setAmbientSimulation(on) {
+    ambientSimulationEnabled = on !== false;
+    return ambientSimulationEnabled;
   },
   setRendering(on) { renderEnabled = !!on; },
   get framesRendered() { return framesRendered; },

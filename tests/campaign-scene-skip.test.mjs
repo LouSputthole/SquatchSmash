@@ -7,6 +7,7 @@ import {
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  SCENES,
   TIME_EVENT_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
@@ -52,6 +53,33 @@ test('a refused scene completion never turns into a bare navigation', () => {
   assert.equal(campaign.state.scene.id, SCENE_IDS.BADA_BING_ONE);
 });
 
+test('Bing I production exits directly to Squatchfather while Apartment stays legacy-safe', () => {
+  assert.deepEqual(SCENES[SCENE_IDS.BADA_BING_ONE].next, [
+    SCENE_IDS.SQUATCHFATHER,
+    SCENE_IDS.APARTMENT,
+  ]);
+
+  const campaign = campaignAt(SCENE_IDS.BADA_BING_ONE, MISSION_IDS.BADA_BING_ONE);
+  const { assigned, location } = locationRecorder();
+  const result = createCampaignSceneSkipAdapter({
+    campaign,
+    sceneId: SCENE_IDS.BADA_BING_ONE,
+    location,
+  })();
+
+  assert.deepEqual(result, {
+    ok: true,
+    from: SCENE_IDS.BADA_BING_ONE,
+    to: SCENE_IDS.SQUATCHFATHER,
+  });
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.SQUATCHFATHER,
+    spawn: 'restaurant_exterior',
+  });
+  assert.deepEqual(assigned, ['squatchfather.html']);
+  assert.equal(campaign.hasItem(ITEM_IDS.LOU_PACKAGE), true);
+});
+
 test('HotDog skip normalizes the attack, cleanup, and loaded body before the graveyard', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
@@ -82,7 +110,13 @@ test('HotDog skip normalizes the attack, cleanup, and loaded body before the gra
   assert.equal(incident.bodyWrapped, true);
   assert.equal(incident.bodyLoaded, true);
   assert.equal(incident.checkpoint, 'body_loaded');
-  assert.equal(campaign.state.scene.id, SCENE_IDS.SQUATCH_GRAVEYARD);
+  assert.equal(campaign.state.story.timeEvents.includes(
+    TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD,
+  ), true);
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.SQUATCH_GRAVEYARD,
+    spawn: 'headlights',
+  });
   assert.deepEqual(assigned, ['graveyard.html']);
 });
 
@@ -229,26 +263,43 @@ test('the shared adapter inventory covers every non-hub campaign scene in scope'
 });
 
 const MATRIX = Object.freeze([
-  [SCENE_IDS.BADA_BING_ONE, MISSION_IDS.BADA_BING_ONE, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.SQUATCHFATHER, MISSION_IDS.SQUATCHFATHER, SCENE_IDS.APARTMENT],
+  [SCENE_IDS.BADA_BING_ONE, MISSION_IDS.BADA_BING_ONE, SCENE_IDS.SQUATCHFATHER],
+  /* THE RESTAURANT DOES NOT END AT HOME ANY MORE.
+   *
+   * The bible's beat 3: *"the driver takes him OUT OF TOWN."* A skip that
+   * still went home would put a developer straight from the restaurant into
+   * his own flat and strand the whole of beats 4 to 7 behind a scene nobody
+   * visits. It comes home again once the cabin chapter is finished -- see
+   * 'the two cabin-facing skips follow the chapter' below. */
+  [SCENE_IDS.SQUATCHFATHER, MISSION_IDS.SQUATCHFATHER, SCENE_IDS.COUNTRYSIDE_CABIN],
+  /* The Beef Run is the other way round: it goes HOME by default and back to
+   * the cabin only while the chapter is open, because a fresh campaign that
+   * has never been to the property has nowhere out there to be dropped. */
   [SCENE_IDS.AIRSTRIP_SMUGGLING, MISSION_IDS.AIRSTRIP_SMUGGLING, SCENE_IDS.APARTMENT],
   [SCENE_IDS.BADA_BING_TWO, MISSION_IDS.BADA_BING_TWO, SCENE_IDS.SQUATCH_GRAVEYARD],
   [SCENE_IDS.SQUATCH_GRAVEYARD, MISSION_IDS.BADA_BING_TWO, SCENE_IDS.JERKY_MOTEL],
   [SCENE_IDS.JERKY_MOTEL, MISSION_IDS.JERKY_MOTEL, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.NO_WAKE, MISSION_IDS.NO_WAKE, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.SILVER_ROOM, MISSION_IDS.SILVER_ROOM, SCENE_IDS.APARTMENT],
-  [SCENE_IDS.SILVER_PINES, MISSION_IDS.SILVER_PINES, SCENE_IDS.APARTMENT],
+  /* BEATS 13, 15 AND 18 END AT THE NEW ADDRESS.
+   *
+   * All three were `APARTMENT` while the round, the date and the harbour job
+   * were played before Lou handed over the keys. The bible has the handover
+   * at the eighteenth green and the Home Ladder never climbs back down, so
+   * from beat 14 onward "home" is one place and it is not the starter flat.
+   * A skip that still went there would drop a developer into a room the
+   * campaign has finished with, whose door only knows how to send him back
+   * to the course he has just left. */
+  [SCENE_IDS.NO_WAKE, MISSION_IDS.NO_WAKE, SCENE_IDS.LUXURY_APARTMENT],
+  [SCENE_IDS.SILVER_ROOM, MISSION_IDS.SILVER_ROOM, SCENE_IDS.LUXURY_APARTMENT],
+  [SCENE_IDS.SILVER_PINES, MISSION_IDS.SILVER_PINES, SCENE_IDS.LUXURY_APARTMENT],
   [SCENE_IDS.BANK_HEIST, MISSION_IDS.BANK_HEIST, SCENE_IDS.APARTMENT],
   [SCENE_IDS.SILVER_CASE, MISSION_IDS.SILVER_CASE, SCENE_IDS.MANSION],
   [SCENE_IDS.MANSION, MISSION_IDS.SILENT_SQUATCH, SCENE_IDS.MANSION_SIEGE],
   [SCENE_IDS.MANSION_SIEGE, MISSION_IDS.MANSION_SIEGE, SCENE_IDS.ENOLA_SQUATCH],
   [SCENE_IDS.ENOLA_SQUATCH, MISSION_IDS.ENOLA_SQUATCH, SCENE_IDS.MANSION_RETURN],
   [SCENE_IDS.MANSION_RETURN, MISSION_IDS.MANSION_RETURN, SCENE_IDS.CARTEL_PALACE],
-  /* The Palace skips HOME now, not to the ceremony. He goes back to a flat
-   * where nobody has told him whether killing Sauce was the right call,
-   * Booskibro rings, and three men come and collect him — and the Special
-   * Meeting hands off to the Initiation itself, which is the row below. */
-  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.SPECIAL_MEETING],
+  /* The Palace skip preserves the luxury-apartment call instead of becoming a
+   * shortcut around Beat 27 and the existing pickup. */
+  [SCENE_IDS.CARTEL_PALACE, MISSION_IDS.CARTEL_PALACE, SCENE_IDS.LUXURY_APARTMENT],
 ]);
 
 const SPAWN = Object.freeze({
@@ -443,6 +494,35 @@ test('every recovery completer records a successful canonical outcome before its
   }
 });
 
+test('Special Meeting skip completes the scene and starts Initiation at the treeline', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.scene = { id: SCENE_IDS.SPECIAL_MEETING, spawn: 'spur' };
+    state.missions[MISSION_IDS.INITIATION].status = 'available';
+  });
+  const { assigned, location } = locationRecorder();
+
+  const result = createCampaignSceneSkipAdapter({
+    campaign,
+    sceneId: SCENE_IDS.SPECIAL_MEETING,
+    location,
+  })();
+
+  assert.deepEqual(result, {
+    ok: true,
+    from: SCENE_IDS.SPECIAL_MEETING,
+    to: SCENE_IDS.INITIATION,
+  });
+  assert.deepEqual(assigned, ['initiation.html']);
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
+  assert.equal(campaign.state.story.timeEvents.includes(
+    TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+  ), true);
+  assert.equal(campaign.state.story.timeEvents.includes(
+    TIME_EVENT_IDS.DEPART_INITIATION,
+  ), true);
+});
+
 test('a bare complete status is never accepted without that scene\'s canonical facts', () => {
   for (const [sceneId, missionId] of MATRIX) {
     const campaign = createCampaign({ storage: new MemoryStorage() });
@@ -458,6 +538,64 @@ test('a bare complete status is never accepted without that scene\'s canonical f
     }, `${sceneId} accepted status=complete without its required milestones`);
     assert.deepEqual(assigned, []);
   }
+});
+
+/**
+ * THE TWO SKIPS THAT READ THE CLOCK LEDGER.
+ *
+ * Every other destination in MATRIX is a constant. These two are functions of
+ * campaign state, because the Act-One cabin sits between them: the cabin is a
+ * SCENE rather than a mission, so there is no `missions.cabin` to ask and the
+ * chapter's own markers are the only truth -- the Booski/Sasole call opens it
+ * and the Booski/Billy call closes it.
+ *
+ * Worth its own test because the failure is silent in both directions. A skip
+ * that always went home strands beats 4 to 7; a skip that always went to the
+ * cabin would drop a finished player back onto a property he burned two men
+ * at, with nothing to do and a car that will not move.
+ */
+test('the two cabin-facing skips follow the chapter, not a constant', () => {
+  const openChapter = (campaign) => campaign.advanceTime(
+    TIME_EVENT_IDS.CABIN_LAY_LOW_BOOSKI_CALL,
+  );
+  const closeChapter = (campaign) => campaign.advanceTime(
+    TIME_EVENT_IDS.CABIN_SECOND_BILLY_CALL,
+  );
+  const skipFrom = (campaign, sceneId) => {
+    const { assigned, location } = locationRecorder();
+    const result = createCampaignSceneSkipAdapter({ campaign, sceneId, location })();
+    return { ...result, assigned };
+  };
+
+  /* The restaurant, before the cabin exists in the ledger: out of town, and
+   * the drive costs its own two hours and twenty minutes. */
+  let campaign = campaignAt(SCENE_IDS.SQUATCHFATHER, MISSION_IDS.SQUATCHFATHER);
+  let out = skipFrom(campaign, SCENE_IDS.SQUATCHFATHER);
+  assert.equal(out.to, SCENE_IDS.COUNTRYSIDE_CABIN);
+  assert.equal(campaign.state.story.timeEvents
+    .includes(TIME_EVENT_IDS.DEPART_CABIN_LAY_LOW), true,
+  'a skip stands in for the drive, so it has to cost the same drive');
+
+  /* And after it: home, because there is nothing out there for him. */
+  campaign = campaignAt(SCENE_IDS.SQUATCHFATHER, MISSION_IDS.SQUATCHFATHER);
+  closeChapter(campaign);
+  assert.equal(skipFrom(campaign, SCENE_IDS.SQUATCHFATHER).to, SCENE_IDS.APARTMENT);
+
+  /* The Beef Run, mid-chapter: Sasole runs him back to where he collected
+   * him, not to the flat he is laying low from. */
+  campaign = campaignAt(SCENE_IDS.AIRSTRIP_SMUGGLING, MISSION_IDS.AIRSTRIP_SMUGGLING);
+  openChapter(campaign);
+  out = skipFrom(campaign, SCENE_IDS.AIRSTRIP_SMUGGLING);
+  assert.equal(out.to, SCENE_IDS.COUNTRYSIDE_CABIN);
+  assert.equal(campaign.state.story.timeEvents
+    .includes(TIME_EVENT_IDS.RETURN_CABIN_FROM_AIRSTRIP), true);
+
+  /* Mid-chapter is BOTH markers, not just the first: once Booski has rung
+   * about Billy the property is behind him and the flight ends at home. */
+  campaign = campaignAt(SCENE_IDS.AIRSTRIP_SMUGGLING, MISSION_IDS.AIRSTRIP_SMUGGLING);
+  openChapter(campaign);
+  closeChapter(campaign);
+  assert.equal(skipFrom(campaign, SCENE_IDS.AIRSTRIP_SMUGGLING).to, SCENE_IDS.APARTMENT);
 });
 
 for (const [sceneId, missionId, destination] of MATRIX) {

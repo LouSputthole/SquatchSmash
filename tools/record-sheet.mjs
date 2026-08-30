@@ -37,7 +37,7 @@ const SCENES = [
   ['PROJECT SILENT SQUATCH', (n) => n.startsWith('vo.silentsquatch.')],
   ['MANSION UNDER SIEGE', (n) => n.startsWith('vo.siege.')],
   ['The HotDog Incident', (n) => n.startsWith('vo.bing2.')],
-  ['The Enola Squatch', (n) => n.startsWith('vo.enolasquatch.')],
+  ['SQUATCHOLA GAY', (n) => n.startsWith('vo.enolasquatch.')],
   ['THE TAKE', (n) => n.startsWith('heist.')],
   ['Bada Bing', (n) => n.startsWith('vo.bing.') || n.startsWith('vo.bj.') || n.startsWith('vo.slots.')
     || n.startsWith('bing.')],
@@ -54,7 +54,7 @@ const SCENES = [
   ['Radio', (n) => n.startsWith('radio.')],
   ['Mansion', (n) => n.startsWith('vo.mansion.')],
   ['Bada Bing', (n) => n.startsWith('bing.')],
-  ['The Enola Squatch', (n) => n.includes('.enola') || n.startsWith('enolasquatch.') || n.startsWith('plane.')],
+  ['SQUATCHOLA GAY', (n) => n.includes('.enola') || n.startsWith('enolasquatch.') || n.startsWith('plane.')],
   /* THE CATCH-ALL WAS HIDING THE ONE THAT MATTERED. Two hundred and seven
    * Special Meeting lines -- the whole scene, and the largest block of silence
    * in the game -- were filed under 'Apartment and shared', so the scene table

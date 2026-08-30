@@ -1,4 +1,10 @@
+import * as THREE from 'three';
 import { Npc } from '../../bing/cast.js';
+import {
+  applyConnectedDeathPivot,
+  beginDeathTransition,
+  restoreDeathTransition,
+} from '../../core/death-transition.js';
 import { coarseActorRole, markActor, setActorPosture } from '../../core/staging.js';
 
 /**
@@ -35,6 +41,10 @@ import { coarseActorRole, markActor, setActorPosture } from '../../core/staging.
 const COLLAPSE_TIME = 0.75;
 /** ApartmentScene.js: "Floor is y=0 throughout". */
 const FLOOR_Y = 0;
+
+function monotonicSeconds() {
+  return (globalThis.performance?.now?.() ?? Date.now()) / 1000;
+}
 
 /**
  * How a body comes to rest. Two shapes, because a man falls very differently
@@ -164,6 +174,11 @@ export class Actor {
       x: npc.group.position.x, y: npc.group.position.y, z: npc.group.position.z,
     };
     this._spawn = { ...this._rest, yaw: npc.group.rotation.y, baseY: npc.baseY };
+    this._deathBounds = new THREE.Box3();
+    this._deathPartBounds = new THREE.Box3();
+    this._settled = false;
+    this.reaction = null;
+    this.tension = null;
 
     this.faction = faction; // 'hostile' | 'friendly' | 'neutral'
 
@@ -191,6 +206,138 @@ export class Actor {
 
   get seated() {
     return this.npc.job === 'sit' || this.npc.job === 'drink';
+  }
+
+  /** Immediate authored shock that remains downstream of Npc's pose reset. */
+  startle({ shooter = null, body = null, duration = 1.8, stepDistance = 0.18 } = {}) {
+    if (!this.alive) return false;
+    const origin = this.group.position.clone();
+    const away = new THREE.Vector3();
+    if (shooter) away.set(origin.x - shooter.x, 0, origin.z - shooter.z);
+    if (away.lengthSq() < 1e-6) {
+      // Actor heading is +z at yaw 0; its local backward is therefore -z.
+      away.set(-Math.sin(this.group.rotation.y), 0, -Math.cos(this.group.rotation.y));
+    }
+    away.normalize();
+    this.reaction = {
+      elapsed: 0,
+      duration: Math.max(0.2, Number(duration) || 1.8),
+      shooter: shooter?.clone?.() ?? null,
+      body: body?.clone?.() ?? null,
+      origin,
+      away,
+      stepDistance: THREE.MathUtils.clamp(Number(stepDistance) || 0.18, 0.08, 0.32),
+    };
+    return true;
+  }
+
+  _updateReaction(dt) {
+    const reaction = this.reaction;
+    if (!reaction) return;
+    reaction.elapsed += dt;
+    const progress = Math.min(1, reaction.elapsed / reaction.duration);
+    const flinch = Math.sin(Math.PI * progress);
+    /* Move the complete figure, never an upper-body branch. Chester is seated,
+     * so this reads as the chair-side equivalent of a startled backward step:
+     * his pelvis, legs, torso and head all recoil together and land at the new
+     * position instead of the old split-rig illusion. */
+    const step = smooth(Math.min(1, progress / 0.42)) * reaction.stepDistance;
+    this.group.position.x = reaction.origin.x + reaction.away.x * step;
+    this.group.position.z = reaction.origin.z + reaction.away.z * step;
+    const target = progress < 0.42 ? reaction.shooter : reaction.body;
+    if (target) {
+      const yaw = Math.atan2(
+        target.x - this.group.position.x,
+        target.z - this.group.position.z,
+      ) - this.group.rotation.y;
+      this.parts.head.rotation.y = THREE.MathUtils.clamp(yaw, -0.8, 0.8);
+    }
+    this.parts.head.rotation.x = -0.16 * flinch;
+    this.parts.armL.rotation.x = -0.5 * flinch;
+    this.parts.armR.rotation.x = -0.42 * flinch;
+    this.parts.foreL.rotation.x = -0.35 * flinch;
+    this.parts.foreR.rotation.x = -0.28 * flinch;
+    this.parts.torsoWrap.rotation.x = -0.10 * flinch;
+    this.parts.torsoWrap.rotation.z = 0.08 * flinch;
+    if (progress >= 1) {
+      this.parts.torsoWrap.rotation.set(0, 0, 0);
+      this.reaction = null;
+    }
+  }
+
+  /**
+   * Keep the last-survivor choice visibly and audibly alive. The clock is
+   * injectable for deterministic tests, but production defaults to monotonic
+   * wall time so a slow renderer cannot turn a 27-second decision into two
+   * seconds of animation and one stale pose.
+   */
+  startTension({ now = monotonicSeconds, pulseSeconds = 4.5, onPulse = null } = {}) {
+    if (!this.alive) return false;
+    const clock = typeof now === 'function' ? now : monotonicSeconds;
+    this.tension = {
+      active: true,
+      now: clock,
+      startedAt: clock(),
+      elapsed: 0,
+      updates: 0,
+      motion: 0,
+      pulses: 0,
+      ambientReceipts: 0,
+      pulseSeconds: Math.max(1, Number(pulseSeconds) || 4.5),
+      nextPulseAt: Math.max(1, Number(pulseSeconds) || 4.5),
+      onPulse: typeof onPulse === 'function' ? onPulse : null,
+      lastPose: 0,
+    };
+    return true;
+  }
+
+  _updateTension(dt) {
+    const tension = this.tension;
+    if (!tension?.active) return;
+    const wallElapsed = Math.max(0, tension.now() - tension.startedAt);
+    tension.elapsed = Math.max(tension.elapsed + Math.max(0, Number(dt) || 0), wallElapsed);
+    tension.updates += 1;
+
+    const pose = Math.sin(tension.elapsed * 1.9);
+    const brace = 0.04 * (0.5 + 0.5 * Math.sin(tension.elapsed * 1.17 + 0.6));
+    this.parts.head.rotation.z = pose * 0.035;
+    this.parts.torsoWrap.rotation.z = pose * 0.012;
+    this.parts.armL.rotation.x -= 0.10 + brace;
+    this.parts.armR.rotation.x -= 0.08 + brace * 0.8;
+    this.parts.foreL.rotation.x -= 0.16 + brace;
+    this.parts.foreR.rotation.x -= 0.13 + brace * 0.8;
+    tension.motion += Math.abs(pose - tension.lastPose);
+    tension.lastPose = pose;
+
+    if (tension.elapsed >= tension.nextPulseAt) {
+      tension.pulses += 1;
+      tension.nextPulseAt += tension.pulseSeconds;
+      if (tension.onPulse?.({ elapsed: tension.elapsed, pulse: tension.pulses })) {
+        tension.ambientReceipts += 1;
+      }
+    }
+  }
+
+  stopTension() {
+    if (!this.tension?.active) return false;
+    this.tension.active = false;
+    this.parts.head.rotation.z = 0;
+    this.parts.torsoWrap.rotation.z = 0;
+    return true;
+  }
+
+  tensionSnapshot() {
+    const tension = this.tension;
+    if (!tension) return null;
+    return {
+      active: tension.active,
+      elapsed: +tension.elapsed.toFixed(3),
+      updates: tension.updates,
+      motion: +tension.motion.toFixed(4),
+      pulses: tension.pulses,
+      ambientReceipts: tension.ambientReceipts,
+      headRoll: +this.parts.head.rotation.z.toFixed(4),
+    };
   }
 
   /**
@@ -237,14 +384,15 @@ export class Actor {
   _startDeath() {
     this.alive = false;
     this.downT = 0;
+    this._settled = false;
     /* The gate is told what the body is DOING, not just where it is: a man
      * shot in a chair is still sitting in it (COLLAPSE.seated never leaves
      * the furniture) and a man shot on his feet ends up on the floor. */
-    setActorPosture(this.group, this.collapse.seat ? 'sit' : 'lie');
-    /* Whatever he was saying, he has stopped. `Npc.update()` is never called
-     * again for this body, so the mouth would otherwise be frozen at whatever
-     * width the last frame left it — mid-word, on a corpse. */
-    this.npc.hush?.();
+    this._deathTransition = beginDeathTransition(this.group, {
+      mode: this.collapse.seat ? 'seated' : 'standing',
+      pivot: this.collapse.seat ? this.parts.hips : null,
+      stop: [() => this.npc.hush?.()],
+    });
     this._rest = {
       x: this.group.position.x, y: this.group.position.y, z: this.group.position.z,
     };
@@ -296,20 +444,58 @@ export class Actor {
     if (this.alive) {
       this.npc.update(dt, playerPos);
       this.pose?.(this.parts, this.npc);
+      this._updateReaction(dt);
+      this._updateTension(dt);
       return;
     }
-    if (this.downT < 0) return;
+    if (this.downT < 0 || this._settled) return;
     this.downT += dt;
     const k = smooth(Math.min(1, this.downT / COLLAPSE_TIME));
     const c = this.collapse;
     const p = this.parts;
 
     if (c.seat) {
-      // He does not leave the furniture. Only his weight goes.
+      // Rotate the complete connected figure about the pelvis in the seat.
       const side = Math.sign(c.bodyRoll || 1) || 1;
-      p.body.rotation.set(c.bodyPitch * k, 0, c.bodyRoll * k);
+      p.body.rotation.set(0, 0, 0);
       p.head.rotation.set(0.52 * k, 0.14 * k * side, -0.46 * k * side);
-      this.group.position.y = this._rest.y + (this._restY - this._rest.y) * k;
+      /* A full 20-30 degree rigid-body rotation around the pelvis keeps the
+       * hierarchy connected, but swings folded shins through nearby furniture
+       * and can drive a shoulder below the floor.  The whole rig supplies the
+       * connection-preserving weight shift; the head and relaxed limbs above
+       * provide the readable slump. */
+      const connectedTilt = 0.05;
+      applyConnectedDeathPivot(this._deathTransition, {
+        rotationDelta: {
+          x: c.bodyPitch * k * connectedTilt,
+          z: c.bodyRoll * k * connectedTilt,
+        },
+        pivotOffset: { y: -(c.sink ?? 0) * k },
+      });
+      /* Keep the connected fall honest at floor contact too. Rotating folded
+       * legs around the pelvis can put the toe a centimetre under y=0 even
+       * while the hips remain correctly planted in the cushion. Clamp the
+       * complete rig as one body instead of detaching or re-posing one foot. */
+      this.group.updateWorldMatrix(true, true);
+      /* Wound decals are children of the body so they follow the collapse,
+       * but they are not part of the body's contact hull. Measuring the whole
+       * group made an animating `silvercase.mark` lift the corpse by a few
+       * millimetres on later frames — the exact slow creep the mission's
+       * minutes-later verifier is meant to catch. Union the rendered figure
+       * meshes directly so child decals cannot move the actor that owns them. */
+      this._deathBounds.makeEmpty();
+      this.group.traverse((node) => {
+        if (!node.isMesh || node.visible === false || node.name === 'silvercase.mark'
+          || !node.geometry) return;
+        if (!node.geometry.boundingBox) node.geometry.computeBoundingBox();
+        if (!node.geometry.boundingBox) return;
+        this._deathPartBounds.copy(node.geometry.boundingBox).applyMatrix4(node.matrixWorld);
+        this._deathBounds.union(this._deathPartBounds);
+      });
+      if (this._deathBounds.min.y < FLOOR_Y) {
+        this.group.position.y += FLOOR_Y - this._deathBounds.min.y;
+      }
+      if (k >= 1) this._settled = true;
       return;
     }
 
@@ -322,6 +508,7 @@ export class Actor {
       this._rest.y + (this._restY - this._rest.y) * k,
       this._rest.z + (c.slideZ ?? 0) * k,
     );
+    if (k >= 1) this._settled = true;
   }
 
   /**
@@ -330,9 +517,12 @@ export class Actor {
    * death completely, including the pose and the seat drop.
    */
   revive() {
+    restoreDeathTransition(this._deathTransition);
+    this._deathTransition = null;
     this.hp = this.maxHp;
     this.alive = true;
     this.downT = -1;
+    this._settled = false;
     this.group.rotation.set(0, this._spawn.yaw, 0);
     this.group.position.set(this._spawn.x, this._spawn.y, this._spawn.z);
     this.parts.body.rotation.set(0, 0, 0);
@@ -344,6 +534,10 @@ export class Actor {
     this.npc.baseY = this._spawn.baseY;
     this.npc.targetYaw = undefined;
     this.npc.gaze = 0;
+    this.reaction = null;
+    this.stopTension();
+    this.tension = null;
+    this.parts.torsoWrap.rotation.set(0, 0, 0);
     // Rebuild the living pose from scratch: _syncJob only re-poses on a job
     // CHANGE, and the job never changed — only the body did.
     this.npc._lastJob = null;

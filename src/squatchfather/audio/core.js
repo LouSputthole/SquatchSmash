@@ -26,16 +26,23 @@ let voiceSrc = null;
 /** The amplitude tap on whatever line is sounding — see playVoice/voiceTap. */
 let voiceAnalyserNode = null;
 
-// The 27 recorded dialogue clips, named for their beat in dialogue.json.
-const VO_CUES = [
+// The 28 recorded dialogue clips, named for their beat in dialogue.json.
+export const SQUATCHFATHER_VO_CUES = Object.freeze([
   'vo.sf.greeting.1',
-  ...Array.from({ length: 14 }, (_, i) => `vo.sf.opening.${i + 1}`),
+  'vo.sf.opening.1',
+  'vo.sf.opening.history.2',
+  'vo.sf.opening.3',
+  'vo.sf.opening.history.4',
+  ...Array.from({ length: 10 }, (_, i) => `vo.sf.opening.${i + 5}`),
   'vo.sf.excuse.1', 'vo.sf.excuse.2',
   'vo.sf.sitdown.1',
   'vo.sf.wrongsearch.1',
   'vo.sf.prodding.1', 'vo.sf.prodding.2',
   ...Array.from({ length: 6 }, (_, i) => `vo.sf.final.${i + 1}`),
-];
+  'vo.sf.extraction.driver.cabin',
+]);
+
+const VO_CUES = SQUATCHFATHER_VO_CUES;
 
 export function init() {
   if (ctx) return ctx;

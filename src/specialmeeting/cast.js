@@ -45,6 +45,7 @@
  * `Math.random` here would move the geometry gate's buckets on every build.
  * See docs/STAGING-GATE.md.
  */
+import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
 import { markActor, readActor, setActorPosture } from '../core/staging.js';
 import { FAMILY } from '../bing/family.js';
@@ -53,12 +54,17 @@ import { formalMeetingModel } from '../core/formal-appearance.js';
 import { WARDROBE } from '../core/wardrobe.js';
 
 /** Seff and Lag live on the Bing roster, by the ledger's own decision. */
-const FAMILY_MODELS = new Map(FAMILY.map((member) => [member.id, member.model]));
+const FAMILY_ROWS = new Map(FAMILY.map((member) => [member.id, member]));
+const VEHICLE_LOCAL_FOCUS = new THREE.Vector3();
+
+function familyRow(id) {
+  const row = FAMILY_ROWS.get(id);
+  if (!row) throw new Error(`${id} is not on the Bing roster; nothing here may invent him a body`);
+  return row;
+}
 
 function familyModel(id) {
-  const model = FAMILY_MODELS.get(id);
-  if (!model) throw new Error(`${id} is not on the Bing roster; nothing here may invent him a body`);
-  return model;
+  return familyRow(id).model;
 }
 
 /**
@@ -142,6 +148,14 @@ const RIDER_YAW_OFFSET = Object.freeze({
 });
 
 /**
+ * Numbskull uses the largest established body in this cast. The shared seated
+ * fold keeps his anatomy connected, but at the generic 0.64 m drop his crown
+ * passes through the sedan headliner. Lower only his body origin while keeping
+ * the vehicle-owned rear seat anchor, eye-line, and attachment hierarchy.
+ */
+const RIDER_DROP = Object.freeze({ numbskull: 0.79 });
+
+/**
  * How she is wedged in the boot: facing the lid, and not square to it.
  *
  * Half a turn off the car's nose, because the one thing a person in a boot is
@@ -168,6 +182,15 @@ const STANDING_YAW_OFFSET = Object.freeze({
  * got in the back.
  */
 const STEP_CLEAR_M = 1.7;
+
+/**
+ * Bring the trunk reveal round the passenger-side rear corner of the car.
+ * The old centreline exit put Kittenboss directly behind the boot lid and the
+ * whole Lincoln from Tony's front-passenger-door eye: her subtitle played on
+ * a frame containing only bodywork. She is still at the trunk, but now on the
+ * side the player is standing on, where a person climbing out would land.
+ */
+const TRUNK_REVEAL_PASSENGER_OFFSET_M = 1.05;
 
 /**
  * How far back from a door anchor a man stands once he is just WAITING.
@@ -240,16 +263,103 @@ function canonicalModelFor(key) {
   return { ...familyModel(CAST_SPEC[key].characterId) };
 }
 
-/** Scene variants over canonical bodies; ordinary-scene outfits stay intact. */
-export const SPECIAL_MEETING_MODELS = Object.freeze(Object.fromEntries(
-  Object.keys(CAST_SPEC).map((key) => [
-    key,
-    formalMeetingModel(CAST_SPEC[key].characterId, canonicalModelFor(key)),
-  ]),
-));
+/** One roster row's photograph, and the fallback it authorises for it. */
+const rosterPhoto = (id) => {
+  const row = familyRow(id);
+  return Object.freeze({ photo: row.photo, photoFallback: row.photoFallback ?? null });
+};
 
-function modelFor(key) {
-  const model = SPECIAL_MEETING_MODELS[key];
+/**
+ * WHOSE PHOTOGRAPH GOES ON WHOSE HEAD.
+ *
+ * This scene is the only one in the campaign that stages named Circle members
+ * and never passed `face` to the shared builder, so all four of them fell
+ * through to `makePerson`'s drawn head while the Bing, the Mansion and the
+ * Initiation were putting the owner's real photographs on the same people.
+ * That is the second half of the owner's "missing faces" report — the first
+ * half was the Special Meeting's cabin being lit by nothing, fixed separately
+ * in `src/specialmeeting/forest/sedan-adapter.js` — and it is why a man who
+ * has a face everywhere else arrived here without one.
+ *
+ * The three names come out of `FAMILY` rather than being typed here. The Bing
+ * roster is already the place that decides which photograph belongs to which
+ * member (it is the only place carrying `photoFallback` as well), and a second
+ * copy of "Seff wears seff.png" in a scene file is precisely the drift the
+ * ledger exists to stop — the same argument that keeps the clothes in the
+ * roster and not in this file. Kittenboss is the one attendee with no roster
+ * row: she is never in the club, so she is on nobody's roster, and her
+ * photograph therefore has to be named somewhere. It is named here, once, and
+ * the moment she gains a `FAMILY`-style row this should read it off that row
+ * with the other three.
+ *
+ * Kittenboss's dedicated portrait has landed. Seff, Lag and Numbskull still
+ * resolve to `null` and keep their authored heads; that is intentional until
+ * their files land. The index remains the authority, so no scene probes a
+ * missing image and produces a 404 in every player's console.
+ */
+const FACE_PHOTOS = Object.freeze({
+  seff: rosterPhoto(CHARACTER_IDS.SEFF),
+  lag: rosterPhoto(CHARACTER_IDS.LAG),
+  numbskull: rosterPhoto(CHARACTER_IDS.NUMBSKULL),
+  kittenboss: Object.freeze({ photo: 'kittenboss.png', photoFallback: null }),
+});
+
+/**
+ * Resolve one attendee's photograph against the index of what is on disk.
+ *
+ * Deliberately the same three lines as `populateFamily` in
+ * `src/bing/family.js`: the named photo if it has landed, then the roster's
+ * `photoFallback` if that has, then nothing. `null` is spread onto the model
+ * rather than left off it so the field is always present and always readable —
+ * the check in `tools/verify-specialmeeting.mjs` asks each built attendee what
+ * it is wearing, and "the key is missing" and "the photo has not landed" are
+ * not the same answer.
+ */
+function faceFor(key, faces) {
+  const named = FACE_PHOTOS[key];
+  if (!named) return null;
+  const photo = faces.has(named.photo) ? named.photo
+    : (named.photoFallback && faces.has(named.photoFallback) ? named.photoFallback : null);
+  return photo ? `assets/faces/${photo}` : null;
+}
+
+/**
+ * Scene variants over canonical bodies; ordinary-scene outfits stay intact.
+ *
+ * A function of the face index rather than a frozen module-scope table,
+ * because which photograph a person can wear is a fact about the filesystem
+ * and this module is imported long before anything has asked the server about
+ * it. `face` is spread onto the canonical body BEFORE the formal adapter runs,
+ * exactly as `initiationFormalModel` does it in
+ * `src/initiation/ceremony-figure.js`: `formalMeetingModel` strips garments
+ * and keeps identity, and a face is identity, so it survives untouched. That
+ * is also why this does not add a `face` option to the adapter — it would be a
+ * second copy of the Initiation's helper for no gain.
+ */
+export function specialMeetingModels(faces = new Set()) {
+  return Object.freeze(Object.fromEntries(
+    Object.keys(CAST_SPEC).map((key) => [
+      key,
+      formalMeetingModel(CAST_SPEC[key].characterId, {
+        ...canonicalModelFor(key),
+        face: faceFor(key, faces),
+      }),
+    ]),
+  ));
+}
+
+/**
+ * The four of them with no index to go on: the drawn heads, every face null.
+ *
+ * Kept as an export because the headless gates and the tests build this cast
+ * with no server to fetch an index from — `tools/geometry-scenes.mjs` calls
+ * `buildSpecialMeetingCast(scene)` bare, and a photo texture it could not load
+ * would be noise in a geometry bucket either way.
+ */
+export const SPECIAL_MEETING_MODELS = specialMeetingModels();
+
+function modelFor(models, key) {
+  const model = models[key];
   if (!model) throw new Error(`${key} has no Special Meeting formal appearance`);
   return model;
 }
@@ -260,10 +370,20 @@ function modelFor(key) {
  * Nobody is placed meaningfully here: they are made, stamped with their
  * campaign id, and parked. Where they stand is the sequence's business, and
  * the sequence moves them by seat name, never by coordinate.
+ *
+ * `faces` is the resolved `assets/faces/index.json` — the set of photographs
+ * that have actually landed — and it arrives from the caller for the same
+ * reason `populateFamily` takes it rather than fetching it: a scene module
+ * that reaches for the network on import cannot be built by a headless gate,
+ * a test or the geometry sweep, all three of which call this with no options
+ * at all and get the authored heads. `src/specialmeeting/main.js` awaits
+ * `loadFaceIndex()` once at the top and hands the result down, exactly as
+ * `src/bing/main.js` does for the club.
  */
 export function buildSpecialMeetingCast(scene, {
-  sedan = null, colliders = null, groundAt = null,
+  sedan = null, colliders = null, groundAt = null, faces = new Set(),
 } = {}) {
+  const models = specialMeetingModels(faces);
   const people = {};
   for (const key of Object.keys(CAST_SPEC)) {
     const spec = CAST_SPEC[key];
@@ -273,7 +393,7 @@ export function buildSpecialMeetingCast(scene, {
       job: 'stand',
       x: 0, y: 0, z: 0, yaw: 0,
       colliders,
-      model: modelFor(key),
+      model: modelFor(models, key),
     });
     npc.characterId = spec.characterId;
     npc.group.userData.characterId = spec.characterId;
@@ -292,6 +412,18 @@ export function buildSpecialMeetingCast(scene, {
    * holds the arrangement, because the arrangement is the thing the scene is
    * about and it has to be readable without unpicking a transform. */
   const seated = new Map();
+  /* Whether Kittenboss is riding in the boot. Her own state, because the seat
+   * she used to be keyed off belongs to Lag from the moment the drive starts. */
+  let bootRider = false;
+  /* The live player focus during the kerb pickup only. `holdTheFrontDoor()`
+   * restages both men when SM-110 opens; without retaining this point, that
+   * move overwrites the body turn they have spent SM-100 making and can leave
+   * a head pinned at its one-radian gaze limit. Later standing tableaux keep
+   * their existing car-facing direction because this flag closes when Lag
+   * boards. */
+  const pickupFocus = new THREE.Vector3();
+  let hasPickupFocus = false;
+  let pickupAttention = false;
 
   /**
    * WHAT THEY ARE STANDING ON.
@@ -334,7 +466,16 @@ export function buildSpecialMeetingCast(scene, {
     const npc = people[key];
     npc.group.visible = true;
     npc.group.position.set(x, y, z);
-    npc.group.rotation.y = yaw;
+    /* A rider released from the sedan keeps the seat anchor's world
+     * quaternion.  For the rear-right seat Three decomposes that quaternion
+     * as X = PI, Y = ..., Z = PI.  Writing only `rotation.y` therefore leaves
+     * the standing rig upside-down in Euler space and reverses its declared
+     * +Z face axis: Numbskull was visibly beside the open front door while
+     * the staging gate correctly measured him looking straight back into the
+     * Lincoln at 0.14 m.  A standing placement owns the whole upright pose,
+     * not one component of the previous seated pose, so clear the carried
+     * pitch and roll together with setting its authored heading. */
+    npc.group.rotation.set(0, yaw, 0);
     npc.homeX = x;
     npc.homeZ = z;
     npc.homeYaw = yaw;
@@ -368,7 +509,11 @@ export function buildSpecialMeetingCast(scene, {
   /** A rider, turned the way the car is going, off his own authored offset. */
   function faceRider(key) {
     if (!sedan) return;
-    people[key].group.rotation.y = carFacing() + (RIDER_YAW_OFFSET[key] ?? 0);
+    const rider = people[key].group;
+    const offset = RIDER_YAW_OFFSET[key] ?? 0;
+    rider.rotation.y = rider.userData.vehicleAnchor
+      ? Math.PI / 2 + offset
+      : carFacing() + offset;
   }
 
   /**
@@ -380,10 +525,11 @@ export function buildSpecialMeetingCast(scene, {
    */
   function rideInTheBoot() {
     if (!sedan) return;
-    const boot = sedan.trunkWorld();
     const kb = people.kittenboss;
-    kb.group.position.set(boot.x, boot.y - 0.62, boot.z);
-    kb.group.rotation.y = carFacing() + BOOT_YAW_OFFSET;
+    sedan.occupy('trunk', kb.group, {
+      drop: 0.62,
+      localYaw: Math.PI / 2 + BOOT_YAW_OFFSET,
+    });
     /* She is riding too, and more thoroughly inside the car than anybody. */
     setActorPosture(kb.group, 'ride');
   }
@@ -398,7 +544,10 @@ export function buildSpecialMeetingCast(scene, {
      * sitting sideways: the car is long on local +X and a person faces local
      * +Z. `facingYaw()` is the same quarter turn the player gets, and it is
      * reapplied every frame in `update` because the car turns. */
-    sedan.occupy(seatId, npc.group, { yaw: false });
+    sedan.occupy(seatId, npc.group, {
+      ...(Number.isFinite(RIDER_DROP[key]) ? { drop: RIDER_DROP[key] } : {}),
+      localYaw: Math.PI / 2 + (RIDER_YAW_OFFSET[key] ?? 0),
+    });
     /* RIDING, not merely sitting. The distinction earns its keep at the
      * staging gate: a man in a chair who is inside a solid is a bug, and a
      * man in a car who is inside a solid is a passenger -- the sedan's
@@ -414,10 +563,11 @@ export function buildSpecialMeetingCast(scene, {
   function standUp(key) {
     const npc = people[key];
     if (!npc) return null;
-    npc.stand();
     for (const [seatId, who] of seated) {
       if (who === key) { seated.delete(seatId); sedan?.release(seatId); }
     }
+    if (key === 'kittenboss') sedan?.release('trunk');
+    npc.stand();
     return npc;
   }
 
@@ -426,6 +576,16 @@ export function buildSpecialMeetingCast(scene, {
     all: Object.values(people),
     spec: CAST_SPEC,
     seating: SEATING,
+
+    /* What each of them was actually built wearing, including the photograph
+     * that resolved for them or the `null` that did not. `makePerson` folds a
+     * face into a head material and keeps no record of where it came from, and
+     * `parts.profile` carries garments and body only, so without this the only
+     * way for a live check to ask "did Seff get his photograph?" would be to
+     * dig a texture out of a material and try to recognise its URL. The
+     * browser check in tools/verify-specialmeeting.mjs reads this. */
+    models,
+    facePhotos: FACE_PHOTOS,
 
     person(characterId) { return byCharacterId.get(characterId) ?? null; },
     byKey(key) { return people[key] ?? null; },
@@ -439,14 +599,8 @@ export function buildSpecialMeetingCast(scene, {
         const kb = people.kittenboss;
         kb.group.visible = true;
         kb.sit();
-        sedan.occupy('rear_left', kb.group, { yaw: false });
-        seated.delete('rear_left');
-        /* She is not in that seat. She is in the boot, and the boot has no
-         * ride-along of its own, so she borrows the nearest one to be folded
-         * and dropped, and is then put on the boot anchor -- here, and again
-         * every frame by `update` below. */
-        sedan.release('rear_left');
         rideInTheBoot();
+        bootRider = true;
       }
       return this;
     },
@@ -454,6 +608,7 @@ export function buildSpecialMeetingCast(scene, {
     /** Lag out of the front, Numbskull out of the back and round to the door. */
     disembarkForPickup() {
       if (!sedan) return this;
+      pickupAttention = true;
       standUp('lag');
       /* "Lag gets out of the FRONT and stands with the door open behind him,
        * on his phone" -- SM-100. Behind him, so he is turned out of the car. */
@@ -475,11 +630,21 @@ export function buildSpecialMeetingCast(scene, {
         z: door.z + Math.cos(nose) * STEP_CLEAR_M,
       }, { away: true });
       placeBeside('numbskull', door, { away: true });
+      if (hasPickupFocus) {
+        for (const key of ['lag', 'numbskull']) {
+          people[key].faceToward(pickupFocus.x, pickupFocus.z, true);
+          people[key].gaze = 0;
+          people[key].parts.head.rotation.y = 0;
+        }
+      }
       return this;
     },
 
     /** Lag gets in the back without ceremony. Nobody points this out. */
-    lagTakesTheBack() { return sit('lag', 'rear_left'), this; },
+    lagTakesTheBack() {
+      pickupAttention = false;
+      return sit('lag', 'rear_left'), this;
+    },
 
     /**
      * The arrangement, once the Prospect is in it.
@@ -488,6 +653,7 @@ export function buildSpecialMeetingCast(scene, {
      * car and gets in behind him; Lag is already behind Seff.
      */
     takeSeats() {
+      pickupAttention = false;
       sit('seff', 'driver');
       sit('lag', 'rear_left');
       sit('numbskull', 'rear_right');
@@ -527,11 +693,37 @@ export function buildSpecialMeetingCast(scene, {
     /** The boot, and the woman in it, who climbs out under her own power. */
     kittenbossOut() {
       if (!sedan) return this;
+      bootRider = false;
       standUp('kittenboss');
-      placeBeside('kittenboss', sedan.doorWorld('trunk'), {
-        away: true, standoff: WAITING_STANDOFF_M,
+      const trunk = sedan.doorWorld('trunk');
+      const passengerDoor = sedan.doorWorld('front_passenger');
+      const centre = sedan.group.getWorldPosition(new THREE.Vector3());
+      const sideX = passengerDoor.x - centre.x;
+      const sideZ = passengerDoor.z - centre.z;
+      const sideLength = Math.hypot(sideX, sideZ) || 1;
+      trunk.x += (sideX / sideLength) * TRUNK_REVEAL_PASSENGER_OFFSET_M;
+      trunk.z += (sideZ / sideLength) * TRUNK_REVEAL_PASSENGER_OFFSET_M;
+      placeBeside('kittenboss', trunk, {
+        away: true, standoff: 0.28,
       });
       return this;
+    },
+
+    /**
+     * Which seat a person is in, or null if they are on their feet.
+     *
+     * Published so `main.js` can emit a line from the CAR's own seat anchor
+     * rather than from the rig -- a seated rig's origin is at its feet, under
+     * the floor pan. Takes a cast key or a character id, because callers have
+     * one or the other.
+     */
+    seatOf(who) {
+      const key = people[who]
+        ? who
+        : (Object.values(CAST_SPEC).find((spec) => spec.characterId === who)?.key ?? null);
+      if (!key) return null;
+      for (const [seat, occupant] of seated) if (occupant === key) return seat;
+      return null;
     },
 
     place,
@@ -552,15 +744,31 @@ export function buildSpecialMeetingCast(scene, {
     },
 
     update(dt, focus = null) {
+      if (focus) {
+        pickupFocus.copy(focus);
+        hasPickupFocus = true;
+        if (pickupAttention) {
+          for (const key of ['lag', 'numbskull']) {
+            if (!people[key].seated) people[key].faceToward(focus.x, focus.z);
+          }
+        }
+      }
       for (const npc of Object.values(people)) {
         if (!npc.group.visible) continue;
-        npc.update(dt, focus);
+        let actorFocus = focus;
+        if (focus && npc.group.userData.vehicleAnchor && npc.group.parent) {
+          VEHICLE_LOCAL_FOCUS.copy(focus);
+          npc.group.parent.worldToLocal(VEHICLE_LOCAL_FOCUS);
+          actorFocus = VEHICLE_LOCAL_FOCUS;
+        }
+        npc.update(dt, actorFocus);
       }
       /* Reapplied every frame because the car turns, and because an idling rig
        * drifts its own yaw towards whatever it is looking at. */
       for (const key of seated.values()) faceRider(key);
-      /* The boot. She rides where she is, and where she is is not a seat. */
-      if (sedan && !seated.has('rear_left') && people.kittenboss.seated) rideInTheBoot();
+      if (sedan && bootRider && people.kittenboss.seated) {
+        people.kittenboss.group.rotation.y = Math.PI / 2 + BOOT_YAW_OFFSET;
+      }
       return this;
     },
 

@@ -6,8 +6,14 @@
  * geometry from depending on the old random visual scale in main.js.
  */
 export const OUTDOOR_MEMBER_STATIONS = Object.freeze([
-  Object.freeze({ key: 'BOOSKIBRO', name: 'BOOSKIBRO', x: -6.4, z: -3.6, founder: true }),
-  Object.freeze({ key: 'LOU', name: 'BIG UNCLE LOU SPUTTHOLE', x: -7.8, z: -4.4, founder: true }),
+  Object.freeze({
+    key: 'BOOSKIBRO', name: 'BOOSKIBRO', face: 'assets/faces/booski.png',
+    x: -6.4, z: -3.6, founder: true,
+  }),
+  Object.freeze({
+    key: 'LOU', name: 'BIG UNCLE LOU SPUTTHOLE', face: 'assets/faces/lou.png',
+    x: -7.8, z: -4.4, founder: true,
+  }),
   Object.freeze({ key: 'GRATIN', name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, x: 1.6, z: -10.2 }),
   Object.freeze({ key: 'SEFF', name: 'SEFF', shirt: 0x46505f, x: 3.4, z: -10.4 }),
   /* West of the aisle, with a full person-width of light between body and path. */

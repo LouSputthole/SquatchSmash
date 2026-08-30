@@ -3,19 +3,23 @@ import { AudioEngine } from '../core/audio.js';
 import { CombatActor } from '../core/combat/actors.js';
 import { FACTIONS, FactionMatrix } from '../core/combat/factions.js';
 import { AabbCombatSpace } from '../core/combat/spatial.js';
+import { MuzzleFlashPool } from '../core/combat/muzzle-flash.js';
 import { SuppressionModel } from '../core/combat/suppression.js';
+import { TracerPool } from '../core/combat/tracers.js';
 import { BloodImpactSystem, BloodSpurtSystem, DeathBloodPool } from '../world/blood.js';
 import {
-  CHARACTER_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS,
+  CHARACTER_IDS, ITEM_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS,
   createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createBankHeistStory } from '../core/bank-heist-story.js';
+import { Phone } from '../core/phone.js';
 import { InteractionSystem } from '../core/interaction.js';
 import {
-  SPEECH_GAIN, SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak, speechDuration,
+  SPEECH_GAIN, speak, speechDuration,
 } from '../core/dialogue.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { shakeScale } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -24,13 +28,16 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
  * the game, each with a real recording standing in until the wanted cue
  * lands. THE TAKE was playing its own carbine recording for both of its
  * weapons — see `fireWeapon`. */
-import { WEAPON_IDS, playWeaponCue, weaponCueNames } from '../core/weapons/index.js';
+import {
+  WEAPON_CATALOG, WEAPON_IDS, playWeaponCue, weaponCueNames,
+} from '../core/weapons/index.js';
 import {
   installPreviewNotice, isPreviewMode, previewCheckpointForLocation,
   previewDifficultyForLocation,
 } from '../core/preview-mode.js';
 import { FixedStepRunner } from '../core/vehicles/fixed-step.js';
 import { GroundVehicle } from '../core/vehicles/ground-vehicle.js';
+import { answerDurablePhoneCall, createHeistControlPolicy } from './controls.js';
 import {
   buildHeistCrew, crewHeadingForPhase, HEIST_CREW_IDS, setCrewMasked, updateCrew,
 } from './cast.js';
@@ -43,29 +50,32 @@ import {
 import { BankGuardThreat } from './bank-threat.js';
 import { CheckpointDirector } from './checkpoints.js';
 import {
-  BLOCK_CLEAR_OFFICERS, HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_STATES, PERFORMANCE_BUDGET,
-  PHASE_FOR_STATE, PREVIEW_START_STATE,
+  BLOCK_CLEAR_OFFICERS, HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_PHASE_PLAYER_BOUNDS, HEIST_STATES,
+  PERFORMANCE_BUDGET, PHASE_FOR_STATE, PREVIEW_START_STATE,
 } from './config.js';
-import { DialogueArbiter } from './dialogue.js';
+import { DialogueArbiter, heistSpeechMix } from './dialogue.js';
 import { HeistHud } from './hud.js';
 import { bankBoltGoal, intersectsDrivingObstacle } from './geometry.js';
 import { STAGING_POINT, buildHeistLevel } from './level.js';
-import { HeistCombatAdapter } from './combat.js';
+import {
+  HEIST_HOSTILE_BURST, HEIST_HOSTILE_WEAPON_ID, HeistCombatAdapter,
+} from './combat.js';
 import { createLobbyHostages, HostageDirector } from './hostages.js';
 import { HEIST_ITEM_CATALOG, HEIST_SLOT_ORDER, HeistLoadout } from './loadout.js';
 import { createHeistBags, LootLedger } from './loot.js';
 import { HeistMissionMachine } from './mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from './navigation.js';
 import { HeistObjectiveLedger } from './objective.js';
-import { objectiveForState } from './orders.js';
+import { debriefStep, objectiveForState, swapEvidencePlan } from './orders.js';
 import { makePoliceFigure } from './people.js';
 import { PoliceDirector } from './police.js';
 import { SafehousePreparation } from './safehouse.js';
 import { HEIST_CAMERA_MARKS, publishHeistFramingBeats } from './shots.js';
 import { makeHeistViewModel } from './weapons.js';
+import { HeistDrivingScore, HeistSafehouseRecord } from './music.js';
 import {
   CREW_FRIENDLY_FIRE_LINES, HOSTAGE_BARKS, PROSPECT_VERB_LINES,
-  SNOW_CASUALTY_LADDER, dialogueLine,
+  SNOW_CASUALTY_LADDER, dialogueLine, heistDebriefClosingLines,
   pendingHeistCues, recordedHeistCues,
 } from './script.js';
 
@@ -101,9 +111,29 @@ scene.add(camera);
 
 const hud = new HeistHud();
 const audio = new AudioEngine();
+const safehouseRecord = new HeistSafehouseRecord(audio);
+const driveScore = new HeistDrivingScore(audio);
 const campaign = createCampaign();
 campaign.enter(SCENE_IDS.BANK_HEIST);
 const story = createBankHeistStory({ campaign });
+const heistPhoneTime = {
+  get day() { return campaign.state.story.day; },
+  get hour() { return campaign.state.story.timeMinutes / 60; },
+};
+/* Tony already owns this phone in campaign inventory. THE TAKE does not put
+ * it in the weapon hotbar or render a second handset; the shared Phone owns
+ * only the incoming-call lifecycle when the safehouse debrief reaches it. */
+const phone = new Phone({ time: heistPhoneTime, audio, calls: [], threads: [] });
+const SAFEHOUSE_LOU_CALL = Object.freeze({
+  id: 'heist_safehouse_lou_debrief',
+  from: 'Big Uncle Lou',
+  vo: 'heist.lou.safehouse',
+  lines: [],
+  allowHangup: false,
+});
+phone.onAnswered = (definition) => {
+  if (definition?.id === SAFEHOUSE_LOU_CALL.id) connectHeistDebriefPhone();
+};
 const level = buildHeistLevel(scene);
 
 /* Static, named geometry evidence for the browser verifier. A screenshot of a
@@ -385,6 +415,18 @@ function announceObjective(text, seconds = 2.5) {
 
 function refreshObjective(state = machine.state) {
   if (performance.now() / 1000 < objectiveOverrideUntil) return;
+  /* THE SWAP IS THE ONE BEAT THAT IS A LIST.
+   *
+   * Seven named actions, three of them locked behind another one, and the old
+   * order line named three of the seven and counted all of them — which is how
+   * a player ends up at 6/7 in a dark yard with nothing on screen telling him
+   * what the seventh is. `swapEvidencePlan` puts all seven in the shared
+   * objective panel with the count on the first row. Everywhere else the order
+   * is a sentence, because everywhere else it is one thing. */
+  if (state === 'VEHICLE_SWAP') {
+    hud.setObjectivePlan(swapEvidencePlan(swapProgress));
+    return;
+  }
   hud.setObjective(objectiveForState(state, {
     armorReady: preparation.armorReady,
     loadoutReady: preparation.loadoutReady,
@@ -516,7 +558,11 @@ const dialogue = new DialogueArbiter({
      * and `heist.cash.lift` is a sound effect (ENGINE-TRAPS.md entry 4). */
     const spoken = speak(audio, line.cue, {
       speaker: figure?.group ?? figure?.root ?? null,
-      mix: figure ? SPEECH_MIX_INDOORS : SPEECH_MIX_CLOSE,
+      /* In the room, or in the car. `heistSpeechMix` carries the measurement:
+       * the crew stand in the swap yard for the whole escape, so a panned line
+       * during the drive arrives from up to 898 m away at 1.8/d of its level
+       * and is never heard. */
+      mix: heistSpeechMix({ driving, figure }),
       gain: SPEECH_GAIN.normal,
     });
     activeDialogueSource = spoken.source;
@@ -714,6 +760,7 @@ let latestCheckpoint = null;
 let recoveryCheckpoint = null;
 let activePhase = null;
 let missionCompleted = false;
+let debriefCompletionTimer = null;
 let simulationPaused = false;
 const activeEffects = [];
 const clock = new THREE.Clock();
@@ -721,6 +768,53 @@ const raycaster = new THREE.Raycaster();
 const pursuitTarget = new THREE.Vector3();
 const muzzle = new THREE.PointLight(0xffc35c, 0, 4, 2);
 camera.add(muzzle);
+
+/* ------------------------------------------------------------------ *
+ * THE FIREFIGHT, AS SOMETHING YOU CAN SEE
+ *
+ * Owner, playtest 2026-08-26, on the street and the garage: the police
+ * *"die standing up and never really appear to be shooting back."*
+ *
+ * They were shooting back. `combat.updateHostile` had been running the whole
+ * shared pipeline — sight, aim, ammunition, blockers, real hits — since the
+ * adapter landed, and rounds were reaching the player's actor. NONE OF IT WAS
+ * PRESENTED. An officer's round produced one non-positional-ish gunshot cue
+ * and a dust puff wherever it stopped; there was no flash at his muzzle and
+ * nothing in the air between him and the player. The player's own rounds were
+ * no better: a point light on the camera and an impact at the far end, with
+ * three hundred metres a second of nothing in between.
+ *
+ * Both pools are the shared ones. `TracerPool` is the Enola raid's, by way of
+ * `src/core/combat/tracers.js`; `MuzzleFlashPool` is the Cartel Palace's,
+ * lifted into `src/core/combat/muzzle-flash.js` for this. Neither is new code
+ * and neither is heist-shaped.
+ *
+ * SIZES, MEASURED. `PERFORMANCE_BUDGET` caps the street at six live officers
+ * and the garage at five. A three-round burst from each of six, at the
+ * pistol's 5.5 rps, is 18 rounds inside 0.55 s; a tracer at the catalog's
+ * 520 m/s crossing the 48 m engagement range lives 0.092 s, so at most about
+ * four of those eighteen are in the air together. 48 slots is that with the
+ * player's own carbine (12.5 rps, one tracer in three) emptying a thirty-round
+ * magazine into the same street on top of it, and room to spare. Six flash
+ * slots is one per live officer, which is the most that can fire in a frame.
+ *
+ * The minimum streak is the argument the raid's own header makes: 6 m is right
+ * for a fight read at a kilometre and absurd on a four-lane street, where it
+ * would put a rod through the far pavement on every shot. 1.6 m is a little
+ * under the length of the men firing them, which reads as a round at the 12 to
+ * 48 m this scene actually fights at.
+ */
+const tracers = new TracerPool(scene, 48, { minLength: 1.6 });
+const policeMuzzleFlashes = new MuzzleFlashPool(scene, {
+  capacity: 6,
+  name: 'heist-police-muzzle-flash',
+  /* A 9 mm, not a rifle: the palace's 7/11 peak over a lit estate is too much
+   * light for a sidearm on a street that already has streetlights and an
+   * emergency wash on it. Two thirds of it. */
+  peak: 4.6,
+  heavyPeak: 7,
+  distance: 5,
+});
 const impactPool = Array.from({ length: Math.min(32, PERFORMANCE_BUDGET.maxImpactParticles) }, () => {
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.045, 5, 4),
@@ -838,6 +932,7 @@ window.__heistDebug = {
   inputState: () => ({
     keys: [...player.keys], driving, selected: loadout.selected,
     selectedItem: loadout.selectedItem, paused: simulationPaused,
+    adapter: input?.snapshot?.() ?? null,
   }),
   /**
    * Step the driving simulation for a fixed number of simulated seconds.
@@ -859,18 +954,40 @@ window.__heistDebug = {
       mph: Math.abs(vehicle.speed) * 2.237,
       x: vehicle.x,
       z: vehicle.z,
+      heading: vehicle.heading,
+      steerAngle: vehicle.steerAngle,
+      throttle: vehicle.throttle,
+      brake: vehicle.brake,
+      audio: debugDriveAudioSnapshot(),
       routeIndex,
       collisionDamage: vehicle.collisionDamage,
     };
   },
-  /** Point the car at a heading and place it, for the barrier probes. */
+  /** Point the car at a heading and place it, for deterministic browser probes. */
   placeCar: (x, z, heading, options = {}) => {
     if (!driving) return { ok: false, reason: 'not_driving' };
     vehicle.x = x;
     vehicle.z = z;
     vehicle.heading = heading;
-    vehicle.speed = 0;
+    /* The normal debug reset still starts parked. A verifier may stage an
+     * exact initial speed so a fixed-duration handling sample is not polluted
+     * by live RAF frames between "reached 60" and its start snapshot. This is
+     * debug-only setup; updateDriving still reads the real keyboard state. */
+    vehicle.speed = Number.isFinite(options.speed) ? options.speed : 0;
     vehicle.lateralSlip = 0;
+    vehicle.steerAngle = 0;
+    vehicle.throttle = Number.isFinite(options.throttle)
+      ? Math.max(-1, Math.min(1, options.throttle))
+      : 0;
+    vehicle.brake = 0;
+    vehicle.bodyRoll = 0;
+    vehicle.suspension = 0;
+    vehicle.setInput();
+    fixedStep.reset();
+    handbrake = 0;
+    slipLead = 0;
+    engineRevs = 0.2;
+    engineGear = 0;
     /* "Put the car here and start clean" has to include the recovery flag. It
      * did not, so a recovery that fired during the previous probe stayed armed
      * across this call and ate the next 650 ms of driving — which is most of a
@@ -879,13 +996,21 @@ window.__heistDebug = {
     drivingRecovery = false;
     driveInvalidFor = 0;
     driveStuckFor = 0;
+    pursuitPressure = 0;
+    ramCooldown = 0;
+    pursuitWarned = false;
     if (options.resetRoute) { routeIndex = 0; roadblockHit = false; }
     if (options.resetDamage) {
       vehicle.collisionDamage = 0;
       vehicle.engineHealth = 100;
       vehicle.tireGrip = 1;
     }
-    return { ok: true, routeIndex, collisionDamage: vehicle.collisionDamage };
+    return {
+      ok: true,
+      routeIndex,
+      speed: vehicle.speed,
+      collisionDamage: vehicle.collisionDamage,
+    };
   },
   routePlan: () => level.phases.driving.route.map((node) => ({
     id: node.id, x: node.x, z: node.z, heading: node.heading, turn: node.turn, label: node.label,
@@ -1010,14 +1135,22 @@ function debugApproachInteraction(name) {
     bounds.min.y + height * 0.42,
   ];
 
+  /* Only sample from somewhere the player could actually stand. Without this
+   * the ring happily reports a target reachable from inside the geometry that
+   * occludes it -- see PHASE_PLAYER_BOUNDS. */
+  const legal = PHASE_PLAYER_BOUNDS[activePhase];
+  const standable = (x, z) => !legal
+    || (x >= legal[0] && x <= legal[1] && z >= legal[2] && z <= legal[3]);
+  let sampled = 0;
+
   for (const radius of [1.35, 1.7, 2.05, 2.35]) {
     for (let i = 0; i < 48; i++) {
       const angle = (i / 48) * Math.PI * 2;
-      player.position.set(
-        center.x + Math.cos(angle) * radius,
-        1.66,
-        center.z + Math.sin(angle) * radius,
-      );
+      const px = center.x + Math.cos(angle) * radius;
+      const pz = center.z + Math.sin(angle) * radius;
+      if (!standable(px, pz)) continue;
+      sampled += 1;
+      player.position.set(px, 1.66, pz);
       player.velocity.set(0, 0, 0);
       player.pitch = 0;
       player.update(1 / 60);
@@ -1044,8 +1177,9 @@ function debugApproachInteraction(name) {
   }
   return {
     ok: false,
-    reason: 'no_clear_interaction_ray',
+    reason: sampled ? 'no_clear_interaction_ray' : 'no_standable_viewpoint',
     name,
+    sampled,
     current: interaction.current?.name ?? null,
   };
 }
@@ -1282,6 +1416,88 @@ function debugForceDriveRecovery() {
   return { ok: drivingRecovery, x: vehicle.x, z: vehicle.z };
 }
 
+/**
+ * Read the mix the shared AudioEngine is actually applying to the escape car.
+ *
+ * This deliberately reports the loop handles, rather than recomputing the
+ * numbers from speed in a verifier. The owner heard *"engine sounds are bad"*
+ * in the browser, so the useful evidence is the playback rate, load volume and
+ * exhaust cutoff that reached WebAudio, including the synthesised-loop path.
+ */
+function debugDriveAudioSnapshot() {
+  const loop = (key) => {
+    const handle = audio.loops.get(key);
+    return {
+      active: Boolean(handle),
+      rate: Number.isFinite(handle?.rate) ? handle.rate : null,
+      volume: Number.isFinite(handle?.volume) ? handle.volume : null,
+      cutoff: Number.isFinite(handle?.cutoff) ? handle.cutoff : null,
+    };
+  };
+  return {
+    gear: engineGear,
+    revs: engineRevs,
+    throttle: vehicle.throttle,
+    requestedThrottle: vehicle.inputThrottle,
+    brake: vehicle.brake,
+    handbrake,
+    engine: loop('heist.vehicle.engine.load'),
+    tires: loop('heist.vehicle.tires.road'),
+  };
+}
+
+/** Live bus + owned-stream facts used by the scene's browser contract. */
+function debugHeistMusicLifecycle() {
+  const now = audio.ctx?.currentTime ?? 0;
+  const restingMusic = audio._busMusicLevel?.() ?? 0.7;
+  const restingAmbience = audio._busAmbLevel?.() ?? 0.55;
+  const bus = (node, resting) => {
+    const gain = Number(node?.gain?.value ?? resting);
+    return {
+      resting,
+      gain,
+      ratio: resting > 0 ? gain / resting : 1,
+    };
+  };
+  const activeLoops = [...audio.loops.entries()].map(([key, handle]) => ({
+    key,
+    streamed: handle?.streamed === true,
+    released: handle?.released === true,
+    failed: handle?.failed === true,
+  }));
+  return {
+    loopKeys: activeLoops.map(({ key }) => key),
+    streamedLoopKeys: activeLoops.filter(({ streamed }) => streamed).map(({ key }) => key),
+    duck: {
+      active: (audio._voiceDuckUntil ?? 0) > now,
+      until: Math.max(0, (audio._voiceDuckUntil ?? 0) - now),
+      music: bus(audio.busMusic, restingMusic),
+      ambience: bus(audio.busAmb, restingAmbience),
+    },
+    safehouseRecord: safehouseRecord.snapshot(),
+    escapeScore: driveScore.snapshot(),
+  };
+}
+
+/** Synchronously release the two streamed records before cross-scene handoff. */
+function disposeHeistMusic() {
+  const safehouse = safehouseRecord.dispose();
+  const escape = driveScore.dispose();
+  const active = [...audio.loops.entries()];
+  return Object.freeze({
+    safehouseRecord: safehouse,
+    escapeScore: escape,
+    activeOwnedKeys: active
+      .map(([key]) => key)
+      .filter((key) => key === safehouse.key || key === escape.key),
+    activeOwnedStreamKeys: active
+      .filter(([key, handle]) => (
+        (key === safehouse.key || key === escape.key) && handle?.streamed
+      ))
+      .map(([key]) => key),
+  });
+}
+
 function debugSnapshot() {
   const hotbar = document.getElementById('hotbar');
   const heistPlaybacks = audio.playbacks.filter((entry) => HEIST_VOICE_CUES.includes(entry.name));
@@ -1355,6 +1571,7 @@ function debugSnapshot() {
     vehicle: {
       ...vehicle.snapshot(),
       maxForwardSpeed: HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed,
+      audio: debugDriveAudioSnapshot(),
       pursuitVisible: level.phases.driving.pursuit.visible,
       pursuitDistance: level.phases.driving.pursuit.position.distanceTo(level.phases.driving.car.position),
       pursuitInFrame: (() => {
@@ -1366,6 +1583,8 @@ function debugSnapshot() {
     swap: { ...swapProgress },
     squadAnchors: { ...window.__heistDebug.squadAnchors },
     audioZone,
+    musicLifecycle: debugHeistMusicLifecycle(),
+    drivingMusic: driveScore.snapshot(),
     missionCompleted,
     simulationPaused,
     inventory: {
@@ -1384,6 +1603,20 @@ function debugSnapshot() {
       magazine: loadout.activeWeapon?.magazine ?? null,
       weaponCooldown: loadout.activeWeapon?.cooldown ?? null,
       weaponName: loadout.activeWeapon?.definition.name ?? null,
+    },
+    phone: {
+      owned: campaign.hasItem(ITEM_IDS.PHONE),
+      campaignCopies: [
+        ...campaign.state.inventory.carried,
+        ...campaign.state.inventory.concealed,
+      ].filter((id) => id === ITEM_IDS.PHONE).length,
+      carried: campaign.state.inventory.carried.includes(ITEM_IDS.PHONE),
+      sceneCopies: sceneInventory.items.filter((id) => id === ITEM_IDS.PHONE).length,
+      ringing: phone.ringing,
+      inCall: phone.inCall,
+      callId: phone.call?.def?.id ?? null,
+      ringLoopActive: audio.loops.has('phone.ring'),
+      status: story.debriefCallStatus(),
     },
     hostages: hostages.summary(),
     hostageStates: hostages.hostages.map((person) => person.state),
@@ -2201,6 +2434,11 @@ function recordCheckpoint(id, resumeState, facts = {}) {
 }
 
 function startVanRide() {
+  /* The morning needle-drop belongs to preparation, not to the van or the
+   * robbery. Retire its map key at the loading-bay threshold; the retained
+   * handle receipt below lets the browser gate also prove the streamed media
+   * element finishes its fade before the bank is entered. */
+  safehouseRecord.stop();
   advanceTo('VAN_APPROACH');
   activatePhase('van');
   player.mode = 'walk';
@@ -2250,7 +2488,7 @@ function neutralizeLobbyGuard(source = 'player_shot') {
   advanceTo('LOBBY_CONTROL');
   dialogue.reset();
   dialogue.setState(machine.state);
-  say('prospect_counterstrike');
+  say('prospect_lobby_quiet');
   say('snow_scoreboard');
   refreshObjective();
   refreshInteractions();
@@ -2355,11 +2593,14 @@ function beginDriving() {
   refreshObjective();
   audio.startLoop('heist.vehicle.engine.load', { volume: 0.14, ambience: true, fade: 0.2 });
   audio.startLoop('heist.vehicle.tires.road', { volume: 0.08, ambience: true, fade: 0.25 });
+  driveScore.start({ restart: true });
   say('rippin_drive');
+  input?.refresh('driving-start');
 }
 
 function reachSwap() {
   driving = false;
+  driveScore.stop();
   vehicle.setInput();
   audio.stopLoop('heist.vehicle.engine.load', 0.35);
   audio.stopLoop('heist.vehicle.tires.road', 0.35);
@@ -2378,6 +2619,7 @@ function reachSwap() {
   refreshObjective();
   say('shubes_swap');
   refreshInteractions();
+  input?.refresh('driving-complete');
 }
 
 function returnSafehouse() {
@@ -2391,6 +2633,68 @@ function returnSafehouse() {
   crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'moderate';
   refreshObjective();
   say('snow_return');
+}
+
+/** Keep the campaign-owned handset canonical: carried once, never concealed. */
+function ensureCampaignPhone() {
+  const carried = campaign.state.inventory.carried;
+  const concealed = campaign.state.inventory.concealed;
+  if (carried.filter((id) => id === ITEM_IDS.PHONE).length === 1
+    && !concealed.includes(ITEM_IDS.PHONE)) return true;
+  campaign.updateRequired((state) => {
+    state.inventory.concealed = state.inventory.concealed
+      .filter((id) => id !== ITEM_IDS.PHONE);
+    state.inventory.carried = state.inventory.carried
+      .filter((id) => id !== ITEM_IDS.PHONE);
+    state.inventory.carried.push(ITEM_IDS.PHONE);
+  });
+  return campaign.hasItem(ITEM_IDS.PHONE);
+}
+
+/** Ring only at debrief step 4/4; no world position participates. */
+function ringHeistDebriefPhone() {
+  if (!started
+    || activePhase !== 'safehouse'
+    || machine.state !== 'DEBRIEF'
+    || !weaponsDown
+    || story.debriefCallStatus() !== 'ringing'
+    || phone.call) return false;
+  ensureCampaignPhone();
+  return phone.ring(SAFEHOUSE_LOU_CALL);
+}
+
+function scheduleDebriefCompletion({ waitForDialogue = true } = {}) {
+  if (debriefCompletionTimer != null || missionCompleted) return false;
+  const finish = () => {
+    if (waitForDialogue
+      && (dialogue.current || dialogue.capture().queue.length || scriptedSpeech.length)) {
+      debriefCompletionTimer = setTimeout(finish, 100);
+      return;
+    }
+    debriefCompletionTimer = null;
+    if (phone.call) phone.hangUp({ force: true });
+    completeMission();
+  };
+  debriefCompletionTimer = setTimeout(finish, 0);
+  return true;
+}
+
+/** Phone.onAnswered lands here only after its durable answer receipt exists. */
+function connectHeistDebriefPhone() {
+  advanceTo('LOU_CALL_SAFEHOUSE');
+  scriptedSpeech.length = 0;
+  /* Preserve the authored cues, subtitles, speaker labels, and exact order.
+   * Phone owns ring/answer/hang-up; DialogueArbiter remains Heist speech truth. */
+  sayInTurn('lou_phone_home', 'lou_home_order', 'prospect_phone_home');
+  scheduleDebriefCompletion();
+  return true;
+}
+
+/** An answer saved before reload must finish without ringing or replaying it. */
+function resumeAnsweredDebriefCall() {
+  if (story.debriefCallStatus() !== 'answered' || missionCompleted) return false;
+  advanceTo('LOU_CALL_SAFEHOUSE');
+  return scheduleDebriefCompletion({ waitForDialogue: false });
 }
 
 /**
@@ -2436,6 +2740,15 @@ function returnToApartment() {
    * graph before asking the Apartment to create and decode another one; leaving
    * both contexts for browser GC can starve Chromium's decoder pool and strand
    * the next scene behind its Start card. Mission state is already durable. */
+  /* This is the final document handoff, so do not leave either owned media
+   * element waiting on a fade timer that page unload may never service. The
+   * event is factual teardown telemetry; the verifier listens during the real
+   * return-button path and carries the receipt across the navigation itself. */
+  const musicTeardown = disposeHeistMusic();
+  window.__heistDebug.musicTeardown = musicTeardown;
+  window.dispatchEvent(new CustomEvent('heist:audio-teardown', {
+    detail: musicTeardown,
+  }));
   try {
     /* Start teardown immediately, but never make campaign navigation wait for
      * Chromium to settle every decoded source. Some WebAudio implementations
@@ -2462,14 +2775,27 @@ function completeMission() {
    * what the player had done in that lobby. They are now derived from what
    * actually happened, and `civiliansHarmed` is a real count. */
   const report = objective.report();
+  const durable = campaign.state.missions[MISSION_IDS.BANK_HEIST];
   const completed = story.complete({
     bagsStaged: bankBagsStaged,
     bagsRecovered: summary.recoveredBags,
     grossTake: summary.grossRecovered,
     compromisedCash: summary.compromisedCash,
     crewInjuries: { [CHARACTER_IDS.RIPPINFLOW]: 'moderate' },
-    optionalVaultBagTaken: droppedBagDecision === 'recovered',
+    optionalVaultBagTaken: durable.optionalVaultBagTaken,
+    /* The debrief seam banked both counters before the ring. This remains the
+     * authority after a reload, when the scene-local objective ledger starts
+     * fresh but the exact played result must not. */
+    shotsFired: durable.shotsFired,
+    peopleKilled: durable.peopleKilled,
     ...report,
+    /* `safehouse_debrief` captured this verdict before the ring. On a reload
+     * after answer, the world ledger is reconstructed but the exact authored
+     * job result remains the durable authority. */
+    civiliansHarmed: durable.civiliansHarmed,
+    followedSnow: durable.followedSnow,
+    disciplinedFire: durable.disciplinedFire,
+    outcome: durable.outcome ?? report.outcome,
   });
   if (!completed) return;
   advanceTo('SCENE_COMPLETE');
@@ -2559,6 +2885,11 @@ function refreshInteractions() {
       say('prospect_ready');
       sayCommand('lou_radio_open');
       audio.play('heist.van.door');
+      /* And the doors he just went through shut behind him. They stand open
+       * in the bay while the crew loads — see `buildSafehouse` — and this is
+       * the sound that has always played over them doing nothing. */
+      p.safehouse.group.getObjectByName('primary-van')
+        ?.userData.setRearDoorsOpen?.(false);
       startVanRide();
       recordCheckpoint('safehouse_ready', 'VAN_APPROACH');
     }, { enabled: () => preparation.ready && machine.state === 'LOADOUT' });
@@ -2918,22 +3249,48 @@ function refreshInteractions() {
    * step states its own result on the HUD before the next one unlocks.
    */
   if (activePhase === 'safehouse' && stateIndex(state) >= stateIndex('SAFEHOUSE_RETURN')) {
-    use(p.safehouse.interactables.armor, '1/4 — Get Rippin’s leg wrapped', () => {
-      if (machine.state !== 'SAFEHOUSE_RETURN') return;
-      advanceTo('FIRST_AID');
-      say('rippin_aid');
-      crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'stabilized';
-      refreshObjective();
-      refreshInteractions();
-    }, { hold: 1.5, enabled: () => machine.state === 'SAFEHOUSE_RETURN' });
+    /* STEP ONE IS ON THE MAN, NOT ON THE VEST STAND.
+     *
+     * Owner: *"Rippin's leg just re-arms armor"*. It was registered on
+     * `interactables.armor` — the plate carrier on its mannequin, six metres
+     * from Rippinflow, and the one prop in this room whose every other verb is
+     * about body armour. See `SAFEHOUSE_DEBRIEF_STEPS` in `./orders.js` for the
+     * whole account; the table is the only place the four steps and their props
+     * are written down now, and nothing in it names the armour stand.
+     *
+     * The handler touches the injury and the objective. It does not touch
+     * `preparation`, `syncPlayerArmor`, or `armor.userData.setEquipped` — the
+     * vest is still on the player until he puts the guns down at 3/4, which is
+     * the step that is actually about gear. */
+    const rippin = crew.get(CHARACTER_IDS.RIPPINFLOW);
+    const debriefProps = {
+      rippin: rippin.group,
+      briefing: p.safehouse.interactables.briefing,
+      loadout: p.safehouse.interactables.loadout,
+    };
+    const firstAid = debriefStep('first_aid');
+    use(debriefProps[firstAid.target],
+      () => (rippin.injury === 'stabilized' ? firstAid.doneLabel : firstAid.label), () => {
+        if (machine.state !== 'SAFEHOUSE_RETURN') return;
+        advanceTo('FIRST_AID');
+        say('rippin_aid');
+        /* The dressing, out loud. `heist.swap.fabric` is the bag-the-masks cue
+         * and it is a strip of cloth being pulled tight, which is the same
+         * sound and the only one in this scene's bank that is. */
+        audio.play('heist.swap.fabric', { volume: 0.7 });
+        rippin.injury = 'stabilized';
+        refreshObjective();
+        refreshInteractions();
+      }, { hold: firstAid.hold, enabled: () => machine.state === 'SAFEHOUSE_RETURN' });
     /* The label reads the table, before and after. Before the count it is the
      * instruction; after it, the table is a readout the player can walk back
      * to and be told the number again — which is the whole point of putting
      * the bags on it. */
-    use(p.safehouse.interactables.briefing, () => (machine.state === 'FIRST_AID'
-      ? '2/4 — Empty the bags and count the take'
+    const count = debriefStep('count');
+    use(debriefProps[count.target], () => (machine.state === count.state
+      ? count.label
       : `The take: ${objective.bagsRecovered} of ${objective.totalBags} bags home`), () => {
-      if (machine.state !== 'FIRST_AID') return;
+      if (machine.state !== count.state) return;
       advanceTo('MONEY_COUNT');
       objective.syncLoot(loot.summary());
       objective.syncHostages(hostages.summary());
@@ -2944,6 +3301,7 @@ function refreshInteractions() {
        * lines are chosen from what actually happened, not from a script, and
        * they are sequenced rather than pushed, so all of them are heard. */
       const clean = ['professional', 'barely_clean'].includes(objective.grade());
+      const closingLines = heistDebriefClosingLines(clean);
       sayInTurn(
         'snow_debrief_open',
         'numb_debrief_ledger',
@@ -2962,29 +3320,36 @@ function refreshInteractions() {
         'shubes_defend',
         'death_ammo',
         'numb_home',
-        'snow_good',
-        'prospect_debrief',
+        ...closingLines,
       );
       refreshObjective();
       refreshInteractions();
-    }, { hold: 1.8, enabled: () => machine.state === 'FIRST_AID' });
-    use(p.safehouse.interactables.loadout, '3/4 — Put the weapons down', () => {
-      if (machine.state !== 'DEBRIEF' || weaponsDown) return;
+    }, { hold: count.hold, enabled: () => machine.state === count.state });
+    const weaponsStep = debriefStep('weapons_down');
+    use(debriefProps[weaponsStep.target], weaponsStep.label, () => {
+      if (machine.state !== weaponsStep.state || weaponsDown) return;
       weaponsDown = true;
       audio.play('heist.weapon.down');
       preparation.reset();
       syncSafehousePresentation();
       syncHeistInventory(true);
+      const summary = loot.summary();
+      objective.syncLoot(summary);
+      objective.syncHostages(hostages.summary());
+      recordCheckpoint('safehouse_debrief', 'DEBRIEF', {
+        bagsStaged: bankBagsStaged,
+        bagsRecovered: summary.recoveredBags,
+        grossTake: summary.grossRecovered,
+        compromisedCash: summary.compromisedCash,
+        shotsFired: objective.shotsFired,
+        peopleKilled: objective.officersDown + objective.civilianCasualties,
+        optionalVaultBagTaken: droppedBagDecision === 'recovered',
+        ...objective.report(),
+      });
+      ringHeistDebriefPhone();
       refreshObjective();
       refreshInteractions();
-    }, { enabled: () => machine.state === 'DEBRIEF' && !weaponsDown });
-    use(p.safehouse.interactables.van, '4/4 — Answer Lou’s call', () => {
-      if (machine.state !== 'DEBRIEF' || !weaponsDown) return;
-      advanceTo('LOU_CALL_SAFEHOUSE');
-      scriptedSpeech.length = 0;
-      sayInTurn('lou_call', 'lou_prospect_verdict', 'prospect_home');
-      setTimeout(completeMission, 3200);
-    }, { enabled: () => machine.state === 'DEBRIEF' && weaponsDown });
+    }, { enabled: () => machine.state === weaponsStep.state && !weaponsDown });
   }
 }
 
@@ -3015,6 +3380,29 @@ function showDebriefBoard() {
   board.classList.remove('hidden');
 }
 
+/**
+ * The floor under a point, which in the garage is not always the floor.
+ *
+ * `spawnPolice` places every officer at y 0. That is right everywhere except
+ * the one place they are supposed to come IN from: the garage ramp slopes
+ * from the street down to the floor across z 9 to 17, so a man staged on its
+ * footprint at floor height arrives buried to the chest in concrete. Which is
+ * exactly what the owner watched happen.
+ *
+ * The constants mirror the slab in `buildGaragePhase`: tilt -0.22 about a
+ * pivot at y 0.72, z 13, half-thickness 0.15.
+ */
+const GARAGE_RAMP = Object.freeze({
+  halfWidth: 3.5, minZ: 9, maxZ: 17, pivotZ: 13, pivotY: 0.866, slope: 0.2182,
+});
+
+function groundYAt(x, z) {
+  if (activePhase !== 'garage') return 0;
+  if (Math.abs(x) > GARAGE_RAMP.halfWidth) return 0;
+  if (z < GARAGE_RAMP.minZ || z > GARAGE_RAMP.maxZ) return 0;
+  return Math.max(0, GARAGE_RAMP.pivotY + (z - GARAGE_RAMP.pivotZ) * GARAGE_RAMP.slope);
+}
+
 function spawnPolice(block, count, { wave = false } = {}) {
   const gates = police.request(block, { count, visibleGates: [] });
   const baseZ = activePhase === 'street' ? 20 - policeFigures.length * 6 : 5;
@@ -3031,11 +3419,14 @@ function spawnPolice(block, count, { wave = false } = {}) {
       id: `${block}_${policeFigures.length}_${waveIndex}`,
       block,
       phaseId: activePhase,
-      position: entry
-        ? [entry[0] + (Math.random() - 0.5) * 1.6, 0, entry[1] + (Math.random() - 0.5) * 2.4]
-        : (contact
-          ? [contact[0], 0, contact[1]]
-          : [(i % 2 ? -1 : 1) * (4 + i), 0, baseZ - i * 5]),
+      position: (() => {
+        const [px, pz] = entry
+          ? [entry[0] + (Math.random() - 0.5) * 1.6, entry[1] + (Math.random() - 0.5) * 2.4]
+          : (contact
+            ? [contact[0], contact[1]]
+            : [(i % 2 ? -1 : 1) * (4 + i), baseZ - i * 5]);
+        return [px, groundYAt(px, pz), pz];
+      })(),
       recycle: wave,
     });
   }
@@ -3098,8 +3489,13 @@ const WAVE_ENTRY = Object.freeze({
   bank_avenue: [[-6.4, 4], [6.4, 2], [-5.2, -1], [5.6, -3], [0, -6]],
   // Block two: he leaves the van at z 14 and falls back to the garage at −35.
   market_street: [[-6.6, -18], [6.6, -21], [-5.4, -25], [5.8, -27], [0, -30]],
-  // The garage is a defence, and its entry is the ramp he is told to hold.
-  mercer_garage: [[-7.2, 11], [7.2, 10], [-6.4, 13.5], [6.4, 13], [0, 14]],
+  /* The garage is a defence, and its entry is the ramp he is told to hold.
+   * These stand ON the ramp on purpose, which is only possible now that
+   * `groundYAt` puts them on its surface instead of at floor height -- the
+   * old `(0, 14)` sat a man chest-deep in concrete. Coming down the slope is
+   * the believable entrance the owner asked for, and it keeps every arrival
+   * five to eight metres from where he holds rather than on top of him. */
+  mercer_garage: [[-2.4, 12.6], [2.4, 12.6], [-1.1, 14.4], [1.1, 13.8], [0, 11.2]],
 });
 
 /**
@@ -3114,7 +3510,11 @@ const WAVE_ENTRY = Object.freeze({
 const BLOCK_CONTACT = Object.freeze({
   bank_avenue: [[5.5, 19.9], [-5.5, 21.1], [1.9, 15.6], [5.5, 14.1], [-1.9, 8.6]],
   market_street: [[-5.5, -1.1], [5.5, -8.1], [1.9, -12.4], [-5.5, -15.1], [-1.9, -19.4]],
-  mercer_garage: [[-2.4, 12.2], [2.4, 12.2], [0, 11.4], [-8, 11.2], [8, 11.2]],
+  /* Three of these -- (-2.4, 12.2), (2.4, 12.2) and (0, 11.4) -- used to sit
+   * inside the ramp footprint, which is why the opening contact was a row of
+   * men standing waist-deep in the slope doing nothing. They hold the pillar
+   * line and the lane mouths instead, which is cover they can actually use. */
+  mercer_garage: [[-8, 11.2], [8, 11.2], [-5.6, 6.2], [5.6, 6.2], [0, 8.4]],
 });
 
 let waveClock = 4.5;
@@ -3298,9 +3698,34 @@ function fireWeapon() {
     damage: shot.damage,
     penetration: shot.penetration,
   });
+  /* THE PLAYER'S ROUND, IN THE AIR.
+   *
+   * The camera had a flash on it and the far end had a dust puff, and between
+   * the two there was nothing at all — so a burst down the street looked
+   * identical whether it was going anywhere near a man or a metre over his
+   * head. The catalog decides which rounds are visible (`every: 1` on the
+   * 9 mm, one in three on the carbine, the way a belt is loaded), and the
+   * streak starts at the VIEW MODEL's muzzle rather than at the camera, so it
+   * leaves the barrel the player can see instead of the bridge of his nose. */
+  if (shot.tracer) {
+    const card = WEAPON_CATALOG[active.weaponId]?.tracer;
+    const to = impact.hit
+      ? impact.hit.point.clone()
+      : raycaster.ray.origin.clone().addScaledVector(raycaster.ray.direction, 120);
+    tracers.fire({
+      from: viewModel.muzzleWorld?.() ?? raycaster.ray.origin.clone(),
+      to,
+      speed: card?.speed ?? 620,
+      colour: card?.colour ?? 0xfff0a0,
+      width: (card?.width ?? 0.012) * 2.4,
+    });
+  }
   const located = impact.located;
   const reachedActor = Boolean(located && located.reason !== 'unregistered' && located.actor);
   objective.noteShot({ hitActor: reachedActor });
+  /* Before any of the early returns below: a round that misses still counts. */
+  notePoliceSuppression(raycaster.ray.origin, raycaster.ray.direction,
+    impact.hit ? impact.hit.point : null);
   if (!impact.hit) return;
   // A round into a wall throws dust; a round into a person does not.
   if (!reachedActor) { emitImpact(impact.hit.point); return; }
@@ -3332,6 +3757,15 @@ function fireWeapon() {
     }
     refreshInteractions();
     return;
+  }
+  if (actor.faction === FACTIONS.POLICE) {
+    /* A round that does not kill still moves a man: it costs him his aim for
+     * the shared stagger window, wounds the limb it went through, and drives
+     * the flinch `updatePoliceFigures` puts on his rig. Head 0.74 s, chest
+     * 0.58 s, limb 0.40 s — `CombatImpairments`' own numbers, the same ones
+     * the Mansion Siege's attackers are knocked about by. */
+    const struck = policeEntryFor(located.root);
+    if (struck) combat.noteHostileHit(struck, located);
   }
   if (actor.faction === FACTIONS.POLICE && result.fatal) {
     const downedRoot = located.root;
@@ -3421,6 +3855,44 @@ const POLICE_MOVEMENT = Object.freeze({
   reach: 16,
 });
 
+/**
+ * THE GARAGE FIGHTS AT A DIFFERENT RANGE, and used not to fight at all.
+ *
+ * Owner, playtest 2026-08-26, on the garage: *"they're kind of just standing
+ * there, and they're all kind of just standing there too."*
+ *
+ * The numbers above were written for the street, where a block runs seventy
+ * metres and men bound between parked cars. The garage is a 24 x 30 room, the
+ * player holds at z 6.4, and its eleven fire positions sit between 5.00 and
+ * 9.43 m from him. So `toPlayer < standoff - 1.5` threw out every slot for
+ * anybody whose rolled standoff came up past about 11 -- and `own - toPlayer
+ * < gain` threw out the rest, because in a room that small no bound can buy
+ * three metres of closure. `chooseFirePosition` returned null every time and
+ * every officer sat in `hold` forever. Combat was running, the movement code
+ * was running; there was simply nothing either would ever pick.
+ *
+ * These are the same rules measured against the room they are used in.
+ */
+const GARAGE_MOVEMENT = Object.freeze({
+  /* The top of the band matters as much as the bottom, and for a reason that
+   * is easy to miss. Reinforcements arrive at the head of the ramp about 7.4 m
+   * from where the player holds. Any slot further out than that is FURTHER
+   * from the man than he already is, so it scores a negative gain and is
+   * rejected -- which means a standoff above roughly 6.5 leaves him nothing to
+   * pick in either direction and he stands still. The band has to sit under
+   * the range the room actually delivers him at. */
+  standoff: Object.freeze([3.6, 6.4]),
+  gain: 1.2,
+  reach: 13,
+});
+
+/** The movement rules for the block being fought right now. */
+function movementRules() {
+  return activePhase === 'garage'
+    ? { ...POLICE_MOVEMENT, ...GARAGE_MOVEMENT }
+    : POLICE_MOVEMENT;
+}
+
 const _policeStep = new THREE.Vector3();
 const _policeGoal = new THREE.Vector3();
 
@@ -3440,8 +3912,8 @@ function policeMovementState(entry, index) {
     clock: POLICE_MOVEMENT.hold[0] * 0.4 + spread * 2.4,
     goal: null,
     slot: null,
-    standoff: POLICE_MOVEMENT.standoff[0]
-      + spread * (POLICE_MOVEMENT.standoff[1] - POLICE_MOVEMENT.standoff[0]),
+    standoff: movementRules().standoff[0]
+      + spread * (movementRules().standoff[1] - movementRules().standoff[0]),
     speed: 0,
   };
   return entry.movement;
@@ -3466,15 +3938,16 @@ function chooseFirePosition(entry, taken) {
   const here = entry.root.position;
   const own = Math.hypot(here.x - player.position.x, here.z - player.position.z);
   const standoff = entry.movement.standoff;
+  const rules = movementRules();
   let best = null;
   let bestScore = Infinity;
   for (const slot of slots) {
     if (taken.has(slot.id)) continue;
     const toPlayer = Math.hypot(slot.x - player.position.x, slot.z - player.position.z);
     if (toPlayer < standoff - 1.5) continue;
-    if (own - toPlayer < POLICE_MOVEMENT.gain) continue;
+    if (own - toPlayer < rules.gain) continue;
     const travel = Math.hypot(slot.x - here.x, slot.z - here.z);
-    if (travel > POLICE_MOVEMENT.reach || travel < 0.6) continue;
+    if (travel > rules.reach || travel < 0.6) continue;
     const score = Math.abs(toPlayer - standoff) + travel * 0.25;
     if (score < bestScore) { bestScore = score; best = slot; }
   }
@@ -3565,26 +4038,162 @@ function updatePoliceMovement(dt) {
 const POLICE_COMBAT = Object.freeze({
   damage: 11,
   range: 48,
-  cadence: Object.freeze([2.6, 4.6]),
+  /*
+   * THE PAUSE BETWEEN BURSTS, not the gap between rounds.
+   *
+   * This used to be [2.6, 4.6] and it meant one round, then two and a half to
+   * four and a half seconds of nothing, per officer, forever. Six of them
+   * produced 1.7 lone pops a second scattered across a street, which is a
+   * sound design, not a firefight — and it is half of what the owner saw when
+   * he wrote that they *"never really appear to be shooting back."*
+   *
+   * `BurstController` in the adapter now spends the same ammunition in twos
+   * and threes at the pistol's own 5.5 rps. The rounds per second are held
+   * where they were, deliberately — the arithmetic and the four-seed
+   * measurement are written out over `HEIST_HOSTILE_BURST` in `./combat.js`,
+   * and they put the pause at a mean of 8.55 s. [7.2, 9.9] is that mean with
+   * the same ±1.35 s spread the old numbers carried, and the draw is made ONCE
+   * PER OFFICER at his first frame rather than per shot, so six men on the
+   * same street cycle at six different rates and never fall into step.
+   */
+  cadence: Object.freeze([7.2, 9.9]),
+  burst: HEIST_HOSTILE_BURST,
   accuracyMoving: 0.18,
   accuracyStill: 0.34,
 });
+
+/**
+ * The catalog card for the gun every officer carries. Read once: the tracer's
+ * colour, width, speed and `every` are the same 9 mm numbers the armory hands
+ * the player when he picks the same pistol up.
+ */
+const POLICE_TRACER = HeistCombatAdapter.hostileTracer();
 const policeAimPoint = new THREE.Vector3();
+
+/**
+ * Walk every police rig's pose blend, dead ones included.
+ *
+ * Owner, playtest 2026-08-26: *"when they die, they don't fall down. So they
+ * just kind of keep standing up."*
+ *
+ * The death pose was never missing. `setState('down')` captures the standing
+ * pose, applies `fallen()`, captures the endpoint, and then REWINDS the rig
+ * and hands the walk-across to `_updatePoseBlend` -- which only ever runs
+ * from `HeistFigure.update()`. Nothing in this scene called that on a police
+ * figure: the only per-frame figure ticks were `updateLobbyFigures`, which
+ * returns immediately unless the phase is `bank`, and `updateCrew`. So a
+ * killed officer ended the frame flagged `fallen` in the data with his rig
+ * still in the exact `aiming()` pose it was rewound to. Dead in the model,
+ * standing on the screen.
+ *
+ * It survived tooling because both debug hooks bypass the blend --
+ * `debugNeutralizePolice` calls `figure.fallen()` directly and
+ * `debugProbePoliceRecycle` passes `{ blend: false }` -- so both snap
+ * straight to the pose and both looked correct.
+ *
+ * The siege has had this right for a while: its update loop keeps ticking a
+ * figure inside the `incapacitated` branch before it continues. Same shape
+ * here, and the fear term goes to zero for the fallen, because a dead man
+ * does not breathe.
+ */
+function updatePoliceFigures(dt) {
+  for (const entry of policeFigures) {
+    if (!entry?.figure || entry.root?.userData.phaseId !== activePhase) continue;
+    entry.figure.update(dt, { fear: entry.actor?.incapacitated ? 0 : 0.35 });
+    /* THE HIT, MADE VISIBLE.
+     *
+     * Owner, same note: a round that landed on an officer did nothing at all
+     * to him on screen. The shared `CombatImpairments` he now carries knows
+     * exactly how long he is off his weapon and how big the knock should read
+     * (`reaction`); this is the one line that puts it on the rig. A dead man
+     * does not flinch — his pose is the fall, and `HeistFigure.flinch` would
+     * be adding an aiming offset to a corpse. */
+    const impairments = combat.hostileImpairments(entry.actor?.id);
+    entry.figure.flinch(entry.actor?.incapacitated ? 0 : (impairments?.reaction ?? 0));
+  }
+}
+
+const _suppressFrom = new THREE.Vector3();
+const _suppressTo = new THREE.Vector3();
+const _suppressLeg = new THREE.Vector3();
+
+/**
+ * A round that goes past a man is a round he reacts to.
+ *
+ * Police accuracy is scaled by each officer's own SuppressionModel, and this
+ * is the only thing that raises it: the perpendicular distance from every live
+ * officer to the player's shot, measured along the segment the round actually
+ * travelled rather than the infinite ray, so a bullet that stops in a wall
+ * does not suppress the man standing behind it.
+ *
+ * SuppressionModel.noteNearMiss treats anything past four metres as nothing,
+ * so the radius is its own, not a number invented here.
+ */
+function notePoliceSuppression(origin, direction, hitPoint) {
+  if (!['street', 'garage'].includes(activePhase)) return;
+  _suppressFrom.copy(origin);
+  if (hitPoint) _suppressTo.copy(hitPoint);
+  else _suppressTo.copy(origin).addScaledVector(direction, POLICE_COMBAT.range);
+  _suppressLeg.copy(_suppressTo).sub(_suppressFrom);
+  const legLength = _suppressLeg.length();
+  if (legLength < 0.001) return;
+
+  for (const entry of policeFigures) {
+    if (!entry.root?.visible || entry.actor?.incapacitated) continue;
+    if (entry.root.userData.phaseId !== activePhase) continue;
+    /* Chest height, so a round over his head reads differently to one past
+     * his ribs. */
+    const chest = entry.root.position;
+    const toManX = chest.x - _suppressFrom.x;
+    const toManY = 1.2 + chest.y - _suppressFrom.y;
+    const toManZ = chest.z - _suppressFrom.z;
+    const along = (toManX * _suppressLeg.x + toManY * _suppressLeg.y
+      + toManZ * _suppressLeg.z) / legLength;
+    /* Behind the muzzle, or past where the round stopped: not his problem. */
+    if (along < 0 || along > legLength) continue;
+    const t = along / legLength;
+    const missX = toManX - _suppressLeg.x * t;
+    const missY = toManY - _suppressLeg.y * t;
+    const missZ = toManZ - _suppressLeg.z * t;
+    const miss = Math.hypot(missX, missY, missZ);
+    if (miss > 4) continue;
+    if (!entry.suppression) entry.suppression = new SuppressionModel();
+    entry.suppression.noteNearMiss(miss, 1);
+  }
+}
 
 function updatePoliceCombat(dt) {
   if (!['street', 'garage'].includes(activePhase) || machine.state === 'FAILED') return;
   policeAimPoint.set(player.position.x, 1.2, player.position.z);
   const moving = player.velocity.lengthSq() > 2.5;
-  /* Suppressive pressure still degrades their shooting — same authored curve
-   * as before, now applied to the shared accuracy input. */
-  const accuracy = (moving ? POLICE_COMBAT.accuracyMoving : POLICE_COMBAT.accuracyStill)
-    * (1 - Math.min(0.45, suppression.value * 0.2));
+  /* THE SUPPRESSION TERM WAS POINTING THE WRONG WAY.
+   *
+   * Owner, playtest 2026-08-26: *"they also don't really appear to be shooting
+   * back."*
+   *
+   * `suppression` is the PLAYER's meter. It is fed by `noteNearMiss` when a
+   * police round passes close to him, it drives `hud.setSuppression`, and it
+   * shakes his camera. Multiplying police accuracy by `1 - suppression * 0.2`
+   * therefore meant: the more they shot at you, the worse they got at it. A
+   * player standing in the open under fire was the safest player on the
+   * street, and the effect compounded -- every near miss bought him up to 45%
+   * off the next one.
+   *
+   * Their own pressure is what belongs here, so each officer now carries a
+   * SuppressionModel of his own, raised by the player's near misses on HIM.
+   * Same authored curve, applied to the man it is actually about. */
+  const baseAccuracy = moving ? POLICE_COMBAT.accuracyMoving : POLICE_COMBAT.accuracyStill;
   for (const entry of policeFigures) {
     if (!entry.root.visible || entry.actor.incapacitated
       || entry.root.userData.phaseId !== activePhase) continue;
     /* A man crossing open ground is not the one to be afraid of; the two
      * holding on either side of him are. See `updatePoliceMovement`. */
     const bounding = entry.movement?.mode === 'bound';
+    /* His own suppression, not the player's. Decays on the same clock. */
+    if (!entry.suppression) entry.suppression = new SuppressionModel();
+    entry.suppression.update(dt);
+    const accuracy = baseAccuracy
+      * (1 - Math.min(0.45, entry.suppression.value * 0.2));
     const update = combat.updateHostile(entry, dt, {
       targetPoint: policeAimPoint,
       targetActor: playerActor,
@@ -3592,12 +4201,52 @@ function updatePoliceCombat(dt) {
       damage: POLICE_COMBAT.damage,
       range: POLICE_COMBAT.range,
       cadence: POLICE_COMBAT.cadence,
+      burst: POLICE_COMBAT.burst,
     });
+    /* HIS GUN, WHEN IT IS NOT FIRING. The shared pipeline reports the
+     * magazine coming out and going in; a man who runs dry in front of you and
+     * audibly reloads is a man you can push. Same cue slots and same volumes
+     * the siege's attackers use — `playWeaponCue`, not a heist-local sound. */
+    for (const event of update.events ?? []) {
+      const position = entry.root.position;
+      if (event.type === 'reload-start') {
+        playWeaponCue(audio, HEIST_HOSTILE_WEAPON_ID, 'reload.out', { position, volume: 0.4 });
+      } else if (event.type === 'loaded') {
+        playWeaponCue(audio, HEIST_HOSTILE_WEAPON_ID, 'reload.in', { position, volume: 0.35 });
+      } else if (event.type === 'empty') {
+        playWeaponCue(audio, HEIST_HOSTILE_WEAPON_ID, 'empty', { position, volume: 0.42 });
+      }
+    }
     const shot = update.shot;
     if (!shot?.fired) continue;
-    audio.play('heist.police.gunshot', {
-      position: shot.origin, volume: 0.72, ref: 1.6, maxDist: 55,
+    /* THE REPORT IS THE CATALOG'S. `heist.police.gunshot` is a real recording
+     * and it is not going anywhere — `src/core/weapons/audio.js` uses it as
+     * the SAW's stand-in — but playing it directly meant the men shooting at
+     * the player were the only guns in the game not coming out of the shared
+     * bank. They carry a `pistol9`; they now sound like one, at the shared
+     * gun-layer falloff, and they will pick up the recorded 9 mm the day it
+     * lands with no code change here. */
+    playWeaponCue(audio, shot.weaponId ?? HEIST_HOSTILE_WEAPON_ID, 'fire', {
+      position: shot.origin, volume: 0.72,
     });
+    /* The muzzle, and the round in the air. Both start at `shot.origin`, which
+     * is the bore CombatWeaponAim sampled off the modelled gun — so the flash
+     * is on the barrel and the streak leaves it, rather than both erupting
+     * from the middle of the officer's chest. */
+    policeMuzzleFlashes.flash(shot.origin);
+    if (shot.tracer) {
+      tracers.fire({
+        from: shot.origin,
+        to: shot.end,
+        speed: POLICE_TRACER.speed,
+        colour: POLICE_TRACER.colour,
+        /* The catalog width is authored for a first-person view model at arm's
+         * length. A 10 mm streak forty metres down a street is invisible, and
+         * the siege found the same thing and multiplied by 2.4; this is that
+         * number, on the same argument. */
+        width: POLICE_TRACER.width * 2.4,
+      });
+    }
     /* The round lands where the shared truth says it landed — on the blocker
      * that owns it or at the declared miss point — not at a random offset
      * conjured around the player. */
@@ -3682,6 +4331,7 @@ function resolveCarriedBagMesh() {
 
 function failMission(reason) {
   if (!machine.fail(reason)) return;
+  driveScore.stop(0.12);
   const fade = document.getElementById('fade');
   const restoreId = recoveryCheckpoint ?? latestCheckpoint;
   fade.querySelector('span').textContent = restoreId
@@ -3705,6 +4355,7 @@ function failMission(reason) {
     machine.restore(snapshot.meta.state);
     activatePhase(snapshot.meta.phase);
     interaction.setPaused(driving);
+    if (driving) driveScore.start({ restart: true });
     hud.setDriving(driving, Math.abs(vehicle.speed) * 2.237);
     player.mode = driving ? 'frozen' : 'walk';
     fade.style.opacity = '0';
@@ -3723,7 +4374,7 @@ checkpoints.register('player', {
     position: player.position.toArray(), yaw: player.yaw, pitch: player.pitch,
     actor: playerActor.snapshot(),
   }),
-  reset: () => { player.clearKeys(); player.velocity.set(0, 0, 0); },
+  reset: () => { input?.clear('checkpoint-reset'); player.velocity.set(0, 0, 0); },
   restore: (s) => {
     player.position.fromArray(s.position);
     player.yaw = s.yaw;
@@ -3764,6 +4415,10 @@ checkpoints.register('police', {
     policeFigures = [];
     combat.resetHostiles();
     police.reset();
+    /* Nothing from the old attempt is left in the air or lit. Same lifecycle
+     * every other shared presentation Module in the game has at a restore. */
+    tracers.clear();
+    policeMuzzleFlashes.reset();
   },
   restore: (snapshot) => {
     police.restore(snapshot.director);
@@ -3826,6 +4481,7 @@ checkpoints.register('mission-local', {
     officersDown, driving, roadblockHit, routeIndex, offroadHitCooldown,
     driveCollisionCooldown, swapProgress: { ...swapProgress },
     driveInvalidFor, driveStuckFor, drivingRecovery,
+    weaponsDown,
     suppression: suppression.value,
   }),
   reset: () => {
@@ -3849,6 +4505,7 @@ checkpoints.register('mission-local', {
     driveInvalidFor = 0;
     driveStuckFor = 0;
     drivingRecovery = false;
+    weaponsDown = false;
     Object.keys(swapProgress).forEach((key) => { swapProgress[key] = false; });
     suppression.value = 0;
     resetLobbyCombatActor(rearGuardActor);
@@ -3882,6 +4539,7 @@ checkpoints.register('mission-local', {
     driveInvalidFor = snapshot.driveInvalidFor ?? 0;
     driveStuckFor = snapshot.driveStuckFor ?? 0;
     drivingRecovery = snapshot.drivingRecovery === true;
+    weaponsDown = snapshot.weaponsDown === true;
     Object.assign(swapProgress, snapshot.swapProgress ?? {});
     suppression.value = snapshot.suppression ?? 0;
     guardThreat.restore(snapshot.guardThreat);
@@ -3940,15 +4598,18 @@ checkpoints.register('crew', {
 });
 
 function seedLootForCheckpoint(checkpoint, mission) {
-  const atOrAfterStreet = ['street_withdrawal', 'mercer_garage', 'vehicle_swap'].includes(checkpoint);
+  const atOrAfterStreet = [
+    'street_withdrawal', 'mercer_garage', 'vehicle_swap', 'safehouse_debrief',
+  ].includes(checkpoint);
   if (!atOrAfterStreet) return;
   bankBagsStaged = 8;
   stageBankBags(8);
-  const atGarage = ['mercer_garage', 'vehicle_swap'].includes(checkpoint);
+  const atGarage = ['mercer_garage', 'vehicle_swap', 'safehouse_debrief'].includes(checkpoint);
+  const afterSwap = ['vehicle_swap', 'safehouse_debrief'].includes(checkpoint);
   const recoveredIds = Array.from({ length: mission.droppedBagRecovered ? 8 : 7 }, (_, index) => `cash_${index + 1}`);
   for (const id of recoveredIds) {
     loot.carry(id, CHARACTER_IDS.DEATHMEGATRON);
-    if (checkpoint === 'vehicle_swap') loot.load(id, 'clean_swap_car');
+    if (afterSwap) loot.load(id, 'clean_swap_car');
     else if (atGarage) continue;
     else loot.drop(id, { anchor: 'bank_exit', position: { x: 0, y: 0.3, z: 8.5 } });
   }
@@ -3989,6 +4650,10 @@ function resumePersistedCheckpoint(checkpoint) {
       state: 'SAFEHOUSE_RETURN', phase: 'safehouse',
       injury: 'moderate', swapDone: true,
     },
+    safehouse_debrief: {
+      state: 'DEBRIEF', phase: 'safehouse',
+      injury: 'stabilized', swapDone: true, debriefReady: true,
+    },
   }[checkpoint];
   if (!setup) return false;
   machine.restore(setup.state);
@@ -3997,7 +4662,9 @@ function resumePersistedCheckpoint(checkpoint) {
   loadout.wearMask(setup.masked === true);
   /* Resuming past the vault means the vault is open; a shut door with the cash
    * already staged behind it is the sort of thing a resume used to leave. */
-  if (['vault_open', 'street_withdrawal', 'mercer_garage', 'vehicle_swap'].includes(checkpoint)) {
+  if ([
+    'vault_open', 'street_withdrawal', 'mercer_garage', 'vehicle_swap', 'safehouse_debrief',
+  ].includes(checkpoint)) {
     level.phases.bank.interactables.vault.userData.setOpen?.(true);
   }
   if (['bank_secured', 'vault_open'].includes(checkpoint)) {
@@ -4014,6 +4681,13 @@ function resumePersistedCheckpoint(checkpoint) {
   }
   if (setup.injury) crew.get(CHARACTER_IDS.RIPPINFLOW).injury = setup.injury;
   if (setup.swapDone) Object.keys(swapProgress).forEach((key) => { swapProgress[key] = true; });
+  if (setup.debriefReady) {
+    weaponsDown = true;
+    preparation.reset();
+    syncSafehousePresentation();
+    syncHeistInventory(true);
+    showDebriefBoard();
+  }
   if (setup.policeBlock) spawnPolice(setup.policeBlock, setup.policeCount);
   player.mode = 'walk';
   player.moveScale = setup.phase === 'van' ? 0 : 1;
@@ -4025,6 +4699,10 @@ function resumePersistedCheckpoint(checkpoint) {
   window.__heistDebug.checkpoint = checkpoint;
   objective.syncLoot(vaultSummary());
   objective.syncHostages(hostages.summary());
+  if (setup.debriefReady) {
+    if (story.debriefCallStatus() === 'answered') resumeAnsweredDebriefCall();
+    else ringHeistDebriefPhone();
+  }
   return true;
 }
 
@@ -4099,7 +4777,10 @@ async function begin() {
    * Without the second list the stand-ins are names with no buffer behind
    * them and the guns go quiet. */
   await audio.loadManifest({
-    names: [...HEIST_VOICE_CUES, ...weaponCueNames()], prefixes: ['heist.'],
+    names: [
+      ...HEIST_VOICE_CUES, ...weaponCueNames(), 'phone.ring', 'phone.hangup',
+    ],
+    prefixes: ['heist.'],
   });
   const opening = story.begin();
   if (!opening.ok) {
@@ -4112,7 +4793,7 @@ async function begin() {
     document.querySelector('#start-card .lede').textContent = `THE TAKE is unavailable: ${opening.reason.replaceAll('_', ' ')}.`;
     return;
   }
-  if (!isPreviewMode()) canvas.requestPointerLock?.();
+  if (!isPreviewMode()) input.requestPointerLock();
   const checkpoint = isPreviewMode() ? previewCheckpointForLocation() : null;
   if (checkpoint && checkpoint !== 'safehouse') {
     primePreview(checkpoint);
@@ -4125,9 +4806,7 @@ async function begin() {
      * safehouse prep, same "record on in the corner" mechanism as Lou's
      * office. Once only, on the way in -- `returnSafehouse()` and the
      * preview/resume paths above deliberately do not call this again. */
-    audio.startMusicLoop('heist.morning.radio', 'assets/music/codename-sasquatch.mp3', {
-      volume: 0.14, ambience: true, fade: 1.6,
-    });
+    safehouseRecord.start();
     refreshObjective();
     setTimeout(() => {
       advanceTo('CREW_INTRO');
@@ -4143,12 +4822,14 @@ function setSimulationPaused(value, { force = false } = {}) {
   if (isPreviewMode() && !force) return;
   simulationPaused = value === true;
   if (simulationPaused) {
-    player.clearKeys();
+    input?.clear('simulation-pause');
     vehicle.setInput();
   }
   interaction.setPaused(simulationPaused || driving);
+  input?.refresh('simulation-pause');
 }
 
+let input = null;
 const pauseMenu = createPauseMenu({
   title: 'The Take',
   assist: true,
@@ -4164,15 +4845,14 @@ const pauseMenu = createPauseMenu({
   ],
   onPause: () => {
     setSimulationPaused(true, { force: true });
-    player.enabled = false;
-    interaction.release();
+    input?.suspend();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     setSimulationPaused(false, { force: true });
     audio.ctx?.resume?.();
     clock.getDelta();
-    if (!driving && !isPreviewMode()) canvas.requestPointerLock?.();
+    input?.resume({ requestPointerLock: !driving && !isPreviewMode() });
   },
   recovery: createCampaignSceneRecovery({
     campaign,
@@ -4183,62 +4863,55 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
-canvas.addEventListener('click', () => {
-  if (!started || pauseMenu.isPaused()) return;
-  setSimulationPaused(false);
-  if (!driving) canvas.requestPointerLock?.();
+const heistControls = createHeistControlPolicy({
+  state: () => ({
+    started,
+    paused: simulationPaused,
+    driving,
+    completed: missionCompleted,
+  }),
+  player,
+  interaction,
+  isPreview: isPreviewMode,
+  selectSlot,
+  cycleSlot,
+  hostageVerb: hostageVerbUnderCrosshair,
+  reload: () => {
+    if (!loadout.activeWeapon?.beginReload()) return false;
+    playWeaponCue(audio,
+      loadout.selectedItem === 'sidearm' ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE,
+      'reload.out');
+    return true;
+  },
+  dropBag: dropCarriedBag,
+  failPreview: () => failMission('preview_failure_test'),
+  fireWeapon,
+  setAimed: (aimed) => {
+    for (const gun of Object.values(loadout.weapons)) gun.setAimed(aimed);
+  },
+  pause: () => pauseMenu.pause(),
+  resumeSimulation: () => setSimulationPaused(false),
+  pauseMenuOpen: () => pauseMenu.isPaused(),
+  phoneRinging: () => phone.ringing,
+  answerPhone: () => answerDurablePhoneCall({
+    phone,
+    persistAnswer: () => story.answerDebriefCall(),
+  }),
 });
-document.addEventListener('pointerlockchange', () => {
-  player.enabled = document.pointerLockElement === canvas && !driving;
-  if (started && !driving && !isPreviewMode()) {
-    if (document.pointerLockElement !== canvas) pauseMenu.pause();
-    else if (!pauseMenu.isPaused()) setSimulationPaused(false);
-  }
-});
-addEventListener('blur', () => { if (started) pauseMenu.pause(); });
-document.addEventListener('visibilitychange', () => {
-  if (started && document.hidden) pauseMenu.pause();
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas && !driving) player.handleMouseMove(event.movementX, event.movementY);
-});
-const SLOT_KEYS = Object.freeze({
-  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
-  Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3, Numpad5: 4,
+input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  ...heistControls,
 });
 
-document.addEventListener('keydown', (event) => {
-  if (simulationPaused) return;
-  if (event.repeat && ['KeyE', 'KeyR', 'KeyQ', 'KeyF', 'KeyG'].includes(event.code)) return;
-  player.setKey(translateKey(event.code), true);
-  if (event.code in SLOT_KEYS) { selectSlot(SLOT_KEYS[event.code]); return; }
-  if (event.code === 'BracketLeft') { cycleSlot(-1); return; }
-  if (event.code === 'BracketRight') { cycleSlot(1); return; }
-  if (event.code === 'KeyE') interaction.press();
-  if (event.code === 'KeyF') hostageVerbUnderCrosshair('reassure');
-  if (event.code === 'KeyG') hostageVerbUnderCrosshair('demand');
-  if (event.code === 'KeyR' && loadout.activeWeapon?.beginReload()) {
-    playWeaponCue(audio,
-      loadout.selectedItem === 'sidearm' ? WEAPON_IDS.PISTOL9 : WEAPON_IDS.CARBINE, 'reload.out');
-  }
-  if (event.code === 'KeyQ') dropCarriedBag();
-  if (event.code === 'F9' && isPreviewMode()) failMission('preview_failure_test');
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
+document.addEventListener('visibilitychange', () => {
+  if (started && document.hidden) pauseMenu.pause();
 });
 addEventListener('wheel', (event) => {
   if (!started || driving) return;
   cycleSlot(event.deltaY > 0 ? 1 : -1);
 }, { passive: true });
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && (document.pointerLockElement === canvas || isPreviewMode())) fireWeapon();
-  if (event.button === 2) loadout.activeWeapon?.setAimed(true);
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 2) for (const gun of Object.values(loadout.weapons)) gun.setAimed(false);
-});
 document.addEventListener('contextmenu', (event) => event.preventDefault());
 
 /**
@@ -4272,7 +4945,7 @@ function recoverDrivingRoute(reason) {
   vehicle.setInput();
   driveInvalidFor = 0;
   driveStuckFor = 0;
-  player.clearKeys();
+  input?.clear('drive-recovery');
   drivePhase.car.position.set(vehicle.x, 0, vehicle.z);
   const fade = document.getElementById('fade');
   fade.querySelector('span').textContent = reason === 'route'
@@ -4305,6 +4978,8 @@ function recoverDrivingRoute(reason) {
 const chaseCamera = new THREE.Vector3();
 const chaseLook = new THREE.Vector3();
 let chaseInitialised = false;
+/** Damped steering lead for the chase camera. Persists across frames. */
+let slipLead = 0;
 
 function updatePursuit(dt, forwardX, forwardZ) {
   const drivePhase = level.phases.driving;
@@ -4526,6 +5201,23 @@ function updateDriving(dt) {
   car.position.set(vehicle.x, vehicle.suspension * 0.6, vehicle.z);
   // Procedural cars are modelled long on local X; physics heading is +Z. Body
   // roll is about that long axis, so it goes on X once the yaw is applied.
+  /* THE WONKY.
+   *
+   * Owner, playtest 2026-08-26: *"the car is a little wonky. It could use a
+   * little refinement."*
+   *
+   * Euler order. Three.js defaults to XYZ, which applies the roll about the
+   * WORLD x axis and only then yaws -- so on the north and south legs, which
+   * is most of this route, `bodyRoll` stopped being roll and became pitch,
+   * dropping the nose about 28 cm into a hard turn and flipping sign with
+   * heading. `YZX` is Ry*Rz*Rx: yaw about world +Y first, then pitch about the
+   * car's own +Z, then roll about its own +X, which is what these three terms
+   * were always meant to be.
+   *
+   * src/specialmeeting/forest/driver.js hit this and left a comment saying so
+   * -- "getting an Euler order wrong here rolls the car when it should pitch
+   * and the mistake looks like a suspension bug". It looked like one here too. */
+  car.rotation.order = 'YZX';
   car.rotation.set(
     vehicle.bodyRoll * 0.9,
     vehicle.heading - Math.PI / 2,
@@ -4540,7 +5232,14 @@ function updateDriving(dt) {
    * whatever the front wheels are doing. */
   const speedRatio = Math.min(1, Math.abs(vehicle.speed) / HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
   const back = 11.5 + speedRatio * 4.5;
-  const slipLead = vehicle.steerAngle * 5.5;
+  /* THE WHIPLASH, half of it.
+   *
+   * `steerAngle` is a live control input with no smoothing of its own, and it
+   * was multiplied straight into the look point at 5.5 -- so every flick of
+   * the wheel threw the aim point sideways on the same frame. Damped here, and
+   * the coefficient comes down, because the other half of the effect grows
+   * with speed and the car is about to get a lot faster. */
+  slipLead += (vehicle.steerAngle * 3.4 - slipLead) * Math.min(1, dt * 7);
   chaseCamera.set(
     vehicle.x - forwardX * back - forwardZ * (1.2 + slipLead),
     4.1 + speedRatio * 0.9,
@@ -4554,8 +5253,13 @@ function updateDriving(dt) {
     vehicle.z + forwardZ * (7 + speedRatio * 6) + forwardX * slipLead * 1.6,
   );
   camera.lookAt(chaseLook);
-  camera.rotation.z += (vehicle.bodyRoll * 0.35 + suppression.value * 0.01) * shakeScale();
-  const targetFov = 72 + speedRatio * 14 + handbrake * 3;
+  /* THE WHIPLASH, the other half. `bodyRoll` is a 5 rad/s state read raw, so
+   * the horizon snapped over with the body. Keep enough of it that the car
+   * still feels heavy in a turn, and stop mounting the player's head to the
+   * differential. The FOV pump honours the Reduce Camera Shake setting now
+   * too -- it was the one speed effect that ignored it. */
+  camera.rotation.z += (vehicle.bodyRoll * 0.16 + suppression.value * 0.01) * shakeScale();
+  const targetFov = 72 + speedRatio * 14 * shakeScale() + handbrake * 3;
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 3.2);
   camera.updateProjectionMatrix();
 
@@ -4626,16 +5330,23 @@ function updateDriving(dt) {
   }
 }
 
+/**
+ * The legal standing box for each phase, as [minX, maxX, minZ, maxZ].
+ *
+ * Lifted out of `constrainPlayerToPhase` because `debugApproachInteraction`
+ * needs the same numbers. It used to sample a ring around a target with no
+ * check that the sampled viewpoint was anywhere a player could actually be,
+ * which is how it certified the bank exit as reachable from four centimetres
+ * inside a marble slab.
+ */
+/* Moved to `./config.js` so the reachability tests can sample the ring a
+ * player can really stand in without a second, drifting copy of the clamp.
+ * `tests/heist-swap-evidence.test.mjs` and `tests/heist-final-car-and-leg.mjs`
+ * both read it from there. */
+const PHASE_PLAYER_BOUNDS = HEIST_PHASE_PLAYER_BOUNDS;
+
 function constrainPlayerToPhase() {
-  const bounds = {
-    safehouse: [-8.7, 8.7, -6.7, 6.7],
-    van: [-1.45, 1.45, -2.65, 2.65],
-    // The z floor reaches into the vault corridor, which is where the cash is.
-    bank: [-10.6, 10.6, -12.9, 10.4],
-    street: [-8.8, 8.8, -35.2, 35.2],
-    garage: [-11.6, 11.6, -14.6, 14.6],
-    driving: [14, 26, -659, -645],
-  }[activePhase];
+  const bounds = PHASE_PLAYER_BOUNDS[activePhase];
   if (!bounds) return;
   player.position.x = Math.max(bounds[0], Math.min(bounds[1], player.position.x));
   player.position.z = Math.max(bounds[2], Math.min(bounds[3], player.position.z));
@@ -4649,6 +5360,12 @@ function animate() {
   suppression.update(dt);
   combat.update(dt);
   updateEffectPools(dt);
+  /* Rounds in the air and flashes decaying. Both run outside the
+   * `started && !simulationPaused` gate on purpose: a tracer already launched
+   * has to finish its flight and a flash has to go out, or pausing mid-burst
+   * leaves six point lights burning over a frozen street. */
+  tracers.update(dt);
+  policeMuzzleFlashes.update(dt);
   hud.setSuppression(suppression.value);
   muzzle.intensity = Math.max(0, muzzle.intensity - dt * 70);
   if (dialogue.current && now >= dialogueEndAt) dialogue.finish();
@@ -4688,6 +5405,7 @@ function animate() {
        * has got to this frame, not where he left. */
       updatePoliceMovement(dt);
       updatePoliceCombat(dt);
+      updatePoliceFigures(dt);
       if (camera.fov !== 72) { camera.fov = 72; camera.updateProjectionMatrix(); }
     }
     updateCrew(crew, dt);
@@ -4696,6 +5414,11 @@ function animate() {
       if (carriedBagMesh) carriedBagMesh.position.set(player.position.x + 0.45, player.position.y - 1.1, player.position.z + 0.2);
     }
   }
+  /* Where the player's ears are. Without this the WebAudio listener sits at
+   * the world origin facing -Z for the whole scene and every positioned cue is
+   * panned as heard from there -- see the long note in
+   * src/cartel-palace/main.js, where the owner caught it. */
+  audio.updateListener(camera);
   renderer.render(scene, camera);
 }
 

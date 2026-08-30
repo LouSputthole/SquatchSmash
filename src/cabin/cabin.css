@@ -1,0 +1,323 @@
+:root {
+  --cabin-amber: #d8a55f;
+  --cabin-moss: #77866b;
+  --cabin-ink: #0a0d0b;
+}
+
+body.cabin {
+  background: #080c09;
+}
+
+body.cabin #scene {
+  filter: saturate(1.03) contrast(1.01);
+}
+
+#cabin-grade,
+#cabin-vignette,
+#cabin-intoxication {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#cabin-intoxication {
+  opacity: 0;
+  background:
+    radial-gradient(ellipse at 50% 48%, transparent 25%, rgba(72, 28, 15, .32) 86%),
+    repeating-linear-gradient(112deg, rgba(255, 196, 109, .025) 0 2px, transparent 2px 12px);
+  mix-blend-mode: screen;
+  transform: scale(1.035);
+  transition: opacity 1.2s ease;
+}
+
+#cabin-intoxication.active {
+  opacity: var(--cabin-drunk, .35);
+  animation: cabin-drunken-breath 4.8s ease-in-out infinite alternate;
+}
+
+@keyframes cabin-drunken-breath {
+  from { transform: scale(1.025) translate3d(-.15%, 0, 0); filter: blur(0); }
+  to { transform: scale(1.055) translate3d(.2%, .12%, 0); filter: blur(1.2px); }
+}
+
+#cabin-rest {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background: #050706;
+  color: #9d907a;
+  font: 800 11px/1.2 ui-monospace, monospace;
+  letter-spacing: .32em;
+  transition: opacity .75s ease;
+}
+
+#cabin-rest.active { opacity: 1; }
+
+#cabin-grade {
+  background:
+    linear-gradient(180deg, rgba(28, 43, 39, .11), transparent 44%, rgba(45, 27, 14, .09)),
+    radial-gradient(circle at 68% 15%, rgba(203, 164, 103, .08), transparent 38%);
+  mix-blend-mode: screen;
+}
+
+#cabin-vignette {
+  background: radial-gradient(ellipse at center, transparent 47%, rgba(4, 7, 5, .36) 100%);
+}
+
+body.cabin #overlay {
+  background:
+    linear-gradient(90deg, rgba(5, 8, 6, .93), rgba(5, 8, 6, .55) 58%, rgba(5, 8, 6, .83)),
+    radial-gradient(circle at 71% 31%, rgba(199, 151, 83, .15), transparent 31%),
+    #080d09;
+}
+
+body.cabin #overlay .panel {
+  max-width: 650px;
+  border: 1px solid rgba(216, 165, 95, .18);
+  background: linear-gradient(155deg, rgba(12, 17, 13, .92), rgba(17, 14, 10, .82));
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .56), inset 0 1px rgba(255, 231, 187, .04);
+}
+
+body.cabin #overlay h1 span,
+body.cabin #overlay .eyebrow,
+body.cabin #clock .time,
+body.cabin #objectives .otitle {
+  color: var(--cabin-amber);
+}
+
+body.cabin #overlay .tag {
+  color: #bab09e;
+  line-height: 1.65;
+}
+
+body.cabin #overlay button {
+  border-color: #bd8d4d;
+  background: linear-gradient(#bd8d4d, #936431);
+  color: #17120c;
+}
+
+body.cabin #overlay .controls {
+  border-top-color: rgba(216, 165, 95, .14);
+  color: #8f9388;
+}
+
+body.cabin #overlay .fine {
+  color: #72786e;
+}
+
+body.cabin #objectives {
+  border-color: rgba(216, 165, 95, .24);
+  background: rgba(8, 12, 9, .82);
+  backdrop-filter: blur(8px);
+}
+
+body.cabin #objectives .olist li {
+  margin: 1px 0;
+  color: #f3e7d1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Cabin progression is one standing order with one immediate soft step. The
+ * divider keeps the step readable without presenting it as another mission. */
+body.cabin #objectives .ohint {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(216, 165, 95, .14);
+  color: rgba(220, 211, 193, .7);
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+body.cabin #objectives .ohint::before {
+  content: "NEXT · ";
+  color: rgba(216, 165, 95, .8);
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+body.cabin #prompt {
+  border-color: rgba(216, 165, 95, .3);
+  background: rgba(7, 10, 8, .86);
+}
+
+#cabin-combat,
+#cabin-range-score {
+  position: fixed;
+  right: 28px;
+  bottom: 34px;
+  min-width: 184px;
+  padding: 10px 13px;
+  border: 1px solid rgba(216, 165, 95, .32);
+  background: rgba(6, 9, 7, .86);
+  color: #d6cbb8;
+  font: 700 12px/1.25 ui-monospace, monospace;
+  letter-spacing: .08em;
+  text-align: right;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, .42);
+}
+
+#cabin-combat .weapon,
+#cabin-combat .ammo,
+#cabin-combat .reload,
+#cabin-range-score span {
+  display: block;
+}
+
+#cabin-combat .weapon,
+#cabin-range-score .range-title {
+  color: var(--cabin-amber);
+  font-size: 10px;
+  letter-spacing: .18em;
+}
+
+#cabin-combat .ammo,
+#cabin-range-score .range-score {
+  margin-top: 4px;
+  color: #f2e4cb;
+  font-size: 17px;
+}
+
+#cabin-combat .reload,
+#cabin-range-score .range-best {
+  min-height: 1em;
+  margin-top: 3px;
+  color: #8f9388;
+  font-size: 9px;
+}
+
+#cabin-range-score {
+  right: auto;
+  left: 28px;
+}
+
+#cabin-choice {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: radial-gradient(circle at center, rgba(25, 19, 12, .72), rgba(3, 5, 4, .94));
+  color: #eee2cd;
+  text-align: center;
+  backdrop-filter: blur(5px);
+}
+
+#cabin-choice.hidden,
+#cabin-combat.hidden,
+#cabin-range-score.hidden {
+  display: none;
+}
+
+#cabin-choice .choice-eyebrow {
+  margin: 0;
+  color: #a89b86;
+  font: 800 10px/1 ui-monospace, monospace;
+  letter-spacing: .32em;
+}
+
+#cabin-choice h2 {
+  width: min(680px, 90vw);
+  margin: 0;
+  font: 700 clamp(22px, 3vw, 38px)/1.12 Georgia, serif;
+  text-wrap: balance;
+}
+
+#cabin-choice .choice-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 260px));
+  justify-content: center;
+  gap: 12px;
+}
+
+#cabin-choice button {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 10px;
+  padding: 15px;
+  border: 1px solid rgba(216, 165, 95, .34);
+  background: rgba(13, 16, 13, .9);
+  color: #e7dbc5;
+  text-align: left;
+  cursor: pointer;
+}
+
+#cabin-choice button:hover,
+#cabin-choice button:focus-visible {
+  border-color: var(--cabin-amber);
+  background: rgba(67, 48, 27, .94);
+  outline: none;
+}
+
+#cabin-choice button kbd {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #847050;
+  border-radius: 3px;
+  color: var(--cabin-amber);
+  font: 800 13px ui-monospace, monospace;
+}
+
+#cabin-choice button span {
+  font: 800 13px/1 ui-monospace, monospace;
+  letter-spacing: .16em;
+}
+
+#cabin-choice button small {
+  color: #938a7a;
+  font: 500 10px/1.2 ui-monospace, monospace;
+}
+
+#cabin-choice .choice-clock {
+  position: relative;
+  width: min(540px, 82vw);
+  height: 4px;
+  margin: 0 auto;
+  overflow: visible;
+  background: rgba(255, 255, 255, .1);
+}
+
+#cabin-choice .choice-clock i {
+  display: block;
+  width: var(--choice-progress, 100%);
+  height: 100%;
+  background: var(--cabin-amber);
+  transition: width .08s linear;
+}
+
+#cabin-choice .choice-clock span {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  translate: -50% 0;
+  color: #b7aa95;
+  font: 700 11px ui-monospace, monospace;
+}
+
+body.cabin #loading {
+  background: #080d09;
+}
+
+body.cabin #loading .bar i {
+  background: linear-gradient(90deg, #55624d, var(--cabin-amber));
+}
+
+@media (max-width: 680px) {
+  body.cabin #overlay .panel { padding: 22px 18px; }
+  body.cabin #overlay .controls li { align-items: flex-start; flex-wrap: wrap; }
+  #cabin-choice .choice-options { grid-template-columns: 1fr; }
+  #cabin-combat { right: 12px; bottom: 18px; }
+  #cabin-range-score { left: 12px; bottom: 18px; }
+}

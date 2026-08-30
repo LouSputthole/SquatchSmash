@@ -23,7 +23,10 @@ import {
   CAST_SPEC,
   SPECIAL_MEETING_MODELS,
   buildSpecialMeetingCast,
+  specialMeetingModels,
 } from '../src/specialmeeting/cast.js';
+import { FAMILY } from '../src/bing/family.js';
+import { ensureDomShim } from '../tools/three-shim.mjs';
 
 test('the formal adapter replaces only garments and keeps character identity', () => {
   const base = Object.freeze({
@@ -56,6 +59,77 @@ test('formal colourways are stable per identity and varied across the meeting', 
   const styles = Object.values(CAST_SPEC).map((spec) => formalMeetingStyle(spec.characterId));
   assert.ok(new Set(styles.map((style) => style.jacket)).size >= 3,
     'the cast became a matching security uniform');
+});
+
+/* The Special Meeting was the only scene in the campaign that staged named
+ * Circle members and passed no `face` to the shared builder, so all four
+ * attendees fell to the procedural drawn head while the same people wear the
+ * owner's photographs in the Bing, the Mansion and the Initiation. That was
+ * half of the owner's "missing faces" report (the other half was the unlit
+ * cabin). These assertions are what nothing had: the scene's own model table
+ * asked what each attendee is wearing, given an index of what has landed. */
+test('the Special Meeting resolves its faces the way the club does', () => {
+  const roster = new Map(FAMILY.map((member) => [member.id, member]));
+
+  /* Nothing has landed: everybody keeps the authored head, and NOBODY carries
+   * a path to a file that is not there. A model that names a missing PNG is a
+   * 404 in every player's console, which is the reason the index exists. */
+  for (const key of Object.keys(CAST_SPEC)) {
+    assert.equal(SPECIAL_MEETING_MODELS[key].face, null,
+      `${key} asks for a photograph with no index to say one exists`);
+  }
+
+  /* Everything has landed: all four wear a photograph, and the three on the
+   * Bing roster wear the file THAT ROSTER names rather than one restated in
+   * the scene. Kittenboss is not on the roster -- she is never in the club --
+   * so the scene names hers, and this is the assertion that would catch it
+   * drifting away from the name in `PHOTOS`. */
+  const all = specialMeetingModels(new Set([
+    'seff.png', 'lag.png', 'numbskull.png', 'kittenboss.png',
+  ]));
+  for (const [key, id] of [
+    ['seff', CHARACTER_IDS.SEFF], ['lag', CHARACTER_IDS.LAG],
+    ['numbskull', CHARACTER_IDS.NUMBSKULL],
+  ]) {
+    assert.equal(all[key].face, `assets/faces/${roster.get(id).photo}`,
+      `${key} stopped taking his photograph's name from the Bing roster`);
+  }
+  assert.equal(all.kittenboss.face, 'assets/faces/kittenboss.png');
+
+  /* A face is identity, so it has to survive the change of clothes: the
+   * adapter strips garments off the canonical body and keeps everything else,
+   * which is why the scene spreads `face` on BEFORE dressing anybody rather
+   * than adding an option to `formalMeetingModel`. */
+  assert.equal(all.kittenboss.gender, WARDROBE.kittenboss.gender);
+  assert.equal(all.kittenboss.dress, 'suit');
+
+  /* A landed photograph belonging to somebody ELSE changes nothing. None of
+   * these four declares a `photoFallback` on the roster today -- the
+   * Shubenator is the only member who does -- so the fallback branch is inert
+   * here, and the failure it guards against is the one where a scene quietly
+   * dresses a named character in the nearest portrait that happens to exist.
+   * Which face a named character wears is the owner's call, never a
+   * fallback's. */
+  const someoneElse = specialMeetingModels(new Set(['stove.png', 'shubes.png']));
+  for (const key of Object.keys(CAST_SPEC)) {
+    assert.equal(someoneElse[key].face, null,
+      `${key} put somebody else's photograph on his head`);
+  }
+
+  /* And the built cast is built from the resolved table, not from the bare
+   * module-scope default -- the bug was never in the table, it was in nothing
+   * ever handing one to the four bodies.
+   *
+   * The DOM shim is needed for exactly this line: a model that names a
+   * photograph sends `makePerson` through `THREE.TextureLoader`, which builds
+   * an <img>, and node has no document to build one with. It never resolves
+   * and does not need to; what is being asked here is which URL the body was
+   * built with. This is also why the headless gates get the no-arg default. */
+  ensureDomShim();
+  const scene = new THREE.Scene();
+  const cast = buildSpecialMeetingCast(scene, { faces: new Set(['lag.png']) });
+  assert.equal(cast.models.lag.face, 'assets/faces/lag.png');
+  assert.equal(cast.models.seff.face, null);
 });
 
 test('every Special Meeting attendee is their canonical body in a restrained formal suit', () => {

@@ -160,6 +160,40 @@ test('taking the seat is the only thing that seats him', () => {
     'and the only thing still on the list is the seat');
 });
 
+test('the treeline handoff waits for actual player travel', () => {
+  let trailDistance = 0;
+  let handoffs = 0;
+  const seq = createRideSequence({
+    onLine: () => 0.01,
+    canHandoff: () => trailDistance >= 8,
+    onHandoff: () => { handoffs += 1; },
+  });
+
+  seq.begin('SM-540');
+  for (let i = 0; i < 30; i += 1) seq.update(0.5);
+  assert.equal(seq.finished, false, 'standing still cannot complete the mission');
+  assert.equal(seq.beatId, 'SM-540', 'the handoff beat remains live while walking is owed');
+  assert.equal(handoffs, 0);
+
+  trailDistance = 8;
+  seq.update(0.5);
+  assert.equal(seq.finished, true, 'the authored handoff resumes after meaningful travel');
+  assert.equal(seq.phase, 'handoff');
+  assert.equal(handoffs, 1);
+});
+
+test('a persisted spur resumes in the authored phase without replaying the drive', () => {
+  const phases = [];
+  const seq = createRideSequence({ onLine: () => 0.01, onPhase: (phase) => phases.push(phase) });
+
+  seq.begin('SM-400', { phase: 'spur' });
+
+  assert.equal(seq.beatId, 'SM-400');
+  assert.equal(seq.phase, 'spur');
+  assert.deepEqual(phases, ['spur']);
+  assert.equal(seq.seated, true, 'a spur checkpoint preserves the seat reached on the drive');
+});
+
 /* ====================================================================== *
  * 2. NOBODY RELEASES THE TENSION
  * ====================================================================== */
@@ -180,6 +214,26 @@ test('nobody in this scene reassures him', () => {
     + offences.join('\n'));
 });
 
+test('Tony directly asks every question the drive is built around', () => {
+  const spoken = BEATS.flatMap((entry) => entry.lines)
+    .filter((line) => line.spoken && line.who === 'PROSPECT')
+    .map((line) => line.text);
+  for (const question of [
+    "Why'd all three of you come?",
+    'Am I in trouble?',
+    'You guys planning on killing me?',
+    'So where are we going?',
+  ]) {
+    assert.ok(spoken.includes(question), `Tony never asks: ${question}`);
+  }
+  assert.deepEqual(beat('SM-197').lines.filter((line) => line.spoken).map((line) => line.text), [
+    'You guys planning on killing me?',
+    "Planning's a strong word.",
+    "What's the weaker word?",
+    'Driving.',
+  ], 'the direct threat question must stay evasive, dry, and unreassuring');
+});
+
 test('the valve opens once and is closed again immediately', () => {
   const valve = beat('SM-310');
   assert.deepEqual(valve.lines.map((line) => line.text), [
@@ -193,6 +247,36 @@ test('the valve opens once and is closed again immediately', () => {
   const down = beat('SM-320');
   assert.ok(down.lines.some((line) => line.text === 'You want me to move?'));
   assert.equal(down.options.length, 3);
+});
+
+test('the only drive blackout follows the final exchange and returns at the arrival', () => {
+  assert.equal(beat('SM-196').kind, 'lines',
+    'the block-to-road match cut must not hide the first half of the drive');
+  assert.ok(beat('SM-196').lines.some((line) => line.startsForestDrive),
+    'the visible match cut still has to transfer ownership to the forest road');
+
+  for (const branch of ['SM-321', 'SM-322', 'SM-323']) {
+    assert.equal(beat(branch).next, 'SM-324', `${branch} bypasses the final approach`);
+  }
+  assert.equal(beat('SM-324').lines[0].holdSeconds, 3.5,
+    'conversation ends before the car carries on by itself');
+  assert.deepEqual(beat('SM-325').lines.map((line) => line.text), [
+    'So where are we going?',
+    "You'd never find it.",
+  ]);
+  assert.deepEqual(beat('SM-325').lines.map((line) => line.cue), [
+    'vo.specialmeeting.tony.dirt_one.1',
+    'vo.specialmeeting.lag.own_car.1',
+  ], 'the coda must use delivered takes instead of an unrecorded fallback');
+  assert.equal(beat('SM-326').kind, 'blackout');
+  assert.equal(beat('SM-326').lines[0].fadeSeconds, 1.2);
+  assert.equal(beat('SM-326').lines[0].holdSeconds, 0,
+    'the pre-arrival gate owns the black beat; a second game-clock hold causes long dead black');
+  assert.equal(beat('SM-327').kind, 'fade');
+  assert.equal(beat('SM-327').lines[0].fadeSeconds, 0.8,
+    'the arrival must not sit behind a long dead-black screen');
+  assert.equal(beat('SM-327').next, 'SM-330',
+    'the authored engine-off, trunk and trail sequence stays downstream');
 });
 
 test("nobody names what this is before the trees open", () => {
@@ -281,15 +365,23 @@ test('both of the trunk greetings are kept and neither is explained', () => {
   assert.deepEqual(echo, ["You'd have to ask them.", 'I did.', 'And?', 'Long story.', "Yeah. That's what I got."]);
 });
 
+test('the apartment suspense does not invent a year-long relationship with Booski', () => {
+  const idle = beat('SM-060').lines.filter((line) => line.spoken).map((line) => line.text).join('\n');
+  assert.match(idle, /never once told me where.*Not once.*Not one time/i);
+  assert.doesNotMatch(idle, /in a year/i);
+});
+
 /* ====================================================================== *
  * 4. THE ROUTE
  * ====================================================================== */
 
-test('the campaign route runs Cartel Palace -> the Special Meeting -> Initiation Night', () => {
+test('the campaign route runs Cartel Palace -> Luxury -> Special Meeting -> Initiation Night', () => {
   const campaign = freshCampaign();
   assert.ok(SCENE_IDS.SPECIAL_MEETING, 'the scene has a campaign id');
 
   campaign.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+  const home = campaign.transition(SCENE_IDS.LUXURY_APARTMENT, { spawn: 'main' });
+  assert.deepEqual(home.scene, { id: SCENE_IDS.LUXURY_APARTMENT, spawn: 'main' });
   const moved = campaign.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' });
   assert.equal(moved.scene.id, SCENE_IDS.SPECIAL_MEETING);
   assert.equal(moved.scene.spawn, 'kerb');
@@ -298,15 +390,18 @@ test('the campaign route runs Cartel Palace -> the Special Meeting -> Initiation
   assert.equal(arrived.scene.id, SCENE_IDS.INITIATION,
     'and it goes exactly one place from there');
 
-  /* And the old edge is GONE.
+  /* And both old bypasses are GONE.
    *
-   * It was legal for exactly as long as the Palace's own exit button still
-   * named the Initiation: a transition the graph refuses throws rather than
-   * degrading, so pulling the edge first would have stranded anybody who had
-   * just finished the Palace. That button now names the Special Meeting
-   * (`src/cartel-palace/main.js`), so the bridge came out, and this assertion
-   * flipped from `doesNotThrow` to the opposite — which is the only proof that
-   * nothing can quietly route round the scene again. */
+   * Palace must not skip either the luxury-home first act or the drive and
+   * forest sequence. `campaign.transition` throws instead of degrading, so
+   * these assertions prove no runtime can quietly route around them. */
+  const direct = freshCampaign();
+  direct.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+  assert.throws(
+    () => direct.transition(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' }),
+    /Cannot transition from "cartel_palace" to "special_meeting"/,
+  );
+
   const legacy = freshCampaign();
   legacy.enter(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
   assert.throws(
@@ -403,7 +498,7 @@ test('Kittenboss has canonical clothes and a wardrobe-ledger row', () => {
   assert.equal(KITTENBOSS.bodyShape, 'curvy',
     'gender alone only narrows the shoulders; the pair is how this roster builds a woman');
   assert.equal(KITTENBOSS.hair, 'tied',
-    'she has no face photo, so the hair silhouette is the only thing that says who she is');
+    'her tied-hair silhouette remains part of the identity around the face photo');
 
   /* And NOT small, NOT cute, NOT a victim. She is the same age and the same
    * rank as Tony, whose own model is 1.79 (`GOLF_PROSPECT`), and she stands

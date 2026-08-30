@@ -20,8 +20,8 @@ A shared-system adoption is complete only when all four are present:
 
 | Capability | Canonical Module | Canonical status | Existing consumers |
 | --- | --- | --- | --- |
-| Bullet wounds and death blood | `src/world/blood.js`, over `src/world/bullets.js` | Canonical shared high-level Interface | Mansion Silent Squatch, Mansion Siege and Cartel Palace; Silver Case remains an older Implementation to migrate |
-| Held beer/drink model and motion | `src/world/props.js` | Canonical visual Interface; use-state orchestration still needs extraction | Apartment and Silver Pines share `poseHeldDrink`; Bing and Silver still carry local motion |
+| Bullet wounds and death blood | `src/world/blood.js`, over `src/world/bullets.js` | Canonical shared high-level Interface | Mansion Silent Squatch, Mansion Siege, Cartel Palace, Heist and Squatchfather; Silver Case remains an older Implementation to migrate |
+| Held beer/drink model and motion | `src/world/props.js` | Canonical visual Interface; use-state orchestration still needs extraction | Apartment, Silver Pines, Cabin Hideout, Luxury Apartment, Bing and Silver share `poseHeldDrink` |
 | Dress-help interaction | `src/world/dress-help.js` | Canonical shared sequence with scene rig Adapters | Apartment Margo and the second Mansion pool performer |
 | TV playback and attenuation | `src/core/tv.js`, with `src/core/audio.js` listener state | Canonical | Apartment and Mansion televisions, including the Mansion theatre |
 | Smoke and cigarette exhale | `src/world/smoke.js` | Canonical | Apartment, Silver Pines, Enola Squatch, Mansion bong behavior |
@@ -29,11 +29,74 @@ A shared-system adoption is complete only when all four are present:
 | Weapon operation | `src/core/weapons/index.js` | Canonical; `Firearm` is the state authority | Cartel Palace, Mansion and Mansion Siege; CombatLab verifies; Heist runs catalog `Firearm` behind the `HeistFirearm` compatibility Adapter in `src/heist/combat.js` |
 | Character weapon mounting | `src/core/weapons/character-mount.js` | Canonical catalog grip, bore-roll and firing-hand Interface | Mansion Siege, Cartel Palace, Silver Case, NO WAKE, Heist and Initiation presentation |
 | Formal meeting appearance | `src/core/formal-appearance.js` | Canonical scene-variant garment Adapter; canonical bodies remain unchanged | Special Meeting and Initiation |
+| Vehicle occupants | `src/core/vehicles/occupants.js` | Canonical vehicle-owned seat and camera-anchor Interface | Special Meeting, Motel, Golf, Bing and Silver Pines |
+| Vehicle headlight beams | `src/core/vehicles/headlights.js` | Canonical forward-beam geometry and aiming Interface | Special Meeting forest/sedan traffic, Motel drive and Initiation cabin |
+| Death-transition lifecycle | `src/core/death-transition.js` | Canonical lifecycle and spatial audit seam; authored fall animation remains a scene Adapter | Silver Case, Motel, Initiation and Squatchfather (Sal/McClawsky seated deaths) |
+| Planar mirrors | `src/core/planar-mirror.js` | Canonical real reflection camera and mounted-plane derivation | Apartment, Luxury Apartment, Cabin and Squatchfather mirror Adapter |
+| Reflected first-person body | `src/core/first-person-body.js` | Canonical reflection-layer pose, weapon and cross-scene outfit-continuity Interface | Apartment, Luxury Apartment and Cabin; Squatchfather retains its authored layer-1 Adapter |
+| Surface footsteps | `AudioEngine.footstep()` in `src/core/audio.js` | Canonical cadence, delivered-sample variation and optional positional playback Interface | Shared Player scenes; Initiation now supplies only its `footingAt()` scene Adapter and uses the canonical forest/wood banks |
+| Environment visibility budgets | `src/core/environment-visibility.js` | Canonical minimum contracts by environment archetype | Luxury Apartment skyline, Cabin wilderness and Special Meeting forest drive |
+| Semantic prop placement | `src/core/semantic-placement.js` | Canonical opt-in floor, wall, facing, room and seam validator | Luxury Apartment, Cabin and Cartel Palace |
+| Throwable ballistics | `src/core/throwable.js` | Canonical charge, continuous projectile and segment-impact foundation | Luxury Apartment darts; future thrown props should adapt this Module |
 | Ground-combat truth | `src/core/combat/` | Canonical Modules behind scene Adapters | Mansion Siege and Cartel Palace are green production Adapters; Mansion's ensemble also proves friendly perception/aim/fire reuse; CombatLab is verification only |
 | Player inventory | `src/core/inventory.js` | Canonical | Apartment, Bing, Silver, Silver Pines and Mansion final-arc loadout |
 | Look/hold interactions | `src/core/interaction.js` | Canonical | All first-person scenes that use world-object prompts |
 | Pause and failure recovery | `src/core/pause-menu.js`, `src/core/scene-recovery.js`, `src/core/campaign-scene-skip.js` | Canonical | Campaign scenes listed by `RECOVERABLE_CAMPAIGN_SCENES`; Apartment uses its hub Adapter |
 | Player settings (subtitles, shake, assist, volume, sensitivity, keymap) | `src/core/settings.js`, rendered by `src/core/pause-menu.js` | Canonical | Every scene that mounts the pause menu (all campaign scenes, Initiation, Combat Lab); the Silver Room start screen delegates to it; `AudioEngine` and the Motel/Squatchfather/Initiation audio modules honour its volume; the shared `Player`, Beef Run cameras and the Enola gunner honour its sensitivity |
+
+## Scene-polish foundations
+
+The 2026-08-24 cross-scene polish pass exposed seven concepts that had already
+started to fork. They now have small canonical Modules with narrow scene
+Adapters:
+
+- `VehicleOccupants` parents Object3D riders to vehicle-owned anchors. Players
+  that are not Object3Ds ask the same anchor for `worldPoint()`. No passenger
+  loop independently interpolates toward a moving car. `release()` preserves
+  the rider's world transform when an NPC exits and resumes scene navigation.
+- `createHeadlightBeam()` owns the transformed cone whose tip is at the lamp
+  and whose beam points along local +X. Scenes may choose reach, width and aim;
+  they may not rotate stock cone geometry and rediscover the backwards-beam
+  bug.
+- `beginDeathTransition()` disables live controller/navigation/animation
+  state, freezes posture semantics and records the connected body hierarchy.
+  `auditDeathTransition()` checks hierarchy, reactivation, rendered contact,
+  wall/furniture clearance and floor/seat/stair support. Standing, seated,
+  against-wall, furniture-adjacent, stair and scripted-execution contexts are
+  covered by `tests/death-transition-contract.test.mjs`; scene Adapters still
+  own the authored collapse pose.
+- `PlanarMirror` derives its plane from the mounted mesh and owns reflection
+  render-target lifecycle. A bathroom may provide grime, cracks and a distance
+  policy, not a second reflection-camera implementation.
+- `FirstPersonBody` owns the reflection-only figure layer, stable
+  standing/seated/bed/scripted pose synchronization, walk gait, reflected
+  weapon state and persistent outfit identity. Scenes supply only their
+  palette/figure factory and their current player state; they do not fork the
+  body lifecycle to make a different bathroom mirror work.
+- `AudioEngine.footstep()` owns cadence, per-surface sample treatment,
+  no-immediate-repeat selection and positional routing. A scene may map a world
+  point to a surface and provide a per-actor cadence key; it may not rebuild the
+  cue switch. The `forest` treatment rotates delivered dirt, grass and dry-leaf
+  recordings, including a restrained higher-rate twig crack.
+- `ENVIRONMENT_VISIBILITY` makes skyline, wilderness-hub and forest-drive
+  distances reviewable together. `validateEnvironmentVisibility()` rejects
+  trees beyond supporting terrain, camera clipping before the last chunk and
+  undergrowth that outlives its near-detail band.
+- `markSemanticPlacement()` attaches serializable floor, wall, orientation,
+  room-envelope and seam contracts to important authored props. The validator
+  fails missing supports and marked objects with no rendered bounds; an
+  unmarked prop is not silently counted as certified.
+- `ThrowCharge` and `BallisticProjectile` separate charge and continuous
+  collision from dart scoring, audio and presentation. Future throwable scenes
+  should provide colliders and policy instead of copying integration code.
+
+The focused Interface proofs are
+`tests/vehicle-presentation.test.mjs`,
+`tests/death-transition-contract.test.mjs`,
+`tests/environment-visibility.test.mjs`,
+`tests/semantic-placement.test.mjs`, and
+`tests/core-throwable.test.mjs`. Scene browser verifiers remain responsible for
+proving that the real composition root mounts and exercises each Module.
 
 ## Blood impact and death pools
 
@@ -94,8 +157,13 @@ from the wound point so a chest hit cannot create a pool in mid-air.
   `DeathBloodPool` through `src/heist/combat.js#presentImpact`: applied hits
   attach shared wounds at the real ray point, fatal results own exactly one
   spreading floor pool, and the old scene-local sphere/decal pools are gone.
-- `src/squatchfather/main.js` uses `BulletHoles` at a guessed eye point. Move it
-  to the real resolved intersection before claiming exact impact placement.
+- Squatchfather constructs `BloodImpactSystem` and a two-entry
+  `DeathBloodPool` in `src/squatchfather/runtime-geometry.js`. Its scene Adapter
+  resolves the first visible centre-ray contact: ordered hits attach shared
+  wounds at that exact point on the nearest safe animated body joint before the
+  authored fall, wrong targets receive a nonfatal shared wound, restaurant
+  blockers keep the existing bullet hole, and only accepted fatal hits create
+  a floor pool and advance the scene.
 
 `tests/blood-effects.test.mjs` is the deterministic public-Interface test. It
 proves exact hit placement, attachment through body motion, bounded pooling,
@@ -139,10 +207,9 @@ copy those transforms.
 
 ### Current Implementations and migration
 
-- Apartment `src/main.js` and Silver Pines `src/golf/hands.js` call the shared
-  motion Interface now.
-- `src/bing/main.js` and `src/silver/main.js` still contain local `poseDrink`
-  copies. Replace them with `poseHeldDrink`.
+- Apartment `src/main.js`, Silver Pines `src/golf/hands.js`, Bing
+  `src/bing/main.js` and Silver `src/silver/main.js` call the shared motion
+  Interface now.
 - Hold duration, crack/sip/crush audio, cancellation, item consumption and
   intoxication effects are still orchestrated separately in Apartment, Bing,
   Silver and Golf. The next shared Module should be a `HeldConsumableSequence`
@@ -151,8 +218,9 @@ copy those transforms.
   designing a new beer flow.
 
 `tests/golf-consumables.test.mjs` proves Silver Pines uses the shared prop
-labels and visible held models. A focused motion test should be added when Bing
-and Silver migrate.
+labels and visible held models. `tests/held-drink-pose-contract.test.mjs` keeps
+Bing and Silver on the canonical motion helper without moving their gameplay
+sequences yet.
 
 ## Margo dress-help interaction
 
@@ -823,7 +891,8 @@ Adapter change local enough to verify:
 | 2 | Motel: `S.weapon`/`S.ammo`, cone selection, `segmentBlocked`, direct actor/player damage and local gun feedback. | Move gun state to `Firearm`, register actors, then route movement/LOS/aim/hostile rounds/player impacts through the shared Modules. Preserve the authored Silverback consequences and combat/story state machine. Represent the intentional bathroom-wall shot as an explicit material Adapter, not a global exception that lets colliders leak damage. | Exact blocker/miss endpoints, no sight or damage through ordinary walls, visible NPC alignment, armor/head/limb behavior, shared blood, checkpoint-safe ammo and acceptable fight performance. |
 | 3a | Silver Case: older `ShotResolver`/`ImpactKit` and reaction windows. | Replace its impact and blood Seam first; adopt `WeaponSystem`/`Firearm` only where the player actually owns ammo/reload. Keep reaction-window and narrative outcome logic local. | Real world hit point and body anchor survive motion; lethal/armor rules agree with `CombatActor`; no duplicate blood authority. |
 | 3b | Regular Mansion / Silent Squatch: shared blood is already mounted, but the scripted firearm path and figure mapping remain scene-specific. | Register the cast with the stable protocol and feed the full `WeaponSystem` impact into `CombatImpactResolver`. Do not turn a stealth/scripted sequence into generic siege AI. | Exact wound and one fatal pool, stable reset, protected cast remains protected, existing mission timing unchanged. |
-| 3c | Other scripted firearm scenes, beginning with Squatchfather's guessed eye-point `BulletHoles`. | Preserve the script, but replace guessed impacts with the full impact/Located-hit Seam and shared blood. Add `Firearm` only when ammunition is gameplay state. | A miss stays a miss, blockers own endpoints, actor hits use actual intersections, and recovery clears transient effects. |
+| 3c | Squatchfather — DONE: `src/squatchfather/combat.js` replaces guessed eye-point `BulletHoles` with an ordered centre-ray Adapter and shared blood. | Delivered: the script stays local; misses and blockers do not advance it, wrong targets are wounded nonfatally, actual body contacts select safe animated anchors, and accepted fatal hits create one bounded floor pool. `Firearm` remains out because ammunition is not gameplay state here. | Do not regress: actor hits keep their real intersections through joint motion, only the ordered target advances each beat, and checkpoint recovery clears every transient effect. |
+| 3d | Remaining scripted firearm scenes after the named migrations. | Adopt the shared impact, blocker and blood seams only where a scene has ordinary on-foot firearm play; keep authored story sequencing in a scene Adapter. | Preserve exact-hit evidence, one fatal pool per accepted death and every scene-specific mission consequence. |
 
 Air combat, arcade combat/targeting and cinematic Initiation are explicitly out
 of scope. Enola flight weapons, vehicle/arcade rules and authored cinematic gun
@@ -999,12 +1068,12 @@ the threshold, durability and preview isolation.
 
 ## Migration order
 
-1. Move Bing and Silver drink motion to `poseHeldDrink`; then extract the
-   apartment held-consumable sequence once for all four drinking scenes.
-2. Complete ground-combat Adapters in the matrix order above: Heist is done
-   (`src/heist/combat.js`); Motel is next, then Silver Case, regular Mansion
-   and other scripted firearm scenes. This includes moving remaining applied
-   hits to shared blood; air, arcade and cinematic Initiation combat remain
-   excluded.
+1. Extract the apartment held-consumable sequence once for all four drinking
+   scenes now that Bing and Silver share `poseHeldDrink`.
+2. Complete ground-combat Adapters in the matrix order above: Heist
+   (`src/heist/combat.js`) and Squatchfather (`src/squatchfather/combat.js`) are
+   done; Motel is next, then Silver Case, regular Mansion and the remaining
+   scripted firearm scenes. This includes moving remaining applied hits to
+   shared blood; air, arcade and cinematic Initiation combat remain excluded.
 3. Continue replacing scene-local prop approximations with `world/props.js`
    builders plus the stable `reusableProp` vocabulary.

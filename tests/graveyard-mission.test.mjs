@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import { BILLY_HOTDOG_MODEL } from '../src/core/hotdog-model.js';
+import { CAMPAIGN_SPINE } from '../src/core/campaign-spine.js';
 import { measureWrappedBody } from '../src/core/props/wrapped-body.js';
 import { SNOW } from '../src/core/wardrobe.js';
 import * as graveyardMissionModule from '../src/graveyard/mission.js';
 import {
   GraveyardMission,
   GRAVEYARD_ARRIVAL_LINES,
+  GRAVEYARD_SNOW_BARKS,
   GRAVES,
   resolveGraveyardLineHold,
 } from '../src/graveyard/mission.js';
@@ -19,6 +21,20 @@ import {
   hotDogBody,
 } from '../src/graveyard/world.js';
 import { ensureDomShim } from '../tools/three-shim.mjs';
+
+test('the Graveyard browser gate uses stable software GL without suppressing real errors', () => {
+  const source = fs.readFileSync(new URL('../tools/verify-graveyard.mjs', import.meta.url), 'utf8');
+
+  assert.match(source, /['"]--use-gl=angle['"]/);
+  assert.match(source, /['"]--use-angle=swiftshader['"]/);
+  assert.doesNotMatch(source, /['"]--use-gl=swiftshader['"]/);
+  assert.match(source, /page\.on\('pageerror'/,
+    'page exceptions must remain fatal after changing the software GL backend');
+  assert.match(source, /message\.type\(\) === 'error'/,
+    'console errors must remain fatal after changing the software GL backend');
+  assert.match(source, /gl\.getError\(\)/,
+    'the cold refused-page frame needs an explicit WebGL health receipt');
+});
 
 test('authored grave portraits map to their markers without duplicating Colton\'s carved name', () => {
   assert.deepEqual(Object.keys(GRAVE_ART_PRESENTATION), [
@@ -65,11 +81,19 @@ test('Babs\'s bench faces back toward the graves from the forest edge without bl
 });
 
 test('Snow owns the arrival voice floor through the end of his recorded opening', () => {
-  const [snow, prospect] = GRAVEYARD_ARRIVAL_LINES;
+  const [snow, prospect, cover] = GRAVEYARD_ARRIVAL_LINES;
   assert.equal(snow.who, 'Snow');
   assert.equal(prospect.who, 'Prospect');
-  assert.equal(resolveGraveyardLineHold(snow, 5.7), 6.05);
+  assert.equal(resolveGraveyardLineHold(snow, 5.7), 6.4);
   assert.equal(resolveGraveyardLineHold(prospect, 0), prospect.seconds);
+  assert.match(snow.text, /Billy misses breakfast.*watch familiar doors.*yours/i);
+  assert.match(prospect.text, /why the Motel/i);
+  assert.match(cover.text, /room they do not know.*until daylight/i);
+
+  const graveyardExit = CAMPAIGN_SPINE.find(({ id }) => id === 'graveyard')?.exit ?? '';
+  const motelExit = CAMPAIGN_SPINE.find(({ id }) => id === 'jerky_motel')?.exit ?? '';
+  assert.match(graveyardExit, /Snow:.*familiar doors.*Motel.*until daylight/i);
+  assert.match(motelExit, /wait for daylight.*Snow drops.*home.*block is clean/i);
 });
 
 test('graveyard Snow wears his canonical work clothes and belt without losing the burial staging', async () => {
@@ -137,6 +161,7 @@ test('HotDog must be picked up, carried to the plot, and placed before burial', 
   assert.equal(mission.bodyLowered, true);
   assert.equal(mission.pickUpBody(), false);
   assert.equal(mission.finishBurial(), true);
+  assert.match(lines.at(-1), /building stays watched till morning.*Motel/i);
   assert.equal(mission.readyToLeave, true);
   assert.equal(mission.finish(), 'motel');
   assert.equal(mission.state, 'done');
@@ -151,7 +176,8 @@ test('the graveyard is an optional memorial museum around the burial', () => {
   assert.equal(mission.echoHeard, true);
   assert.equal(mission.inspectGrave('colton').line.toLowerCase().includes('asian feet'), true);
   assert.equal(mission.suggestSaucePlot(), false);
-  assert.match(lines.at(-1), /need that one soon/i);
+  assert.match(lines.at(-1), /reserved.*HotDog.*past GeeWiz/i);
+  assert.doesNotMatch(lines.slice(-2).join(' '), /traitor|rat|feeling|need that one soon/i);
 
   assert.equal(mission.urinateOn('babs'), false);
   assert.equal(mission.urinateOn('brawny'), true);
@@ -173,12 +199,33 @@ test('all requested graves have an authored presentation tier and epitaph', () =
   assert.equal(GRAVES.whiplash.traitor, true);
 });
 
+test('the early reserved plot does not name Sauce before the Palace betrayal reveal', () => {
+  const reserved = GRAVES.sauce;
+  assert.equal(reserved.open, true);
+  assert.equal(reserved.name, 'RESERVED');
+  assert.doesNotMatch(`${reserved.name} ${reserved.line}`, /sauce/i);
+  assert.match(reserved.line, /open plot.*reserved/i);
+  assert.doesNotMatch(
+    Object.values(GRAVEYARD_SNOW_BARKS).map(({ text }) => text).join(' '),
+    /sauce/i,
+  );
+
+  const spoken = [];
+  const mission = new GraveyardMission({ onLine: (line) => spoken.push(line) });
+  const inspected = mission.inspectGrave('sauce');
+  mission.suggestSaucePlot();
+  assert.equal(inspected.name, 'RESERVED');
+  assert.doesNotMatch([inspected.line, ...spoken].join(' '), /sauce/i);
+});
+
 test('optional museum objectives require every marker and a respect or disrespect choice', () => {
   const mission = new GraveyardMission();
   const ids = Object.keys(GRAVES);
 
   assert.match(mission.objectives.find((objective) => objective.id === 'memorials').text, /0\/8/);
   assert.match(mission.objectives.find((objective) => objective.id === 'tributes').text, /0\/8/);
+  assert.equal(mission.objectives.find((objective) => objective.id === 'memorials').retire, false);
+  assert.equal(mission.objectives.find((objective) => objective.id === 'tributes').retire, false);
 
   for (const id of ids) mission.inspectGrave(id);
   assert.equal(mission.objectives.find((objective) => objective.id === 'memorials').done, true);

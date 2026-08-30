@@ -4,6 +4,7 @@ import test from 'node:test';
 import * as THREE from 'three';
 
 import { DRESS_CLOSURE_LENGTH, makeMorningGuest } from '../src/world/dressing.js';
+import { collectActors } from '../src/core/staging.js';
 
 function namesUnder(root) {
   const names = [];
@@ -21,6 +22,44 @@ test('morning Margo keeps her canonical authored face in a different outfit', ()
   assert.ok(names.includes('margo.face.eye.left'));
   assert.ok(names.includes('margo.face.mouth'));
   assert.ok(names.includes('margo.hair.fall.main'));
+});
+
+test('Margo staging follows her rendered eyes, hips, posture, and visibility', () => {
+  const margo = makeMorningGuest({});
+  margo.group.updateMatrixWorld(true);
+  assert.deepEqual(collectActors(margo.group, THREE), [], 'the initially hidden rig is not staged cast');
+
+  const postureForPose = {
+    standing: 'stand',
+    sitting: 'sit',
+    kneeling: 'kneel',
+    lying: 'lie',
+  };
+  for (const [pose, posture] of Object.entries(postureForPose)) {
+    margo.setPose(pose);
+    margo.group.visible = true;
+    margo.group.updateMatrixWorld(true);
+
+    const left = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    const hip = new THREE.Vector3();
+    margo.faceParts.eyes[0].getWorldPosition(left);
+    margo.faceParts.eyes[1].getWorldPosition(right);
+    margo.actorHipAnchor.getWorldPosition(hip);
+    const renderedEye = left.add(right).multiplyScalar(0.5);
+
+    const [actor] = collectActors(margo.group, THREE);
+    assert.equal(actor.id, 'margo');
+    assert.equal(actor.posture, posture);
+    assert.ok(
+      new THREE.Vector3(...actor.eye).distanceTo(renderedEye) < 1e-9,
+      `${pose} eye marker drifted from the rendered irises`,
+    );
+    assert.ok(
+      new THREE.Vector3(...actor.hip).distanceTo(hip) < 1e-9,
+      `${pose} hip marker drifted from the rendered hip pivot`,
+    );
+  }
 });
 
 test('dress help has a composed kneeling pose and articulated silhouette', () => {

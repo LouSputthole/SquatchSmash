@@ -34,6 +34,8 @@ import {
   buildNoWakeCruise,
 } from '../src/nowake/dialogue.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { CAMPAIGN_SPINE } from '../src/core/campaign-spine.js';
+import { IRISH, IRISH_NO_WAKE } from '../src/core/wardrobe.js';
 import { FAMILY } from '../src/bing/family.js';
 import { HOTDOG_PARTY_CHATTER } from '../src/bing/hotdog-room-voices.js';
 
@@ -69,6 +71,30 @@ test('the Negev question is the blade, and it is the only turn in the room', () 
   assert.ok(before.some((line) => /Negev/.test(line.text) && line.voice === 'willy'),
     'Willy never tells the story the question is about');
   assert.equal(negev.beat, 'stall', 'Lou has to wait first; the pause is the point');
+});
+
+test('Lou has hard evidence of Willy\'s earlier leak without receiving a confession', () => {
+  const proof = NO_WAKE_CABIN_SCRIPT.find((line) => line.cue === 'cabin.lou.recorded-leak');
+  const denial = NO_WAKE_CABIN_SCRIPT.find((line) => line.cue === 'cabin.willy.not-my-voice');
+  const question = NO_WAKE_CABIN_SCRIPT.find((line) => line.cue === 'cabin.lou.negev');
+
+  assert.ok(proof && denial && question, 'the proof, denial, and Negev question must all play');
+  assert.match(proof.text, /wire.*your voice.*mountain strip.*Beef Run.*arrival time/i);
+  assert.match(denial.text, /know who was on that tape/i);
+  assert.ok(NO_WAKE_CABIN_SCRIPT.indexOf(proof) < NO_WAKE_CABIN_SCRIPT.indexOf(question));
+  assert.ok(NO_WAKE_CABIN_SCRIPT.indexOf(denial) < NO_WAKE_CABIN_SCRIPT.indexOf(question));
+  assert.equal(NO_WAKE_CABIN_SCRIPT.some((line) => (
+    line.voice === 'willy' && /I leaked|I gave them|I told them|I confess/i.test(line.text)
+  )), false, 'Willy confessed instead of resisting the evidence');
+
+  const noWakeExit = CAMPAIGN_SPINE.find(({ id }) => id === 'no_wake')?.exit ?? '';
+  const revealExit = CAMPAIGN_SPINE.find(({ id }) => id === 'mansion_return')?.exit ?? '';
+  assert.doesNotMatch(noWakeExit, /Willy was the rat/i);
+  assert.match(noWakeExit, /Willy leaked an earlier strip operation/i);
+  assert.match(revealExit, /restaurant burner.*estate gate log.*unnamed A-Team leadership estate/i);
+  assert.match(revealExit, /Palace.*proves whether Sauce was taken or turned/i);
+  assert.doesNotMatch(revealExit, /Sauce.*gave the Silver Case/i,
+    'the repaired-mansion route copy spends the Palace verdict early');
 });
 
 test('Willy set the story up earlier in the campaign, at the Bing', () => {
@@ -161,8 +187,25 @@ test('the man on the boat is the man from the Bing floor, not a second Irish', (
   const onTheFloor = FAMILY.find((member) => member.id === CHARACTER_IDS.IRISH);
   assert.ok(onTheFloor, 'Irish is not in the Bing Family roster');
   assert.equal(onTheFloor.photo, 'irish.png');
+  assert.notStrictEqual(IRISH_NO_WAKE, IRISH, 'NO WAKE must use a scene wardrobe, not mutate Irish');
+  for (const field of ['height', 'build', 'hair', 'hairColour', 'beard', 'skin']) {
+    assert.equal(IRISH_NO_WAKE[field], IRISH[field], `NO WAKE changed Irish's canonical ${field}`);
+  }
+  assert.deepEqual({
+    dress: IRISH_NO_WAKE.dress,
+    shirt: IRISH_NO_WAKE.shirt,
+    trousers: IRISH_NO_WAKE.trouserColour,
+    workVest: IRISH_NO_WAKE.workVest,
+    workVestColour: IRISH_NO_WAKE.workVestColour,
+  }, {
+    dress: 'shirt',
+    shirt: 0x29402f,
+    trousers: 0x20242a,
+    workVest: true,
+    workVestColour: 0x1b304c,
+  });
   assert.match(world, /irish: new Npc\(/);
-  assert.match(world, /source\[CHARACTER_IDS\.IRISH\]\.model/);
+  assert.match(world, /model:\s*\{\s*\.\.\.IRISH_NO_WAKE,\s*face:\s*'assets\/faces\/irish\.png'\s*\}/);
   assert.match(world, /cast\.irish\.group\.userData\.characterId = CHARACTER_IDS\.IRISH/);
 });
 

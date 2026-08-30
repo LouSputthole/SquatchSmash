@@ -208,6 +208,23 @@
     font-size: 11px; letter-spacing: .2em; font-weight: 900; color: var(--gold-bright);
   }
   #subtitleText { font-size: 17px; line-height: 1.4; color: #f4f1e6; }
+  /* One protected payoff, for exactly one measured voice take. */
+  #subtitle.hero {
+    padding: 15px 30px;
+    border: 2px solid rgba(255, 210, 102, .8);
+    border-left-width: 5px;
+    background: rgba(10, 7, 3, .94);
+    box-shadow: 0 0 36px rgba(255, 174, 45, .24);
+  }
+  #subtitle.hero #subtitleWho { font-size: 12px; color: #ffe9ad; }
+  #subtitle.hero #subtitleText {
+    font-size: clamp(21px, 3.2vw, 30px);
+    line-height: 1.2;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .95);
+  }
 
   #waveCount {
     position: fixed; top: 26px; right: 26px; padding: 8px 14px;
@@ -348,7 +365,7 @@
 
   /* ---------------- The end of the mission ----------------
    * The campaign card commits the siege result before continuing into THE
-   * ENOLA SQUATCH. Preview keeps a standalone link and never writes a save. */
+   * SQUATCHOLA GAY. Preview keeps a standalone link and never writes a save. */
   #missionCard { z-index: 12; }
   #missionCard .kicker { color: #9fe08a; }
   #missionCard .title { color: #dff3d3; text-shadow: 0 0 30px rgba(120, 200, 110, .35), 0 6px 0 #14230f; }
@@ -467,13 +484,13 @@
     </div>
     <div class="note">
       <b>The house held.</b> Captain Lou Sasole&rsquo;s handoff now carries directly into
-      <b>THE ENOLA SQUATCH</b>. Preview runs keep the standalone link; campaign runs
+      <b>SQUATCHOLA GAY</b>. Preview runs keep the standalone link; campaign runs
       commit the siege report before they leave this landing.
     </div>
     <div class="exits">
       <a href="./index.html" class="btn small" style="text-decoration:none; display:inline-block;">HOME &mdash; THE APARTMENT</a>
       <a href="./mansion.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE HOUSE, QUIET</a>
-      <a id="continueBtn" href="./enolasquatch.html" class="btn alt small" style="text-decoration:none; display:inline-block;">CONTINUE &mdash; THE ENOLA SQUATCH</a>
+      <a id="continueBtn" href="./enolasquatch.html" class="btn alt small" style="text-decoration:none; display:inline-block;">CONTINUE &mdash; SQUATCHOLA GAY</a>
       <button id="replayBtn" type="button" class="btn alt small">PLAY IT AGAIN</button>
     </div>
   </div>

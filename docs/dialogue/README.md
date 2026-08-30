@@ -40,17 +40,24 @@ the same beat five ways:
 match. Mixing is fine and usually better — a Coen answer to a Tarantino question
 is a real scene.
 
-## Two doctrine violations flagged in here
+## Doctrine decisions resolved in the live script
 
-Both are marked in the sheet and both should go regardless of which tone wins:
+These rows remain in the sheet as decision history. Their live successors are
+the accepted copy, so they must never be treated as outstanding recording work:
 
-- `heist.prospect_counterstrike` — names a real video game mid-standoff.
-- `vo.siege.prospect.little_friend` — quotes the film being parodied out loud.
-- `vo.bing.hang.hogmama.tony.1` — "don't make me a bit" is meta-comedy slang.
-- `vo.door.hint.piss.1` — the character speaks the keybind ("hold F").
+- `heist.prospect_counterstrike` — retired 2026-08-28; the live successor is
+  `heist.prospect_lobby_quiet`, which keeps the bank sequence inside Tony's
+  physical experience instead of naming a real game mid-standoff.
+- `vo.siege.prospect.little_friend` — the stable cue id remains for saves and
+  takes, but its live text is now an original threat rather than the film quote.
+- `vo.bing.hang.hogmama.tony.1` — deliberately kept: Hog Mama is an
+  in-world comedian who has just offered to make Tony into a literal bit.
+- `vo.door.hint.piss.1` — the cue id remains stable, but the accepted live line
+  no longer speaks the keybind; the HUD owns the control instruction.
 
-`docs/TONE-AND-PARODY.md` rules out all four: the player supplies the
-recognition, the scene never points at it, and a character never reads the HUD.
+`docs/TONE-AND-PARODY.md` rules out the retired heist/movie/HUD wording. The
+Hog Mama exchange is the explicit exception because the profession and setup
+make “bit” literal inside the scene.
 
 ## When a pick is accepted
 

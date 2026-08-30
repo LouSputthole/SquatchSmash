@@ -40,7 +40,18 @@ const FEAR = Object.freeze({
 
 /* Lines she repeats from the floor, in order, on a slow clock. She never
  * stops being frightened; she only runs out of new ways to say it. */
+import { PRONE_MOUTH_Y } from './voice.js';
+
 const COWER_LINES = Object.freeze(['cleaner.cower.one', 'cleaner.cower.two']);
+
+/** Dialogue cannot come from a body the rendered hierarchy has hidden. */
+function visibleInWorld(object) {
+  if (!object?.parent) return false;
+  for (let node = object; node; node = node.parent) {
+    if (node.visible === false) return false;
+  }
+  return true;
+}
 
 /**
  * Runs the estate's working civilians.
@@ -81,7 +92,13 @@ export class PalaceBystanders {
    */
   notice(entry = this.cast.bystanders[0]) {
     const record = this._record(entry);
-    if (!record || record.entry.down || record.phase !== 'calm') return false;
+    /* Owner, 2026-08-28: *"Rosa must already be visibly present before her
+     * first line begins."* Her model is synchronous, built with the cast, but
+     * this guard makes that ordering a runtime invariant: a future checkpoint
+     * cleanup or visibility pass cannot leave the line live after hiding or
+     * detaching the body. */
+    if (!record || record.entry.down || record.phase !== 'calm'
+      || !visibleInWorld(record.entry.root)) return false;
     record.phase = 'startled';
     record.entry.figure.setState?.('startled', { blend: true });
     this.voice?.say?.('cleaner.spotted', {
@@ -140,7 +157,7 @@ export class PalaceBystanders {
           record.cowerClock = 2.6;
           entry.figure.setState?.('prone', { blend: true });
           this.voice?.say?.('cleaner.panic.two', {
-            position: entry.root.position, radius: 16,
+            position: entry.root.position, radius: 16, mouthY: PRONE_MOUTH_Y,
           });
         }
         continue;
@@ -152,7 +169,12 @@ export class PalaceBystanders {
         record.cowerClock = 9 + record.cowerIndex * 3;
         const id = COWER_LINES[record.cowerIndex % COWER_LINES.length];
         record.cowerIndex++;
-        this.voice?.say?.(id, { position: entry.root.position, radius: 11 });
+        /* From the floor, behind whatever she is behind. If he cannot see
+         * her, he does not hear her -- which is the whole of the owner's
+         * "disembodied cleaner" note. */
+        this.voice?.say?.(id, {
+          position: entry.root.position, radius: 11, mouthY: PRONE_MOUTH_Y,
+        });
       }
       /* Standing over her. She stops repeating and asks him directly — once,
        * and only once, in the whole mission. */
@@ -160,6 +182,7 @@ export class PalaceBystanders {
         && this.player.position.distanceTo(entry.root.position) <= 3.4) {
         record.pleaded = this.voice?.say?.('cleaner.plead', {
           position: entry.root.position, radius: 5, urgent: true,
+          mouthY: PRONE_MOUTH_Y,
         }) === true;
       }
     }

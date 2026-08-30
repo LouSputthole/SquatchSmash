@@ -108,6 +108,73 @@ try {
   await page.waitForFunction(() => window.SQUATCH.state === 'playing');
   check('standalone Tab resumes Squatch Smash',
     await page.evaluate(() => window.__scenePause?.isPaused() === false));
+
+  /* THE WAY OUT OF THE GAME, DRIVEN THE WAY A PLAYER DRIVES IT.
+   *
+   * Not `window.__SQUATCH_SMASH_HOST.quitSquatchSmash()` -- the cold-open
+   * verifier already calls that directly, and it passed for weeks while the
+   * player was trapped. The QUIT button lives on `#pause`, and `#pause` has
+   * not opened since the shared pause menu was adopted: `togglePause()`
+   * delegates to it whenever one exists, and one always does. So the reveal
+   * had no reachable door and the owner reported being stuck twice.
+   *
+   * This walks the real menu: pause, find the action by its LABEL, click it,
+   * and assert the confirm box takes the screen with the game still paused
+   * behind it. GIVE UP ends the run; only QUIT closes the game, so finding
+   * "an action exists" is not enough -- it has to be this one.
+   */
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+  const quitRoute = await page.evaluate(() => {
+    const labels = [...document.querySelectorAll('[data-scene-pause] .scene-pause-actions button')]
+      .map((button) => button.textContent.trim());
+    const quit = [...document.querySelectorAll('[data-scene-pause] .scene-pause-actions button')]
+      .find((button) => /quit/i.test(button.textContent));
+    quit?.click();
+    const confirm = document.getElementById('quitConfirm');
+    const menu = document.querySelector('[data-scene-pause]');
+    return {
+      labels,
+      clicked: Boolean(quit),
+      confirmShown: confirm ? !confirm.classList.contains('hidden') : false,
+      menuHidden: menu ? menu.classList.contains('hidden') : null,
+      stillPaused: window.SQUATCH.state === 'paused',
+    };
+  });
+  check('the pause menu offers a real way OUT of the game, not just out of the run',
+    quitRoute.clicked && quitRoute.confirmShown && quitRoute.menuHidden
+      && quitRoute.stillPaused
+      && quitRoute.labels.some((label) => /give up/i.test(label)),
+    JSON.stringify(quitRoute));
+
+  /* Backing out must land him back in the menu, still paused -- not in a
+   * running campground with a box over it, and not nowhere at all. */
+  await page.click('#quitNo');
+  const backedOut = await page.evaluate(() => ({
+    confirmShown: !document.getElementById('quitConfirm').classList.contains('hidden'),
+    menuShown: !document.querySelector('[data-scene-pause]').classList.contains('hidden'),
+    state: window.SQUATCH.state,
+  }));
+  check('saying NO to the quit box returns to the paused menu',
+    !backedOut.confirmShown && backedOut.menuShown && backedOut.state === 'paused',
+    JSON.stringify(backedOut));
+
+  /* And YES actually closes it. Standalone that is a reload, so the assertion
+   * stops at the shutdown card the host hand-off fires behind. */
+  await page.evaluate(() => {
+    const quit = [...document.querySelectorAll('[data-scene-pause] .scene-pause-actions button')]
+      .find((button) => /quit/i.test(button.textContent));
+    quit?.click();
+  });
+  await page.click('#quitYes');
+  const closing = await page.evaluate(() => ({
+    shutdown: !document.getElementById('shutdown').classList.contains('hidden'),
+  }));
+  check('saying YES closes the game', closing.shutdown, JSON.stringify(closing));
+  await page.goto(`http://localhost:${PORT}/game/index.html`, { waitUntil: 'load' });
+  await page.waitForSelector('#startBtn');
+  await page.click('#startBtn');
+  await page.waitForFunction(() => window.SQUATCH.state === 'playing');
   await page.evaluate(() => { window.SQUATCH.timeLeft = 30; });
   await page.waitForFunction(() => window.SQUATCH.boss.active, null, { timeout: 5000 });
 

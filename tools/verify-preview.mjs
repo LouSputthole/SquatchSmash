@@ -8,6 +8,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CAMPAIGN_SPINE } from '../src/core/campaign-spine.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5210;
@@ -22,110 +23,99 @@ const TYPES = {
   '.jpg': 'image/jpeg',
 };
 const SENTINEL = '{"version":999,"canonical":"preview verifier must not touch this"}';
-const EXPECTED_SCENE_LINKS = Object.freeze({
-  'bing-one': 'bing.html?preview=1',
-  squatchfather: 'squatchfather.html?preview=1',
-  beefrun: 'beefrun.html?preview=1',
-  'bing-two': 'bing.html?visit=2&preview=1',
-  graveyard: 'graveyard.html?preview=1',
-  motel: 'motel.html?preview=1',
-  'no-wake': 'nowake.html?preview=1',
-  silver: 'silver.html?preview=1',
-  golf: 'golf.html?preview=1',
-  heist: 'heist.html?preview=1&checkpoint=safehouse',
-  initiation: 'initiation.html?preview=1',
+const EXPECTED_CAMPAIGN_CARDS = Object.freeze(CAMPAIGN_SPINE.map(({ id, scene }) =>
+  Object.freeze([id, scene])));
+
+/* Mission links stay scene-based so each authored page remains reachable by
+ * the scene-audit tooling. Their order, however, is the route: THE TAKE is
+ * Day 5 before Silver Pines, Front & Center follows the luxury introduction,
+ * and NO WAKE follows Margo's luxury-apartment morning. */
+const EXPECTED_SCENE_LINKS = Object.freeze([
+  Object.freeze(['bing-one', 'bing.html?preview=1']),
+  Object.freeze(['squatchfather', 'squatchfather.html?preview=1']),
+  Object.freeze(['beefrun', 'beefrun.html?preview=1']),
+  Object.freeze(['bing-two', 'bing.html?visit=2&preview=1']),
+  Object.freeze(['graveyard', 'graveyard.html?preview=1']),
+  Object.freeze(['motel', 'motel.html?preview=1']),
+  Object.freeze(['heist', 'heist.html?preview=1&checkpoint=safehouse']),
+  Object.freeze(['golf', 'golf.html?preview=1']),
+  Object.freeze(['silver', 'silver.html?preview=1']),
+  Object.freeze(['no-wake', 'nowake.html?preview=1']),
   /* The three scenes merged on 2026-08-03. They were deployed and playable by
    * direct URL for a day before anybody noticed they were missing from the
    * launcher — this check is an exact match in both directions, so a scene
    * that ships without a card here now fails rather than quietly hiding. */
-  silvercase: 'silvercase.html?preview=1',
-  mansion: 'mansion.html?preview=1',
-  'mansion-siege': 'mansion-siege.html?preview=1',
-  enolasquatch: 'enolasquatch.html?preview=1',
-  'mansion-return': 'mansion.html?visit=return&preview=1',
-  'cartel-palace': 'cartel-palace.html?preview=1',
-  'special-meeting': 'specialmeeting.html?preview=1',
-});
-/* Scenes with a page of their own that deliberately have no launcher card.
- *
- * The apartment has a whole block of its own (`APARTMENT_PREVIEW_CASES`) and
- * would be a duplicate here; the graveyard is reached through the Bada Bing's
- * card, not on its own. Everything else in `SCENES` with an `href` must have a
- * card, and the check below derives that from the campaign rather than from
- * the list above -- see why. */
-const NO_LAUNCHER_CARD = Object.freeze(new Set(['apartment']));
-const APARTMENT_PREVIEW_CASES = Object.freeze([
+  Object.freeze(['silvercase', 'silvercase.html?preview=1']),
+  Object.freeze(['mansion', 'mansion.html?preview=1']),
+  Object.freeze(['mansion-siege', 'mansion-siege.html?preview=1']),
+  Object.freeze(['enolasquatch', 'enolasquatch.html?preview=1']),
+  Object.freeze(['mansion-return', 'mansion.html?visit=return&preview=1']),
+  Object.freeze(['cartel-palace', 'cartel-palace.html?preview=1']),
+  Object.freeze(['special-meeting', 'specialmeeting.html?preview=1']),
+  Object.freeze(['initiation', 'initiation.html?preview=1']),
+]);
+
+/* Owner, 2026-08-27: "This should follow the bridge spine of the campaign so
+ * the old apartment scenes should be replaced with the correct hub and
+ * scene." These are the only public home-hub slides. The apartment's older
+ * named variants remain useful deterministic geometry fixtures, but they are
+ * no longer a second public campaign timeline. */
+const HUB_PREVIEW_CASES = Object.freeze([
   Object.freeze({
-    variant: 'day-one-wake', spawn: 'wake', chapter: 'day_one', day: 1,
-    timeMinutes: 6 * 60 + 4, mission: 'bada_bing_one', missionStatus: 'locked',
-    pendingEvent: 'lou_first_call',
+    beat: 'squatch_smash_intro', scene: 'apartment', coldOpen: true,
+    href: 'index.html?preview=1&beat=squatch_smash_intro',
   }),
   Object.freeze({
-    variant: 'after-bing-one', spawn: 'front_door', chapter: 'day_one', day: 1,
-    timeMinutes: 23 * 60 + 41, mission: 'squatchfather', missionStatus: 'available',
-    pendingEvent: 'lou_attaboy_call',
+    beat: 'first_apartment', scene: 'apartment', coldOpen: false,
+    href: 'index.html?preview=1&beat=first_apartment',
   }),
   Object.freeze({
-    variant: 'after-squatchfather', spawn: 'front_door', chapter: 'day_one', day: 2,
-    timeMinutes: 3 * 60, mission: 'squatchfather', missionStatus: 'complete',
-    pendingEvent: 'lou_attaboy_call',
+    beat: 'cabin_lay_low', scene: 'countryside_cabin', phase: 'arrival_rest',
+    href: 'cabin.html?preview=1&beat=cabin_lay_low',
   }),
   Object.freeze({
-    variant: 'day-two-wake', spawn: 'wake', chapter: 'day_two', day: 2,
-    timeMinutes: 7 * 60, mission: 'airstrip_smuggling', missionStatus: 'locked',
-    pendingEvent: 'booski_day_two_call',
+    beat: 'booski_sasole_call', scene: 'countryside_cabin', phase: 'booski_call',
+    href: 'cabin.html?preview=1&beat=booski_sasole_call',
   }),
   Object.freeze({
-    variant: 'after-beef-run', spawn: 'front_door', chapter: 'day_two', day: 2,
-    timeMinutes: 20 * 60 + 30, mission: 'airstrip_smuggling', missionStatus: 'complete',
-    pendingEvent: 'lou_second_call',
+    beat: 'cabin_two', scene: 'countryside_cabin', phase: 'gratin_call',
+    href: 'cabin.html?preview=1&beat=cabin_two',
   }),
   Object.freeze({
-    variant: 'after-motel', spawn: 'front_door', chapter: 'day_two', day: 3,
-    timeMinutes: 4 * 60 + 30, mission: 'jerky_motel', missionStatus: 'complete',
-    pendingEvent: 'lou_no_wake_call',
+    beat: 'return_to_old_apartment', scene: 'apartment',
+    href: 'index.html?preview=1&beat=return_to_old_apartment',
   }),
   Object.freeze({
-    variant: 'day-three-wake', spawn: 'wake', chapter: 'no_wake', day: 3,
-    timeMinutes: 12 * 60, mission: 'no_wake', missionStatus: 'locked',
-    pendingEvent: 'lou_no_wake_call',
+    beat: 'new_space_call', scene: 'apartment',
+    href: 'index.html?preview=1&beat=new_space_call',
   }),
   Object.freeze({
-    variant: 'after-no-wake', spawn: 'front_door', chapter: 'date', day: 3,
-    timeMinutes: 16 * 60 + 40, mission: 'no_wake', missionStatus: 'complete',
-    pendingEvent: 'margo_date_call',
+    beat: 'luxury_apartment_intro', scene: 'luxury_apartment', phase: 'get_ready',
+    href: 'luxury-apartment.html?preview=1&beat=luxury_apartment_intro',
   }),
   Object.freeze({
-    variant: 'after-silver-room', spawn: 'front_door', chapter: 'date', day: 3,
-    timeMinutes: 23 * 60 + 20, mission: 'silver_room', missionStatus: 'complete',
-    pendingEvent: 'lou_golf_call',
+    beat: 'margo_stayover', scene: 'luxury_apartment', phase: 'come_home',
+    href: 'luxury-apartment.html?preview=1&beat=margo_stayover',
   }),
   Object.freeze({
-    variant: 'day-four-wake', spawn: 'wake', chapter: 'golf_morning', day: 4,
-    timeMinutes: 7 * 60, mission: 'silver_pines', missionStatus: 'locked',
-    pendingEvent: 'lou_golf_call',
+    beat: 'luxury_apartment_morning', scene: 'luxury_apartment', phase: 'morning',
+    href: 'luxury-apartment.html?preview=1&beat=luxury_apartment_morning',
   }),
   Object.freeze({
-    variant: 'after-golf', spawn: 'front_door', chapter: 'heist_day', day: 4,
-    timeMinutes: 10 * 60 + 30, mission: 'silver_pines', missionStatus: 'complete',
-    pendingEvent: 'lou_heist_call',
+    beat: 'luxury_apartment_return', scene: 'luxury_apartment', phase: 'return',
+    href: 'luxury-apartment.html?preview=1&beat=luxury_apartment_return',
   }),
   Object.freeze({
-    variant: 'after-heist', spawn: 'front_door', chapter: 'post_heist', day: 4,
-    timeMinutes: 17 * 60 + 20, mission: 'bank_heist', missionStatus: 'complete',
-    pendingEvent: null,
+    beat: 'special_meeting_call', scene: 'luxury_apartment', phase: 'special_meeting',
+    href: 'luxury-apartment.html?preview=1&beat=special_meeting_call',
   }),
 ]);
-const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
-  'after-bing-one': 'bada_bing_one',
-  'after-squatchfather': 'squatchfather',
-  'after-beef-run': 'airstrip_smuggling',
-  'after-motel': 'jerky_motel',
-  'after-no-wake': 'no_wake',
-  'after-silver-room': 'silver_room',
-  'after-golf': 'silver_pines',
-  'after-heist': 'bank_heist',
-});
+/* Scenes with a page of their own that deliberately have no launcher card.
+ *
+ * Hub pages are represented by the bounded beat links above. Everything else
+ * in `SCENES` with an href must have one scene-audit card, and the check below
+ * derives that from the campaign rather than trusting the alias list alone. */
+const NO_LAUNCHER_CARD = Object.freeze(new Set());
 
 let chromium;
 try {
@@ -170,6 +160,19 @@ page.on('pageerror', (error) => browserProblems.push(error.message));
 page.on('console', (message) => {
   if (message.type() === 'error') browserProblems.push(message.text().slice(0, 240));
 });
+page.on('requestfailed', (request) => {
+  const reason = request.failure()?.errorText || 'failed';
+  // Navigating from one audio-heavy scene to the next intentionally aborts
+  // media still buffering from the old document. Network failures in the
+  // active document remain errors; cancellation during navigation does not.
+  if (reason.includes('ERR_ABORTED')) return;
+  browserProblems.push(`${request.method()} ${request.url()} - ${reason}`);
+});
+page.on('response', (response) => {
+  if (response.status() >= 400) {
+    browserProblems.push(`HTTP ${response.status()} ${response.url()}`);
+  }
+});
 
 const results = [];
 function check(name, ok, detail = '') {
@@ -195,12 +198,16 @@ function unchanged(snapshot) {
   });
 }
 
-function linksMatchExpected(links, expected) {
-  const entries = Object.entries(expected);
-  return links.length === entries.length
-    && entries.every(([key, href]) => links.some(([actualKey, actualHref]) => (
-      actualKey === key && actualHref === href
-    )));
+function linksMatchExpected(links, expected, { ordered = false } = {}) {
+  if (links.length !== expected.length) return false;
+  if (ordered) {
+    return expected.every(([key, href], index) => (
+      links[index]?.[0] === key && links[index]?.[1] === href
+    ));
+  }
+  return expected.every(([key, href]) => links.some(([actualKey, actualHref]) => (
+    actualKey === key && actualHref === href
+  )));
 }
 
 async function verifyTabPause(label) {
@@ -225,17 +232,48 @@ try {
   await page.goto(`http://localhost:${PORT}/preview.html`, { waitUntil: 'load' });
   const launcher = await page.evaluate(() => ({
     title: document.querySelector('h1')?.textContent,
+    campaignCards: [...document.querySelectorAll('[data-campaign-beat]')]
+      .map((card) => [card.dataset.campaignBeat, card.dataset.campaignScene]),
+    unlaunchableCampaignCards: [...document.querySelectorAll('[data-campaign-beat]')]
+      .filter((card) => !card.querySelector('a.play[href]'))
+      .map((card) => card.dataset.campaignBeat),
+    hubs: [...document.querySelectorAll('[data-preview-beat]')]
+      .map((link) => [
+        link.dataset.previewBeat,
+        link.dataset.campaignScene,
+        link.getAttribute('href'),
+      ]),
     links: [...document.querySelectorAll('[data-preview-scene]')]
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
     apartments: [...document.querySelectorAll('[data-preview-apartment]')]
       .map((link) => [link.dataset.previewApartment, link.getAttribute('href')]),
+    retiredApartmentHrefs: [...document.querySelectorAll('a[href]')]
+      .map((link) => link.getAttribute('href'))
+      .filter((href) => /[?&]apartment=/.test(href.replaceAll('&amp;', '&'))),
     tools: [...document.querySelectorAll('[data-preview-tool]')]
       .map((link) => [link.dataset.previewTool, link.getAttribute('href')]),
   }));
-  check('the launcher exposes every authored mission preview',
-    launcher.title === 'Scene preview'
-      && linksMatchExpected(launcher.links, EXPECTED_SCENE_LINKS),
+  check('the launcher follows all 31 campaign beats in spine order',
+    launcher.title === 'Campaign preview'
+      && JSON.stringify(launcher.campaignCards) === JSON.stringify(EXPECTED_CAMPAIGN_CARDS)
+      && launcher.unlaunchableCampaignCards.length === 0,
+    JSON.stringify({
+      campaignCards: launcher.campaignCards,
+      unlaunchable: launcher.unlaunchableCampaignCards,
+    }));
+  check('the launcher exposes every authored mission preview in route order',
+    linksMatchExpected(launcher.links, EXPECTED_SCENE_LINKS, { ordered: true }),
     JSON.stringify(launcher));
+  const expectedHubLinks = HUB_PREVIEW_CASES.map(({ beat, scene, href }) => [beat, scene, href]);
+  check('the launcher replaces obsolete apartment slides with routed home-hub beats',
+    JSON.stringify(launcher.hubs) === JSON.stringify(expectedHubLinks)
+      && launcher.apartments.length === 0
+      && launcher.retiredApartmentHrefs.length === 0,
+    JSON.stringify({
+      hubs: launcher.hubs,
+      obsoleteApartmentLinks: launcher.apartments,
+      retiredApartmentHrefs: launcher.retiredApartmentHrefs,
+    }));
 
   /* AND THE LIST ABOVE IS NOT ALLOWED TO BE THE ONLY SOURCE OF TRUTH.
    *
@@ -261,7 +299,10 @@ try {
    * query (`?visit=2`, `?visit=return`), so cutting at the '?' would let the
    * first Bing's card stand in for the second's and pass a launcher that is
    * missing one. */
-  const carded = launcher.links.map(([, href]) => String(href));
+  const carded = [
+    ...launcher.links.map(([, href]) => String(href)),
+    ...launcher.hubs.map(([, , href]) => String(href)),
+  ];
   const missing = campaignPages
     .filter(([id]) => !NO_LAUNCHER_CARD.has(id))
     .filter(([, href]) => !carded.some((link) => link.startsWith(href)))
@@ -271,67 +312,67 @@ try {
     missing.length
       ? `no launcher card for: ${missing.join(', ')}`
       : `${campaignPages.length} scene pages, all carded or deliberately exempt`);
-  const expectedApartmentLinks = Object.fromEntries(APARTMENT_PREVIEW_CASES.map(({ variant }) => [
-    variant,
-    `index.html?preview=1&apartment=${variant}`,
-  ]));
-  check('the launcher exposes every canonical apartment iteration',
-    linksMatchExpected(launcher.apartments, expectedApartmentLinks),
-    JSON.stringify(launcher.apartments));
   check('the launcher exposes both development tools',
-    linksMatchExpected(launcher.tools, {
-      wardrobe: 'wardrobe.html',
-      combat: 'combatlab.html?preview=1',
-    }),
+    linksMatchExpected(launcher.tools, [
+      ['wardrobe', 'wardrobe.html'],
+      ['combat', 'combatlab.html?preview=1'],
+    ]),
     JSON.stringify(launcher.tools));
   check('opening the launcher leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  for (const expected of APARTMENT_PREVIEW_CASES) {
-    await page.goto(
-      `http://localhost:${PORT}/index.html?preview=1&apartment=${expected.variant}`,
-      { waitUntil: 'load' },
-    );
-    await page.waitForFunction(() => window.__squatch?.campaign?.state, null, {
-      timeout: 180000,
-    });
-    const apartment = await page.evaluate(() => {
-      const state = window.__squatch.campaign.state;
+  for (const expected of HUB_PREVIEW_CASES) {
+    const problemStart = browserProblems.length;
+    await page.goto(`http://localhost:${PORT}/${expected.href}`, { waitUntil: 'load' });
+    await page.waitForFunction(({ scene }) => {
+      const runtime = globalThis.__squatchLifePreviewRuntime;
+      const saved = runtime?.storage?.getItem?.('squatchlife.campaign');
+      if (!runtime?.seeded || !saved || !document.querySelector('#squatch-preview-notice')) {
+        return false;
+      }
+      if (scene === 'apartment') return Boolean(window.__squatch?.campaign?.state);
+      if (scene === 'countryside_cabin') return Boolean(window.CABIN?.campaign?.state);
+      if (scene === 'luxury_apartment') return Boolean(window.LUXURY_APARTMENT?.player);
+      return false;
+    }, { scene: expected.scene }, { timeout: 180000 });
+    if (expected.coldOpen === true) {
+      await page.waitForFunction(() => window.__squatch?.coldOpenState?.active === true, null, {
+        timeout: 180000,
+      });
+    }
+    const hub = await page.evaluate(async ({ expectedScene }) => {
+      const runtime = globalThis.__squatchLifePreviewRuntime;
+      const state = JSON.parse(runtime.storage.getItem('squatchlife.campaign'));
+      let phase = null;
+      if (expectedScene === 'countryside_cabin') {
+        phase = window.CABIN?.story?.phase?.() ?? null;
+      } else if (expectedScene === 'luxury_apartment') {
+        const { createLuxuryApartmentStory } = await import('/src/core/luxury-apartment-story.js');
+        phase = createLuxuryApartmentStory({ campaign: { state } }).phase();
+      }
       return {
-        scene: state.scene,
-        story: state.story,
-        missions: state.missions,
-        events: state.events,
-        returnSource: window.__squatch.apartmentReturnSource,
+        runtimeBeat: runtime.beatId ?? runtime.beat ?? null,
+        runtimeScene: runtime.sceneId,
+        seededScene: state.scene,
+        story: { day: state.story.day, timeMinutes: state.story.timeMinutes },
+        phase,
+        coldOpenActive: window.__squatch?.coldOpenState?.active ?? null,
         previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
-        bloodShirtVisible:
-          window.__squatch.apartment.dressing.get('bloodShirt')?.group.visible ?? false,
       };
-    });
-    check(`apartment preview ${expected.variant} boots at its canonical checkpoint`,
-      apartment.scene.id === 'apartment'
-        && apartment.scene.spawn === expected.spawn
-        && apartment.story.chapter === expected.chapter
-        && apartment.story.day === expected.day
-        && apartment.story.timeMinutes === expected.timeMinutes
-        && apartment.missions[expected.mission].status === expected.missionStatus
-        && (!expected.pendingEvent
-          || apartment.events[expected.pendingEvent].status === 'pending')
-        && apartment.returnSource
-          === (EXPECTED_APARTMENT_RETURN_SOURCES[expected.variant] ?? null)
-        && !apartment.bloodShirtVisible
-        && apartment.previewNotice,
-      JSON.stringify({
-        scene: apartment.scene,
-        story: apartment.story,
-        mission: apartment.missions[expected.mission],
-        event: expected.pendingEvent ? apartment.events[expected.pendingEvent] : null,
-        returnSource: apartment.returnSource,
-        bloodShirtVisible: apartment.bloodShirtVisible,
-      }));
+    }, { expectedScene: expected.scene });
+    const newProblems = browserProblems.slice(problemStart);
+    check(`hub preview ${expected.beat} boots the routed scene${expected.phase ? ' and phase' : ''}`,
+      hub.runtimeBeat === expected.beat
+        && hub.runtimeScene === expected.scene
+        && hub.seededScene.id === expected.scene
+        && (!expected.phase || hub.phase === expected.phase)
+        && (expected.coldOpen === undefined || hub.coldOpenActive === expected.coldOpen)
+        && hub.previewNotice
+        && newProblems.length === 0,
+      JSON.stringify({ ...hub, browserProblems: newProblems }));
+    check(`hub preview ${expected.beat} leaves the canonical save untouched`,
+      unchanged(await storageSnapshot()));
   }
-  check('all apartment previews leave the canonical save untouched',
-    unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
@@ -347,15 +388,23 @@ try {
   const noWake = await page.evaluate(() => ({
     mission: window.NO_WAKE.campaignState.missions.no_wake,
     motel: window.NO_WAKE.campaignState.missions.jerky_motel.status,
+    heist: window.NO_WAKE.campaignState.missions.bank_heist.status,
+    golf: window.NO_WAKE.campaignState.missions.silver_pines.status,
+    silver: window.NO_WAKE.campaignState.missions.silver_room.status,
     call: window.NO_WAKE.campaignState.events.lou_no_wake_call.status,
     chapter: window.NO_WAKE.campaignState.story.chapter,
+    day: window.NO_WAKE.campaignState.story.day,
     previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
   }));
-  check('NO WAKE starts with temporary prerequisites and a preview notice',
+  check('NO WAKE starts after the luxury-apartment morning with temporary prerequisites',
     noWake.mission.status === 'in_progress'
       && noWake.motel === 'complete'
+      && noWake.heist === 'complete'
+      && noWake.golf === 'complete'
+      && noWake.silver === 'complete'
       && noWake.call === 'answered'
       && noWake.chapter === 'no_wake'
+      && noWake.day === 7
       && noWake.previewNotice,
     JSON.stringify(noWake));
   check('NO WAKE preview leaves the canonical save untouched',
@@ -512,17 +561,23 @@ try {
   const silver = await page.evaluate(() => ({
     mission: window.__silver.campaignState.missions.silver_room,
     motel: window.__silver.campaignState.missions.jerky_motel.status,
+    heist: window.__silver.campaignState.missions.bank_heist.status,
+    golf: window.__silver.campaignState.missions.silver_pines.status,
+    noWake: window.__silver.campaignState.missions.no_wake.status,
     call: window.__silver.campaignState.events.margo_date_call.status,
     chapter: window.__silver.campaignState.story.chapter,
     day: window.__silver.campaignState.story.day,
     previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
   }));
-  check('the Silver Room opens on the date chapter with Margo already rung',
+  check('Front & Center opens after THE TAKE, golf and the luxury handover',
     silver.mission.status === 'available'
       && silver.motel === 'complete'
+      && silver.heist === 'complete'
+      && silver.golf === 'complete'
+      && silver.noWake === 'locked'
       && silver.call === 'answered'
       && silver.chapter === 'date'
-      && silver.day === 3
+      && silver.day === 6
       && silver.previewNotice,
     JSON.stringify(silver));
   check('opening the Silver Room leaves the canonical save untouched',
@@ -536,6 +591,7 @@ try {
     const state = window.__golf.campaign.state;
     return {
       mission: state.missions.silver_pines,
+      heist: state.missions.bank_heist.status,
       silver: state.missions.silver_room.status,
       call: state.events.lou_golf_call.status,
       chapter: state.story.chapter,
@@ -543,12 +599,13 @@ try {
       previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
     };
   });
-  check('Silver Pines opens after the date with Lou already rung',
+  check('Silver Pines opens after THE TAKE and Lou’s new-space call',
     golf.mission.status === 'available'
-      && golf.silver === 'complete'
+      && golf.heist === 'complete'
+      && golf.silver === 'locked'
       && golf.call === 'answered'
       && golf.chapter === 'golf_morning'
-      && golf.day === 4
+      && golf.day === 6
       && golf.previewNotice,
     JSON.stringify(golf));
   check('opening Silver Pines leaves the canonical save untouched',

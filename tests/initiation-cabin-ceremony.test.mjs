@@ -213,6 +213,32 @@ test('the run order kneels everyone, executes four, then interrupts Tony before 
   /* Prospect One keeps the staging that ships: standing, frontal, eight. */
   assert.equal(STANDING_EXECUTION.rounds, 8);
   assert.equal(STANDING_EXECUTION.kneeling, false);
+  assert.equal(STANDING_EXECUTION.shooter, 'BOOSKIBRO',
+    'Booskibro, not a proximity-selected substitute, owns Prospect One\'s execution');
+  assert.equal(STANDING_EXECUTION.stance, site.STANDING_SHOOTER_MARK);
+  assert.ok(STANDING_EXECUTION.stance.x < STANDING_EXECUTION.mark.x,
+    'the standing shooter did not move left of Tony\'s victim sightline');
+  assert.ok(Math.hypot(
+    STANDING_EXECUTION.stance.x - STANDING_EXECUTION.mark.x,
+    STANDING_EXECUTION.stance.z - STANDING_EXECUTION.mark.z,
+  ) > 1.5, 'the standing shooter is crowding Prospect One');
+});
+
+test('the live clearing stations carry Lou and Booskibro\'s established faces', () => {
+  const byKey = new Map(OUTDOOR_MEMBER_STATIONS.map((station) => [station.key, station]));
+  assert.equal(byKey.get('BOOSKIBRO').face, 'assets/faces/booski.png');
+  assert.equal(byKey.get('LOU').face, 'assets/faces/lou.png');
+  assert.match(MAIN, /makeInitiationCeremonyFigure\(spec\.key, \{ face: spec\.face \?\? null \}\)/,
+    'the production scene stopped passing station faces to the canonical figure adapter');
+});
+
+test('Kittenboss carries her own landed female portrait into the live line-up', () => {
+  const kitten = LINE_UP.find((slot) => slot.id === 'kittenboss');
+  assert.equal(kitten.face, 'assets/faces/kittenboss.png');
+  assert.equal(fs.existsSync(path.join(ROOT, kitten.face)), true);
+  assert.match(MAIN,
+    /makeInitiationCeremonyFigure\(slot\.name, \{ face: slot\.face \?\? null \}\)/,
+    'the production line-up stopped passing Kittenboss\'s portrait to her figure');
 });
 
 /* ══════════════════════════════════════════════════════════════════════ *
@@ -516,10 +542,11 @@ test('the right answer completes the mission, and the path never touches a fail 
   assert.equal(PHASES.complete.terminal, true);
   assert.deepEqual(PHASES.oath_yes.exits, ['blade']);
 
-  /* The making itself: the completion event, once, and a real exit home so no
-   * save is trapped in a terminal scene. */
+  /* The making itself: the completion event, once, and a direct ending so no
+   * obsolete campground button sits between the wind beat and the credits.
+   * The bounded Prospect's Record is deliberately passed into that roll. */
   assert.match(MAIN, /TIME_EVENT_IDS\.COMPLETE_INITIATION/);
-  assert.match(MAIN, /navigateCampaign\(campaign, SCENE_IDS\.APARTMENT/);
+  assert.match(MAIN, /campaignCreditsView\.roll\(\{/);
 });
 
 test('only Tony survives before the walk to the cabin', () => {
@@ -654,16 +681,19 @@ test("the owner's own lines are pinned to the words he wrote", () => {
 
 test('the reveal establishes the post-Palace canon before the nuclear option', () => {
   assert.deepEqual(script.beatById('IN-100').lines.map((line) => line.say), [
-    'Willy wasn’t the rat.',
-    'We killed the wrong man.',
-    'Sauce was the rat. The palace proved that.',
-    'It also proved he had help on the inside.',
-    'There is one place left. We are at quota.',
+    'Willy gave them the strip. He did not give them this house.',
+    'Sauce did. The palace proved it.',
+    'Short Bus. Sauce signed it. One of tonight’s prospects countersigned the breach.',
+    'There is one place left. Five prospects are standing for it.',
     'We don’t put a question inside this family.',
     'Nuclear option.',
     'Kittenboss too?',
     "We'll see.",
     'She has to go too.',
+  ]);
+  assert.deepEqual(script.beatById('IN-340').lines.map((line) => line.say), [
+    'You did what was asked. You kept your mouth shut. You handled yourself at the Bing. You flew the beef run. When it came time to stand up, you stood up.',
+    'You carried Lou’s case. You held his house when they came for it. You walked into their palace alone and ended the war.',
   ]);
   assert.deepEqual(script.beatById('IN-110').lines.map((line) => line.say), [
     'All prospects. On your knees.',
@@ -767,6 +797,14 @@ test('only the four sweep beats are allowed to fire', () => {
     'Get Tony up.',
   ]);
   assert.equal(script.beatById('IN-170').lines[0].verbatim, true);
+});
+
+test('Gratin gives the owner-authored line immediately before the Kittenboss shot', () => {
+  const lines = script.beatById('IN-150').lines;
+  assert.deepEqual(lines.map((line) => line.speakerKey), ['KITTENBOSS', 'GRATIN']);
+  assert.equal(lines.at(-1).say,
+    "Everybody remembers the night they joined the family. Nobody remembers the one who didn't.");
+  assert.equal(lines.at(-1).verbatim, true);
 });
 
 test('all five remaining prospects kneel before the first sweep shot', () => {

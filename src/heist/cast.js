@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { getCharacter } from '../core/characters.js';
 import {
-  DEATHMEGATRON,
+  DEATHMEGATRON_HEIST,
   NUMBSKULL,
-  RIPPINFLOW,
+  RIPPINFLOW_HEIST,
   SHUBENATOR,
   SNOW,
 } from '../core/wardrobe.js';
@@ -40,23 +40,24 @@ export const HEIST_CREW_IDS = Object.freeze([
 /**
  * Presentation per crew member, on the shared builder's own vocabulary.
  *
- * The body underneath the job gear is the canonical wardrobe object itself.
- * The heist adds only a photographed face, a plate-carrier colour, a weapon,
- * and the mission mask. That keeps the tactical read without turning the same
- * named people into different bodies for one scene.
+ * The body underneath the job gear is canonical. Snow, Shubes and Numbskull
+ * use their base wardrobe objects directly; Rippinflow and DeathMegatron use
+ * named THE TAKE clothing variants that spread those same bodies. The scene
+ * adds the photographed face, role-coloured plate carrier, weapon and mask.
+ * No mission-local height, build or identity is authored here.
  */
 export const HEIST_CREW_PRESENTATION = Object.freeze({
   [CHARACTER_IDS.SNOW]: Object.freeze({
     face: 'assets/faces/snow.png', shirtDark: 0x20252c, model: SNOW,
   }),
   [CHARACTER_IDS.RIPPINFLOW]: Object.freeze({
-    face: 'assets/faces/rippinflow.png', shirtDark: 0x252720, model: RIPPINFLOW,
+    face: 'assets/faces/rippinflow.png', shirtDark: 0x252720, model: RIPPINFLOW_HEIST,
   }),
   [CHARACTER_IDS.SHUBENATOR]: Object.freeze({
     face: 'assets/faces/shubes.png', shirtDark: 0x171c26, model: SHUBENATOR,
   }),
   [CHARACTER_IDS.DEATHMEGATRON]: Object.freeze({
-    face: 'assets/faces/deathmegatron.png', shirtDark: 0x201d1a, model: DEATHMEGATRON,
+    face: 'assets/faces/deathmegatron.png', shirtDark: 0x201d1a, model: DEATHMEGATRON_HEIST,
   }),
   // No canonical photo is present for Numbskull. The shared builder's
   // procedural head is the deliberate fallback; another person's identity is

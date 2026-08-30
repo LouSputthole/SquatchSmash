@@ -3,14 +3,14 @@
  * Verify The Silver Case through a seeded canonical campaign entry. Separate
  * checkpoint pages use save-free preview URLs.
  *
- * Drives the mission's own state machine end to end using the
- * window.silvercase debug handle (go()/tick()/state()/pressFire()/
- * pressDraw()/chooseKey()/retry()), plus real keyboard input for the two
- * places a human actually touches a key: WASD movement and the hold-E
- * prayer-finish choice. Mirrors the skeleton in tools/verify-squatchfather.mjs
- * and tools/verify-initiation.mjs — a local static server, a real headless
- * Chromium via Playwright, a check(name, ok, detail) accumulator, and a
- * process.exit(1) on any failure.
+ * The long legacy audit still uses the scene's debug handle to compress old
+ * dialogue/setup beats, but the player-facing seams use the actual page:
+ * visible Begin button, pointer lock, keyboard/mouse input, persisted ordinary
+ * URL resumes, a wall-clock decision timeout, the case interaction, and the
+ * walk out. Mirrors the skeleton in tools/verify-squatchfather.mjs and
+ * tools/verify-initiation.mjs — a local static server, real headless Chromium
+ * via Playwright, a check(name, ok, detail) accumulator, and process.exit(1)
+ * on any failure.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -57,8 +57,15 @@ const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx'
 const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
 const indexedFiles = new Set(soundIndex.files || []);
 const selectedSilverCaseCues = soundManifest.sfx.filter((cue) => isSilverCasePreloadCue(cue));
+const missingSilverCaseDeliveries = selectedSilverCaseCues.filter((cue) => {
+  const file = cue.file || `${cue.name}.mp3`;
+  return !indexedFiles.has(file) || !fs.existsSync(path.join(ROOT, 'assets', 'sfx', file));
+});
 const expectedSilverCaseResidentNames = selectedSilverCaseCues
-  .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+  .filter((cue) => {
+    const file = cue.file || `${cue.name}.mp3`;
+    return indexedFiles.has(file) && fs.existsSync(path.join(ROOT, 'assets', 'sfx', file));
+  })
   .map((cue) => cue.name)
   .sort();
 
@@ -283,6 +290,527 @@ async function hotbar() {
   });
 }
 
+/**
+ * Open a saved campaign in an isolated context through the same ordinary URL
+ * and visible Begin button a returning player uses. This deliberately avoids
+ * `?preview=1`, `?checkpoint=...`, `go()` and `tick()`: branch QA below must
+ * exercise persisted resume, real timers and browser input rather than a
+ * verifier-only state teleport.
+ */
+async function openOrdinaryResume(rawCampaign, label) {
+  const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
+  const branchPage = await context.newPage();
+  const branchProblems = [];
+  branchPage.on('pageerror', (error) => branchProblems.push(error.message));
+  branchPage.on('console', (message) => {
+    if (message.type() === 'error') branchProblems.push(message.text().slice(0, 240));
+  });
+  await branchPage.addInitScript(({ key, raw }) => {
+    localStorage.setItem(key, raw);
+  }, { key: CAMPAIGN_STORAGE_KEY, raw: rawCampaign });
+  await branchPage.goto(`http://localhost:${PORT}/silvercase.html`, {
+    waitUntil: 'load',
+    timeout: 60000,
+  });
+  await branchPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
+  await branchPage.click('#beginBtn');
+  await branchPage.waitForFunction(
+    () => window.silvercase.fsm.name !== 'MENU', null, { timeout: 60000 },
+  );
+  await branchPage.waitForFunction(
+    () => window.silvercase.input.snapshot().locked, null, { timeout: 5000 },
+  );
+  return {
+    page: branchPage,
+    problems: branchProblems,
+    close: async () => {
+      if (branchProblems.length) {
+        problems.push(...branchProblems.map((problem) => `${label}: ${problem}`));
+      }
+      await context.close();
+    },
+  };
+}
+
+/*
+ * Input-only clean-path helpers.
+ *
+ * These deliberately never call the scene's go(), aimAt(), shootAt(),
+ * pressFire(), pressDraw(), retry(), or write Player transforms.  The only
+ * verifier-only seam they retain is deterministic clock advancement through
+ * tick(): SwiftShader can render far below real time, but authored dialogue
+ * and movement still need stable game-time steps.  Every decision, look,
+ * interaction, shot and metre travelled enters through the same keyboard and
+ * pointer events a player uses.
+ */
+const pointerPositions = new WeakMap();
+
+async function advanceCleanPathUntil(branchPage, predicate, {
+  stepSecs = 0.05,
+  maxSteps = 1200,
+} = {}) {
+  return branchPage.evaluate(([predicate, stepSecs, maxSteps]) => {
+    const sc = window.silvercase;
+    const [kind, value] = predicate.split(':');
+    const met = () => {
+      if (kind === 'beat') return sc.fsm.name === value;
+      if (kind === 'choice') return sc.dialogue.choice?.id === value;
+      if (kind === 'instruction') {
+        const el = document.getElementById('instruction');
+        return Boolean(el?.classList.contains('show') && el.textContent.trim());
+      }
+      return false;
+    };
+    let steps = 0;
+    while (!met() && steps < maxSteps) {
+      sc.tick(stepSecs);
+      steps += 1;
+    }
+    return { met: met(), steps, state: sc.state() };
+  }, [predicate, stepSecs, maxSteps]);
+}
+
+async function ensureCleanPathCapture(branchPage) {
+  if (await branchPage.evaluate(() => window.silvercase.input.snapshot().captured)) return;
+  await branchPage.locator('canvas').click({ position: { x: 480, y: 270 } });
+  await branchPage.waitForFunction(
+    () => window.silvercase.input.snapshot().captured,
+    null,
+    { timeout: 5000 },
+  );
+}
+
+async function walkCleanPathTo(branchPage, target, {
+  tolerance = 0.38,
+  maxBursts = 180,
+  burstSecs = 0.08,
+} = {}) {
+  await ensureCleanPathCapture(branchPage);
+  let report = null;
+  let stalled = 0;
+  for (let burst = 0; burst < maxBursts; burst += 1) {
+    const pose = await branchPage.evaluate(() => {
+      const p = window.silvercase.player;
+      return { x: p.position.x, z: p.position.z, yaw: p.yaw };
+    });
+    const dx = target.x - pose.x;
+    const dz = target.z - pose.z;
+    const distance = Math.hypot(dx, dz);
+    report = { ...pose, distance, bursts: burst };
+    if (distance <= tolerance) return { reached: true, ...report };
+
+    const sin = Math.sin(pose.yaw);
+    const cos = Math.cos(pose.yaw);
+    const forward = dx * -sin + dz * -cos;
+    const right = dx * cos + dz * -sin;
+    const keys = [];
+    if (Math.abs(forward) > tolerance * 0.35) keys.push(forward > 0 ? 'KeyW' : 'KeyS');
+    if (Math.abs(right) > tolerance * 0.35) keys.push(right > 0 ? 'KeyD' : 'KeyA');
+    if (!keys.length) return { reached: true, ...report };
+
+    for (const key of keys) await branchPage.keyboard.down(key);
+    try {
+      await branchPage.evaluate((secs) => window.silvercase.tick(secs), burstSecs);
+    } finally {
+      for (const key of [...keys].reverse()) await branchPage.keyboard.up(key);
+    }
+
+    const next = await branchPage.evaluate(() => {
+      const p = window.silvercase.player;
+      return { x: p.position.x, z: p.position.z };
+    });
+    const moved = Math.hypot(next.x - pose.x, next.z - pose.z);
+    stalled = moved < 0.002 ? stalled + 1 : 0;
+    if (stalled >= 12) return { reached: false, stalled: true, ...report, at: next };
+  }
+  return { reached: false, stalled: false, ...report };
+}
+
+function shortestAngleDelta(from, to) {
+  let delta = (to - from) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
+
+async function lookCleanPathAt(branchPage, targetResolver, {
+  tolerance = 0.018,
+  maxMoves = 6,
+} = {}) {
+  await ensureCleanPathCapture(branchPage);
+  let cursor = pointerPositions.get(branchPage);
+  if (!cursor) {
+    cursor = { x: 480, y: 270 };
+    await branchPage.mouse.move(cursor.x, cursor.y);
+    pointerPositions.set(branchPage, cursor);
+  }
+
+  let report = null;
+  for (let move = 0; move < maxMoves; move += 1) {
+    report = await branchPage.evaluate((resolver) => {
+      const sc = window.silvercase;
+      const p = sc.player;
+      let at = null;
+      if (resolver.kind === 'actor') {
+        const actor = sc.cast[resolver.name];
+        if (!actor) return { error: `unknown actor ${resolver.name}` };
+        at = actor.parts.head.getWorldPosition(actor.parts.head.position.clone());
+        at.y += resolver.offsetY ?? -0.28;
+      } else if (resolver.kind === 'interactable') {
+        const hit = sc.apartment.interactables.find((mesh) => mesh.name === resolver.name);
+        if (!hit) return { error: `unknown interactable ${resolver.name}` };
+        hit.updateWorldMatrix(true, false);
+        at = hit.getWorldPosition(hit.position.clone());
+      } else if (resolver.kind === 'point') {
+        at = { x: resolver.x, y: resolver.y, z: resolver.z };
+      }
+      const dx = at.x - sc.camera.position.x;
+      const dy = at.y - sc.camera.position.y;
+      const dz = at.z - sc.camera.position.z;
+      return {
+        yaw: p.yaw,
+        pitch: p.pitch,
+        sensitivity: p.sensitivity,
+        desiredYaw: Math.atan2(-dx, -dz),
+        desiredPitch: Math.atan2(dy, Math.hypot(dx, dz)),
+        target: [at.x, at.y, at.z],
+      };
+    }, targetResolver);
+    if (report.error) return { aimed: false, ...report };
+    const yawDelta = shortestAngleDelta(report.yaw, report.desiredYaw);
+    const pitchDelta = report.desiredPitch - report.pitch;
+    report = { ...report, yawDelta, pitchDelta, moves: move };
+    if (Math.abs(yawDelta) <= tolerance && Math.abs(pitchDelta) <= tolerance) {
+      await branchPage.evaluate(() => window.silvercase.tick(0.001));
+      return { aimed: true, ...report };
+    }
+    const dx = Math.max(-650, Math.min(650, -yawDelta / report.sensitivity));
+    const dy = Math.max(-420, Math.min(420, -pitchDelta / report.sensitivity));
+    cursor = { x: cursor.x + dx, y: cursor.y + dy };
+    pointerPositions.set(branchPage, cursor);
+    await branchPage.mouse.move(cursor.x, cursor.y, { steps: 2 });
+    await branchPage.evaluate(() => window.silvercase.tick(0.001));
+  }
+  return { aimed: false, ...report };
+}
+
+async function pressCleanPathInteraction(branchPage) {
+  const before = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().interactionPresses,
+  );
+  await branchPage.keyboard.press('KeyE');
+  const after = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().interactionPresses,
+  );
+  return { before, after, recorded: after > before };
+}
+
+async function fireCleanPathShot(branchPage) {
+  const before = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().mouseDownEvents,
+  );
+  await branchPage.mouse.down({ button: 'left' });
+  await branchPage.mouse.up({ button: 'left' });
+  await branchPage.evaluate(() => window.silvercase.tick(0.02));
+  const after = await branchPage.evaluate(
+    () => window.silvercase.input.snapshot().mouseDownEvents,
+  );
+  return { before, after, recorded: after > before };
+}
+
+async function runCleanStartGoldenPath() {
+  const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
+  const goldenPage = await context.newPage();
+  const goldenProblems = [];
+  goldenPage.on('pageerror', (error) => goldenProblems.push(error.message));
+  goldenPage.on('console', (message) => {
+    if (message.type() === 'error') goldenProblems.push(message.text().slice(0, 240));
+  });
+  try {
+    await goldenPage.addInitScript(({ key, state }) => {
+      localStorage.setItem(key, JSON.stringify(state));
+    }, { key: CAMPAIGN_STORAGE_KEY, state: SILVER_CASE_CAMPAIGN_SEED });
+    await goldenPage.goto(`http://localhost:${PORT}/silvercase.html`, {
+      waitUntil: 'load',
+      timeout: 60000,
+    });
+    await goldenPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
+
+    await goldenPage.click('#beginBtn');
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'CAR_RIDE',
+      null,
+      { timeout: 60000 },
+    );
+    await ensureCleanPathCapture(goldenPage);
+    const inputAtStart = await goldenPage.evaluate(() => window.silvercase.input.snapshot());
+
+    const arrived = await advanceCleanPathUntil(goldenPage, 'beat:ARRIVE_HALLWAY');
+    const toDoor = await walkCleanPathTo(goldenPage, { x: 4.75, z: 0 }, { tolerance: 0.3 });
+    const doorLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'frontDoor' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const knockPrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const knockInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'KNOCK',
+      null,
+      { timeout: 3000 },
+    );
+
+    const apartmentReady = await advanceCleanPathUntil(goldenPage, 'beat:ENTER_APARTMENT');
+    const throughDoor = await walkCleanPathTo(
+      goldenPage,
+      { x: 6.85, z: 0 },
+      { tolerance: 0.25 },
+    );
+    const closeDoorLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'frontDoor' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const closePrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const closeInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'ESTABLISH_CONTROL',
+      null,
+      { timeout: 3000 },
+    );
+
+    // Travel around the coffee table instead of walking a mathematical
+    // diagonal through it.  Both legs are collision-resolved Player movement.
+    const caseLegA = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.05 },
+      { tolerance: 0.3 },
+    );
+    const caseLegB = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.9 },
+      { tolerance: 0.28 },
+    );
+    const caseLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'caseHiding' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const searchPrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const searchInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'CASE_REVEAL',
+      null,
+      { timeout: 3000 },
+    );
+
+    const couchBeat = await advanceCleanPathUntil(goldenPage, 'beat:COUCH_SHOOTING');
+    const couchInstruction = await advanceCleanPathUntil(goldenPage, 'instruction');
+    const dekeLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'deke' });
+    const dekeTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
+    const dekeShot = await fireCleanPathShot(goldenPage);
+    const louBeat = await advanceCleanPathUntil(goldenPage, 'beat:SQUATCH_PRAYER');
+
+    const prayerChoice = await advanceCleanPathUntil(goldenPage, 'choice:prayerFinish');
+    await goldenPage.keyboard.down('KeyE');
+    const chairBeat = await advanceCleanPathUntil(goldenPage, 'beat:CHAIR_SHOOTING');
+    await goldenPage.keyboard.up('KeyE');
+    const chairInstruction = await advanceCleanPathUntil(goldenPage, 'instruction');
+    const chesterLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'chester' });
+    const chesterTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
+    const chesterShot = await fireCleanPathShot(goldenPage);
+
+    const ambushBeat = await advanceCleanPathUntil(goldenPage, 'beat:BATHROOM_AMBUSH');
+    // Pruitt's opening pair are guaranteed authored misses. The return-fire
+    // window deliberately does not arm until both rounds and impacts land.
+    await goldenPage.evaluate(() => window.silvercase.tick(2.1));
+    const pruittLook = await lookCleanPathAt(goldenPage, { kind: 'actor', name: 'pruitt' });
+    const pruittTarget = await goldenPage.evaluate(() => window.silvercase.state().aim);
+    const pruittShot = await fireCleanPathShot(goldenPage);
+    const aftermathChoice = await advanceCleanPathUntil(goldenPage, 'choice:aftermath');
+    await goldenPage.keyboard.press('Digit1');
+    const pickupBeat = await advanceCleanPathUntil(goldenPage, 'beat:PICK_UP_CASE');
+
+    const pickupLeg = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.9 },
+      { tolerance: 0.3 },
+    );
+    const pickupLook = await lookCleanPathAt(
+      goldenPage,
+      { kind: 'interactable', name: 'caseHiding' },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(0.02));
+    const pickupPrompt = await goldenPage.evaluate(
+      () => document.getElementById('promptText')?.textContent ?? '',
+    );
+    const pickupInput = await pressCleanPathInteraction(goldenPage);
+    await goldenPage.waitForFunction(
+      () => window.silvercase.fsm.name === 'EXIT',
+      null,
+      { timeout: 3000 },
+    );
+
+    const exitLegA = await walkCleanPathTo(
+      goldenPage,
+      { x: 9.45, z: 0.05 },
+      { tolerance: 0.3 },
+    );
+    const exitLegB = await walkCleanPathTo(
+      goldenPage,
+      { x: 6.75, z: 0 },
+      { tolerance: 0.28 },
+    );
+    const exitLegC = await walkCleanPathTo(
+      goldenPage,
+      { x: 4.8, z: 0 },
+      { tolerance: 0.3 },
+    );
+    const exitLegD = await walkCleanPathTo(
+      goldenPage,
+      { x: 1.15, z: 0 },
+      { tolerance: 0.25 },
+    );
+    await goldenPage.evaluate(() => window.silvercase.tick(1.1));
+
+    const final = await goldenPage.evaluate(() => ({
+      state: window.silvercase.state(),
+      campaign: window.silvercase.campaign.state(),
+      input: window.silvercase.input.snapshot(),
+      overlay: !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
+      player: {
+        x: window.silvercase.player.position.x,
+        z: window.silvercase.player.position.z,
+      },
+    }));
+    const path = {
+      arrived,
+      toDoor,
+      doorLook,
+      knockPrompt,
+      knockInput,
+      apartmentReady,
+      throughDoor,
+      closeDoorLook,
+      closePrompt,
+      closeInput,
+      caseLegA,
+      caseLegB,
+      caseLook,
+      searchPrompt,
+      searchInput,
+      couchBeat,
+      couchInstruction,
+      dekeLook,
+      dekeTarget,
+      dekeShot,
+      louBeat,
+      prayerChoice,
+      chairBeat,
+      chairInstruction,
+      chesterLook,
+      chesterTarget,
+      chesterShot,
+      ambushBeat,
+      pruittLook,
+      pruittTarget,
+      pruittShot,
+      aftermathChoice,
+      pickupBeat,
+      pickupLeg,
+      pickupLook,
+      pickupPrompt,
+      pickupInput,
+      exitLegA,
+      exitLegB,
+      exitLegC,
+      exitLegD,
+    };
+    const pathOk = [
+      arrived, toDoor, doorLook, apartmentReady, throughDoor, closeDoorLook,
+      caseLegA, caseLegB, caseLook, couchBeat, couchInstruction, dekeLook,
+      louBeat, prayerChoice, chairBeat, chairInstruction, chesterLook,
+      ambushBeat, pruittLook, aftermathChoice, pickupBeat, pickupLeg, pickupLook,
+      exitLegA, exitLegB, exitLegC,
+    ].every((step) => step.met ?? step.reached ?? step.aimed ?? false)
+      // The scene-complete trigger sits just inside the last walk target. Once
+      // it fires, input is correctly disabled, so the walker can report its
+      // final 25 cm as "stalled" even though the authored exit succeeded.
+      && (exitLegD.reached || final.state.beat === 'SCENE_COMPLETE');
+    const inputOk = knockInput.recorded && closeInput.recorded && searchInput.recorded
+      && dekeShot.recorded && chesterShot.recorded && pruittShot.recorded
+      && pickupInput.recorded
+      && final.input.movementPresses >= inputAtStart.movementPresses + 8
+      && final.input.interactionPresses >= inputAtStart.interactionPresses + 4
+      && final.input.lookEvents >= inputAtStart.lookEvents + 5
+      && final.input.mouseDownEvents >= inputAtStart.mouseDownEvents + 3;
+    const targetsOk = dekeTarget.at === 'Deke' && dekeTarget.onTarget
+      && chesterTarget.at === 'Chester' && chesterTarget.onTarget
+      && pruittTarget.at === 'Pruitt' && pruittTarget.onTarget;
+    const promptsOk = knockPrompt === 'Knock'
+      && closePrompt === 'Close the door'
+      && searchPrompt === 'Look for the case'
+      && pickupPrompt === 'Take the case';
+    const pathSummary = Object.fromEntries(Object.entries(path).map(([name, step]) => {
+      if (typeof step === 'string') return [name, step];
+      if (typeof step?.recorded === 'boolean') return [name, { recorded: step.recorded }];
+      return [name, {
+        ok: step?.met ?? step?.reached ?? step?.aimed ?? null,
+        beat: step?.state?.beat ?? null,
+        distance: Number.isFinite(step?.distance) ? +step.distance.toFixed(3) : null,
+        stalled: step?.stalled ?? false,
+      }];
+    }));
+    pathSummary.sceneComplete = final.state.beat === 'SCENE_COMPLETE';
+    check('clean-start golden path reaches every beat through authored state transitions, not go()',
+      pathOk,
+      JSON.stringify(pathSummary));
+    check('clean-start golden path uses real keyboard/pointer receipts for travel, looks, interactions and shots',
+      inputOk && targetsOk && promptsOk,
+      JSON.stringify({
+        input: {
+          movement: final.input.movementPresses - inputAtStart.movementPresses,
+          interaction: final.input.interactionPresses - inputAtStart.interactionPresses,
+          look: final.input.lookEvents - inputAtStart.lookEvents,
+          fire: final.input.mouseDownEvents - inputAtStart.mouseDownEvents,
+        },
+        targets: { deke: dekeTarget.at, chester: chesterTarget.at, pruitt: pruittTarget.at },
+        prompts: { knockPrompt, closePrompt, searchPrompt, pickupPrompt },
+      }));
+    check('clean-start golden path carries Lou’s case out and completes the canonical campaign mission',
+      final.state.beat === 'SCENE_COMPLETE'
+        && final.state.case.carried === true
+        && final.state.actors.deke.alive === false
+        && final.state.actors.chester.alive === false
+        && final.state.actors.pruitt.alive === false
+        && final.state.actors.winston.alive === true
+        && final.campaign?.missions?.[MISSION_IDS.SILVER_CASE]?.status === 'complete'
+        && final.overlay === true
+        && final.player.x < 1.4,
+      JSON.stringify({
+        beat: final.state.beat,
+        caseCarried: final.state.case.carried,
+        alive: Object.fromEntries(Object.entries(final.state.actors)
+          .map(([name, actor]) => [name, actor.alive])),
+        mission: final.campaign?.missions?.[MISSION_IDS.SILVER_CASE],
+        player: final.player,
+        overlay: final.overlay,
+        problems: goldenProblems,
+      }));
+    check('clean-start golden path produces no browser console or page errors',
+      goldenProblems.length === 0,
+      goldenProblems.join(' | ').slice(0, 800));
+  } finally {
+    await context.close();
+  }
+}
+
 try {
   await page.addInitScript(({ key, state }) => {
     localStorage.setItem(key, JSON.stringify(state));
@@ -321,25 +849,45 @@ try {
       && postfxBoot.manual === false,
     JSON.stringify(postfxBoot));
 
-  // ---- MENU -> CAR_RIDE (begin(), the same call the Begin button makes) -
+  // ---- MENU -> CAR_RIDE through the visible Begin button ----------------
   //
   // `begin()` now AWAITS `audio.loadManifest(...)` before it ever calls
   // `fsm.go(S.CAR_RIDE)` (see main.js's own comment on the bug this fixes),
   // so `window.silvercase.begin()` returns a promise that only resolves once
   // the mission is genuinely sitting in CAR_RIDE with its manifest resident —
-  // awaiting it here, rather than firing it and ticking a fixed 0.1s like the
-  // old synchronous `begin()` allowed, is what actually exercises that fix
-  // instead of racing it a second time from the test side.
-  let carRide = await page.evaluate(async () => {
+  // A programmatic `window.silvercase.begin()` proved the implementation but
+  // not the click/pointer-lock socket. Use the actual button and wait for the
+  // async handler to finish loading its audio bank and enter CAR_RIDE.
+  await page.click('#beginBtn');
+  await page.waitForFunction(
+    () => window.silvercase.fsm.name === 'CAR_RIDE', null, { timeout: 60000 },
+  );
+  await page.waitForFunction(
+    () => window.silvercase.input.snapshot().locked, null, { timeout: 5000 },
+  );
+  let carRide = await page.evaluate(() => {
     const sc = window.silvercase;
-    await sc.begin();
-    sc.tick(0.1);
     const subs = document.getElementById('subs');
+    const shell = { ribcage: [], deltoid: [], upperarm: [] };
+    sc.car.ape.group.traverse((node) => {
+      if (!Object.hasOwn(shell, node.name) || !node.material?.color) return;
+      shell[node.name].push(node.material.color.getHex());
+    });
+    sc.car.ape.group.updateWorldMatrix(true, false);
+    const matrix = sc.car.ape.group.matrixWorld.elements;
     return {
       state: sc.state(),
       mode: sc.player.mode,
+      input: sc.input.snapshot(),
       cueLog: sc.dialogue.cueLog.slice(),
       voiceLog: sc.dialogue.voiceLog.slice(),
+      openingReceipt: [...sc.audio.playbackReceipts].reverse()
+        .find((receipt) => receipt.requested === 'vo.silvercase.car.ape.pitch') ?? null,
+      apeDialoguePose: {
+        shell,
+        mouth: sc.mouths().ape,
+      },
+      apeEmitter: { x: matrix[12], y: matrix[13], z: matrix[14] },
       subtitle: {
         shown: subs?.classList.contains('show') ?? false,
         who: document.getElementById('subsWho')?.textContent ?? '',
@@ -350,6 +898,7 @@ try {
   check('beginning the scene seats the player in the car and starts the drive-over dialogue',
     carRide.state.beat === 'CAR_RIDE'
       && carRide.mode === 'seated'
+      && carRide.input.locked === true
       && carRide.cueLog[0] === 'vo.silvercase.car.ape.pitch',
     JSON.stringify(carRide));
   const campaignEntry = await page.evaluate(() => ({
@@ -392,6 +941,29 @@ try {
   check('the first Ape line of a fresh playthrough actually plays its recorded audio, not a silent subtitle',
     firstLine?.playedAudio === true,
     JSON.stringify(firstLine));
+  check('Ape’s dialogue animation keeps the complete underarm jacket shell opaque',
+    carRide.apeDialoguePose.shell.ribcage.length === 1
+      && carRide.apeDialoguePose.shell.deltoid.length === 2
+      && carRide.apeDialoguePose.shell.upperarm.length === 2
+      && Object.values(carRide.apeDialoguePose.shell).flat()
+        .every((colour) => colour === 0x111116),
+    JSON.stringify(carRide.apeDialoguePose));
+  const openingPosition = carRide.openingReceipt?.positional?.position;
+  check('Ape’s opening take is a receipt-backed indoor emitter following the live driver rig',
+    carRide.openingReceipt?.source === 'buffer'
+      && carRide.openingReceipt?.started === true
+      && carRide.openingReceipt?.speakerId === 'ape'
+      && carRide.openingReceipt?.subtitle === firstLine?.text
+      && carRide.openingReceipt?.positional?.enabled === true
+      && carRide.openingReceipt?.positional?.follows === true
+      && carRide.openingReceipt?.positional?.ref === 1.8
+      && carRide.openingReceipt?.positional?.maxDist === 16
+      && carRide.openingReceipt?.positional?.rolloff === 1
+      && openingPosition
+      && Math.abs(openingPosition.x - carRide.apeEmitter.x) < 0.001
+      && Math.abs(openingPosition.y - carRide.apeEmitter.y) < 0.001
+      && Math.abs(openingPosition.z - carRide.apeEmitter.z) < 0.001,
+    JSON.stringify({ receipt: carRide.openingReceipt, emitter: carRide.apeEmitter }));
 
   // ---- Audio residency: begin() now genuinely awaits audio.loadManifest(...)
   // before returning (see above), so by this point in the script the promise
@@ -413,9 +985,17 @@ try {
     .filter((name) => !silverCaseAudioResidency.resident.includes(name));
   const unexpectedSilverCaseNames = silverCaseAudioResidency.resident
     .filter((name) => !expectedSilverCaseResidentNames.includes(name));
+  check('every selected Silver Case cue has an indexed recording on disk',
+    missingSilverCaseDeliveries.length === 0,
+    JSON.stringify({
+      missing: missingSilverCaseDeliveries.map((cue) => ({
+        cue: cue.name,
+        file: cue.file || `${cue.name}.mp3`,
+      })),
+    }));
   check('The Silver Case decodes exactly its own vo.silvercase.* dialogue plus its named effect cues',
     silverCaseAudioResidency.plan?.manifestTotal === soundManifest.sfx.length
-      && silverCaseAudioResidency.plan?.selected === expectedSilverCaseResidentNames.length
+      && silverCaseAudioResidency.plan?.selected === selectedSilverCaseCues.length
       && silverCaseAudioResidency.loaded === expectedSilverCaseResidentNames.length
       && silverCaseAudioResidency.resident.length === expectedSilverCaseResidentNames.length
       && missingSilverCaseNames.length === 0
@@ -506,6 +1086,52 @@ try {
       && pulpSuits.prospect.shirt === 0xf2efe7
       && pulpSuits.prospect.tie === 0x09090c,
     JSON.stringify(pulpSuits));
+
+  const apeUnderarmShellAtBoot = await page.evaluate(() => {
+    const inspect = (root) => {
+      const byName = { ribcage: [], deltoid: [], upperarm: [] };
+      root.traverse((node) => {
+        if (!Object.hasOwn(byName, node.name) || !node.material?.color) return;
+        byName[node.name].push(node.material.color.getHex());
+      });
+      return byName;
+    };
+    return {
+      car: inspect(window.silvercase.car.ape.group),
+      apartment: inspect(window.silvercase.cast.ape.group),
+    };
+  });
+  const solidDarkSuitShell = (report) => report.ribcage.length === 1
+    && report.deltoid.length === 2
+    && report.upperarm.length === 2
+    && Object.values(report).flat().every((colour) => colour === 0x111116);
+  check('Ape’s underarm shell is jacket-dark in both live character rigs, not white shirt wedges',
+    solidDarkSuitShell(apeUnderarmShellAtBoot.car)
+      && solidDarkSuitShell(apeUnderarmShellAtBoot.apartment),
+    JSON.stringify(apeUnderarmShellAtBoot));
+
+  const prospectCloseReceipt = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const cue = 'vo.silvercase.car.prospect.ask';
+    let steps = 0;
+    while (!sc.dialogue.voiceLog.some((entry) => entry.cue === cue) && steps < 200) {
+      sc.tick(0.05);
+      steps += 1;
+    }
+    const line = sc.dialogue.voiceLog.find((entry) => entry.cue === cue) ?? null;
+    const receipt = [...sc.audio.playbackReceipts].reverse()
+      .find((entry) => entry.requested === cue) ?? null;
+    return { steps, line, receipt };
+  });
+  check('Tony’s first-person car line stays close/non-positional while retaining speaker and subtitle evidence',
+    prospectCloseReceipt.line?.playedAudio === true
+      && prospectCloseReceipt.receipt?.source === 'buffer'
+      && prospectCloseReceipt.receipt?.started === true
+      && prospectCloseReceipt.receipt?.speakerId === 'prospect'
+      && prospectCloseReceipt.receipt?.subtitle === prospectCloseReceipt.line?.text
+      && prospectCloseReceipt.receipt?.positional?.enabled === false
+      && prospectCloseReceipt.receipt?.positional?.follows === false,
+    JSON.stringify(prospectCloseReceipt));
 
   // ---- The steering wheel is a steering wheel. ---------------------------
   // "Apes steering wheel is sideways." A TorusGeometry's axis is +Z, which in
@@ -638,7 +1264,25 @@ try {
   // (as the mission always has) would pass on the old, buggy staging too.
   // APARTMENT_ROOM starts at x=6; the 0.5 margin below clears the doorway/
   // threshold itself, not just the room's nominal edge.
-  const apeDuringEntry = await tick(2.5);
+  const apeWalkStart = enterApt.ape.at;
+  const apeWalking = await tick(0.4);
+  const apeWalkingOutfit = await page.evaluate(() => {
+    const ape = window.silvercase.cast.ape;
+    const shell = { ribcage: [], deltoid: [], upperarm: [] };
+    ape.group.traverse((node) => {
+      if (!Object.hasOwn(shell, node.name) || !node.material?.color) return;
+      shell[node.name].push(node.material.color.getHex());
+    });
+    return { shell };
+  });
+  check('Ape’s jacket remains a complete dark shell while he walks through the doorway',
+    Math.hypot(apeWalking.ape.at.x - apeWalkStart.x, apeWalking.ape.at.z - apeWalkStart.z) > 0.1
+      && apeWalkingOutfit.shell.ribcage.length === 1
+      && apeWalkingOutfit.shell.deltoid.length === 2
+      && apeWalkingOutfit.shell.upperarm.length === 2
+      && Object.values(apeWalkingOutfit.shell).flat().every((colour) => colour === 0x111116),
+    JSON.stringify({ from: apeWalkStart, to: apeWalking.ape.at, ...apeWalkingOutfit }));
+  const apeDuringEntry = await tick(2.1);
   check('ENTER_APARTMENT dialogue/timing is unaffected by the walk-in',
     apeDuringEntry.beat === 'ENTER_APARTMENT', apeDuringEntry.beat);
   check("Ape steps into the apartment volume while the door stands open, not left waiting in the hallway",
@@ -702,29 +1346,46 @@ try {
     establish.beat === 'ESTABLISH_CONTROL' && caseOcclusionVisible === true,
     JSON.stringify({ establish, caseOcclusionVisible }));
 
-  // ---- Movement during ESTABLISH_CONTROL: real WASD, driven the same way
-  // every other core/player.js scene's verify script proves it (heist,
-  // squatchfather) — `player.enabled` is normally flipped by a real
-  // pointerlockchange event, which headless automation cannot reliably hold,
-  // so it is set directly here exactly like tools/verify-heist.mjs does.
+  // ---- Movement during ESTABLISH_CONTROL: cross the real browser Adapter
+  // Seam. Directly setting `player.enabled` used to let a scene with no DOM
+  // input wiring pass this check.
+  await page.locator('canvas').click({ position: { x: 480, y: 300 } });
+  await page.waitForFunction(() => window.silvercase.input.snapshot().captured, null, {
+    timeout: 5000,
+  });
   const beforeMove = await page.evaluate(() => {
     const p = window.silvercase.player;
-    p.enabled = true;
-    return { x: p.position.x, z: p.position.z };
+    return { x: p.position.x, z: p.position.z, yaw: p.yaw };
   });
-  await page.keyboard.down('KeyW');
+  await page.mouse.move(480, 300);
+  await page.mouse.move(550, 265, { steps: 2 });
+  await page.keyboard.down('w');
   await page.waitForTimeout(100);
   await page.evaluate(() => window.silvercase.tick(0.6));
-  await page.keyboard.up('KeyW');
+  const heldKeys = await page.evaluate(() => [...window.silvercase.player.keys]);
+  await page.keyboard.up('w');
   await page.waitForTimeout(60);
   const afterMove = await page.evaluate(() => {
     const p = window.silvercase.player;
-    return { x: p.position.x, z: p.position.z, beat: window.silvercase.state().beat };
+    return {
+      x: p.position.x,
+      z: p.position.z,
+      yaw: p.yaw,
+      keys: [...p.keys],
+      beat: window.silvercase.state().beat,
+      input: window.silvercase.input.snapshot(),
+    };
   });
   const moved = Math.hypot(afterMove.x - beforeMove.x, afterMove.z - beforeMove.z);
-  check('WASD moves the player forward during ESTABLISH_CONTROL',
-    afterMove.beat === 'ESTABLISH_CONTROL' && moved > 0.2 && Number.isFinite(afterMove.x),
-    JSON.stringify({ beforeMove, afterMove, moved: +moved.toFixed(3) }));
+  check('real click, mouse and W input capture, look, move and release during ESTABLISH_CONTROL',
+    afterMove.beat === 'ESTABLISH_CONTROL'
+      && afterMove.input.captured
+      && heldKeys.includes('KeyW')
+      && !afterMove.keys.includes('KeyW')
+      && moved > 0.2
+      && Math.abs(afterMove.yaw - beforeMove.yaw) > 0.01
+      && Number.isFinite(afterMove.x),
+    JSON.stringify({ beforeMove, heldKeys, afterMove, moved: +moved.toFixed(3) }));
 
   // ---- Early weapon draw (right-click reach), gated to arm only during the
   // three states the mission cares about — pressDraw() stands in for that
@@ -812,6 +1473,31 @@ try {
       && apeArmed.weaponDrawn === true && apeArmed.weaponVisible === true
       && apeArmed.hostile === false,
     JSON.stringify(apeArmed));
+  const apeUnderarmShellArmed = await page.evaluate(() => {
+    const ape = window.silvercase.cast.ape;
+    const colours = { ribcage: [], deltoid: [], upperarm: [] };
+    ape.group.traverse((node) => {
+      if (!Object.hasOwn(colours, node.name) || !node.material?.color) return;
+      colours[node.name].push(node.material.color.getHex());
+    });
+    return {
+      colours,
+      armRotations: {
+        left: ape.parts.armL.rotation.toArray(),
+        right: ape.parts.armR.rotation.toArray(),
+        foreRight: ape.parts.foreR.rotation.toArray(),
+      },
+    };
+  });
+  const rotationMagnitude = (rotation) => rotation
+    .filter((value) => typeof value === 'number')
+    .reduce((sum, value) => sum + Math.abs(value), 0);
+  check('Ape’s jacket shell stays solid while his live gun-carry pose raises and bends both arms',
+    solidDarkSuitShell(apeUnderarmShellArmed.colours)
+      && rotationMagnitude(apeUnderarmShellArmed.armRotations.left) > 0.4
+      && rotationMagnitude(apeUnderarmShellArmed.armRotations.right) > 0.1
+      && rotationMagnitude(apeUnderarmShellArmed.armRotations.foreRight) > 0.1,
+    JSON.stringify(apeUnderarmShellArmed));
 
   // ---- The on-screen instruction. ----------------------------------------
   // "There should be a pop up to kill the guy on the couch. Its unclear who to
@@ -915,7 +1601,131 @@ try {
       && /DEKE/.test(onTargetCouch.hud.name),
     JSON.stringify(onTargetCouch));
 
-  await page.evaluate(() => window.silvercase.pressFire());
+  const couchMouseDownBefore = await page.evaluate(
+    () => window.silvercase.input.snapshot().mouseDownEvents,
+  );
+  /* Pointer-lock mouse moves are relative camera input. locator.click() first
+   * repositions the synthetic cursor and can turn a correctly aimed camera
+   * away from the target before mousedown. Down/up is the player's real
+   * trigger without injecting a verifier-only look delta. */
+  await page.mouse.down({ button: 'left' });
+  await page.mouse.up({ button: 'left' });
+  await page.waitForFunction(
+    (before) => window.silvercase.input.snapshot().mouseDownEvents > before,
+    couchMouseDownBefore,
+    { timeout: 3000 },
+  );
+  await page.waitForFunction(() => {
+    const sc = window.silvercase;
+    return !sc.cast.deke.alive
+      && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell');
+  }, null, { timeout: 5000 });
+  // Capture the subtitle while Chester owns it. The physical root takes a few
+  // frames to clear the displacement threshold below; a short recorded take
+  // can legitimately finish during that wait and hand the subtitle to Ape.
+  const chesterSubtitleReceipt = await page.evaluate(() => {
+    const subs = document.getElementById('subs');
+    return {
+      shown: subs?.classList.contains('show') ?? false,
+      who: document.getElementById('subsWho')?.textContent ?? '',
+      text: document.getElementById('subsLine')?.textContent ?? '',
+    };
+  });
+  /* A wall-clock sleep is not a game-frame guarantee under SwiftShader. The
+   * old 120 ms pause could contain no rendered update, then sample Chester at
+   * the first few milliseconds of a valid flinch: his limbs had visibly
+   * started moving, but the connected root had not yet crossed the 1.5 cm
+   * invariant asserted below. Wait for that exact live displacement instead;
+   * a broken reaction still times out and fails rather than being advanced by
+   * a verifier-only tick. */
+  await page.waitForFunction(() => {
+    const chester = window.silvercase.cast.chester;
+    const reaction = chester.reaction;
+    if (!reaction) return false;
+    const dx = chester.group.position.x - reaction.origin.x;
+    const dy = chester.group.position.y - reaction.origin.y;
+    const dz = chester.group.position.z - reaction.origin.z;
+    return dx * reaction.away.x + dy * reaction.away.y + dz * reaction.away.z > 0.015;
+  }, null, { timeout: 5000 });
+  const chesterImmediateReaction = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const line = [...sc.dialogue.voiceLog].reverse()
+      .find((entry) => entry.cue === 'vo.silvercase.couch.chester.whatthehell');
+    const subs = document.getElementById('subs');
+    const chester = sc.cast.chester;
+    return {
+      line,
+      subtitle: {
+        shown: subs?.classList.contains('show') ?? false,
+        who: document.getElementById('subsWho')?.textContent ?? '',
+        text: document.getElementById('subsLine')?.textContent ?? '',
+      },
+      reaction: chester.reaction ? {
+        elapsed: chester.reaction.elapsed,
+        duration: chester.reaction.duration,
+        origin: chester.reaction.origin.toArray(),
+        away: chester.reaction.away.toArray(),
+        stepDistance: chester.reaction.stepDistance,
+      } : null,
+      pose: {
+        position: chester.group.position.toArray(),
+        head: chester.parts.head.rotation.toArray(),
+        armL: chester.parts.armL.rotation.toArray(),
+        armR: chester.parts.armR.rotation.toArray(),
+        torso: chester.parts.torsoWrap.rotation.toArray(),
+        connected: [
+          chester.parts.torsoWrap,
+          chester.parts.hips,
+          chester.parts.legL,
+          chester.parts.legR,
+        ].every((part) => {
+          for (let node = part; node; node = node.parent) if (node === chester.group) return true;
+          return false;
+        }),
+      },
+      input: sc.input.snapshot(),
+      state: sc.state(),
+    };
+  });
+  chesterImmediateReaction.subtitle = chesterSubtitleReceipt;
+  const chesterFlinch = chesterImmediateReaction.reaction
+    ? Math.sin(Math.PI * (
+      chesterImmediateReaction.reaction.elapsed / chesterImmediateReaction.reaction.duration
+    ))
+    : 0;
+  check('a real left click on Deke immediately gives Chester his own subtitle and authored flinch',
+    chesterImmediateReaction.state.actors.deke.alive === false
+      && chesterImmediateReaction.line?.speaker === 'CHESTER'
+      && chesterImmediateReaction.line?.text === 'What the hell, man?!'
+      && chesterImmediateReaction.subtitle.shown
+      && chesterImmediateReaction.subtitle.who === 'Chester'
+      && chesterImmediateReaction.subtitle.text === 'What the hell, man?!'
+      && chesterImmediateReaction.reaction?.elapsed > 0
+      && chesterImmediateReaction.reaction?.elapsed < chesterImmediateReaction.reaction?.duration
+      && chesterFlinch > 0.02
+      && Math.abs(chesterImmediateReaction.pose.head[0] - (-0.16 * chesterFlinch)) < 0.005
+      && Math.abs(chesterImmediateReaction.pose.armL[0] - (-0.5 * chesterFlinch)) < 0.005
+      && Math.abs(chesterImmediateReaction.pose.armR[0] - (-0.42 * chesterFlinch)) < 0.005
+      && Math.abs(chesterImmediateReaction.pose.torso[2] - (0.08 * chesterFlinch)) < 0.005
+      && chesterImmediateReaction.input.mouseDownEvents > couchMouseDownBefore,
+    JSON.stringify(chesterImmediateReaction));
+  check('Chester’s immediate reaction plays its delivered recording rather than hiding behind subtitles',
+    chesterImmediateReaction.line?.playedAudio === true,
+    JSON.stringify(chesterImmediateReaction.line));
+  {
+    const reaction = chesterImmediateReaction.reaction;
+    const displacement = reaction
+      ? chesterImmediateReaction.pose.position.map((value, i) => value - reaction.origin[i])
+      : [0, 0, 0];
+    const awayTravel = reaction
+      ? displacement.reduce((sum, value, i) => sum + value * reaction.away[i], 0)
+      : 0;
+    check('Chester’s flinch moves his complete connected body backward from the shooter',
+      chesterImmediateReaction.pose.connected === true
+        && reaction?.stepDistance >= 0.08
+        && awayTravel > 0.015,
+      JSON.stringify({ reaction, displacement, awayTravel, pose: chesterImmediateReaction.pose }));
+  }
   let afterCouchShot = await tickUntil('beat:LOU_QUESTION');
   check('firing on the couch kills Deke and the aftermath line advances to LOU_QUESTION',
     afterCouchShot.met && !afterCouchShot.state.actors.deke.alive
@@ -947,37 +1757,101 @@ try {
   // slides off the front fails this; whether it STAYS there is checked again
   // at the far end of the mission, once several minutes of story have run.
   // (Nothing long is ticked here on purpose: the Lou question's own choice
-  // timeout is six seconds and burning the clock would skip the beat.)
+  // timeout is six seconds and burning the clock would skip the beat.) Wait
+  // only for the actor's authored 0.75 s collapse to finish. Capturing the
+  // first box mid-slump and comparing it to the final corpse minutes later
+  // reports ordinary death animation as corpse drift.
+  await page.waitForFunction(() => window.silvercase.cast.deke.downT >= 0.75,
+    null, { timeout: 2000 });
   const COUCH_BOX = { x0: 6.9, x1: 9.1, z0: 1.7, z1: 2.7 };
   const dekeSettled = await actorBounds('deke');
   const dekeSettledAt = (await page.evaluate(() => window.silvercase.state())).actors.deke;
-  const onTheCouch = dekeSettled.min[0] > COUCH_BOX.x0 && dekeSettled.max[0] < COUCH_BOX.x1
-    && dekeSettled.min[2] > COUCH_BOX.z0 - 0.5 && dekeSettled.max[2] < COUCH_BOX.z1
+  const couchOverlapX = Math.min(dekeSettled.max[0], COUCH_BOX.x1)
+    - Math.max(dekeSettled.min[0], COUCH_BOX.x0);
+  const couchOverlapZ = Math.min(dekeSettled.max[2], COUCH_BOX.z1)
+    - Math.max(dekeSettled.min[2], COUCH_BOX.z0);
+  const onTheCouch = couchOverlapX > 0.8 && couchOverlapZ > 0.4
     && dekeSettled.max[1] > 0.6 && dekeSettled.min[1] > -0.15;
   check('the man shot on the couch slumps onto the couch instead of the floor',
     onTheCouch && dekeSettledAt.seated === true && dekeSettledAt.alive === false,
     JSON.stringify({ before: dekeSeated, settled: dekeSettled }));
 
-  // ---- LOU_QUESTION: let the setup lines drain, then pick the option that
-  // irritates Ape ("Depends on the lighting.") via the real 1-4 key path.
-  // Polled rather than ticked a fixed duration — see tickUntil's own comment:
-  // the mission's requestAnimationFrame loop keeps advancing in real time
-  // between every one of this script's await calls, so a fixed-duration
-  // tick(N) picked to land just past a dialogue sequence risks landing past
-  // the choice's own timeout instead, on a slow enough run. -----------------
-  let louSetup = await tickUntil('choice:louQuestion');
-  check('the Lou question opens its 1-4 choice once the setup lines finish',
-    louSetup.met, JSON.stringify(louSetup));
-  await page.keyboard.press('Digit4');
+  // ---- LOU_QUESTION: this is Ape interrogating Chester, never a player
+  // choice. Let the five-line exchange drain and prove the actual lines that
+  // ran, their speaker labels, and the two men's final blocking. ------------
   let afterLou = await tickUntil('beat:SQUATCH_PRAYER');
-  check('answering "depends on the lighting" irritates Ape and moves on to the prayer',
-    afterLou.met && afterLou.state.mission.flags.irritatedApe === true,
-    JSON.stringify(afterLou));
+  const louInterrogation = await page.evaluate(async () => {
+    const [{ SEQUENCES, CHOICES }, { ANCHORS }] = await Promise.all([
+      import('/src/silvercase/dialogue/script.js'),
+      import('/src/silvercase/scenes/ApartmentScene.js'),
+    ]);
+    const sc = window.silvercase;
+    const expected = [...SEQUENCES.louQuestionOpening, ...SEQUENCES.louQuestionPress]
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const expectedCues = new Set(expected.map((line) => line.cue));
+    const actual = sc.dialogue.voiceLog
+      .filter((line) => expectedCues.has(line.cue))
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const ape = sc.cast.ape;
+    const chester = sc.cast.chester;
+    const dx = chester.group.position.x - ape.group.position.x;
+    const dz = chester.group.position.z - ape.group.position.z;
+    const distance = Math.hypot(dx, dz);
+    const chairDistance = Math.hypot(
+      ANCHORS.chairSeat.x - ape.group.position.x,
+      ANCHORS.chairSeat.z - ape.group.position.z,
+    );
+    const apeDot = distance > 0
+      ? (Math.sin(ape.group.rotation.y) * dx + Math.cos(ape.group.rotation.y) * dz) / distance
+      : 0;
+    const chesterDot = distance > 0
+      ? (Math.sin(chester.group.rotation.y) * -dx + Math.cos(chester.group.rotation.y) * -dz) / distance
+      : 0;
+    return {
+      expected,
+      actual,
+      playerChoiceRemoved: !Object.hasOwn(CHOICES, 'louQuestion'),
+      distance,
+      chairDistance,
+      apeDot,
+      chesterDot,
+      apeLooksAtPlayer: ape.npc.look,
+      chesterLooksAtPlayer: chester.npc.look,
+    };
+  });
+  check('Ape and Chester perform the exact five-line interrogation with no player/colors choice',
+    afterLou.met
+      && louInterrogation.playerChoiceRemoved
+      && JSON.stringify(louInterrogation.actual) === JSON.stringify(louInterrogation.expected),
+    JSON.stringify(louInterrogation));
+  check('Ape closes to the chair and both men keep their eyelines on each other',
+    louInterrogation.chairDistance >= 0.78 && louInterrogation.chairDistance <= 0.86
+      // Chester has just recoiled his connected body away from the couch shot,
+      // so live actor-to-actor distance is intentionally a little over 0.82 m.
+      && louInterrogation.distance <= 1.05
+      && louInterrogation.apeDot > 0.98
+      && louInterrogation.chesterDot > 0.98
+      && louInterrogation.apeLooksAtPlayer === false
+      && louInterrogation.chesterLooksAtPlayer === false,
+    JSON.stringify(louInterrogation));
 
   // ---- SQUATCH_PRAYER: drain Ape's lines, then hold E to finish it. -------
   let prayerLines = await tickUntil('choice:prayerFinish');
   check('the prayer opens its hold-E finish prompt once Ape is done reciting',
     prayerLines.met, JSON.stringify(prayerLines));
+  const prayerPerformance = await page.evaluate(async () => {
+    const { SEQUENCES } = await import('/src/silvercase/dialogue/script.js');
+    const expected = [...SEQUENCES.squatchPrayerIntro, ...SEQUENCES.squatchPrayer]
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const expectedCues = new Set(expected.map((line) => line.cue));
+    const actual = window.silvercase.dialogue.voiceLog
+      .filter((line) => expectedCues.has(line.cue))
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    return { expected, actual };
+  });
+  check('Ape performs the complete Squatchiel 69:17 intro and four-line passage in order',
+    JSON.stringify(prayerPerformance.actual) === JSON.stringify(prayerPerformance.expected),
+    JSON.stringify(prayerPerformance));
   await page.keyboard.down('KeyE');
   let afterPrayer = await tickUntil('beat:CHAIR_SHOOTING');
   /* Ape sets the chair up before the screen names the button. */
@@ -991,47 +1865,143 @@ try {
       && /chair/i.test(afterPrayer.state.aim.instruction)
       && afterPrayer.state.aim.instructionShown === true,
     JSON.stringify(afterPrayer));
+  const playerPrayerFinish = await page.evaluate(async () => {
+    const { SEQUENCES } = await import('/src/silvercase/dialogue/script.js');
+    const expected = SEQUENCES.squatchPrayerFinish.map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    const expectedCues = new Set(expected.map((line) => line.cue));
+    const actual = window.silvercase.dialogue.voiceLog
+      .filter((line) => expectedCues.has(line.cue))
+      .map(({ speaker, text, cue }) => ({ speaker, text, cue }));
+    return { expected, actual };
+  });
+  check('the player-synced final vengeance line lands before the chair execution arms',
+    JSON.stringify(playerPrayerFinish.actual) === JSON.stringify(playerPrayerFinish.expected),
+    JSON.stringify(playerPrayerFinish));
 
   // ---- "Ape needs a gun. There should also be a prompt to shoot the guy in
   // the chair with Ape." Both guns are up, the prompt is on screen, and the
   // shot has to land on the man in the chair like every other shot now. ----
-  const chairShot = await page.evaluate(() => {
+  const chairAim = await page.evaluate(() => {
     const sc = window.silvercase;
-    const apeBefore = sc.state().ape;
-    const aim = sc.shootAt('chester');
-    sc.tick(0.05);
-    const immediately = sc.state();
-    sc.tick(0.8); // Ape's own round follows two tenths behind Tony's
+    const shell = { ribcage: [], deltoid: [], upperarm: [] };
+    sc.cast.ape.group.traverse((node) => {
+      if (!Object.hasOwn(shell, node.name) || !node.material?.color) return;
+      shell[node.name].push(node.material.color.getHex());
+    });
     return {
-      apeBefore, aim, immediately, state: sc.state(),
+      apeBefore: sc.state().ape,
+      shell,
+      aim: sc.aimAt('chester'),
+      mouseDownEvents: sc.input.snapshot().mouseDownEvents,
     };
   });
+  await page.mouse.down({ button: 'left' });
+  await page.mouse.up({ button: 'left' });
+  await page.waitForFunction(() => {
+    const state = window.silvercase.state();
+    return state.mission.lastShot?.intended === 'Chester'
+      && state.mission.lastShot?.onTarget === true;
+  }, null, { timeout: 5000 });
+  const chairImmediately = await page.evaluate(() => ({
+    state: window.silvercase.state(),
+    input: window.silvercase.input.snapshot(),
+  }));
+  // Do not confuse a slow SwiftShader frame cadence with a partial corpse.
+  // This waits on the live animation clock rather than calling sc.tick().
+  await page.waitForFunction(() => window.silvercase.cast.chester.downT >= 0.75,
+    null, { timeout: 12000 });
+  const chairShot = {
+    ...chairAim,
+    immediately: chairImmediately.state,
+    input: chairImmediately.input,
+    state: await page.evaluate(() => window.silvercase.state()),
+  };
   check('Ape has his gun levelled at the chair while the prompt is up',
     chairShot.apeBefore.weaponDrawn === true && chairShot.apeBefore.weaponVisible === true
-      && Math.abs(chairShot.apeBefore.at.x - 8) < 0.6,
-    JSON.stringify(chairShot.apeBefore));
-  check('shooting the man in the chair kills him, and Ape fires with you',
+      && Math.abs(chairShot.apeBefore.at.x - 8) < 0.6
+      && chairShot.shell.ribcage.length === 1
+      && chairShot.shell.deltoid.length === 2
+      && chairShot.shell.upperarm.length === 2
+      && Object.values(chairShot.shell).flat().every((colour) => colour === 0x111116),
+    JSON.stringify({ ape: chairShot.apeBefore, shell: chairShot.shell }));
+  check('a real left click on the man in the chair kills him, and Ape fires with you',
     chairShot.aim.resolvesTo === 'chester'
       && chairShot.immediately.mission.lastShot.onTarget === true
       && chairShot.state.actors.chester.alive === false
       && chairShot.state.mission.flags.apeFinishedChester === false
+      && chairShot.input.mouseDownEvents > chairShot.mouseDownEvents
       // Tony's wound plus its spatter, plus the round Ape put in him.
       && chairShot.state.marks.onBodies.chester >= 3,
     JSON.stringify({ aim: chairShot.aim, marks: chairShot.state.marks.onBodies }));
 
+  const connectedChairDeath = await page.evaluate(async () => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const sc = window.silvercase;
+    const actor = sc.cast.chester;
+    const parts = [
+      actor.parts.torsoWrap,
+      actor.parts.waist,
+      actor.parts.hips,
+      actor.parts.legL,
+      actor.parts.legR,
+    ];
+    const connected = parts.every((part) => {
+      for (let node = part; node; node = node.parent) if (node === actor.group) return true;
+      return false;
+    });
+    actor.group.updateWorldMatrix(true, true);
+    sc.apartment.props.chair.group.updateWorldMatrix(true, true);
+    const actorBox = new THREE.Box3();
+    actor.group.traverse((node) => {
+      if (node.isMesh && node.name !== 'silvercase.mark') actorBox.expandByObject(node);
+    });
+    const chairBox = new THREE.Box3().setFromObject(sc.apartment.props.chair.group);
+    const hip = actor.parts.hips.getWorldPosition(new THREE.Vector3());
+    return {
+      connected,
+      bodyRotation: actor.parts.body.rotation.toArray(),
+      hip: hip.toArray(),
+      actor: { min: actorBox.min.toArray(), max: actorBox.max.toArray() },
+      chair: { min: chairBox.min.toArray(), max: chairBox.max.toArray() },
+      downT: actor.downT,
+    };
+  });
+  check('Chester’s settled seated death remains one connected body anchored in the chair',
+    connectedChairDeath.connected
+      && connectedChairDeath.downT >= 0.75
+      && connectedChairDeath.bodyRotation.slice(0, 3).every((value) => Math.abs(value) < 1e-5)
+      && connectedChairDeath.hip[0] >= connectedChairDeath.chair.min[0] - 0.35
+      && connectedChairDeath.hip[0] <= connectedChairDeath.chair.max[0] + 0.35
+      && connectedChairDeath.hip[2] >= connectedChairDeath.chair.min[2] - 0.35
+      && connectedChairDeath.hip[2] <= connectedChairDeath.chair.max[2] + 0.35
+      && connectedChairDeath.actor.min[1] > -0.25
+      && connectedChairDeath.actor.max[1] > 0.8,
+    JSON.stringify(connectedChairDeath));
   let afterPrayerChain = await tickUntil('beat:BATHROOM_AMBUSH');
-  check('the chair beat hands on to the bathroom ambush, armed',
+  await tick(2.1);
+  afterPrayerChain = {
+    ...afterPrayerChain,
+    state: await page.evaluate(() => window.silvercase.state()),
+  };
+  check('the bathroom attacker lands two intentional misses before the return-fire window opens',
     afterPrayerChain.met
       && afterPrayerChain.state.reactionWindow.state === 'armed'
-      && afterPrayerChain.state.reactionWindow.windowSeconds >= 3.2,
-    JSON.stringify(afterPrayerChain.state.reactionWindow));
+      && afterPrayerChain.state.reactionWindow.windowSeconds >= 3.2
+      && afterPrayerChain.state.bathroomAmbush.openingShots === 2
+      && afterPrayerChain.state.bathroomAmbush.openingImpacts.length === 2
+      && afterPrayerChain.state.bathroomAmbush.playerWindowOpened === true
+      && afterPrayerChain.state.bathroomAmbush.attackerMoving === false
+      && afterPrayerChain.state.marks.holes >= afterLou.state.marks.holes + 2,
+    JSON.stringify({
+      window: afterPrayerChain.state.reactionWindow,
+      ambush: afterPrayerChain.state.bathroomAmbush,
+      marks: afterPrayerChain.state.marks,
+    }));
 
   // ---- The bathroom man is holding the big revolver, and the door he came
-  // through is off the latch rather than still standing in his way. The swing
-  // is a 0.22 s tween started in the beat's own enter(), so it is given a
-  // moment before being measured — "the door opens properly" is a claim about
-  // where it ends up, not about the frame the beat began on. ---------------
-  await tick(0.5);
+  // through is off the latch rather than still standing in his way. The two
+  // opening shots above already gave the door and attacker their authored
+  // staging time, so this measures the completed entrance. -----------------
   const ambushStaging = await page.evaluate(() => {
     const sc = window.silvercase;
     const gun = sc.cast.pruitt.weapon;
@@ -1165,40 +2135,102 @@ try {
   // the mission parked on a prompt forever, so this also proves that fallback.
   let afterPrayerAgain = await tickUntil('beat:BATHROOM_AMBUSH');
   await page.keyboard.up('KeyE');
+  await tick(2.1);
+  afterPrayerAgain = {
+    ...afterPrayerAgain,
+    state: await page.evaluate(() => window.silvercase.state()),
+  };
   check('a player who will not take the chair shot has Ape take it, and the scene goes on',
     afterPrayerAgain.met
       && afterPrayerAgain.state.mission.flags.apeFinishedChester === true
       && afterPrayerAgain.state.actors.chester.alive === false
-      && afterPrayerAgain.state.reactionWindow.state === 'armed',
+      && afterPrayerAgain.state.reactionWindow.state === 'armed'
+      && afterPrayerAgain.state.bathroomAmbush.openingShots === 2
+      && afterPrayerAgain.state.bathroomAmbush.openingImpacts.length === 2,
     JSON.stringify({
       flags: afterPrayerAgain.state.mission.flags,
       window: afterPrayerAgain.state.reactionWindow,
     }));
+  // This is a new death after the checkpoint retry, not a continuation of
+  // the first chair death measured above. The first fall began from Chester's
+  // pre-checkpoint startle position; revive() deliberately rebuilt the replay
+  // at its checkpoint pose, and Ape then killed him alone. Use this second
+  // settled fall as the stability baseline for the remainder of this branch.
+  await page.waitForFunction(() => window.silvercase.cast.chester.downT >= 0.75,
+    null, { timeout: 12000 });
+  const chesterReplaySettled = await actorBounds('chester');
 
   // ---- The owner's bug, in the beat it actually happened in. -------------
-  // Both shots go inside ONE page.evaluate: the reaction window is running in
-  // real time as well as ticked time, and a Node round trip between them would
-  // be measuring the harness rather than the mission.
-  const ambushAim = await page.evaluate(() => {
+  // Do not actually shoot the already-dead chair target:
+  // depending on Ape's live staging pose, his body can legitimately occlude
+  // Chester and turn that unrelated negative-ray assertion into a fatal shot
+  // at Ape, poisoning the successful branch this block is meant to certify.
+  const wrongTarget = await page.evaluate(() => {
     const sc = window.silvercase;
-    // Point at the man in the CHAIR — dead, in the wrong direction entirely —
-    // and fire. This must not touch the man in the bathroom doorway.
-    const wrongAim = sc.shootAt('chester');
-    sc.tick(0.05);
+    // Point at the man in the CHAIR — dead, in the wrong direction entirely.
+    // Target acquisition itself must not resolve to the bathroom assailant.
+    const wrongAim = sc.aimAt('chester');
     const afterWrong = sc.state();
-    // Now point at the man who is actually pointing a gun at you.
-    const rightAim = sc.shootAt('pruitt');
-    sc.tick(0.05);
-    return {
-      wrongAim, afterWrong, rightAim, state: sc.state(),
-    };
+    return { wrongAim, afterWrong };
   });
-  // The assertion is "the round did not find Pruitt", not "the round found
-  // Chester": Ape is stood a pace off the chair by this point, so a shot aimed
-  // past him at the slumped man behind him hits APE — which is the system
-  // working, not failing. Whoever the ray finds, it is not the man in the
-  // bathroom doorway, and the window does not close.
-  check('firing at the chair during the ambush does NOT kill the bathroom man',
+  // Now acquire the man who is actually pointing a gun at you. Publish his
+  // moved doorway pose through rendered matrices before reading the ray: the
+  // old synthetic tick could leave Raycaster looking at his pre-reveal matrix.
+  await page.evaluate(() => window.silvercase.aimAt('pruitt'));
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  }));
+  const rightAim = await page.evaluate(() => {
+    const sc = window.silvercase;
+    sc.scene.updateMatrixWorld(true);
+    return sc.aimAt('pruitt');
+  });
+  const ambushTriggerBefore = await page.evaluate(
+    () => window.silvercase.input.snapshot().mouseDownEvents,
+  );
+  await page.mouse.down({ button: 'left' });
+  try {
+    await page.waitForFunction(() => window.silvercase.cast.pruitt.alive === false, null, {
+      timeout: 5000,
+    });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      state: window.silvercase.state(),
+      input: window.silvercase.input.snapshot(),
+      trace: (() => {
+        const hit = window.silvercase.shots.trace();
+        return hit ? {
+          actor: hit.actor?.name ?? null,
+          object: hit.object?.name ?? null,
+          type: hit.object?.type ?? null,
+          geometry: hit.object?.geometry?.type ?? null,
+          userData: hit.object?.userData ?? null,
+          distance: hit.distance,
+          point: hit.point?.toArray?.() ?? null,
+        } : null;
+      })(),
+      activeElement: document.activeElement?.tagName ?? null,
+      pointerLock: document.pointerLockElement?.tagName ?? null,
+    }));
+    throw new Error(`Bathroom ambush click did not kill Pruitt: ${JSON.stringify({ rightAim, diagnostic })}`, {
+      cause: error,
+    });
+  } finally {
+    await page.mouse.up({ button: 'left' });
+  }
+  const ambushAim = await page.evaluate(({ before, aim }) => ({
+    wrongAim: null,
+    afterWrong: null,
+    rightAim: aim,
+    state: window.silvercase.state(),
+    input: window.silvercase.input.snapshot(),
+    triggerBefore: before,
+  }), { before: ambushTriggerBefore, aim: rightAim });
+  ambushAim.wrongAim = wrongTarget.wrongAim;
+  ambushAim.afterWrong = wrongTarget.afterWrong;
+  // Ape can stand between the camera and the slumped chair target, so the
+  // useful invariant is that this ray does not resolve to Pruitt.
+  check('aiming at the chair during the ambush does NOT acquire the bathroom man',
     ambushAim.wrongAim.resolvesTo !== 'pruitt'
       && ambushAim.afterWrong.actors.pruitt.alive === true
       && ambushAim.afterWrong.reactionWindow.state === 'armed'
@@ -1210,7 +2242,8 @@ try {
     ambushAim.rightAim.resolvesTo === 'pruitt'
       && ambushAim.state.reactionWindow.state === 'neutralized'
       && ambushAim.state.actors.pruitt.alive === false
-      && ambushAim.state.marks.onBodies.pruitt >= 2,
+      && ambushAim.state.marks.onBodies.pruitt >= 2
+      && ambushAim.input.mouseDownEvents > ambushAim.triggerBefore,
     JSON.stringify({ aim: ambushAim.rightAim, marks: ambushAim.state.marks.onBodies }));
   let afterAmbush = await tickUntil('beat:AFTERMATH');
   check('a fast, successful shot advances the mission to AFTERMATH', afterAmbush.met, JSON.stringify(afterAmbush));
@@ -1219,6 +2252,13 @@ try {
   let aftermathIntro = await tickUntil('choice:aftermath');
   check('the aftermath choice opens once Ape’s opening line finishes',
     aftermathIntro.met, JSON.stringify(aftermathIntro));
+  const aftermathCampaignSnapshot = await page.evaluate(
+    (key) => localStorage.getItem(key), CAMPAIGN_STORAGE_KEY,
+  );
+  check('AFTERMATH publishes a persisted ordinary-URL resume before the decision',
+    typeof aftermathCampaignSnapshot === 'string'
+      && JSON.parse(aftermathCampaignSnapshot).missions?.[MISSION_IDS.SILVER_CASE]?.checkpoint === 'aftermath',
+    aftermathCampaignSnapshot?.slice(0, 500) ?? 'missing');
   await page.keyboard.press('Digit1');
   let afterAftermath = await tickUntil('beat:PICK_UP_CASE');
   check('sparing Winston keeps him alive and moves the mission to PICK_UP_CASE',
@@ -1235,53 +2275,10 @@ try {
   const bodiesNow = (await page.evaluate(() => window.silvercase.state())).actors;
   check('every body is still exactly where it fell, minutes later',
     JSON.stringify(dekeMuchLater) === JSON.stringify(dekeSettled)
-      && bodiesNow.chester.alive === false && chesterRest.max[1] > 0.6 && chesterRest.min[1] > -0.2
-      && Math.abs(bodiesNow.chester.at.x - 8) < 0.35
+      && JSON.stringify(chesterRest) === JSON.stringify(chesterReplaySettled)
+      && bodiesNow.chester.alive === false && chesterRest.max[1] > 0.6 && chesterRest.min[1] > -0.25
       && bodiesNow.pruitt.alive === false && pruittRest.max[1] < 0.9 && pruittRest.min[1] > -0.2,
     JSON.stringify({ deke: dekeMuchLater, chester: chesterRest, pruitt: pruittRest }));
-
-  // ---- The other half of the aftermath choice. --------------------------
-  //
-  //   "if you are going to not spare the last guy then you should get a prompt
-  //    to shoot him. Again blood and impact."
-  //
-  // The linear run above spares him — the canonical route, and the check
-  // directly before this one. The kill branch cannot be reached from here
-  // without replaying the entire mission, so it is entered with the same
-  // `go()` this script uses to reach every other beat. The contract being
-  // checked is precisely the owner's: picking "kill him" must NOT kill him on
-  // the keypress; it must hand the player a prompt and a trigger.
-  let execute = await go('EXECUTE_WINSTON', 0.3);
-  /* Ape gives the order, then the screen names the button. */
-  await tickUntil('instruction');
-  execute = await page.evaluate(() => window.silvercase.state());
-  check('choosing to kill the last man prompts for it rather than killing him on the keypress',
-    execute.beat === 'EXECUTE_WINSTON'
-      && execute.actors.winston.alive === true
-      && execute.aim.ordered === 'Winston'
-      && /winston/i.test(execute.aim.instruction)
-      && execute.aim.instructionShown === true
-      && execute.weapon.drawn === true,
-    JSON.stringify({ beat: execute.beat, aim: execute.aim, winston: execute.actors.winston }));
-
-  const winstonShot = await page.evaluate(() => {
-    const sc = window.silvercase;
-    const aim = sc.shootAt('winston');
-    sc.tick(0.2);
-    return { aim, state: sc.state() };
-  });
-  check('shooting the last man puts him down where he stood, with blood and an impact',
-    winstonShot.aim.resolvesTo === 'winston'
-      && winstonShot.state.actors.winston.alive === false
-      && winstonShot.state.mission.lastShot.onTarget === true
-      && winstonShot.state.marks.onBodies.winston >= 2,
-    JSON.stringify({ aim: winstonShot.aim, marks: winstonShot.state.marks.onBodies }));
-
-  let afterExecution = await tickUntil('beat:PICK_UP_CASE');
-  check('the execution hands back to the case pickup with both guns away',
-    afterExecution.met && afterExecution.state.weapon.drawn === false
-      && afterExecution.state.ape.weaponDrawn === false,
-    JSON.stringify({ beat: afterExecution.state.beat, weapon: afterExecution.state.weapon }));
 
   // ---- Picking the case up: the real E interaction, aimed at the real hit
   // box. The look-at raycast reads the camera's world matrix from the last
@@ -1305,12 +2302,22 @@ try {
     window.silvercase.tick(0.1);
     return document.getElementById('promptText').textContent;
   });
-  await page.evaluate(() => {
-    window.silvercase.interactions.press();
-    window.silvercase.interactions.release();
-    window.silvercase.tick(1.2);
-  });
+  if (!await page.evaluate(() => window.silvercase.input.snapshot().captured)) {
+    await page.locator('canvas').click({ position: { x: 480, y: 270 } });
+    await page.waitForFunction(() => window.silvercase.input.snapshot().captured, null, {
+      timeout: 5000,
+    });
+  }
+  const caseInteractionBefore = await page.evaluate(
+    () => window.silvercase.input.snapshot().interactionPresses,
+  );
+  await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.silvercase.fsm.name === 'EXIT', null, { timeout: 5000 });
   const carried = await page.evaluate(() => window.silvercase.state());
+  const caseInteractionRecorded = await page.evaluate(
+    (before) => window.silvercase.input.snapshot().interactionPresses > before,
+    caseInteractionBefore,
+  );
   const barCarrying = await hotbar();
   check('taking the case moves it into Tony’s hands, shut, and onto the inventory bar',
     promptOnCase === 'Take the case'
@@ -1318,24 +2325,354 @@ try {
       && carried.case.carried === true && carried.case.inWorld === false
       && carried.case.shut === true && carried.case.openness === 0
       && carried.weapon.drawn === false
+      && caseInteractionRecorded
       && barCarrying.labels[1] === 'Lou’s case · closed',
     JSON.stringify({ promptOnCase, case: carried.case, bar: barCarrying.labels.slice(0, 2) }));
 
   // ---- PICK_UP_CASE -> EXIT -> SCENE_COMPLETE ----------------------------
-  let exitBeat = await go('EXIT');
-  check('EXIT is reachable once the case is in hand', exitBeat.beat === 'EXIT', exitBeat.beat);
-  await page.evaluate(() => { window.silvercase.player.position.x = 1.0; });
-  let complete = await tickUntil('beat:SCENE_COMPLETE');
-  await tick(1.5); // let SCENE_COMPLETE's own after(1.0) reveal the end card
+  const exitStart = await page.evaluate(() => ({
+    beat: window.silvercase.fsm.name,
+    x: window.silvercase.player.position.x,
+    z: window.silvercase.player.position.z,
+    movementPresses: window.silvercase.input.snapshot().movementPresses,
+  }));
+  // Face north from the case: W clears the living-room furniture to the open
+  // doorway's z, then A walks west through it and down the corridor. Both keys
+  // enter through the real browser Adapter. Advance the held-key intervals in
+  // small normal game-update slices: software-rendered requestAnimationFrame
+  // is deliberately not a movement clock (this scene can render well below
+  // real time under SwiftShader), while Player collision and FSM progression
+  // are. Stop at the authored 1.1 m opening instead of sleeping for a guessed
+  // duration and overshooting into the wall. No pose write or beat jump
+  // participates.
+  await page.keyboard.down('w');
+  try {
+    await page.evaluate(() => {
+      const sc = window.silvercase;
+      for (let i = 0; i < 240 && sc.player.position.z >= 0.4; i += 1) sc.tick(0.025);
+    });
+  } finally {
+    await page.keyboard.up('w');
+  }
+  // Releasing W does not zero velocity: Player correctly coasts to a stop.
+  // Let that normal friction settle before strafing, otherwise a fast run can
+  // drift north of the narrow door opening and make the westward leg collide
+  // with the wall beside it.
+  await page.evaluate(() => {
+    const sc = window.silvercase;
+    for (let i = 0; i < 80 && Math.abs(sc.player.velocity.z) >= 0.03; i += 1) sc.tick(0.025);
+  });
+  const exitTurn = await page.evaluate(() => ({
+    x: window.silvercase.player.position.x,
+    z: window.silvercase.player.position.z,
+  }));
+  await page.keyboard.down('a');
+  try {
+    await page.evaluate(() => {
+      const sc = window.silvercase;
+      for (let i = 0; i < 480 && sc.fsm.name !== 'SCENE_COMPLETE'; i += 1) sc.tick(0.025);
+    });
+  } finally {
+    await page.keyboard.up('a');
+  }
+  // SCENE_COMPLETE intentionally holds one authored second before revealing
+  // its overlay. Advance that ordinary tween through the game loop instead of
+  // assuming software-rendered requestAnimationFrame can supply a game second
+  // inside a five-second wall-clock timeout.
+  await page.evaluate(() => window.silvercase.tick(1.1));
+  await page.waitForFunction(
+    () => !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
+    null,
+    { timeout: 5000 },
+  );
+  const complete = await page.evaluate(() => ({
+    state: window.silvercase.state(),
+    position: {
+      x: window.silvercase.player.position.x,
+      z: window.silvercase.player.position.z,
+    },
+    input: window.silvercase.input.snapshot(),
+  }));
   const sceneCompleteOverlay = await domOverlay('sceneCompleteOverlay');
   const hudVisible = await page.evaluate(
     () => document.getElementById('hud').classList.contains('visible'),
   );
-  check('walking back near the hallway spawn completes the scene',
-    complete.met
+  check('real W/A movement carries the case through the doorway and completes the scene',
+    complete.state.beat === 'SCENE_COMPLETE'
+      && exitStart.beat === 'EXIT'
+      && exitTurn.z < exitStart.z - 1
+      && Math.abs(exitTurn.z) < 0.55
+      && complete.position.x < 1.4
+      && complete.input.movementPresses >= exitStart.movementPresses + 2
       && sceneCompleteOverlay.present && sceneCompleteOverlay.hidden === false
       && hudVisible === false,
-    JSON.stringify({ complete, sceneCompleteOverlay, hudVisible }));
+    JSON.stringify({ exitStart, exitTurn, complete, sceneCompleteOverlay, hudVisible }));
+
+  /* SCENE_COMPLETE stops mission updates but the page deliberately keeps
+   * rendering PostFX. Release that finished SwiftShader context before the
+   * isolated ordinary-URL branches below; otherwise a healthy second page can
+   * miss Playwright's navigation deadline while competing with a page whose
+   * evidence has already been fully collected. */
+  await page.close();
+
+  // One complete ordinary-URL run now proves the mission as a player flow.
+  // The large forensic audit above intentionally retains targeted debug
+  // probes for wrong-hit, rollback and corpse invariants; this second run is
+  // the clean contract: no beat jumps, pose writes or scripted targeting.
+  await runCleanStartGoldenPath();
+
+  // ---- Ordinary-URL Winston decision certification ----------------------
+  // Re-open the campaign snapshot written by the real AFTERMATH entry. Each
+  // branch has a private browser context, clicks the visible Begin button and
+  // resumes through campaign.js. No preview/checkpoint query and no debug
+  // beat/tick call participates in these tests.
+  {
+    const noInputRun = await openOrdinaryResume(aftermathCampaignSnapshot, 'Winston no-input');
+    try {
+      const p = noInputRun.page;
+      await p.waitForFunction(
+        () => window.silvercase.fsm.name === 'AFTERMATH'
+          && window.silvercase.dialogue.choice?.id === 'aftermath',
+        null,
+        { timeout: 20000 },
+      );
+      const timerStart = await p.evaluate(() => ({
+        now: performance.now(),
+        remaining: window.silvercase.dialogue.choiceTimer,
+        input: window.silvercase.input.snapshot(),
+        tension: window.silvercase.state().winstonTension,
+      }));
+      await p.waitForTimeout(25000);
+      const beforeDefault = await p.evaluate((started) => ({
+        elapsed: (performance.now() - started) / 1000,
+        beat: window.silvercase.fsm.name,
+        choice: window.silvercase.dialogue.choice?.id ?? null,
+        remaining: window.silvercase.dialogue.choiceTimer,
+        winstonAlive: window.silvercase.cast.winston.alive,
+        input: window.silvercase.input.snapshot(),
+        tension: window.silvercase.state().winstonTension,
+      }), timerStart.now);
+      check('Winston is not spared early: the no-input choice is still live at 25 real seconds',
+        beforeDefault.elapsed >= 24.8
+          && beforeDefault.beat === 'AFTERMATH'
+          && beforeDefault.choice === 'aftermath'
+          && beforeDefault.remaining > 0
+          && beforeDefault.winstonAlive === true,
+        JSON.stringify({ timerStart, beforeDefault }));
+      check('Winston and the recorded room tension continue through the full no-input decision window',
+        timerStart.tension?.active === true
+          && beforeDefault.tension?.active === true
+          && beforeDefault.tension.elapsed >= 24.5
+          && beforeDefault.tension.updates >= timerStart.tension.updates + 5
+          && beforeDefault.tension.motion > timerStart.tension.motion + 0.1
+          && beforeDefault.tension.pulses >= 4
+          && beforeDefault.tension.ambientReceipts === beforeDefault.tension.pulses,
+        JSON.stringify({ start: timerStart.tension, after25s: beforeDefault.tension }));
+      await p.waitForFunction(
+        () => window.silvercase.dialogue.choice === null,
+        null,
+        { timeout: 7000 },
+      );
+      const defaulted = await p.evaluate((started) => ({
+        elapsed: (performance.now() - started) / 1000,
+        beat: window.silvercase.fsm.name,
+        winstonAlive: window.silvercase.cast.winston.alive,
+        latestCue: [...window.silvercase.dialogue.cueLog].reverse().find(Boolean) ?? null,
+        input: window.silvercase.input.snapshot(),
+      }), timerStart.now);
+      check('25–30 seconds of real inactivity takes the authored spare default and leaves Winston alive',
+        defaulted.elapsed >= 25
+          && defaulted.elapsed <= 30
+          && defaulted.beat === 'AFTERMATH'
+          && defaulted.winstonAlive === true
+          && defaulted.latestCue === 'vo.silvercase.aftermath.ape.cleanup'
+          && defaulted.input.movementPresses === timerStart.input.movementPresses
+          && defaulted.input.interactionPresses === timerStart.input.interactionPresses
+          && defaulted.input.mouseDownEvents === timerStart.input.mouseDownEvents,
+        JSON.stringify({ timerStart, defaulted }));
+    } finally {
+      await noInputRun.close();
+    }
+  }
+
+  {
+    const spareRun = await openOrdinaryResume(aftermathCampaignSnapshot, 'Winston spare');
+    try {
+      const p = spareRun.page;
+      await p.waitForFunction(
+        () => window.silvercase.dialogue.choice?.id === 'aftermath',
+        null,
+        { timeout: 20000 },
+      );
+      await p.keyboard.press('Digit1');
+      await p.waitForFunction(
+        () => window.silvercase.dialogue.choice === null,
+        null,
+        { timeout: 3000 },
+      );
+      const spared = await p.evaluate(() => ({
+        beat: window.silvercase.fsm.name,
+        winstonAlive: window.silvercase.cast.winston.alive,
+        latestCue: [...window.silvercase.dialogue.cueLog].reverse().find(Boolean) ?? null,
+      }));
+      check('Digit1 on a clean ordinary resume takes the real Winston spare branch',
+        spared.beat === 'AFTERMATH'
+          && spared.winstonAlive === true
+          && spared.latestCue === 'vo.silvercase.aftermath.ape.cleanup',
+        JSON.stringify(spared));
+    } finally {
+      await spareRun.close();
+    }
+  }
+
+  {
+    const killRun = await openOrdinaryResume(aftermathCampaignSnapshot, 'Winston kill');
+    try {
+      const p = killRun.page;
+      await p.waitForFunction(
+        () => window.silvercase.dialogue.choice?.id === 'aftermath',
+        null,
+        { timeout: 20000 },
+      );
+      await p.keyboard.press('Digit2');
+      await p.waitForFunction(
+        () => window.silvercase.fsm.name === 'EXECUTE_WINSTON',
+        null,
+        { timeout: 3000 },
+      );
+      const ordered = await p.evaluate(() => window.silvercase.state());
+      check('Digit2 enters the Winston execution beat without killing him on the choice key',
+        ordered.actors.winston.alive === true
+          && ordered.aim.ordered === 'Winston'
+          && ordered.weapon.drawn === true,
+        JSON.stringify({ beat: ordered.beat, aim: ordered.aim, winston: ordered.actors.winston }));
+      await p.waitForFunction(
+        () => document.getElementById('instruction').classList.contains('show')
+          && /winston/i.test(document.getElementById('instruction').textContent),
+        null,
+        { timeout: 15000 },
+      );
+      const killLookBefore = await p.evaluate(
+        () => window.silvercase.input.snapshot().lookEvents,
+      );
+      await p.mouse.move(480, 270);
+      await p.mouse.move(500, 260, { steps: 2 });
+      const killAim = await p.evaluate(() => ({
+        aim: window.silvercase.aimAt('winston'),
+        input: window.silvercase.input.snapshot(),
+      }));
+      await p.mouse.down({ button: 'left' });
+      await p.mouse.up({ button: 'left' });
+      await p.waitForFunction(
+        (before) => {
+          const sc = window.silvercase;
+          return sc.input.snapshot().mouseDownEvents > before
+            && (sc.cast.winston.alive === false || sc.state().mission.lastShot !== null);
+        },
+        killAim.input.mouseDownEvents,
+        /* The main verification page keeps a second SwiftShader scene alive.
+         * Under CPU contention a real input can take several wall-clock
+         * seconds to reach the next rendered update even though the branch is
+         * not stalled. Wait for the input receipt plus its shot result rather
+         * than treating a five-second renderer hiccup as a mission failure. */
+        { timeout: 15000 },
+      );
+      const killed = await p.evaluate(() => ({
+        state: window.silvercase.state(),
+        input: window.silvercase.input.snapshot(),
+      }));
+      check('a real mouse trigger on the ordered man takes the kill branch with blood and impact',
+        killAim.aim?.resolvesTo === 'winston'
+          && killed.state.mission.lastShot?.onTarget === true
+          && killed.state.actors.winston.alive === false
+          && killed.state.marks.onBodies.winston >= 2
+          && killAim.input.lookEvents > killLookBefore
+          && killed.input.mouseDownEvents > killAim.input.mouseDownEvents,
+        JSON.stringify({ killAim, killed }));
+
+      // A branch is not certified merely because its target fell. Drain the
+      // authored reaction, pick up the actual case with E, and carry it out
+      // with real movement keys so both Winston outcomes prove the same
+      // completion contract rather than only the spare path doing so.
+      await p.waitForFunction(
+        () => window.silvercase.fsm.name === 'PICK_UP_CASE',
+        null,
+        { timeout: 20000 },
+      );
+      await p.evaluate(() => {
+        const sc = window.silvercase;
+        sc.player.position.set(9.6, 1.66, 2.5);
+        sc.player.yaw = 0;
+        sc.player.pitch = -Math.atan2(1.46, 0.85);
+        sc.player.velocity.set(0, 0, 0);
+        sc.player.update(0);
+      });
+      await p.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      const killCaseInteractionBefore = await p.evaluate(
+        () => window.silvercase.input.snapshot().interactionPresses,
+      );
+      await p.keyboard.press('KeyE');
+      await p.waitForFunction(
+        () => window.silvercase.fsm.name === 'EXIT',
+        null,
+        { timeout: 5000 },
+      );
+      const killExitStart = await p.evaluate(() => ({
+        x: window.silvercase.player.position.x,
+        z: window.silvercase.player.position.z,
+        interactionPresses: window.silvercase.input.snapshot().interactionPresses,
+        movementPresses: window.silvercase.input.snapshot().movementPresses,
+      }));
+      await p.keyboard.down('w');
+      try {
+        await p.evaluate(() => {
+          const sc = window.silvercase;
+          for (let i = 0; i < 240 && sc.player.position.z >= 0.4; i += 1) sc.tick(0.025);
+        });
+      } finally {
+        await p.keyboard.up('w');
+      }
+      await p.evaluate(() => {
+        const sc = window.silvercase;
+        for (let i = 0; i < 80 && Math.abs(sc.player.velocity.z) >= 0.03; i += 1) sc.tick(0.025);
+      });
+      await p.keyboard.down('a');
+      try {
+        await p.evaluate(() => {
+          const sc = window.silvercase;
+          for (let i = 0; i < 480 && sc.fsm.name !== 'SCENE_COMPLETE'; i += 1) sc.tick(0.025);
+        });
+      } finally {
+        await p.keyboard.up('a');
+      }
+      await p.evaluate(() => window.silvercase.tick(1.1));
+      await p.waitForFunction(
+        () => !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
+        null,
+        { timeout: 5000 },
+      );
+      const killComplete = await p.evaluate(() => ({
+        state: window.silvercase.state(),
+        campaign: window.silvercase.campaign.state(),
+        input: window.silvercase.input.snapshot(),
+        overlay: !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
+      }));
+      check('the Winston kill outcome still takes the case, exits, and completes the mission',
+        killComplete.state.beat === 'SCENE_COMPLETE'
+          && killComplete.state.case.carried === true
+          && killComplete.state.actors.winston.alive === false
+          && killComplete.campaign?.missions?.[MISSION_IDS.SILVER_CASE]?.status === 'complete'
+          && killComplete.campaign?.missions?.[MISSION_IDS.SILVER_CASE]?.winstonOutcome === 'player_killed'
+          && killExitStart.interactionPresses > killCaseInteractionBefore
+          && killComplete.input.movementPresses >= killExitStart.movementPresses + 2
+          && killComplete.overlay === true,
+        JSON.stringify({ killExitStart, killComplete }));
+    } finally {
+      await killRun.close();
+    }
+  }
 
   // ---- Preview checkpoint links (?checkpoint=...) ------------------------
   // Standalone scene, no `?preview=1` gate needed (see the doc comment above
@@ -1357,7 +2694,10 @@ try {
     cpPage.on('console', (message) => {
       if (message.type() === 'error') cpProblems.push(message.text().slice(0, 240));
     });
-    await cpPage.goto(`http://localhost:${PORT}/silvercase.html?preview=1&checkpoint=${id}`, { waitUntil: 'load' });
+    await cpPage.goto(`http://localhost:${PORT}/silvercase.html?preview=1&checkpoint=${id}`, {
+      waitUntil: 'load',
+      timeout: 60000,
+    });
     await cpPage.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
     const chip = await cpPage.evaluate(() => document.querySelector('#menu .subtitle')?.textContent ?? '');
     const result = await cpPage.evaluate(async () => {
@@ -1387,6 +2727,7 @@ try {
 const failed = results.filter((result) => !result.ok);
 if (failed.length) {
   console.error(`\n${failed.length}/${results.length} Silver Case checks failed.`);
+  for (const result of failed) console.error(`  - ${result.name}`);
   process.exit(1);
 }
 console.log(`\nAll ${results.length} Silver Case checks passed.`);

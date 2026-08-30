@@ -68,8 +68,8 @@ import * as THREE from 'three';
 
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
 import { attachPixelRatio, PIXEL_RATIO_CAP_HEAVY } from '../core/pixel-ratio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -86,11 +86,12 @@ import { DetectionSystem } from '../beefrun/detection.js';
 import { FlightHud } from '../beefrun/hud.js';
 import { CameraManager } from '../beefrun/cameras.js';
 import { FlightInput } from '../beefrun/input.js';
+import { createFlightFirstPersonPolicy } from '../beefrun/first-person-controls.js';
 import { clamp, lerp, smoothstep } from '../beefrun/util.js';
 
 import {
   AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
-  TARGET_CITY, LIVE_FIRE,
+  TARGET_CITY, ENOLA_ROUTE_DATA, LIVE_FIRE,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
 import { TargetCity, craterOffset } from './scenes/TargetCity.js';
@@ -111,6 +112,9 @@ import { createCrew, makeToolCart } from './crew.js';
 import { createEnolaWorldGeometry, zoneMixX } from './world-geometry.js';
 import { buildDistantHorizon } from './distant-horizon.js';
 import { EnolaAudioEngine, EnolaMissionAudio, enolaBankOfCue } from './audio.js';
+import {
+  consumeEnolaChoiceKey, consumeRetiredEnolaSplitThrottleKey,
+} from './choice-input.js';
 import { createResidencyBanks } from '../core/residency-banks.js';
 import { isPreviewMode } from '../core/preview-mode.js';
 import {
@@ -189,7 +193,7 @@ if (previewCheckpoint) {
   if (startBtn) startBtn.textContent = `Start at ${label.toLowerCase()}`;
 }
 
-window.__squatchStage?.('Building the Enola Squatch…');
+window.__squatchStage?.('Building SQUATCHOLA GAY…');
 
 /* ------------------------------------------------------------------ */
 /* Renderer                                                           */
@@ -401,7 +405,10 @@ resolveGear(['crest.round'])
  * `scenes/TargetCity.js` and `scenes/PartKit.js` for how the landmarks cost
  * four draw calls instead of two hundred. `city.stats()` reports the real
  * numbers and `tools/verify-enolasquatch.mjs` measures a real render. */
-window.__squatchStage?.('Laying out Squatchbourg…');
+// The flight's wrong-city clue belongs solely to the cockpit instruments.
+// Naming Squatchbourg in this player-visible loading stage spoiled that clue
+// before the player ever reached the aeroplane.
+window.__squatchStage?.('Laying out the target area…');
 const city = new TargetCity(scene, {
   x: TARGET_X,
   z: COMPOUND.z,
@@ -613,7 +620,15 @@ function showEnolaCompletion(report, {
 } = {}) {
   if (!report) return false;
   enolaCampaignComplete ||= campaignComplete;
-  flightHud.showComplete(report);
+  /* Keep the save-backed unlock id stable for existing campaigns while the
+   * completion card uses the renamed mission's canonical display label. */
+  const displayReport = {
+    ...report,
+    unlocks: (report.unlocks ?? []).map((unlock) => (
+      unlock === 'Enola Squatch Flight Jacket' ? 'SQUATCHOLA GAY Flight Jacket' : unlock
+    )),
+  };
+  flightHud.showComplete(displayReport);
   if (playSting) missionAudio.sting?.();
   // The title overlay has a higher stacking level than FlightHud's established
   // report card. A completed reload has not passed through the ordinary Start
@@ -635,6 +650,8 @@ mission.onComplete = (report) => {
     ...report,
     payloadReleased: mission.payloadReleased,
     returnedHome: true,
+    shotsFired: mission.gunner.shots,
+    peopleKilled: mission.gunner.kills,
   }) || enolaCampaignPreview;
   showEnolaCompletion(report, {
     campaignComplete: enolaCampaignComplete,
@@ -714,6 +731,35 @@ function updateCargoReadout() {
 }
 
 /* ------------------------------------------------------------------ */
+/* The wrong-city route-data clue                                      */
+/*                                                                      */
+/* Owner, 2026-08-26: catchable in flight, possible to miss, and never */
+/* pointed out in dialogue. This is deliberately a small instrument    */
+/* readout rather than an objective or warning. Each row is true by     */
+/* itself: the order calls for The Desert Compound; the live nav fix is */
+/* Squatchbourg. Lou interprets that disagreement only after the run.   */
+/* ------------------------------------------------------------------ */
+
+const routeDataEl = $('enola-route-data');
+const routeOrderEl = routeDataEl?.querySelector('.order') ?? null;
+const routeFixEl = routeDataEl?.querySelector('.fix') ?? null;
+if (routeOrderEl) {
+  routeOrderEl.innerHTML = `${ENOLA_ROUTE_DATA.order.source} <b>${ENOLA_ROUTE_DATA.order.label}</b>`;
+}
+if (routeFixEl) {
+  routeFixEl.innerHTML = `${ENOLA_ROUTE_DATA.navigation.source} <b>${ENOLA_ROUTE_DATA.navigation.label}</b>`;
+}
+
+function updateRouteDataReadout() {
+  if (!routeDataEl) return;
+  const nav = mission.navTarget?.();
+  const visible = mission.inCockpit
+    && nav?.label === ENOLA_ROUTE_DATA.navigation.label
+    && !mission.payloadReleased;
+  routeDataEl.classList.toggle('hidden', !visible);
+}
+
+/* ------------------------------------------------------------------ */
 /* The 1-5 release-line choice and the 3-option emergency choice.        */
 /*
  * Note on the emergency choice: the phase brief for MissionController
@@ -766,18 +812,6 @@ function updateChoicePanel() {
     return row;
   }));
   choicePanel.classList.add('show');
-}
-
-function handleMissionChoiceKey(code) {
-  const m = /^Digit([1-5])$/.exec(code);
-  if (!m) return;
-  const digit = m[1];
-  if (mission.phase === 'release' && mission._releaseStep === 'awaitChoice') {
-    mission.chooseReleaseLine(digit);
-  } else if (mission.phase === 'emergency' && !mission._emergencyResolved) {
-    const map = { 1: 'baby', 2: 'push', 3: 'shutdown' };
-    if (map[digit]) mission.chooseEmergencyResponse(map[digit]);
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1107,6 +1141,7 @@ function paintHud() {
   flightHud.setFlaps(physics.controls.flaps);
   flightHud.setAirBrake(physics.controls.airBrake);
   updateCargoReadout();
+  updateRouteDataReadout();
   updatePreflightChecklist();
   updateChoicePanel();
   paintCutscene();
@@ -1417,6 +1452,7 @@ window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
   cameras, input, hud, flightHud, scene, camera, renderer, airfield, postfx,
   player, interaction, preflight, crew, city, eastGround, audio: missionAudio,
+  get browserInput() { return browserInput; },
   /** The three-bank residency ledger; the verifier awaits `whenAllSettled`. */
   audioBanks,
   get defense() { return mission.defense; },
@@ -1640,6 +1676,14 @@ window.__enolaSquatch = {
           tag: document.getElementById('br-dir')?.querySelector('.tag')?.textContent ?? null,
         };
       })(),
+      /* The actual cockpit DOM, not a re-derived test table. This reports the
+       * two labels and whether the player could see them on this frame. */
+      wrongCityClue: {
+        order: ENOLA_ROUTE_DATA.order.label,
+        navigation: ENOLA_ROUTE_DATA.navigation.label,
+        visible: !!routeDataEl && !routeDataEl.classList.contains('hidden'),
+        text: routeDataEl?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      },
       /* For show, or for real. See `LIVE_FIRE` in ./config.js. */
       liveFire: { flak: mission.defense.liveFire, fighters: LIVE_FIRE.fighters },
       /* The 2026-08-04 escalation pass: the air battle, the box that flies for
@@ -1749,8 +1793,8 @@ startBtn.addEventListener('click', () => {
       const tag = overlay?.querySelector('.tag');
       if (tag) {
         tag.textContent = campaignEntry.reason === 'already_complete'
-          ? "The Enola Squatch is already complete. Continue from Lou's mansion."
-          : 'The Enola Squatch is locked until the mansion siege is complete.';
+          ? "SQUATCHOLA GAY is already complete. Continue from Lou's mansion."
+          : 'SQUATCHOLA GAY is locked until the mansion siege is complete.';
       }
       return;
     }
@@ -1791,50 +1835,22 @@ startBtn.addEventListener('click', () => {
   mission.paused = false;
 });
 
-let dragLook = false;
-let dragging = false;
+let dragLookHinted = false;
 
 function requestLock() {
   input.enabled = true;
-  if (dragLook) { enableInput(); return; }
-  const p = canvas.requestPointerLock?.();
-  if (p && p.catch) p.catch(() => fallBackToDragLook());
-  setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
-  }, 600);
-}
-
-function fallBackToDragLook() {
-  if (dragLook) return;
-  dragLook = true;
-  enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
-}
-
-function enableInput() {
-  input.enabled = true;
-  player.enabled = !mission.inCockpit;
   game.paused = false;
   mission.paused = false;
-  document.body.classList.remove('unlocked');
-  overlay.classList.add('hidden');
+  browserInput.refresh('request-lock');
+  browserInput.requestPointerLock();
 }
-
-document.addEventListener('pointerlockchange', () => {
-  if (dragLook) return;
-  const locked = document.pointerLockElement === canvas;
-  input.enabled = locked;
-  player.enabled = locked && !mission.inCockpit;
-  document.body.classList.toggle('unlocked', !locked);
-  if (!locked && game.started && !mission.finished) pauseGame();
-});
 
 function pauseGame() {
   pauseMenu.pause();
 }
 
 const pauseMenu = createPauseMenu({
-  title: 'The Enola Squatch',
+  title: 'SQUATCHOLA GAY',
   canPause: () => game.started && !mission.finished,
   getObjective: () => $('br-objective')?.textContent?.trim() || 'Follow the crew’s current instruction.',
   instructions: [
@@ -1855,20 +1871,17 @@ const pauseMenu = createPauseMenu({
     game.paused = true;
     mission.paused = true;
     input.enabled = false;
-    player.enabled = false;
-    player.clearKeys();
     input.clear();
-    interaction.release();
+    browserInput.suspend();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     mission.paused = false;
     input.enabled = true;
-    player.enabled = !mission.inCockpit;
     audio.ctx?.resume?.();
     last = performance.now();
-    requestLock();
+    browserInput.resume();
   },
   recovery: createCampaignSceneRecovery({
     campaign: enolaRecoveryCampaign,
@@ -1891,34 +1904,24 @@ $('es-again')?.addEventListener('click', () => {
 /* Input                                                              */
 /* ------------------------------------------------------------------ */
 
-document.addEventListener('mousemove', (e) => {
-  if (game.paused) return;
-  if (dragLook && !dragging) return;
-  if (mission.gunner.manned) mission.gunner.look(e.movementX, e.movementY);
-  else if (mission.inCockpit) cameras.look(e.movementX, e.movementY);
-  else if (player.enabled) player.handleMouseMove(e.movementX, e.movementY);
-});
-
-document.addEventListener('mousedown', (e) => {
-  if (e.button !== 0) return;
-  dragging = true;
-  if (game.paused) return;
-  if (mission.gunner.manned) mission.gunner.setFiring(true);
-  else if (!mission.inCockpit) interaction.press();
-});
-
-document.addEventListener('mouseup', (e) => {
-  if (e.button !== 0) return;
-  dragging = false;
-  if (mission.gunner.manned) mission.gunner.setFiring(false);
-  if (!mission.inCockpit) interaction.release();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (!game.started) return;
-  if (e.code === 'Escape') return;
-  if (game.paused) return;
-  if (e.repeat) return;
+function handleEnolaBeforeKeyDown(e) {
+  if (e.code === 'Escape') return true;
+  /* THE CHOICE GETS THE KEY BEFORE THE AEROPLANE DOES.
+   *
+   * Owner QA, 2026-08-28: "The bomb-choice input and engine/throttle input
+   * systems are colliding." They were: this used to run in `afterKeyDown`,
+   * after FlightInput had already translated 1/2 into engine toggles and 3/4
+   * into battery/fuel toggles. Returning true from this policy seam prevents
+   * that dispatch altogether; the same physical key cannot choose a line and
+   * change the aircraft on one event. */
+  if (consumeEnolaChoiceKey(mission, e.code)) {
+    e.preventDefault();
+    return true;
+  }
+  if (consumeRetiredEnolaSplitThrottleKey(input, e.code)) {
+    e.preventDefault();
+    return true;
+  }
   /* On foot these are the same durable five slots as Mansion and Siege.
    * Once aboard, 1/2 return to engine start and the authored 1–5 dialogue
    * choices keep priority; the tail gun remains station equipment and never
@@ -1929,21 +1932,19 @@ document.addEventListener('keydown', (e) => {
     const id = finalArcLoadout.items[finalArcLoadout.selected];
     hud.toast(id ? FINAL_ARC_WEAPON_CATALOG[id].name.toUpperCase() : 'EMPTY SLOT');
     e.preventDefault();
-    return;
+    return true;
   }
   if (!mission.inCockpit && e.code === 'KeyQ') {
     finalArcLoadout.stow();
     paintDurableCarry();
     hud.toast('WEAPON STOWED');
     e.preventDefault();
-    return;
+    return true;
   }
-  const code = input.keyEvent(e, true);
-  // keyEvent keeps the physical ShiftLeft/ShiftRight code for the keymap, so
-  // the modifiers are recognised here by their logical names.
-  if (code === 'Space' || e.key === 'Shift' || e.key === 'Control') e.preventDefault();
-  player.setKey(translateKey(e.code), true);
-  if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  return false;
+}
+
+function handleEnolaAfterKeyDown(e) {
   // The flashing camera hint goes away the first time the player uses the key
   // it is pointing at. `KeyC` itself is `FlightInput`'s own 'camera' action,
   // handled through `input.onAction` — this only dismisses the tip.
@@ -1984,19 +1985,53 @@ document.addEventListener('keydown', (e) => {
   if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
     mission.skipCutscene();
   }
-  handleMissionChoiceKey(e.code);
-}, true);
+  return false;
+}
 
-document.addEventListener('keyup', (e) => {
-  input.keyEvent(e, false);
-  player.setKey(translateKey(e.code), false);
-  if (!mission.inCockpit && e.code === 'KeyE') interaction.release();
-}, true);
+function syncFlightCapture({ captured }) {
+  input.enabled = game.started && !game.paused && !flightHud.completeUp;
+  document.body.classList.toggle('unlocked', !captured);
+  if (captured && game.started) overlay.classList.add('hidden');
+  if (!captured && game.started && !game.paused && !mission.finished) pauseGame();
+}
 
-window.addEventListener('blur', () => {
-  dragging = false;
-  player.clearKeys();
-  input.clear();
+const flightInputPolicy = createFlightFirstPersonPolicy({
+  isActive: () => game.started && !game.paused && !flightHud.completeUp,
+  isOnFoot: () => !mission.inCockpit,
+  flightInput: input,
+  lookAircraft: (dx, dy) => {
+    if (mission.gunner.manned) mission.gunner.look(dx, dy);
+    else cameras.look(dx, dy);
+  },
+  pressPrimary: () => {
+    if (mission.gunner.manned) mission.gunner.setFiring(true);
+    else if (!mission.inCockpit) interaction.press();
+  },
+  releasePrimary: () => {
+    if (mission.gunner.manned) mission.gunner.setFiring(false);
+    if (!mission.inCockpit) interaction.release();
+  },
+  beforeKeyDown: handleEnolaBeforeKeyDown,
+  afterKeyDown: handleEnolaAfterKeyDown,
+});
+const browserInput = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  keyboardCapture: true,
+  ...flightInputPolicy,
+  onClear: () => {
+    input.clear();
+    mission.gunner.setFiring(false);
+  },
+  onCaptureChange: (_event, context) => syncFlightCapture(context),
+  onCaptureError: (_error, context) => {
+    if (context.recovered && !dragLookHinted) {
+      dragLookHinted = true;
+      hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+    }
+    syncFlightCapture(context);
+  },
 });
 
 input.onAction = (name) => {
@@ -2055,6 +2090,7 @@ input.onAction = (name) => {
 /* ------------------------------------------------------------------ */
 
 let last = performance.now();
+let lastBrowserInputMode = null;
 loading?.classList.add('hidden');
 
 function frame() {
@@ -2064,6 +2100,11 @@ function frame() {
   last = now;
 
   if (game.started && !game.paused && !flightHud.completeUp) {
+    const browserInputMode = mission.inCockpit ? 'cockpit' : 'on-foot';
+    if (browserInputMode !== lastBrowserInputMode) {
+      lastBrowserInputMode = browserInputMode;
+      browserInput.refresh(`mode:${browserInputMode}`);
+    }
     simulateFrame(dt);
   }
 

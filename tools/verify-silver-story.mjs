@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 /**
- * Ride the Silver Room's campaign seam in a real browser.
+ * Ride the CURRENT Silver Pines -> Front & Center campaign seam in a browser.
  *
- * Not the evening itself — `npm run verify:silver` plays that end to end. This
- * is the join: returning on Day 3 after NO WAKE, Margo ringing the physical
- * phone, the apartment door routing to `silver.html`, the mission's own story
- * gate opening, the ending folding into campaign state, the walk home, and the
- * sleep that turns the page onto the Day 4 golf morning, Lou's invitation,
- * and the apartment departure that actually routes to Silver Pines.
+ * The date is scheduled once, from the Act-One cabin. After THE TAKE, Lou's
+ * new-space call sends Tony to Silver Pines; the completed round hands him the
+ * apartment keys; the new address owns the three get-ready chores; and its
+ * elevator goes directly to Front & Center. There is no later Margo telephone
+ * call in either apartment.
  *
- * The whole point is that none of these are seams the unit tests can see: each
- * one is a different page, and a save that survives one of them can still be
- * wrong at the next.
+ * `verify:golf`, `verify:luxury-apartment-browser`, and `verify:silver` own the
+ * long play inside each scene. This verifier owns the durable joins between
+ * them, including a reload-sized navigation at every boundary.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -21,6 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5214;
+const BASE = `http://localhost:${PORT}`;
+const EVIDENCE = path.join(ROOT, 'artifacts', 'silver-story-route');
+const LOAD_WAIT = 120000;
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -50,6 +52,7 @@ const server = http.createServer(async (req, res) => {
   res.end(await fsp.readFile(file));
 });
 await new Promise((resolve) => server.listen(PORT, resolve));
+await fsp.mkdir(EVIDENCE, { recursive: true });
 
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
@@ -61,359 +64,204 @@ const browser = await chromium.launch({
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
-const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
+const page = await browser.newPage({ viewport: { width: 640, height: 400 } });
+page.setDefaultTimeout(LOAD_WAIT);
 
 const problems = [];
-page.on('pageerror', (error) => problems.push(error.message));
+page.on('pageerror', (error) => problems.push(`page: ${error.message}`));
 page.on('console', (message) => {
-  if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+  if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 240)}`);
 });
 
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
-  console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+  console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` -- ${detail}` : ''}`);
 }
 
-/*
- * Exactly what NO WAKE's return leaves behind: Day 3, 4:40 in the afternoon,
- * at his own front door, the body gone and Margo's call still pending.
- */
-await page.addInitScript(() => {
-  if (localStorage.getItem('squatchlife.campaign')) return;
-  localStorage.setItem('squatchlife.campaign', JSON.stringify({
-    version: 3,
-    revision: 44,
-    scene: { id: 'apartment', spawn: 'front_door' },
-    story: {
-      chapter: 'date',
-      day: 3,
-      timeMinutes: 16 * 60 + 40,
-      meetingKnown: true,
-      meetingLearnedFrom: 'lou_call',
-      timeEvents: [
-        'activity.eat', 'activity.shower', 'activity.poop',
-        'activity.change_clothes', 'call.lou_first', 'travel.bada_bing_one',
-        'call.booski_day_two', 'travel.airstrip', 'mission.airstrip',
-        'call.lou_second', 'travel.bada_bing_two', 'mission.bada_bing_two',
-        'travel.jerky_motel', 'mission.jerky_motel', 'call.lou_no_wake',
-        'travel.no_wake', 'mission.no_wake',
-      ],
-    },
-    activities: {
-      eaten: true, showered: true, peed: true, pooped: true, changedClothes: true,
-      emailChecked: false,
-    },
-    inventory: { carried: [], concealed: [] },
-    missions: {
-      bada_bing_one: { status: 'complete', packageReceived: true, ending: 'front' },
-      squatchfather: { status: 'complete', weaponStaged: true, weaponDropped: true },
-      airstrip_smuggling: {
-        status: 'complete', checkpoint: 'landed_home', cargoLoaded: true,
-        detected: false, landingQuality: 'clean',
-      },
-      bada_bing_two: { status: 'complete', assignment: 'reserve_pickup' },
-      jerky_motel: {
-        status: 'complete', ending: 'home', cargoRecovered: true,
-        packagesIntact: 6, freshness: 74, policeHeat: 12,
-      },
-      no_wake: {
-        status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,
-        playerFired: true, bodyDisposed: true,
-      },
-      silver_room: { status: 'locked' },
-      initiation: { status: 'locked' },
-    },
-    events: {
-      lou_first_call: { status: 'answered' },
-      booski_day_two_call: { status: 'answered' },
-      lou_second_call: { status: 'answered' },
-      lou_no_wake_call: { status: 'answered' },
-      margo_date_call: { status: 'pending' },
-      booski_big_night_call: { status: 'pending' },
-    },
-  }));
-});
-
 try {
-  /* ---- 1. return from NO WAKE into the date chapter ---- */
-  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
-  await page.evaluate(() => window.__squatch.postfx.disable?.());
+  /* ------------------------------------------------------------------ *
+   * 0. Seed a canonical CURRENT save at the evening after THE TAKE.
+   *
+   * Build it through createCampaign() rather than copying a save schema into
+   * the verifier. The old verifier carried a v3 object long after the game was
+   * on v24, which let migration behaviour obscure the route it meant to test.
+   * ------------------------------------------------------------------ */
+  await page.goto(`${BASE}/preview.html`, { waitUntil: 'load' });
+  const seeded = await page.evaluate(async () => {
+    localStorage.clear();
+    const {
+      EVENT_IDS, ITEM_IDS, MISSION_IDS, SCENE_IDS, TIME_EVENT_IDS, createCampaign,
+    } = await import('./src/core/campaign.js');
+    const campaign = createCampaign();
+    campaign.update((state) => {
+      state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
+      state.story.chapter = 'post_heist';
+      state.story.day = 5;
+      state.story.timeMinutes = 18 * 60 + 50;
+      for (const eventId of [
+        TIME_EVENT_IDS.CABIN_MARGO_READY,
+        TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL,
+        TIME_EVENT_IDS.LOU_HEIST_CALL,
+        TIME_EVENT_IDS.DEPART_BANK_HEIST,
+        TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
+      ]) {
+        if (!state.story.timeEvents.includes(eventId)) state.story.timeEvents.push(eventId);
+      }
 
-  const returned = await page.evaluate(() => {
-    const game = window.__squatch;
-    const state = game.campaign.state;
+      state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+      const heist = state.missions[MISSION_IDS.BANK_HEIST];
+      heist.status = 'complete';
+      heist.checkpoint = 'vehicle_swap';
+      heist.briefingComplete = true;
+      heist.preparationComplete = true;
+      Object.assign(heist.cleanup, {
+        washed: true,
+        changed: true,
+        gearSecured: true,
+        finalCalls: true,
+      });
+      state.missions[MISSION_IDS.SILVER_CASE].status = 'available';
+      state.missions[MISSION_IDS.SILVER_PINES].status = 'locked';
+      state.missions[MISSION_IDS.SILVER_ROOM].status = 'locked';
+
+      state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
+      /* Legacy event key, current meaning: the appointment exists. */
+      state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+      state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+      state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'pending';
+      if (!state.inventory.carried.includes(ITEM_IDS.PHONE)) {
+        state.inventory.carried.push(ITEM_IDS.PHONE);
+      }
+    });
     return {
-      story: state.story,
-      noWake: state.missions.no_wake,
-      silver: state.missions.silver_room.status,
-      initiation: state.missions.initiation.status,
-      call: state.events.margo_date_call.status,
+      version: campaign.state.version,
+      scene: campaign.state.scene,
+      story: campaign.state.story,
+      cabinCall: campaign.state.events[EVENT_IDS.CABIN_MARGO_CALL].status,
+      appointment: campaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status,
+      retiredCallSpent: campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL),
+      cabinCallSpent: campaign.state.story.timeEvents
+        .includes(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL),
     };
   });
-  check('returning from NO WAKE opens the date chapter at 4:40 PM on Day 3',
-    returned.story.chapter === 'date'
-      && returned.story.day === 3
-      && returned.story.timeMinutes === 16 * 60 + 40
-      && returned.noWake.status === 'complete'
-      && returned.noWake.bodyDisposed === true,
-    JSON.stringify(returned));
-  check('and the date is still locked until she actually rings',
-    returned.silver === 'locked'
-      && returned.call === 'pending'
-      && returned.initiation === 'locked',
-    JSON.stringify(returned));
+  check('the fixture is a current-schema save whose date was scheduled in the cabin',
+    seeded.version >= 24
+      && seeded.scene.id === 'apartment'
+      && seeded.story.chapter === 'post_heist'
+      && seeded.cabinCall === 'answered'
+      && seeded.appointment === 'answered'
+      && seeded.cabinCallSpent
+      && !seeded.retiredCallSpent,
+    JSON.stringify(seeded));
 
-  const woke = await page.evaluate(() => ({
-    day: window.__squatch.time.day,
-    minutes: window.__squatch.time.minutes,
-    tag: document.querySelector('#overlay .tag')?.textContent ?? '',
-  }));
-  check('the live apartment clock and return card preserve NO WAKE time',
-    woke.day === 3
-      && Math.abs(woke.minutes - (16 * 60 + 40)) < 1
-      && woke.tag.includes('South Harbor'),
-    JSON.stringify(woke));
+  /* ------------------------------------------------------------------ *
+   * 1. The starter flat has Lou's new-space call, never Margo's date call.
+   * ------------------------------------------------------------------ */
+  await page.goto(`${BASE}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__squatch?.apartmentStory);
+  await page.evaluate(() => window.__squatch.postfx.disable?.());
 
-  /* ---- 2. the door waits for her, then she rings ---- */
-  const beforeCall = await page.evaluate(() => window.__squatch.apartmentStory.tryLeave({}));
-  check('the door refuses to leave before she has rung',
-    beforeCall?.kind === 'call' && beforeCall?.id === 'margo_date_call',
-    JSON.stringify(beforeCall));
+  const starter = await page.evaluate(() => {
+    const game = window.__squatch;
+    const pending = game.apartmentStory.pendingCall();
+    return {
+      scene: game.campaign.state.scene,
+      day: game.campaign.state.story.day,
+      minutes: game.campaign.state.story.timeMinutes,
+      chapter: game.campaign.state.story.chapter,
+      pending: pending && {
+        eventId: pending.eventId,
+        from: pending.from,
+        vo: pending.vo,
+        targetSceneId: pending.targetSceneId,
+      },
+      door: game.apartmentStory.tryLeave(game.activityContext()),
+    };
+  });
+  check('after THE TAKE, only Lou owes a new-space call in the starter flat',
+    starter.scene.id === 'apartment'
+      && starter.day === 5
+      && starter.minutes === 18 * 60 + 50
+      && starter.chapter === 'post_heist'
+      && starter.pending?.eventId === 'lou_golf_call'
+      && starter.pending?.vo === 'call.lou.new_space'
+      && starter.pending?.targetSceneId === 'silver_pines'
+      && starter.door?.kind === 'call'
+      && starter.door?.id === 'lou_golf_call',
+    JSON.stringify(starter));
 
-  const ringing = await page.evaluate(() => {
+  const louCall = await page.evaluate(() => {
     const game = window.__squatch;
     game.getUp();
     game.apartmentStory.update(6.1);
     const definition = game.phone.call?.def;
-    return {
+    const before = {
       ringing: game.phone.ringing,
       eventId: definition?.eventId,
-      characterId: definition?.characterId,
       from: definition?.from,
       vo: definition?.vo,
       targetSceneId: definition?.targetSceneId,
-      lines: definition?.lines?.length ?? 0,
     };
-  });
-  check('Margo rings the physical phone on the afternoon of the date',
-    ringing.ringing
-      && ringing.eventId === 'margo_date_call'
-      && ringing.characterId === 'margo'
-      && ringing.from === 'Margo'
-      && ringing.vo === 'call.margo.date'
-      && ringing.targetSceneId === 'silver_room'
-      && ringing.lines === 4,
-    JSON.stringify(ringing));
-
-  const answered = await page.evaluate(() => {
-    const game = window.__squatch;
     game.apartment.inventory.add('phone');
     game.phone.press();
     const state = game.campaign.state;
     return {
-      inCall: game.phone.inCall,
-      call: state.events.margo_date_call.status,
-      silver: state.missions.silver_room.status,
-      timeMinutes: state.story.timeMinutes,
+      before,
+      answered: state.events.lou_golf_call.status,
+      cabinCall: state.events.cabin_margo_call.status,
+      appointment: state.events.margo_date_call.status,
+      silverPines: state.missions.silver_pines.status,
+      retiredCallSpent: state.story.timeEvents.includes('call.margo_date'),
       door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
-  check('answering her unlocks the Silver Room on the authored clock',
-    answered.inCall
-      && answered.call === 'answered'
-      && answered.silver === 'available'
-      && answered.timeMinutes === 16 * 60 + 45,
-    JSON.stringify(answered));
-  check('the apartment door now routes to the Silver Room',
-    answered.door?.kind === 'go' && answered.door?.destination === 'silver_room',
-    JSON.stringify(answered.door));
+  check('the physical ring is Lou, not a duplicate call from Margo',
+    louCall.before.ringing
+      && louCall.before.eventId === 'lou_golf_call'
+      && louCall.before.from === 'Big Uncle Lou'
+      && louCall.before.vo === 'call.lou.new_space'
+      && louCall.before.targetSceneId === 'silver_pines',
+    JSON.stringify(louCall.before));
+  check('answering Lou preserves the cabin appointment and points the night at bed',
+    louCall.answered === 'answered'
+      && louCall.cabinCall === 'answered'
+      && louCall.appointment === 'answered'
+      && louCall.silverPines === 'available'
+      && !louCall.retiredCallSpent
+      && louCall.door?.kind === 'stay'
+      && louCall.door?.id === 'sleep_before_the_course',
+    JSON.stringify(louCall));
 
-  /* ---- 3. out the door, at half seven, into the real scene ---- */
-  const departed = await page.evaluate(() => {
-    window.__squatch.tryLeave();
-    const state = window.__squatch.campaign.state;
-    return {
-      day: state.story.day,
-      timeMinutes: state.story.timeMinutes,
-      events: state.story.timeEvents,
-    };
-  });
-  check('leaving for the date lands at Day 3, 7:30 PM through the authored clock',
-    departed.day === 3
-      && departed.timeMinutes === 19 * 60 + 30
-      && departed.events.includes('travel.silver_room'),
-    JSON.stringify(departed));
-
-  /* `commit`, and a real timeout. This wait failed on every run — on this
-   * branch and on a clean checkout alike — and it was not the navigation: the
-   * default `waitUntil: 'load'` was giving the Silver Room twenty seconds to
-   * fire its `load` event, and this page pulls its whole module graph and its
-   * art on a software rasteriser. The harness's own log said as much, with
-   * "navigated to .../silver.html" printed one line above the timeout.
-   *
-   * What this line is for is "the door really took us there", which is the
-   * commit. That the scene then boots is the next line's job, and that it
-   * boots into the right place is the check under it. */
-  await page.waitForURL(/silver\.html/, { timeout: 120000, waitUntil: 'commit' });
-  await page.waitForFunction(() => window.__silver?.story, null, { timeout: 120000 });
-  await page.evaluate(() => window.__silver.postfx.disable?.());
-  const arrived = await page.evaluate(() => ({
-    scene: window.__silver.campaignState.scene,
-    mission: window.__silver.campaignState.missions.silver_room.status,
-  }));
-  check('the departure really lands in the Silver Room and claims the scene',
-    arrived.scene.id === 'silver_room' && arrived.scene.spawn === 'kerb',
-    JSON.stringify(arrived));
-
-  /* ---- 4. the mission's own gate opens, and the evening starts ---- */
-  /* The title panel is taller than this deliberately tiny viewport, so the
-   * button is off-screen for a real mouse. Same idiom as verify-silver. */
-  await page.evaluate(() => document.getElementById('start-btn').click());
-  await page.waitForFunction(() => window.__silver.game.started, null, { timeout: 120000 });
-  const begun = await page.evaluate(() => ({
-    started: window.__silver.game.started,
-    mission: window.__silver.campaignState.missions.silver_room.status,
-    state: window.__silver.mission.state,
-  }));
-  check('pressing start opens the story gate and marks the date in progress',
-    begun.started && begun.mission === 'in_progress',
-    JSON.stringify(begun));
-
-  /* ---- 5. the evening ends and folds into the campaign ----
-   * The 30-minute evening itself is verify:silver's job. What is being tested
-   * here is only that a real ending reaches campaign state through the real
-   * finish path. */
-  const ended = await page.evaluate(() => {
-    /* The same two calls the invitation makes when she says yes: the mission
-     * records the outcome, then the card is drawn. `debug.ending` alone only
-     * previews the card, which would let this pass with an outcome the mission
-     * never actually reached. */
-    window.__silver.mission.finish('strong');
-    window.__silver.debug.ending('strong');
-    const folded = window.__silver.campaignState.missions.silver_room;
-    return {
-      over: window.__silver.game.over,
-      folded,
-      day: window.__silver.campaignState.story.day,
-      timeMinutes: window.__silver.campaignState.story.timeMinutes,
-      button: document.getElementById('start-btn')?.textContent ?? '',
-    };
-  });
-  check('the ending folds the evening into campaign state',
-    ended.over
-      && ended.folded.status === 'complete'
-      && ended.folded.outcome === 'strong'
-      && ended.folded.seeingHerAgain === true,
-    JSON.stringify(ended.folded));
-  check('and completion lands on the authored clock, late on Day 3',
-    ended.day === 3 && ended.timeMinutes === 23 * 60 + 20,
-    JSON.stringify({ day: ended.day, timeMinutes: ended.timeMinutes }));
-  check('the ending card offers the way home rather than a replay',
-    ended.button.toLowerCase().includes('home'), ended.button);
-
-  /* ---- 6. home ---- */
-  await page.evaluate(() => document.getElementById('start-btn').click());
-  await page.waitForURL(/index\.html/, { timeout: 20000 });
-  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
-  await page.evaluate(() => window.__squatch.postfx.disable?.());
-  const home = await page.evaluate(() => {
-    const game = window.__squatch;
-    return {
-      tag: document.querySelector('#overlay .tag')?.textContent ?? '',
-      scene: game.campaign.state.scene,
-      day: game.time.day,
-      door: game.apartmentStory.tryLeave(game.activityContext()),
-    };
-  });
-  check('coming home is recognised as coming home from the date',
-    home.tag.includes('Silver Room')
-      && home.scene.id === 'apartment'
-      && home.scene.spawn === 'front_door'
-      && home.day === 3,
-    JSON.stringify(home));
-  check('and the door sends him to bed rather than on to the Circle',
-    home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
-    JSON.stringify(home.door));
-
-  /* ---- 7. sleep turns the page onto the Day 4 golf morning ---- */
-  const golfMorning = await page.evaluate(() => {
+  /* ------------------------------------------------------------------ *
+   * 2. Sleep, warm up on Squatch Shoot, and leave through the real door.
+   * ------------------------------------------------------------------ */
+  const morning = await page.evaluate(() => {
     const game = window.__squatch;
     game.lieOnBed();
     game.sleepInBed();
     const state = game.campaign.state;
     return {
-      story: state.story,
-      silver: state.missions.silver_room.status,
-      golf: state.missions.silver_pines.status,
-      golfCall: state.events.lou_golf_call.status,
-      heistCall: state.events.lou_heist_call.status,
-    };
-  });
-  check('sleeping off the date opens golf morning on Day 4 at seven',
-    golfMorning.story.chapter === 'golf_morning'
-      && golfMorning.story.day === 4
-      && golfMorning.story.timeMinutes === 7 * 60,
-    JSON.stringify(golfMorning.story));
-  check('the date survives while Golf and THE TAKE remain locked behind their calls',
-    golfMorning.silver === 'complete'
-      && golfMorning.golf === 'locked'
-      && golfMorning.golfCall === 'pending'
-      && golfMorning.heistCall === 'pending',
-    JSON.stringify(golfMorning));
-
-  await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
-    timeout: 15000,
-  });
-  const lou = await page.evaluate(() => {
-    const game = window.__squatch;
-    game.getUp();
-    game.apartmentStory.update(6.1);
-    return {
-      ringing: game.phone.ringing,
-      eventId: game.phone.call?.def?.eventId,
-      from: game.phone.call?.def?.from,
-      targetSceneId: game.phone.call?.def?.targetSceneId,
-    };
-  });
-  check('and Big Uncle Lou rings with the Silver Pines invitation',
-    lou.ringing
-      && lou.eventId === 'lou_golf_call'
-      && lou.from === 'Big Uncle Lou'
-      && lou.targetSceneId === 'silver_pines',
-    JSON.stringify(lou));
-
-  const golfUnlocked = await page.evaluate(() => {
-    const game = window.__squatch;
-    game.apartment.inventory.add('phone');
-    game.phone.press();
-    const state = game.campaign.state;
-    return {
-      call: state.events.lou_golf_call.status,
-      golf: state.missions.silver_pines.status,
-      heistCall: state.events.lou_heist_call.status,
+      chapter: state.story.chapter,
+      day: state.story.day,
+      minutes: state.story.timeMinutes,
+      pending: game.apartmentStory.pendingCall()?.eventId ?? null,
       door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
-  /* THE MORNING HAS A THING HE HAS TO DO FIRST, and this file did not know
-   * either -- the same stale expectation tools/verify-big-night.mjs carried.
-   * `CHAPTER_ACTIVITIES.golf_morning` in src/core/apartment-story.js requires
-   * `playedSquatchShoot` before the door opens: Lou is putting a club in his
-   * hand in front of people and the eye wants warming up. Authored, with a
-   * label, a refusal line, a recorded cue and a hint. */
-  check('answering Lou unlocks Golf, not THE TAKE, and the door holds for the pastime',
-    golfUnlocked.call === 'answered'
-      && golfUnlocked.golf === 'available'
-      && golfUnlocked.heistCall === 'pending'
-      && golfUnlocked.door?.kind === 'activity'
-      && golfUnlocked.door?.id === 'playedSquatchShoot',
-    JSON.stringify(golfUnlocked));
+  check('sleep opens the Day 6 golf morning without another telephone',
+    morning.chapter === 'golf_morning'
+      && morning.day === 6
+      && morning.minutes === 7 * 60
+      && morning.pending === null
+      && morning.door?.kind === 'activity'
+      && morning.door?.id === 'playedSquatchShoot',
+    JSON.stringify(morning));
 
-  /* `pastimeWatch` reads apartment.state.shootScore every frame and completes
-   * the activity at SHOOT_TARGET_SCORE, so putting the score on the machine
-   * and giving it a frame is the played path with the arcade left out. */
-  const warmedUp = await page.evaluate(async () => {
+  await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
+    timeout: 30000,
+  });
+  const golfDoor = await page.evaluate(async () => {
     const game = window.__squatch;
     game.apartment.state.shootScore = 2000;
     await new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -422,75 +270,268 @@ try {
       door: game.apartmentStory.tryLeave(game.activityContext()),
     };
   });
-  check('warming the eye up on Squatch Shoot points the door at Silver Pines',
-    warmedUp.played === true
-      && warmedUp.door?.kind === 'go'
-      && warmedUp.door?.destination === 'silver_pines',
-    JSON.stringify(warmedUp));
+  check('the shared pastime gate releases the starter-flat door to Silver Pines',
+    golfDoor.played === true
+      && golfDoor.door?.kind === 'go'
+      && golfDoor.door?.destination === 'silver_pines',
+    JSON.stringify(golfDoor));
 
-  const golfDeparture = await page.evaluate(() => {
-    const game = window.__squatch;
-    game.tryLeave();
-    const state = game.campaign.state;
-    return {
-      story: state.story,
-      scene: state.scene,
-    };
-  });
-  check('the apartment spends the Silver Pines travel marker at 7:30',
-    golfDeparture.story.day === 4
-      && golfDeparture.story.timeMinutes === 7 * 60 + 30
-      && golfDeparture.story.timeEvents.includes('travel.silver_pines'),
-    JSON.stringify(golfDeparture));
+  await page.evaluate(() => window.__squatch.tryLeave());
+  await page.waitForURL(/golf\.html/, { waitUntil: 'commit' });
+  await page.waitForFunction(() => window.__golfReady === true);
 
-  await page.waitForURL(/golf\.html/, { timeout: 20000 });
-  await page.waitForFunction(() => window.__golfReady === true, null, { timeout: 120000 });
-  const atGolf = await page.evaluate(() => {
-    const state = window.__golf.campaign.state;
-    return {
-      scene: state.scene,
-      story: state.story,
-      golf: state.missions.silver_pines.status,
-    };
-  });
-  check('the real route arrives at Silver Pines with the round ready to start',
+  const atGolf = await page.evaluate(() => ({
+    scene: window.__golf.campaign.state.scene,
+    story: window.__golf.campaign.state.story,
+    mission: window.__golf.story.mission.status,
+  }));
+  check('the real route arrives at Silver Pines at the authored half past seven',
     atGolf.scene.id === 'silver_pines'
       && atGolf.scene.spawn === 'car_park'
       && atGolf.story.chapter === 'golf_morning'
-      && atGolf.golf === 'available',
+      && atGolf.story.day === 6
+      && atGolf.story.timeMinutes === 7 * 60 + 30
+      && atGolf.mission === 'available',
     JSON.stringify(atGolf));
 
-  /* ---- 8. and none of the completed date or Golf call replays ---- */
-  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
-  const replay = await page.evaluate(() => {
-    const game = window.__squatch;
-    game.apartmentStory.beginMorning();
-    game.apartmentStory.update(60);
+  /* ------------------------------------------------------------------ *
+   * 3. Close a complete three-hole card through the scene's own finish hook.
+   *
+   * The full round belongs to verify:golf. This seam uses the same end-card
+   * callback that real Hole 3 invokes, including story.complete(), rather than
+   * writing mission status or navigating around the handover.
+   * ------------------------------------------------------------------ */
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.__golf?.story?.mission?.status === 'in_progress');
+  const handover = await page.evaluate(() => {
+    const game = window.__golf;
+    const holes = [
+      { hole: 1, par: 4, strokes: 4, penalties: 0, heardInvitation: true },
+      { hole: 2, par: 3, strokes: 3, penalties: 0, rodeWithLou: true },
+      { hole: 3, par: 4, strokes: 4, penalties: 0 },
+    ];
+    const offered = game.presentApartmentKeys('offer_apartment_keys');
+    const received = game.presentApartmentKeys('receive_apartment_keys');
+    game.round.hooks.onRoundComplete({
+      holes,
+      strokes: 11,
+      toPar: 0,
+      lines: holes.map((hole) => ({
+        card: `H${hole.hole}`,
+        strokes: hole.strokes,
+        label: 'E',
+      })),
+    });
     const state = game.campaign.state;
     return {
-      call: game.phone.call?.def?.eventId ?? null,
-      margo: state.events.margo_date_call.status,
-      silver: state.missions.silver_room.status,
-      golfCall: state.events.lou_golf_call.status,
-      golf: state.missions.silver_pines.status,
-      heistCall: state.events.lou_heist_call.status,
-      chapter: state.story.chapter,
-      day: state.story.day,
+      offered,
+      received,
+      keyState: game.apartmentKeyState,
+      keyVisible: game.apartmentKeys.visible,
+      keyParentIsCamera: game.apartmentKeys.parent === game.camera,
+      mission: state.missions.silver_pines,
+      story: state.story,
+      endCardVisible: !document.getElementById('endcard')?.classList.contains('hidden'),
+      continueText: document.getElementById('endcard-home')?.textContent ?? '',
     };
   });
-  check('a reload cannot replay Margo, reopen the date, or ring Lou twice',
-    replay.margo === 'answered'
-      && replay.silver === 'complete'
-      && replay.day === 4
-      && replay.chapter === 'golf_morning'
-      && replay.golfCall === 'answered'
-      && replay.golf === 'available'
-      && replay.heistCall === 'pending'
-      && replay.call === null,
-    JSON.stringify(replay));
+  check('Silver Pines ends with the apartment keys physically in Tony\'s hand',
+    handover.offered
+      && handover.received
+      && handover.keyState === 'received'
+      && handover.keyVisible
+      && handover.keyParentIsCamera,
+    JSON.stringify(handover));
+  check('the real round-complete hook closes Beat 13 and exposes Continue',
+    handover.mission.status === 'complete'
+      && handover.mission.holesPlayed === 3
+      && handover.story.chapter === 'luxury_apartment'
+      && handover.story.day === 6
+      && handover.story.timeMinutes === 10 * 60 + 30
+      && handover.endCardVisible
+      && handover.continueText.trim().toLowerCase() === 'continue',
+    JSON.stringify(handover));
+  await page.screenshot({
+    path: path.join(EVIDENCE, '01-silver-pines-key-handoff.png'),
+    fullPage: true,
+  });
 
-  check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
+  await page.evaluate(() => document.getElementById('endcard-home').click());
+  await page.waitForURL(/luxury-apartment\.html/, { waitUntil: 'commit' });
+  await page.waitForFunction(() => window.LUXURY_APARTMENT?.home);
+
+  /* ------------------------------------------------------------------ *
+   * 4. Beat 14 is the new flat, three chores, and a direct date departure.
+   * ------------------------------------------------------------------ */
+  const arrived = await page.evaluate(async () => {
+    const runtime = window.LUXURY_APARTMENT;
+    const { createCampaign } = await import('./src/core/campaign.js');
+    const { createLuxuryApartmentStory } = await import('./src/core/luxury-apartment-story.js');
+    const campaign = createCampaign();
+    const story = createLuxuryApartmentStory({ campaign });
+    return {
+      scene: campaign.state.scene,
+      story: campaign.state.story,
+      phase: story.phase(),
+      pendingCall: story.pendingCall()?.eventId ?? null,
+      door: story.tryLeave(),
+      cabinCall: campaign.state.events.cabin_margo_call.status,
+      appointment: campaign.state.events.margo_date_call.status,
+      retiredCallSpent: campaign.state.story.timeEvents.includes('call.margo_date'),
+      phoneRinging: runtime.phone.ringing,
+    };
+  });
+  check('the key handoff routes to the luxury apartment at 11:45',
+    arrived.scene.id === 'luxury_apartment'
+      && arrived.scene.spawn === 'arrival'
+      && arrived.story.chapter === 'luxury_apartment'
+      && arrived.story.day === 6
+      && arrived.story.timeMinutes === 11 * 60 + 45
+      && arrived.phase === 'get_ready',
+    JSON.stringify(arrived));
+  check('Beat 14 waits on chores, not a later Margo ring',
+    arrived.door?.kind === 'activity'
+      && arrived.door?.id === 'activity.luxury.get_ready'
+      && arrived.pendingCall === null
+      && !arrived.phoneRinging
+      && arrived.cabinCall === 'answered'
+      && arrived.appointment === 'answered'
+      && !arrived.retiredCallSpent,
+    JSON.stringify(arrived));
+
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.state.phase === 'active');
+  const ready = await page.evaluate(async () => {
+    const runtime = window.LUXURY_APARTMENT;
+    const completed = [
+      runtime.actions.ready('showered'),
+      runtime.actions.ready('dressed'),
+      runtime.actions.ready('phoneTaken'),
+    ];
+    const { createCampaign } = await import('./src/core/campaign.js');
+    const { createLuxuryApartmentStory } = await import('./src/core/luxury-apartment-story.js');
+    const campaign = createCampaign();
+    const story = createLuxuryApartmentStory({ campaign });
+    return {
+      completed,
+      tally: runtime.readyTally.snapshot(),
+      story: campaign.state.story,
+      silver: campaign.state.missions.silver_room.status,
+      phase: story.phase(),
+      pendingCall: story.pendingCall()?.eventId ?? null,
+      door: story.tryLeave(),
+      retiredCallSpent: campaign.state.story.timeEvents.includes('call.margo_date'),
+      phoneRinging: runtime.phone.ringing,
+    };
+  });
+  check('the three visible get-ready facts spend their exact-once beat',
+    ready.completed[0] === true
+      && ready.completed[1] === true
+      /* The campaign phone is already in inventory on this routed landing.
+       * `complete()` returning false is the exact-once receipt: the visible
+       * tally remains complete without pretending the same phone was taken
+       * twice. */
+      && ready.completed[2] === false
+      && ready.tally.completedCount === 3
+      && ready.tally.ready
+      && ready.story.timeEvents.includes('activity.luxury.get_ready')
+      && ready.story.day === 6
+      && ready.story.timeMinutes === 12 * 60 + 30,
+    JSON.stringify(ready));
+  check('finished chores unlock a direct Front & Center departure with no phone beat',
+    ready.silver === 'available'
+      && ready.phase === 'date'
+      && ready.pendingCall === null
+      && ready.door?.kind === 'go'
+      && ready.door?.destination === 'silver_room'
+      && !ready.retiredCallSpent
+      && !ready.phoneRinging,
+    JSON.stringify(ready));
+  await page.screenshot({
+    path: path.join(EVIDENCE, '02-luxury-ready-for-front-and-center.png'),
+    fullPage: true,
+  });
+
+  const elevator = await page.evaluate(() => window.LUXURY_APARTMENT.actions.elevator('ride'));
+  check('the private elevator accepts the real direct-date route', elevator === true,
+    String(elevator));
+  await page.waitForURL(/silver\.html/, { waitUntil: 'commit' });
+  await page.waitForFunction(() => window.__silver?.story);
+  await page.evaluate(() => window.__silver.postfx.disable?.());
+
+  /* ------------------------------------------------------------------ *
+   * 5. Preserve the current Silver Room completion seam: home means luxury.
+   * ------------------------------------------------------------------ */
+  const atSilver = await page.evaluate(() => ({
+    scene: window.__silver.campaignState.scene,
+    story: window.__silver.campaignState.story,
+    silver: window.__silver.campaignState.missions.silver_room.status,
+    golf: window.__silver.campaignState.missions.silver_pines.status,
+    appointment: window.__silver.campaignState.events.margo_date_call.status,
+    retiredCallSpent: window.__silver.campaignState.story.timeEvents.includes('call.margo_date'),
+  }));
+  check('Front & Center accepts the cabin appointment after the completed round',
+    atSilver.scene.id === 'silver_room'
+      && atSilver.scene.spawn === 'kerb'
+      && atSilver.story.day === 6
+      && atSilver.story.timeMinutes === 19 * 60 + 30
+      && atSilver.silver === 'available'
+      && atSilver.golf === 'complete'
+      && atSilver.appointment === 'answered'
+      && !atSilver.retiredCallSpent,
+    JSON.stringify(atSilver));
+
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.__silver.game.started);
+  const ended = await page.evaluate(() => {
+    window.__silver.mission.finish('strong');
+    window.__silver.debug.ending('strong');
+    const state = window.__silver.campaignState;
+    return {
+      over: window.__silver.game.over,
+      silver: state.missions.silver_room,
+      story: state.story,
+      button: document.getElementById('start-btn')?.textContent ?? '',
+    };
+  });
+  check('the date ending still folds through the real mission seam on Day 6',
+    ended.over
+      && ended.silver.status === 'complete'
+      && ended.silver.outcome === 'strong'
+      && ended.silver.seeingHerAgain === true
+      && ended.story.day === 6
+      && ended.story.timeMinutes === 23 * 60 + 20
+      && ended.button.toLowerCase().includes('home'),
+    JSON.stringify(ended));
+
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForURL(/luxury-apartment\.html/, { waitUntil: 'commit' });
+  await page.waitForFunction(() => window.LUXURY_APARTMENT?.home);
+  const home = await page.evaluate(async () => {
+    const { createCampaign } = await import('./src/core/campaign.js');
+    const { createLuxuryApartmentStory } = await import('./src/core/luxury-apartment-story.js');
+    const campaign = createCampaign();
+    const story = createLuxuryApartmentStory({ campaign });
+    return {
+      scene: campaign.state.scene,
+      story: campaign.state.story,
+      phase: story.phase(),
+      pendingCall: story.pendingCall()?.eventId ?? null,
+      phoneRinging: window.LUXURY_APARTMENT.phone.ringing,
+    };
+  });
+  check('Front & Center returns to the luxury stayover, not the starter apartment',
+    home.scene.id === 'luxury_apartment'
+      && home.scene.spawn === 'main'
+      && home.story.day === 6
+      && home.story.timeMinutes === 23 * 60 + 20
+      && home.phase === 'come_home'
+      && home.pendingCall === null
+      && !home.phoneRinging,
+    JSON.stringify(home));
+
+  check('no runtime console or page errors occurred', problems.length === 0,
+    problems.join(' | '));
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));

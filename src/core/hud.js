@@ -1,5 +1,10 @@
 import { renderInventorySlots } from './scene-inventory.js';
 import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
+import {
+  conciseObjectiveItems,
+  createObjectiveDisplayController,
+} from './objective-panel.js';
+import { SubtitlePriorityLane } from './subtitle-priority.js';
 
 /**
  * THE PROMPT, ONCE, FOR SCENES THAT CANNOT HAVE THE WHOLE HUD.
@@ -127,7 +132,13 @@ export class Hud {
     this.bladderFill = this.bladder.querySelector('.bar i');
     this.toasts = document.getElementById('toast-stack');
     this._bladderShown = -1;
-    this._subTimer = null;
+    this._subtitleLane = new SubtitlePriorityLane({
+      show: (text) => {
+        this.subtitle.innerHTML = text;
+        this.subtitle.classList.remove('hidden');
+      },
+      hide: () => this.subtitle.classList.add('hidden'),
+    });
     this._prompt = createPromptHud({
       prompt: this.prompt,
       label: this.promptLabel,
@@ -151,27 +162,28 @@ export class Hud {
   setHold(progress) { this._prompt.setHold(progress); }
 
   /** Narration line at the bottom of the screen. `<em>` renders in amber. */
-  say(text, ms = 4200) {
-    clearTimeout(this._subTimer);
-    this.subtitle.innerHTML = text;
-    this.subtitle.classList.remove('hidden');
-    this._sayUntil = performance.now() + ms;
-    this._subTimer = setTimeout(() => this.subtitle.classList.add('hidden'), ms);
+  say(text, ms = 4200, options = {}) {
+    /* Legacy Hud calls are authored foreground lines. Systems producing room
+     * chatter or nearby flavor opt into a lower lane explicitly. */
+    return this._subtitleLane.say(text, ms, {
+      priority: options.priority ?? 'story',
+    });
+  }
+
+  sayAmbient(text, ms = 3200) {
+    return this.say(text, ms, { priority: 'ambient' });
   }
 
   /** True while a subtitle is on screen -- the narrator waits its turn. */
   get saying() {
-    return performance.now() < (this._sayUntil || 0);
+    return this._subtitleLane.busy;
   }
 
   /** Cut a pending narration line dead. A checkpoint retry calls this so the
    * failed attempt's subtitle (and its hide timer) cannot play on into the
    * restored timeline. */
   clearSay() {
-    clearTimeout(this._subTimer);
-    this._subTimer = null;
-    this._sayUntil = 0;
-    this.subtitle.classList.add('hidden');
+    this._subtitleLane.clear();
   }
 
   toast(text, kind = '', duration = 2800) {
@@ -212,10 +224,10 @@ export class Hud {
   /**
    * The morning's list.
    *
-   * Takes what `ApartmentStory.objectives()` produced and does nothing to it
-   * but draw it -- no filtering, no reordering, no second opinion about what
-   * counts as done. A HUD that decides for itself what the objectives are is
-   * a HUD that will eventually disagree with the door.
+   * Takes what `ApartmentStory.objectives()` produced and applies the shared
+   * live-HUD projection: one actionable step, no future calls, and no completed
+   * errands. The story still owns the durable ledger and marks the step that
+   * came from its own door verdict; the HUD only projects that verdict.
    *
    * @param {{day: number, items: {id: string, label: string, done: boolean,
    *   required: boolean}[]}|null} plan
@@ -225,31 +237,52 @@ export class Hud {
       this.objectives = document.getElementById('objectives');
       this.objectivesTitle = this.objectives?.querySelector('.otitle');
       this.objectivesList = this.objectives?.querySelector('.olist');
+      if (this.objectives) {
+        this._objectiveVisibility = createObjectiveDisplayController({
+          show: () => this.objectives.classList.remove('hidden'),
+          collapse: () => this.objectives.classList.add('hidden'),
+        });
+      }
     }
     if (!this.objectives) return;
-    if (!plan || !plan.items?.length) {
-      this.objectives.classList.add('hidden');
-      /* Hiding must also forget the last rendered list. Without this, an
-       * empty plan followed by the SAME plan as before hit the key check
-       * below and returned before the un-hide -- the card stayed gone for
-       * good. The shared panel fixed this in objective-panel.js; the
-       * apartment's copy kept the latch. */
+    /* ONE ROUTE ACTION PLUS ONE SOFT OPPORTUNITY, which is the shape the Bing
+     * settled on and this shared path never picked up. `conciseObjectiveItems`
+     * defaults `optionalLimit` to 0, so the starter apartment -- the only
+     * caller of this method -- drew the required row and nothing else, and
+     * Day One's whole optional tutorial went dark: the inbox, the computer, a
+     * game of Squatch Smash, and `killtime`, which is the row that tells a man
+     * waiting on a Bing that does not open until a quarter to midnight that he
+     * can sleep it off or have a drink. Without it the flat reads as a room
+     * with one chore and no way to pass the time. */
+    const items = conciseObjectiveItems(plan?.items, { optionalLimit: 1 });
+    if (!plan || !items.length) {
       this._objectivesKey = null;
+      this._objectiveVisibility.clear();
       return;
     }
     // Only touch the DOM when the list actually reads differently.
-    const key = `${plan.day}|${plan.items.map((i) => `${i.id}${i.done ? '1' : '0'}${i.required ? 'r' : ''}`).join(',')}`;
+    const key = `${plan.day}|${items.map((i) => [
+      i.id ?? '',
+      i.rule ?? '',
+      i.label ?? '',
+      i.required === false ? 'o' : 'r',
+      i.current ? 'n' : '',
+      i.tally ? `${i.tally.count ?? 0}/${i.tally.total ?? 0}` : '',
+    ].join(':')).join(',')}`;
     if (key === this._objectivesKey) return;
     this._objectivesKey = key;
     this.objectivesTitle.textContent = `Day ${plan.day} · today`;
-    this.objectivesList.replaceChildren(...plan.items.map((item) => {
+    this.objectivesList.replaceChildren(...items.map((item) => {
       const el = document.createElement('li');
       el.className = `${item.done ? 'done' : ''} ${item.required ? 'required' : ''}`.trim();
       el.textContent = item.label;
       return el;
     }));
-    this.objectives.classList.remove('hidden');
+    this._objectiveVisibility.changed();
   }
+
+  /** Review the current plan without mutating story state. */
+  revealObjectives() { this._objectiveVisibility?.reveal(); }
 
   setHand(item) {
     if (!item) {
@@ -262,14 +295,37 @@ export class Hud {
     this.handItem.classList.remove('hidden');
   }
 
+  /**
+   * EARSHOT, WHICH THE READOUT DID NOT HAVE.
+   *
+   * Owner, 2026-08-26: *"Radio station always showing in the bottom left
+   * maybe only show when in close range of radio like inside the cabin."*
+   * The OSD tracked whether the radio was ON, and the radio stays on while
+   * the player walks a ridge two hundred metres away. A set that is playing
+   * to an empty room does not get to caption his screen.
+   *
+   * Kept as a separate latch rather than folded into `setRadio` because the
+   * two facts are independent: the Radio owns what is playing, the scene owns
+   * whether he can hear it, and either can change without the other.
+   */
+  setRadioAudible(audible) {
+    const next = audible !== false;
+    if (next === this._radioAudible) return;
+    this._radioAudible = next;
+    this.radioOsd.classList.toggle('hidden', !next || !this._radioState);
+  }
+
   setRadio(state) {
+    this._radioState = state ?? null;
     if (!state) {
       this.radioOsd.classList.add('hidden');
       return;
     }
     this.radioName.textContent = state.station;
     this.radioTrack.textContent = state.track;
-    this.radioOsd.classList.remove('hidden');
+    /* Default true, so a scene that never calls `setRadioAudible` behaves
+     * exactly as it did before this existed. */
+    this.radioOsd.classList.toggle('hidden', this._radioAudible === false);
   }
 
   /**

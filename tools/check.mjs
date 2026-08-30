@@ -152,6 +152,7 @@ const VALID_SLOTS = (() => {
   const slots = new Set();
   const sceneSources = [
     'src/world/apartment.js',
+    'src/luxury-apartment/world.js',
     'src/bing/club.js',
     'src/graveyard/world.js',
     'src/squatchfather/scenes/SquatchfatherScene.js',
@@ -167,14 +168,20 @@ const VALID_SLOTS = (() => {
      * there and register the art without touching this tool again. */
     'src/enolasquatch/livery.js',
     'src/enolasquatch/main.js',
+    /* 2026-08-24 A-Team art pass: the Cartel Palace grew six `cartel-palace.*`
+     * slots (`A_TEAM_ART` in world.js, each row a literal `slot: '...'`) and
+     * the manifest rows for them failed this gate as "unknown slot" for the
+     * one reason this list exists -- nobody had ever read the palace. */
+    'src/cartel-palace/world.js',
   ].map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   for (const src of sceneSources) {
     for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);
-  /* Any `const SOMETHING_SLOTS = [ '…', '…' ]`, not one array by name. This
+  /* Any `const SOMETHING_SLOTS = [ '…', '…' ]` (including an immutable
+   * `Object.freeze([...])` export), not one array by name. This
    * used to look for PROP_SLOTS specifically, so the first group of slots
    * added under a different name failed the build for existing rather than
    * for being wrong -- which is the drift this whole block exists to avoid. */
-    for (const m of src.matchAll(/const \w*SLOTS = \[([^\]]*)\]/g)) {
+    for (const m of src.matchAll(/const \w*SLOTS = (?:Object\.freeze\()?\[([^\]]*)\]\)?/g)) {
       for (const s of m[1].matchAll(/'([^']+)'/g)) slots.add(s[1]);
     }
   }
@@ -503,6 +510,21 @@ try {
     if (drift.length) {
       fail(`Pool table sound catalog drift: ${drift.length} problem(s) `
         + `(first: ${drift[0]}). Run \`npm run sfx:pool\`.`);
+    }
+  }
+
+  /* The Motel and the campground reach their promoted cues through a
+   * `playSample` guard rather than a literal `audio.play(...)`, so the scan
+   * further up cannot see them either. A promoted cue that falls out of the
+   * manifest does not go quiet -- it silently drops back to the oscillator it
+   * was promoted away from, which is the one failure nobody hears. */
+  {
+    const { checkLegacySfxManifest } = await import('./legacy-sfx.mjs');
+    const queue = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/audio/sound-queue.json'), 'utf8'));
+    const drift = checkLegacySfxManifest(sfxManifest, queue);
+    if (drift.length) {
+      fail(`Promoted Motel and Campground sound drift: ${drift.length} problem(s) `
+        + `(first: ${drift[0]}). Run \`npm run sfx:legacy\`.`);
     }
   }
 

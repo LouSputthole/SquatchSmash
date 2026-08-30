@@ -65,17 +65,41 @@ const CHAPTERS = Object.freeze([
       state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
     },
   },
+  /* THE MORNING OF THE TAKE. This entry read `no_wake` until beats 12-19
+   * moved the harbour job to the luxury apartment on Day 7; the pastime, its
+   * cue and its recording came with it to the chapter that now owns a man
+   * killing an hour in this flat before a job. */
   {
-    chapter: 'no_wake',
-    call: EVENT_IDS.LOU_NO_WAKE_CALL,
-    destination: SCENE_IDS.NO_WAKE,
-    before: (state) => { state.story.day = 3; },
+    chapter: 'heist_day',
+    call: EVENT_IDS.LOU_HEIST_CALL,
+    destination: SCENE_IDS.BANK_HEIST,
+    before: (state) => {
+      state.story.day = 5;
+      state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+      /* The kit is Lou's errand, not his own thing, and it sits BELOW the
+       * pastime in the door's order. Pre-collected so this table measures
+       * the pastime rather than the packing. */
+      for (const key of Object.keys(state.missions[MISSION_IDS.BANK_HEIST].preparation)) {
+        if (key !== 'extraMagazine') {
+          state.missions[MISSION_IDS.BANK_HEIST].preparation[key] = true;
+        }
+      }
+      state.missions[MISSION_IDS.BANK_HEIST].preparationComplete = true;
+    },
   },
+  /* The round, which no longer waits on a telephone: beat 12 rang the night
+   * before. The pastime is the only thing between him and the car, so the
+   * `call` here is the one that was already taken. */
   {
     chapter: 'golf_morning',
     call: EVENT_IDS.LOU_GOLF_CALL,
     destination: SCENE_IDS.SILVER_PINES,
-    before: (state) => { state.story.day = 4; },
+    answeredBefore: true,
+    before: (state) => {
+      state.story.day = 6;
+      state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+      state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
+    },
   },
   {
     chapter: 'big_night',
@@ -104,7 +128,7 @@ function answer(campaign, eventId) {
 test('every chapter that sends him home asks for exactly one thing of his own', () => {
   const table = chapterPastimes();
   assert.deepEqual(Object.keys(table).sort(),
-    ['big_night', 'day_two', 'golf_morning', 'no_wake']);
+    ['big_night', 'day_two', 'golf_morning', 'heist_day']);
   for (const [chapter, list] of Object.entries(table)) {
     assert.ok(Array.isArray(list) && list.length, `${chapter} has an empty pastime list`);
     for (const item of list) {
@@ -171,10 +195,16 @@ test('the call comes first, then his own thing, then the door opens', () => {
 
     /* Before the call, the door is about the call and nothing else. A man who
      * has not been told where he is going is not being kept in by a video
-     * game. */
-    const waiting = story.tryLeave(CHORES_DONE);
-    assert.equal(waiting.kind, 'call', `${spec.chapter}: door is not waiting on the phone`);
-    assert.equal(waiting.id, call);
+     * game.
+     *
+     * `answeredBefore` is the round's exception and it is a real one: beat 12
+     * rings on the previous evening, so there is no telephone owed on the
+     * morning itself and the pastime is the only thing in the way. */
+    if (!spec.answeredBefore) {
+      const waiting = story.tryLeave(CHORES_DONE);
+      assert.equal(waiting.kind, 'call', `${spec.chapter}: door is not waiting on the phone`);
+      assert.equal(waiting.id, call);
+    }
 
     answer(campaign, call);
 
@@ -212,6 +242,8 @@ test('the morning list carries the chapter’s own thing, marked required', () =
       assert.ok(row.label, `${spec.chapter}: ${pastime.id} has an empty label`);
     }
     // And it sits under the call, because that is the order the door enforces.
+    // The round has no call of its own -- see `answeredBefore` above.
+    if (spec.answeredBefore) continue;
     const callRow = items.findIndex((item) => item.id === call);
     const firstPastime = items.findIndex(
       (item) => item.id === chapterPastimes()[spec.chapter][0].id,
@@ -254,7 +286,7 @@ test('a pastime belongs to its chapter — sleeping into the next one clears it'
     }
   });
   const story = createApartmentStory({ campaign, ring: () => true });
-  assert.equal(story.sleep().chapter, 'no_wake');
+  assert.equal(story.sleep().chapter, 'heist_day');
 
   for (const list of Object.values(chapterPastimes())) {
     for (const item of list) {

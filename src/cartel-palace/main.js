@@ -6,7 +6,7 @@ import {
   MISSION_IDS,
   SCENE_IDS,
   createCampaign,
-  navigateCampaign,
+  returnHomeFromMission,
 } from '../core/campaign.js';
 import {
   CombatActor,
@@ -14,6 +14,7 @@ import {
   CombatStepCadence,
   CombatSuppressionField,
   FACTIONS,
+  MuzzleFlashPool,
   SuppressionModel,
   TracerPool,
   combatVitals,
@@ -30,7 +31,8 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { Player } from '../core/player.js';
-import { translateKey, shakeScale } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
+import { shakeScale } from '../core/settings.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -47,16 +49,20 @@ import { BallisticImpactSystem } from '../world/impacts.js';
 import { createPalaceAcoustics } from './acoustics.js';
 import {
   PALACE_BACKGROUND_BANK, PALACE_NEXT_BEAT_BANK, PALACE_START_BANK,
+  PALACE_WAVE_INCOMING_CUE,
 } from './audio-banks.js';
 import { buildPalaceCast } from './cast.js';
 import { PalaceFinaleDirector } from './finale.js';
-import { EVIDENCE_IDS, PALACE_BEATS, CartelPalaceMission } from './mission.js';
+import {
+  EVIDENCE_IDS, PALACE_BEATS, PALACE_DINING_OBJECTIVES, CartelPalaceMission,
+} from './mission.js';
 import {
   previewPalaceCheckpointForLocation,
   previewSnapshotForCheckpoint,
   stagePalaceCheckpointGeometry,
 } from './preview.js';
 import { PALACE_COMBAT_POSTS, PalaceSecurity } from './security.js';
+import { createPalaceNavigation } from './navigation.js';
 import { PalaceBystanders } from './bystanders.js';
 import { PalaceGuardConversations } from './conversations.js';
 import { PalaceSuppressor } from './suppressor.js';
@@ -69,7 +75,7 @@ const startButton = document.getElementById('start-btn');
 const death = document.getElementById('death');
 const retryButton = document.getElementById('retry-btn');
 const ending = document.getElementById('ending');
-const initiationButton = document.getElementById('initiation-btn');
+const departButton = document.getElementById('depart-btn');
 const loading = document.getElementById('loading');
 
 const ui = {
@@ -91,6 +97,7 @@ const ui = {
   boss: document.getElementById('boss'),
   bossArmor: document.querySelector('#boss .armor i'),
   bossLife: document.querySelector('#boss .life i'),
+  bossName: document.getElementById('boss-name'),
   bossState: document.querySelector('#boss > span'),
   damageDirection: document.getElementById('damage-direction'),
   armorBreak: document.getElementById('armor-break'),
@@ -117,7 +124,7 @@ if (previewCheckpoint && campaignStory.mission.status === 'locked') {
 if (previewCheckpoint) {
   const labels = {
     approach: 'ESTATE APPROACH', perimeter: 'PERIMETER', estate: 'SERVICE WING',
-    betrayal: 'EVIDENCE COMPLETE', dining_room: 'MARK\'S TABLE', clear: 'EXTRACTION',
+    betrayal: 'EVIDENCE COMPLETE', dining_room: 'DINING ROOM', clear: 'EXTRACTION',
   };
   overlay.querySelector('.tag').textContent = `Preview checkpoint: ${labels[previewCheckpoint]}. Progress on this page is temporary.`;
   startButton.textContent = `Start at ${labels[previewCheckpoint].toLowerCase()}`;
@@ -165,8 +172,14 @@ scene.add(moon);
 scene.add(new THREE.HemisphereLight(0x526c7b, 0x1b1510, 1.12));
 scene.add(new THREE.AmbientLight(0x657279, 0.48));
 
-window.__squatchStage?.('Building Mark\'s estate…');
+window.__squatchStage?.('Building the cartel estate…');
 const palace = buildCartelPalace(scene);
+/* Development pilot result, now limited to this mission: a checked-in Recast
+ * navmesh supplies physical route legs while the existing Palace AI keeps
+ * every decision. Loading begins behind the menu and failure is a clean
+ * fallback to the established AABB/detour movement. */
+const palaceNavigation = createPalaceNavigation();
+const palaceNavigationReady = palaceNavigation.start();
 const castRoot = new THREE.Group();
 castRoot.name = 'cartel-palace.cast';
 scene.add(castRoot);
@@ -178,80 +191,17 @@ const world = {
   groundAt: palace.groundAt,
 };
 
-/** Fixed hostile-flash pool. Every flash root sits on the sampled world-space muzzle. */
-class HostileMuzzleFlashPool {
-  constructor(parent, { capacity = 12 } = {}) {
-    this.parent = parent;
-    this.capacity = Math.max(1, Math.trunc(Number(capacity) || 12));
-    this.pool = [];
-    this.next = 0;
-    this.lastOrigin = null;
-    const geometry = new THREE.SphereGeometry(0.065, 7, 5);
-    for (let index = 0; index < this.capacity; index++) {
-      const root = new THREE.Group();
-      root.name = `palace-hostile-muzzle-flash-${index}`;
-      root.visible = false;
-      const flare = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        color: 0xffcf72,
-        transparent: true,
-        opacity: 0,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        toneMapped: false,
-      }));
-      const light = new THREE.PointLight(0xffb85f, 0, 6, 2);
-      root.add(flare, light);
-      parent.add(root);
-      this.pool.push({ root, flare, light, time: 0, peak: 7 });
-    }
-  }
-
-  flash(origin, { heavy = false } = {}) {
-    if (!origin?.isVector3) return null;
-    const slot = this.pool[this.next % this.pool.length];
-    this.next++;
-    slot.root.position.copy(origin);
-    slot.root.scale.setScalar(heavy ? 1.45 : 1);
-    slot.root.visible = true;
-    slot.flare.material.opacity = 0.95;
-    slot.peak = heavy ? 11 : 7;
-    slot.light.intensity = slot.peak;
-    slot.time = 0.065;
-    this.lastOrigin = origin.clone();
-    return slot.root;
-  }
-
-  update(dt) {
-    const step = Math.max(0, Number(dt) || 0);
-    for (const slot of this.pool) {
-      if (slot.time <= 0) continue;
-      slot.time = Math.max(0, slot.time - step);
-      const strength = slot.time / 0.065;
-      slot.flare.material.opacity = strength * 0.95;
-      slot.light.intensity = strength * slot.peak;
-      if (slot.time <= 0) slot.root.visible = false;
-    }
-  }
-
-  reset() {
-    for (const slot of this.pool) {
-      slot.time = 0;
-      slot.root.visible = false;
-      slot.flare.material.opacity = 0;
-      slot.light.intensity = 0;
-    }
-    this.next = 0;
-    this.lastOrigin = null;
-  }
-
-  report() {
-    return Object.freeze({
-      capacity: this.capacity,
-      active: this.pool.filter((slot) => slot.root.visible).length,
-      lastOrigin: this.lastOrigin?.toArray() ?? null,
-    });
-  }
-}
+/*
+ * The hostile flash pool used to be a class right here.
+ *
+ * It is now `MuzzleFlashPool` in `src/core/combat/muzzle-flash.js`, unchanged
+ * in behaviour — same 65 ms decay, same flare card over a point light, same
+ * round-robin slots, same `report()` the palace verifier reads — because THE
+ * TAKE's police needed exactly this and a second copy of it is how two scenes
+ * end up with two different flashes. The slot names stay `palace-hostile-
+ * muzzle-flash-N`, which is what `verify-cartel-palace.mjs` and the visibility
+ * probe below address them by.
+ */
 
 const hud = new Hud();
 const player = new Player(camera, world);
@@ -306,7 +256,9 @@ player.onFootstep = (_surface, intensity) => combatAudio.step({
 const combatSteps = new CombatStepCadence({ audio: combatAudio });
 const ballisticImpacts = new BallisticImpactSystem(scene, { audio: combatAudio, capacity: 32 });
 const suppressionField = new CombatSuppressionField({ colliders: palace.colliders });
-const hostileMuzzleFlashes = new HostileMuzzleFlashPool(scene, { capacity: 12 });
+const hostileMuzzleFlashes = new MuzzleFlashPool(scene, {
+  capacity: 12, name: 'palace-hostile-muzzle-flash',
+});
 
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
@@ -322,11 +274,10 @@ const suppression = new SuppressionModel();
 const bloodImpacts = new BloodImpactSystem(scene);
 const deathBloodPools = new DeathBloodPool(scene, { capacity: 12 });
 
-/* The staged dining-room confrontation. Engagement stays player-paced: the
- * script hands combat over on Tony's verdict line, and any shot the player
- * fires first interrupts the speech and engages immediately — the words
- * never take the trigger away. `security` is assigned below; the callback
- * runs only once the dining doors are open, long after construction. */
+/* The staged dining-room confrontation. Movement stays player-paced while the
+ * essential evidence payoff owns the trigger. Tony's verdict hands combat to
+ * WeaponSystem; no early click can discard the setup. `security` is assigned
+ * below and runs only once the dining doors are open, long after construction. */
 const finale = new PalaceFinaleDirector({
   cast,
   hud,
@@ -334,8 +285,88 @@ const finale = new PalaceFinaleDirector({
   /* The live collider list, so the short men's dive can prove its landing is
    * clear of the table and the chairs before the animation starts. */
   colliders: palace.colliders,
+  /* THE THREE STAGES, AND WHO OWNS WHICH HALF.
+   *
+   * The director owns the words and the pacing; the cast owns the bodies; and
+   * these five callbacks are the whole seam between them. Nothing in
+   * `finale.js` touches a Combatant, which is the rule it was written under
+   * and the reason a fight with three stages did not need a second AI.
+   */
   onEngage: () => security.activateFinalEncounter(),
+  onScramble: () => {
+    cast.markScramblesAway();
+    hud.toast('Mark is gone', 'warn', 2600);
+  },
+  onMarkReturn: ({ armored, enraged }) => {
+    cast.activateMark({ armored, at: armored ? MARK_RETURN : MARK_LAST_STAND });
+    if (!armored) restoreMarkForLastStand({ enraged });
+    hud.say(enraged
+      ? '<em>MARK IS COMING BACK.</em> You should not have shot the help.'
+      : '<em>MARK IS COMING BACK.</em>', 2600);
+  },
+  onMarkRetreat: () => {
+    cast.markScramblesAway();
+    hud.toast('He is calling everybody', 'bad', 3000);
+  },
+  onWave: () => {
+    const released = cast.releaseWave();
+    if (released > 0) {
+      /* A delivered, nonverbal cue from the shared Siege library: doors and
+       * many boots, placed at the rear threshold while each visible body gets
+       * its own positional footsteps below. The next-beat bank is awaited at
+       * the dining door, so this request cannot race its decode. */
+      audio.play(PALACE_WAVE_INCOMING_CUE, {
+        volume: 0.72,
+        position: PALACE_ANCHORS.extraction,
+        ref: 4,
+        maxDist: 34,
+      });
+      hud.toast(`A-Team · ${released} in the room`, 'bad', 3200);
+    }
+  },
+  /* Mark's retreats/returns and the A-Team ingress are cast presentation,
+   * not AI travel, but boots should not become silent because ownership
+   * changes at the threshold. Reuse the exact cadence and surface mapping
+   * used by PalaceSecurity's onStep adapter. */
+  onPresentationStep: ({ id, dt, position, moving, entry }) => {
+    combatSteps.update({
+      id: `palace-${id}`,
+      dt,
+      position,
+      surface: palaceSurfaceAt(position),
+      intensity: entry?.role === 'boss' ? 1.2 : 0.92,
+      moving,
+    });
+  },
 });
+
+/* Where he comes back in, and where he makes his last stand.
+ *
+ * Both are in the room's own openings rather than out of thin air: the double
+ * doors the player came through, and the extraction gap behind the table. */
+const MARK_RETURN = Object.freeze({ x: 0, z: -36.4, faceZ: -42 });
+const MARK_LAST_STAND = Object.freeze({ x: 0, z: -47.8, faceZ: -40 });
+
+/**
+ * Stage three, on the body rather than in the script.
+ *
+ * He comes back out with no plates and a fresh will to be there. His armour
+ * is spent by definition -- that is what ended stage one -- and his health is
+ * whatever the player left it at, so without this the last stand is however
+ * much of stage one was still in him, which could be a great deal or almost
+ * nothing. It is set, not topped up: the number is the fight's, not a
+ * remainder of the previous one.
+ */
+const MARK_LAST_STAND_HEALTH = 260;
+function restoreMarkForLastStand({ enraged = false } = {}) {
+  const actor = cast.mark.actor;
+  if (!actor) return false;
+  actor.armor = 0;
+  actor.health = enraged ? MARK_LAST_STAND_HEALTH + 60 : MARK_LAST_STAND_HEALTH;
+  actor.incapacitated = false;
+  cast.mark.armorPresentation?.applyResult?.({ applied: true, armorBroken: true });
+  return true;
+}
 
 /* The estate's working civilians -- today, the cleaner in the entry hall.
  * PalaceSecurity never ticks them (they are not combatants), so this owns
@@ -401,6 +432,9 @@ let armorBreakTimer = 0;
 let lastCombatFeedback = null;
 let lastPlayerSuppression = null;
 const playerTriggerDamage = new Map();
+/* Kept local for the whole mission and folded once when the Palace clears.
+ * A Set makes shotgun pellets and a final overkill impact one person. */
+const playerKillIds = new Set();
 
 function confirmCombatHit(kind) {
   ui.crosshair.dataset.confirmed = kind;
@@ -446,6 +480,69 @@ function nearestLiveGuard() {
 function syncSuppressor() {
   suppressor.sync(weapons);
   if (security) security.gunshotHearingRadius = suppressor.hearingRadius;
+}
+
+/**
+ * Which kind of armour the man was wearing, for the sound of it failing.
+ *
+ * `CombatArmorPresentation` has carried the tier since it was built, and the
+ * combat audio layer now asks for it: a plate carrier cracks and drops
+ * ceramic, a light vest does neither. See `CombatAudio.impact`.
+ */
+function armorTierOf(entry) {
+  return entry?.armorPresentation?.tier === 'heavy' ? 'heavy' : 'light';
+}
+
+/* THE HOUSE'S ALARM, AND IT IS IN THE HOUSE.
+ *
+ * Owner, 2026-08-24, on the Palace: a stray ringing/phone sound after the
+ * first kill.
+ *
+ * It was this alarm, and three things were wrong with it.
+ *
+ * THE SAMPLE. `alarm.chirp` is recorded as "a small door alarm box chirping
+ * twice, two short high electronic beeps ... close". That is a notification
+ * tone. It belongs on the panel by a door, which is where the rest of the game
+ * uses it, and it is not what a cartel estate does when it finds a body.
+ * `siege.alarm.tone` already exists and is recorded as "one complete pulse of a
+ * large private-house security alarm ... a slow two-tone electronic klaxon" --
+ * written for Lou's mansion, and the same object on a different rich man's
+ * house. Reused rather than re-recorded (docs/REUSE-FIRST.md).
+ *
+ * THE PLACE. It was played with no `position`, so `AudioEngine.play` gave it no
+ * panner at all and it arrived dead centre in both ears at full level -- which
+ * is what a phone in your pocket sounds like, not a bell on a building. It
+ * rings from the two places an estate alarm lives now: the security office
+ * inside and the head of the perimeter gate. Where the player is standing
+ * decides what he hears, which is only true now that this scene moves the
+ * listener at all (see `animate`).
+ *
+ * THE SHAPE. One strike is a chime. An alarm is a thing that keeps going, so
+ * this is a run of pulses -- long enough to say the night has changed, short
+ * enough that the player is not still listening to it during the dining room.
+ */
+const ALARM_BELLS = Object.freeze([
+  PALACE_ANCHORS.securityStill,
+  Object.freeze(new THREE.Vector3(14, 4.4, 51)),
+]);
+const ALARM_PULSES = 6;
+const ALARM_PULSE_GAP = 2.4;
+
+function soundTheEstateAlarm() {
+  for (let pulse = 0; pulse < ALARM_PULSES; pulse += 1) {
+    for (const bell of ALARM_BELLS) {
+      audio.play('siege.alarm.tone', {
+        volume: 0.30,
+        position: bell,
+        delay: pulse * ALARM_PULSE_GAP,
+        /* An estate, not a room: audible from the fence to the dining room,
+         * losing level slowly enough that it stays a klaxon the whole way. */
+        ref: 7,
+        maxDist: 110,
+        rolloff: 0.85,
+      });
+    }
+  }
 }
 
 function palaceSurfaceAt(position) {
@@ -576,9 +673,11 @@ const weapons = new WeaponSystem({
           caliber: weaponCaliber(impact.weapon),
           position: located.point ?? impact.point,
           result: located.result,
+          armorTier: armorTierOf(located.combatant),
         });
       }
       budget?.audioActors.add(combatant.id);
+      if (located.fatal) playerKillIds.add(combatant.id);
       confirmCombatHit(located.zone === 'head' ? 'headshot'
         : located.fatal ? 'kill'
           : located.result?.absorbed > 0 ? 'armor' : 'hit');
@@ -608,10 +707,6 @@ const weapons = new WeaponSystem({
     }
     if (event.type === 'equip' || event.type === 'stow') syncSuppressor();
     if (event.type !== 'fire' || state.phase !== 'active') return;
-    /* A shot during the confrontation is the player's answer to it: the
-     * speech stops mid-sentence and the room engages. The kills stay
-     * player-driven — the script never fires first. */
-    if (mission.beat === PALACE_BEATS.DINING_ROOM) finale.interrupt();
     if (![PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR].includes(mission.beat)) {
       /* THE SUPPRESSED HEARING RADIUS. This used to be an unconditional
        * `raiseAlarm('gunshot')`: one round anywhere in the compound and the
@@ -682,8 +777,7 @@ function resetCombatFeedback() {
  * froze (input, trigger, ADS, pointer lock) has a matching un-freeze. */
 function presentPlayerDeath() {
   state.phase = 'dead';
-  player.enabled = false;
-  player.clearKeys();
+  input.refresh('player-death');
   interaction.setPaused(true);
   weapons.setTrigger(false);
   weapons.setAimed(false);
@@ -758,6 +852,7 @@ function applyCivilianImpact(impact, entry) {
     entry.health = zone === 'head' ? 0 : Math.max(0, entry.health - damage);
     fatal = entry.health <= 0;
     if (fatal) {
+      playerKillIds.add(entry.id);
       cast.civilianDown(entry, { roll: entry.id === 'wife' ? -0.36 : 0.44 });
       const at = entry.root.getWorldPosition(new THREE.Vector3());
       deathBloodPools.spill(at, {
@@ -812,10 +907,11 @@ function syncLoadout() {
  * standing note: *"We keep reinventing and using different systems instead of
  * using what we already have... objectives change presentation."*
  *
- * `mission.js` still owns every word. The kicker becomes the card's title,
- * the objective its one standing item, the hint the line underneath; nothing
- * in `OBJECTIVES` changed. Parented to `#hud` so it lives and dies with the
- * rest of the furniture, as the card it replaces did.
+ * `mission.js` still owns every word and derives the current evidence search
+ * from the same ledger that unlocks the dining room. The kicker becomes the
+ * card's title, the objective its one standing item, and the hint the line
+ * underneath. Parented to `#hud` so it lives and dies with the rest of the
+ * furniture, as the card it replaces did.
  */
 const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
 
@@ -861,17 +957,21 @@ const mission = new CartelPalaceMission({
     hud.toast('Evidence complete · rescue premise disproved', 'good', 3600);
   },
   onComplete: (report) => {
-    const completed = campaignStory.complete(report);
+    const completionReport = {
+      ...report,
+      shotsFired: weapons.stats.shots,
+      peopleKilled: playerKillIds.size,
+    };
+    const completed = campaignStory.complete(completionReport);
     if (!completed) {
       hud.toast('The palace is not clear yet.', 'bad');
       return;
     }
     campaignAudioFeedback.complete('cartel-palace', completed);
-    state.completeReport = report;
+    state.completeReport = completionReport;
     loadout.capture(weapons);
     state.phase = 'complete';
-    player.enabled = false;
-    player.clearKeys();
+    input.refresh('mission-complete');
     interaction.setPaused(true);
     weapons.setTrigger(false);
     weapons.setAimed(false);
@@ -884,6 +984,7 @@ security = new PalaceSecurity({
   cast,
   colliders: palace.colliders,
   combatPosts: PALACE_COMBAT_POSTS,
+  navigation: palaceNavigation,
   playerActor,
   /* Security calls this for the hit it just applied, so a man cries out even
    * when the root's per-trigger audio budget has already suppressed the thud
@@ -892,7 +993,7 @@ security = new PalaceSecurity({
   audio: combatAudio,
   onAlarm: (reason) => {
     document.body.classList.add('alarm');
-    audio.play('alarm.chirp', { volume: 0.58 });
+    soundTheEstateAlarm();
     if (reason !== 'dining_room') mission.raiseAlarm(reason);
     if (reason === 'guard_contact') hud.say('<em>CONTACT.</em> The quiet route is gone.', 3000);
     if (reason === 'dining_room') return;
@@ -1025,7 +1126,11 @@ security = new PalaceSecurity({
     finale.onTargetDown(entry.id);
   },
   onBossPhase: (phase) => {
-    if (phase === 'exposed') hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
+    if (phase !== 'exposed') return;
+    hud.say('<em>MARK\'S ARMOR IS GONE.</em>', 2200);
+    /* And that is the end of stage one. He does not stand there and finish the
+     * fight without his plates -- he goes and gets everybody. */
+    finale.onArmorBroken();
   },
 });
 
@@ -1136,7 +1241,7 @@ for (const [id, target] of Object.entries(palace.evidence)) {
 }
 
 interaction.register(palace.targets.diningDoor, {
-  label: 'Open Mark\'s <b>dining room</b>',
+  label: 'Open the <b>dining room</b>',
   hold: 0.72,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.BETRAYAL,
   onUse: async () => {
@@ -1152,8 +1257,9 @@ interaction.register(palace.targets.diningDoor, {
     audio.play('door.creak', { volume: 0.7, position: PALACE_ANCHORS.diningRoom });
     ui.boss.classList.remove('hidden');
     /* The confrontation the evidence earned, in place of the old two-line
-     * hand-off. Combat activates on Tony's verdict line — or instantly on
-     * the player's first shot, whichever comes first. */
+     * hand-off. A held trigger from the corridor cannot leak through the door;
+     * Tony's verdict is the only handoff into combat. */
+    weapons.setTrigger(false);
     const progress = mission.snapshot();
     finale.beginConfrontation({
       evidenceFound: progress.evidenceFound,
@@ -1163,7 +1269,9 @@ interaction.register(palace.targets.diningDoor, {
 });
 
 interaction.register(palace.targets.extractionGate, {
-  label: 'Leave for the <b>Initiation</b>',
+  /* He is leaving a house, not going to a ceremony. See the note on
+   * PALACE_BEATS.CLEAR in ./mission.js. */
+  label: 'Leave through the <b>terrace</b>',
   hold: 0.82,
   enabled: () => state.phase === 'active' && mission.beat === PALACE_BEATS.CLEAR,
   onUse: () => {
@@ -1214,14 +1322,15 @@ function placeAtCheckpoint(id) {
 }
 
 function clearCombatInput() {
-  player.clearKeys();
-  interaction.cancel();
-  weapons.setTrigger(false);
-  weapons.setAimed(false);
+  input?.clear('combat-reset');
 }
 
 function clearCombatTransients() {
   clearCombatInput();
+  /* Scripted threshold crossings belong to the discarded attempt just like
+   * hostile fire and queued dialogue. Security.restore() immediately puts
+   * every body back at its checkpoint position after this cancellation. */
+  cast.clearPresentation();
   weapons.cancelPendingImpacts();
   tracers.clear();
   combatAudio.reset();
@@ -1291,6 +1400,11 @@ function restoreCombatCheckpoint(snapshot) {
   updatePlayerStatus();
   updateAmmo();
   updateStealth();
+  /* A restore lands in whatever stage the checkpoint says, and the beat's own
+   * objective has just been pushed over the top of the stage card. Forget the
+   * last stage so the next frame writes the right one. */
+  bossStage = null;
+  updateDiningObjective();
   updateBoss();
   updateCombatFeedback(0);
   return security;
@@ -1378,12 +1492,7 @@ function restoreMissionProgress() {
 /* ------------------------------------------------------------------ */
 
 function requestGamePointerLock() {
-  try {
-    const pending = canvas.requestPointerLock?.();
-    pending?.catch?.(() => {});
-  } catch {
-    // Embedded preview surfaces can deny pointer lock and still run the scene.
-  }
+  return input.requestPointerLock();
 }
 
 const pauseMenu = createPauseMenu({
@@ -1398,15 +1507,13 @@ const pauseMenu = createPauseMenu({
   canPause: () => state.phase === 'active',
   onPause: () => {
     state.paused = true;
-    player.enabled = false;
-    player.clearKeys();
-    weapons.setTrigger(false);
     interaction.setPaused(true);
+    input.refresh('pause');
   },
   onResume: () => {
     state.paused = false;
     interaction.setPaused(false);
-    player.enabled = true;
+    input.refresh('resume');
     requestGamePointerLock();
   },
   recovery: createCampaignSceneRecovery({
@@ -1422,6 +1529,67 @@ const pauseMenu = createPauseMenu({
   }),
 });
 
+const input = createFirstPersonInput({
+  player,
+  canvas,
+  interaction,
+  canEnable: () => state.phase === 'active' && !state.paused,
+  canHandleInput: () => state.phase === 'active' && !state.paused,
+  /* Keyboard interaction remains available when an embedded browser refuses
+   * mouse capture. Movement and look still require capture; the authored
+   * power-box/door actions historically did not. */
+  interactionRequiresCapture: false,
+  routes: {
+    keyDown(event) {
+      if (event.code === 'KeyR' && !event.repeat) {
+        weapons.reload();
+        return true;
+      }
+      if (event.code === 'KeyQ' && !event.repeat) {
+        loadout.stow(weapons);
+        syncLoadout();
+        return true;
+      }
+      if (event.code === 'KeyB' && !event.repeat) {
+        hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
+        return true;
+      }
+      if (/^Digit[1-5]$/.test(event.code) && !event.repeat) {
+        loadout.select(Number(event.code.slice(-1)) - 1, weapons);
+        syncLoadout();
+        return true;
+      }
+      return false;
+    },
+    mouseDown(event, controls) {
+      if (!controls.locked) return false;
+      if (event.button === 0) {
+        if (!finale.canPlayerFire()) {
+          weapons.setTrigger(false);
+          hud.toast('Hold fire · listen', 'warn', 1400);
+          return true;
+        }
+        weapons.setTrigger(true);
+      }
+      if (event.button === 2) weapons.setAimed(true);
+      return event.button === 0 || event.button === 2;
+    },
+    mouseUp(event) {
+      if (event.button === 0) weapons.setTrigger(false);
+      if (event.button === 2) weapons.setAimed(false);
+      return event.button === 0 || event.button === 2;
+    },
+  },
+  onClear: (reason) => {
+    weapons.setTrigger(false);
+    weapons.setAimed(false);
+  },
+  onCaptureError: () => {
+    weapons.setTrigger(false);
+    weapons.setAimed(false);
+  },
+});
+
 startButton.addEventListener('click', async () => {
   const entry = campaignStory.begin();
   if (!entry.ok) {
@@ -1432,7 +1600,7 @@ startButton.addEventListener('click', async () => {
     }
     startButton.disabled = true;
     startButton.textContent = 'Scene unavailable';
-    overlay.querySelector('.tag').textContent = 'Finish the repaired-mansion briefing before approaching Mark\'s estate.';
+    overlay.querySelector('.tag').textContent = 'Finish the repaired-mansion briefing before approaching the cartel estate.';
     return;
   }
   if (campaign.state.scene.id !== SCENE_IDS.CARTEL_PALACE) {
@@ -1469,7 +1637,7 @@ startButton.addEventListener('click', async () => {
   }
   state.phase = 'active';
   interaction.setPaused(false);
-  player.enabled = true;
+  input.refresh('scene-start');
   inventoryBar.show();
   loadout.apply(weapons);
   syncSuppressor();
@@ -1536,7 +1704,7 @@ function retryFromCheckpoint() {
   document.body.classList.toggle('alarm', security.alarm);
   state.phase = 'active';
   interaction.setPaused(false);
-  player.enabled = true;
+  input.refresh('checkpoint-retry');
   requestGamePointerLock();
   return true;
 }
@@ -1546,73 +1714,27 @@ retryButton.addEventListener('click', () => {
    * fallback for a missing or pre-v1 checkpoint snapshot. */
   if (!retryFromCheckpoint()) location.reload();
 });
-addEventListener('pagehide', () => loadout.capture(weapons));
+addEventListener('pagehide', () => {
+  loadout.capture(weapons);
+  palaceNavigation.destroy();
+});
 
-initiationButton.addEventListener('click', () => {
+departButton.addEventListener('click', () => {
   if (campaign.state.missions[MISSION_IDS.CARTEL_PALACE].status !== 'complete') return;
-  campaign.update((next) => {
-    next.missions[MISSION_IDS.INITIATION].status = 'in_progress';
-  });
-  /* NOT straight to the Initiation any more.
+  /* HOME before the Special Meeting.
    *
    * The Palace is over and nobody has told him whether killing Sauce was the
    * right call. He goes home, Booskibro rings to say there is a meeting and it
-   * is going to be a special one, and three men come and collect him — see
-   * `src/specialmeeting/`. That scene hands off to the Initiation at the
-   * treeline on its own, so this is a repoint rather than an insertion, and
-   * `SCENES[CARTEL_PALACE].next` is one edge again because of it. */
-  navigateCampaign(campaign, SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb', location });
+   * is going to be a special one. Beat 27 belongs to the luxury apartment Lou
+   * gave him after the round; its private lift then carries him to the kerb.
+   *
+   * CartelPalaceCampaignStory.complete() has already made Initiation
+   * available. It must not become in_progress here: Special Meeting owns that
+   * handoff at the treeline after its drive and forest approach. */
+  returnHomeFromMission(campaign, SCENE_IDS.CARTEL_PALACE, { location });
 });
 
-document.addEventListener('pointerlockchange', () => {
-  if (state.phase === 'active' && !state.paused) {
-    player.enabled = document.pointerLockElement === canvas;
-  }
-  if (document.pointerLockElement !== canvas) clearCombatInput();
-});
-document.addEventListener('mousemove', (event) => {
-  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
-});
-document.addEventListener('keydown', (event) => {
-  if (state.phase !== 'active' || state.paused) return;
-  if (event.code === 'Space') event.preventDefault();
-  player.setKey(translateKey(event.code), true);
-  if (event.code === 'KeyE' && !event.repeat) interaction.press();
-  if (event.code === 'KeyR' && !event.repeat) weapons.reload();
-  if (event.code === 'KeyQ' && !event.repeat) {
-    loadout.stow(weapons);
-    syncLoadout();
-  }
-  if (event.code === 'KeyB' && !event.repeat) hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-  if (/^Digit[1-5]$/.test(event.code) && !event.repeat) {
-    loadout.select(Number(event.code.slice(-1)) - 1, weapons);
-    syncLoadout();
-  }
-});
-document.addEventListener('keyup', (event) => {
-  player.setKey(translateKey(event.code), false);
-  if (event.code === 'KeyE') interaction.release();
-});
-document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && state.phase === 'active' && !state.paused
-    && document.pointerLockElement === canvas) weapons.setTrigger(true);
-  if (event.button === 2 && state.phase === 'active' && !state.paused
-    && document.pointerLockElement === canvas) weapons.setAimed(true);
-});
-document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) weapons.setTrigger(false);
-  if (event.button === 2) weapons.setAimed(false);
-});
-addEventListener('blur', () => {
-  if (state.phase === 'active' && !state.paused) player.enabled = false;
-  clearCombatInput();
-});
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());
-canvas.addEventListener('click', () => {
-  if (state.phase === 'active' && !state.paused && document.pointerLockElement !== canvas) {
-    requestGamePointerLock();
-  }
-});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1639,12 +1761,51 @@ function updateAmmo() {
   ui.ammoState.textContent = shot.state === 'ready' ? '' : shot.state.toUpperCase();
 }
 
+/**
+ * THE BAR AT THE TOP OF THE ROOM, and who it is actually about.
+ *
+ * It was Mark's, permanently, printed into the markup: `MARK · CARTEL BOSS`,
+ * armour bar, health bar. That was honest while the doors opened on Mark. It
+ * has not been since the 2026-08-25 rewire -- the doors open on the CHEF, and
+ * for the whole of that stage the bar tracked a man standing in another wing
+ * of the house, at full health, reading ARMORED. So it follows the stage now:
+ * the chef while the chef is the room, Mark when Mark is in it, and nothing
+ * at all across the wave, where the room is four ordinary men and a boss bar
+ * would be a lie about all five of them.
+ */
+const BOSS_SUBJECTS = Object.freeze({
+  sauce: { entry: () => cast.sauce, name: 'SAUCE · THE CHEF' },
+  'reprisal-one': { entry: () => cast.mark, name: 'MARK · CARTEL BOSS' },
+  'reprisal-final': { entry: () => cast.mark, name: 'MARK · CARTEL BOSS' },
+  done: { entry: () => cast.mark, name: 'MARK · CARTEL BOSS' },
+});
 function updateBoss() {
   if (ui.boss.classList.contains('hidden')) return;
-  const mark = cast.mark.actor;
-  ui.bossArmor.style.width = `${Math.round(mark.armor / 170 * 100)}%`;
-  ui.bossLife.style.width = `${Math.round(mark.health / mark.maxHealth * 100)}%`;
-  ui.bossState.textContent = mark.incapacitated ? 'DOWN' : mark.armor > 0 ? 'ARMORED' : 'EXPOSED';
+  const subject = BOSS_SUBJECTS[finale.report().stage] ?? BOSS_SUBJECTS['reprisal-one'];
+  const actor = subject.entry()?.actor;
+  if (!actor) return;
+  if (ui.bossName && ui.bossName.textContent !== subject.name) ui.bossName.textContent = subject.name;
+  ui.bossArmor.style.width = `${Math.round(actor.armor / 170 * 100)}%`;
+  ui.bossLife.style.width = `${Math.round(actor.health / actor.maxHealth * 100)}%`;
+  ui.bossState.textContent = actor.incapacitated ? 'DOWN' : actor.armor > 0 ? 'ARMORED' : 'EXPOSED';
+}
+
+/**
+ * The objective card follows the same stage, for the same reason: a card that
+ * says *"Mark is armored, break his protection"* while Mark is two rooms away
+ * sends the player looking for a fight that is not in the room. Cheap enough
+ * to poll -- the stage is a string on an object the frame already holds, and
+ * nothing is written until it changes.
+ */
+let bossStage = null;
+function updateDiningObjective() {
+  if (mission.beat !== PALACE_BEATS.DINING_ROOM) return;
+  const stage = finale.report().stage;
+  if (stage === bossStage) return;
+  bossStage = stage;
+  /* The wave is the one stage with nobody to put a bar on. */
+  ui.boss.classList.toggle('hidden', stage === 'wave');
+  updateObjective(PALACE_DINING_OBJECTIVES[stage]);
 }
 
 /**
@@ -1741,6 +1902,9 @@ function animate(now) {
     acoustics.update(player.position);
     interaction.update(dt);
     finale.update(dt);
+    /* PalaceFinaleDirector advances every scripted threshold crossing on its
+     * own simulated clock. Inactive during the crossing means nobody fires
+     * from off-screen; activation on arrival reaches Security below. */
     security.update(dt, {
       playerPosition: player.position,
       powerCut: state.powerCut,
@@ -1768,6 +1932,7 @@ function animate(now) {
     deathBloodPools.update(dt);
     updateStealth();
     updateAmmo();
+    updateDiningObjective();
     updateBoss();
   } else {
     player.update(dt);
@@ -1778,6 +1943,30 @@ function animate(now) {
   ballisticImpacts.update(dt);
   hostileMuzzleFlashes.update(dt);
   updateCombatFeedback(dt);
+  /* WHERE THE PLAYER'S EARS ARE.
+   *
+   * Owner, 2026-08-24, on the Palace: enemy death audio is spatially wrong --
+   * a man dying in front of him reads as behind him.
+   *
+   * It was not the death sound. `AudioEngine._makePanner` puts every
+   * positioned cue at its real world coordinates and lets an HRTF panner work
+   * out the bearing, which is correct -- but a bearing is between two points,
+   * and the other one is the LISTENER. Nothing in this scene ever moved it.
+   * It sat at (0, 0, 0) facing -Z from the first frame to the last, so every
+   * shot, body, footstep and voice in the palace was panned as heard by
+   * somebody standing at the world origin rather than by the player. The
+   * estate runs from about z +40 at the fence to z -50 at the dining room, so
+   * the player crosses that origin partway through: sounds that are genuinely
+   * ahead of him read as behind from the moment he does.
+   *
+   * One call per frame, and it must be the CAMERA rather than the player
+   * body -- the camera carries the head's yaw and pitch, and a listener with
+   * position but no orientation is a listener that cannot tell front from
+   * back. `updateListener` also re-samples the followers, which is idempotent
+   * with the engine's own rAF pump.
+   *
+   * Seven other scenes had the same gap and are fixed alongside this one. */
+  audio.updateListener(camera);
   postfx.render();
   postfx.sample(dt);
 }
@@ -1790,8 +1979,11 @@ window.CARTEL_PALACE = {
   acoustics,
   mission,
   player,
+  input,
   interaction,
   palace,
+  palaceNavigation,
+  palaceNavigationReady,
   cast,
   finale,
   security,
@@ -1836,6 +2028,7 @@ window.CARTEL_PALACE = {
         caliber: weaponCaliber(impact.weapon),
         position: located.point ?? impact.point,
         result: located.result,
+        armorTier: armorTierOf(located.entry ?? located.combatant),
       });
       confirmCombatHit(located.zone === 'head' ? 'headshot'
         : located.fatal ? 'kill'

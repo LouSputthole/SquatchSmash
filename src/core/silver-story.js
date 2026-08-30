@@ -30,9 +30,18 @@ class SilverStory {
   }
 
   /**
-   * Can he go in? The date is gated on the Motel being finished and on her
-   * having actually rung — the same two things the apartment door checks, so
-   * that opening `silver.html` directly cannot skip the chapter.
+   * Can he go in? The date is gated on Silver Pines being finished and on her
+   * having actually rung — the same two things the luxury apartment's door
+   * checks, so that opening `silver.html` directly cannot skip the chapter.
+   *
+   * IT USED TO REQUIRE NO WAKE, which the beats 12-19 reorder turned upside
+   * down: the bible's Front & Center is beat 15 and the harbour job is beat
+   * 18, so the date now comes FIRST and the boat comes the morning after it.
+   * Silver Pines replaced it because that is the beat that actually causes
+   * this one -- the bible's own note on beat 13 is "give Lou a line bridging
+   * course → new venue/date night", and beat 14 hands him the flat he leaves
+   * from. The Motel check stays: it is still the oldest true thing about a
+   * man who is standing here.
    */
   begin() {
     const state = this.campaign.state;
@@ -46,8 +55,8 @@ class SilverStory {
     if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
       return { ok: false, reason: 'motel_incomplete' };
     }
-    if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
-      return { ok: false, reason: 'no_wake_incomplete' };
+    if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
+      return { ok: false, reason: 'golf_incomplete' };
     }
     if (state.events[EVENT_IDS.MARGO_DATE_CALL].status !== 'answered') {
       return { ok: false, reason: 'margo_call_incomplete' };

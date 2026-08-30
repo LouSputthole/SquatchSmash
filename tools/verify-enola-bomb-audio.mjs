@@ -39,6 +39,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchChromium } from './launch-chromium.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5989;
@@ -88,14 +89,6 @@ const MANIFEST_START_TIMEOUT_MS = 15000;
  */
 const MANIFEST_LOAD_TIMEOUT_MS = 180000;
 
-let chromium;
-try {
-  ({ chromium } = await import('playwright'));
-} catch {
-  console.error('playwright is not installed; cannot verify the bomb audio.');
-  process.exit(1);
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const file = path.join(ROOT, decodeURIComponent(url.pathname));
@@ -108,7 +101,7 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((resolve) => server.listen(PORT, resolve));
 
-const browser = await chromium.launch({
+const browser = await launchChromium({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
@@ -143,8 +136,18 @@ try {
    * scenes are complete; using it here made Start return before startAudio(). */
   await page.goto(`http://localhost:${PORT}/enolasquatch.html?preview=1`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.__squatch?.enolaSquatch === true, null, { timeout: 180000 });
+  /* A DOM `.click()` is not a trusted user gesture in Edge and therefore
+   * cannot acquire pointer lock. Use Playwright's real input path, then wait
+   * for the asynchronous lock-change handler to enable the player. */
+  await page.locator('#start-btn').click();
+  await page.waitForFunction(() => {
+    const E = window.__enolaSquatch;
+    return E?.campaign?.preview === true
+      && E?.mission?.phase === 'walkaround'
+      && E?.player?.enabled === true
+      && document.getElementById('overlay')?.classList.contains('hidden') === true;
+  }, null, { timeout: 15000 });
   const entry = await page.evaluate(() => {
-    document.getElementById('start-btn').click();
     const E = window.__enolaSquatch;
     return {
       preview: E?.campaign?.preview === true,

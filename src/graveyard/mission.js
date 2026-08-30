@@ -28,29 +28,31 @@ export const GRAVES = Object.freeze({
     line: 'GeeWiz. Regular stone, regular plot, one spelling nobody ever agreed on.',
   }),
   sauce: Object.freeze({
-    name: 'SAUCE', tier: 'reserved', open: true,
-    line: 'An open plot with SAUCE already cut into the temporary marker.',
+    // Keep the internal id for save and geometry compatibility. The player-facing
+    // marker cannot name Sauce before the Cartel Palace betrayal reveal.
+    name: 'RESERVED', tier: 'reserved', open: true,
+    line: 'An open plot marked RESERVED in fresh pencil.',
   }),
 });
 
 export const GRAVEYARD_ARRIVAL_LINES = Object.freeze([
   Object.freeze({
     who: 'Snow',
-    cue: 'vo.graveyard.arrival.snow.1',
-    text: 'End of the road. Fresh plot is past GeeWiz. Then the Motel.',
-    seconds: 3.8,
+    cue: 'vo.graveyard.arrival.snow.watched-home',
+    text: 'End of the road. Fresh plot is past GeeWiz. When Billy misses breakfast, they watch familiar doors. Yours is familiar.',
+    seconds: 6.4,
   }),
   Object.freeze({
     who: 'Prospect',
-    cue: 'vo.graveyard.arrival.prospect.1',
-    text: 'You planning to tell me what is at the Motel?',
-    seconds: 3.0,
+    cue: 'vo.graveyard.arrival.prospect.why-motel',
+    text: 'So why the Motel?',
+    seconds: 2.4,
   }),
   Object.freeze({
     who: 'Snow',
-    cue: 'vo.graveyard.arrival.snow.2',
-    text: 'When we get there.',
-    seconds: 2.6,
+    cue: 'vo.graveyard.arrival.snow.daylight-cover',
+    text: 'A room they do not know and a deal that keeps us busy until daylight.',
+    seconds: 4.2,
   }),
 ]);
 
@@ -70,14 +72,14 @@ export function resolveGraveyardLineHold(line, recordedSeconds = 0) {
 export const GRAVEYARD_SNOW_BARKS = Object.freeze({
   car: Object.freeze({
     who: 'Snow',
-    cue: 'vo.graveyard.snow.bark.car',
-    text: 'Car. Now. Room twelve is not getting cleaner while we stand here.',
-    seconds: 3.5,
+    cue: 'vo.graveyard.snow.bark.daylight',
+    text: 'Car. Now. Room twelve buys us daylight.',
+    seconds: 2.8,
   }),
   plot: Object.freeze({
     who: 'Snow',
     cue: 'vo.graveyard.snow.bark.plot',
-    text: 'Fresh plot is past GeeWiz. Sauce\'s hole stays open.',
+    text: 'Fresh plot is past GeeWiz. The reserved hole stays open.',
     seconds: 3.2,
   }),
 });
@@ -112,8 +114,14 @@ export class GraveyardMission {
     this.bodyBuried = false;
     this.objectives = [
       { id: 'bury', text: 'Bury Billy HotDog in a fresh plot', done: false },
-      { id: 'memorials', text: `Check every Family marker · 0/${GRAVE_COUNT}`, done: false, optional: true },
-      { id: 'tributes', text: `Pay respect or disrespect · 0/${GRAVE_COUNT}`, done: false, optional: true },
+      {
+        id: 'memorials', text: `Check every Family marker · 0/${GRAVE_COUNT}`,
+        done: false, optional: true, retire: false,
+      },
+      {
+        id: 'tributes', text: `Pay respect or disrespect · 0/${GRAVE_COUNT}`,
+        done: false, optional: true, retire: false,
+      },
     ];
   }
 
@@ -206,8 +214,8 @@ export class GraveyardMission {
   }
 
   suggestSaucePlot() {
-    this.line('We already have a hole. Put HotDog in Sauce\'s.', 'vo.graveyard.prospect.sauce', 'Prospect');
-    this.line('No. I have a feeling we are going to need that one soon.', 'vo.graveyard.snow.sauce', 'Snow');
+    this.line('Fresh hole. Why not use this one?', 'vo.graveyard.prospect.sauce', 'Prospect');
+    this.line('Reserved means reserved. HotDog goes past GeeWiz.', 'vo.graveyard.snow.sauce', 'Snow');
     return false;
   }
 
@@ -277,7 +285,11 @@ export class GraveyardMission {
     this.bodyBuried = true;
     this.objectives.find((objective) => objective.id === 'bury').done = true;
     this.hooks.onObjective?.(this.objectives);
-    this.line('That closes the HotDog thing. Get in the car. The next one doesn’t close with a shovel.', 'vo.graveyard.snow.done', 'Snow');
+    this.line(
+      'That closes the HotDog thing. Your building stays watched till morning. We use the Motel.',
+      'vo.graveyard.snow.done.watched-home',
+      'Snow',
+    );
     this.hooks.onState?.(this.state, this);
     return true;
   }

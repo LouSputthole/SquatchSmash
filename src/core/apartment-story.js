@@ -66,14 +66,29 @@ const RETRY_GAP = 10;
  */
 export const DEPARTURE_REFUSALS = Object.freeze({
   heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
+  cabin_message: 'Lou sent somewhere to disappear. Read it before driving into the dark.',
   final_arc_locked: 'Bank’s done. Nobody’s called. And when nobody calls, you sit down.',
   initiation_locked: 'Lou said seven. The invitation still has to land.',
+  /* BEAT 12's two, and the two they replaced.
+   *
+   * `golf_call` and `golf_return` are kept because they are recordings --
+   * `vo.door.refusal.golf_call.1` and `.golf_return.1` are on disk and the
+   * orphan gate counts anything on disk that no cue claims. The door no
+   * longer reaches either: the round is not gated on a morning telephone any
+   * more (Lou rang the night before), and coming home from the round is not a
+   * thing that happens, because the round ends at the new address. */
   golf_call: 'Lou said he would call about this morning. I am not guessing where.',
   golf_return: 'Three holes done. Whatever comes next, Lou will call for it.',
+  /* The evening of THE TAKE. He is standing in a clean flat with the bank
+   * counted and no idea that the next call is the one that moves him out. */
+  new_space_call: 'Lou said he would ring tonight. Whatever it is, it waits for the phone.',
+  sleep_after_take: 'Eight o’clock at Silver Pines, and it is a drive. <em>Bed.</em>',
   heist_call: 'Lou said he would call. Today is not a day to guess.',
   heist_kit: 'Everything Lou named goes with me. Nothing else does.',
   big_night_call: 'Booskibro said he would call about tonight. I am not turning up unasked.',
   no_wake_call: 'Lou said he would call when he knew. I am not chasing him today.',
+  /* Retired with the duplicate apartment call; retained as a claimed legacy
+   * recording until the audio-debt pass removes the physical take. */
   date_call: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
   sleep_after_date: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
   day_two_call: 'Booskibro said he would call with the next job.',
@@ -84,6 +99,22 @@ export const DEPARTURE_REFUSALS = Object.freeze({
   sleep_after_squatchfather: 'That is enough going out for one night.',
   lou_package: 'I am not going anywhere until I find Lou’s package.',
   whiskey: 'Take one pull of whiskey. You earned the nerves.',
+  /* THE LUXURY APARTMENT'S OWN THREE.
+   *
+   * They live in this table and not in a second one next to
+   * `core/luxury-apartment-story.js`, because this table IS the pipeline:
+   * `departureRefusalCues()` walks it, `tools/apartment-vo.mjs` walks that,
+   * and every `vo.door.refusal.*` in the manifest comes out of the walk. A
+   * private table in the other file would be writing nobody could record.
+   *
+   * Only three are new. The other live doors already had the right words:
+   * `no_wake_call` names no room, and `final_arc_locked` ("Bank's done.
+   * Nobody's called. And when nobody calls, you sit down.") is beat 19's
+   * quiet evening exactly. `date_call` above is retained only as legacy audio
+   * debt; the luxury apartment no longer reaches it. */
+  luxury_get_ready: 'Nine o’clock, and I am not turning up at a place like that looking like this.',
+  luxury_stayover: 'She is asleep. Whatever is out there can stay out there. <em>Bed.</em>',
+  luxury_margo_morning: 'She is still getting her things together. I am not walking out before she does.',
   /* The five below are the per-chapter pastimes — see CHAPTER_PASTIMES. Each
    * one is him refusing to leave until he has had one thing that is his. */
   watch_tv: 'I put a man in the ground last night. I would like to know whether it made the news before I go anywhere.',
@@ -102,6 +133,18 @@ export const DEPARTURE_REFUSALS = Object.freeze({
  */
 function refusal(key) {
   return { line: DEPARTURE_REFUSALS[key], vo: `door.refusal.${key}` };
+}
+
+/**
+ * The same spread, for the other front door.
+ *
+ * `core/luxury-apartment-story.js` refuses in exactly this shape and must
+ * name cues that exist. Exported rather than duplicated so there is one
+ * function that knows how a refusal key becomes a cue name.
+ */
+export function departureRefusal(key) {
+  if (!(key in DEPARTURE_REFUSALS)) throw new RangeError(`Unknown door refusal: ${key}`);
+  return refusal(key);
 }
 
 /** Every refusal as a recordable cue. Used by tools/apartment-vo.mjs. */
@@ -292,10 +335,15 @@ const CHAPTER_PASTIMES = Object.freeze({
       hint: 'Sit down on the couch with the telly on. Half a minute of it.',
     }),
   ]),
-  /* The harbour job. Booskibro's boys are on the server and he said he would
-   * get one in, which in Counter-Squatch means getting shot through a wall
-   * five times by somebody who is very obviously cheating. */
-  no_wake: Object.freeze([
+  /* THE MORNING OF THE TAKE. Booskibro's boys are on the server and he said
+   * he would get one in, which in Counter-Squatch means getting shot through
+   * a wall five times by somebody who is very obviously cheating.
+   *
+   * This was the `no_wake` chapter's until beats 12-19 moved the harbour job
+   * to the luxury apartment on Day 7. It is the same beat -- a man killing an
+   * hour in his own flat before a job -- and it kept its cue, its refusal and
+   * its recording; only the morning it belongs to changed. */
+  heist_day: Object.freeze([
     Object.freeze({
       id: 'playedCounterSquatch',
       event: TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH,
@@ -388,6 +436,8 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
   [SCENE_IDS.SILVER_PINES]: 'Silver Pines',
   [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
+  [SCENE_IDS.LUXURY_APARTMENT]: 'the new place',
+  [SCENE_IDS.COUNTRYSIDE_CABIN]: 'the countryside cabin',
   [SCENE_IDS.SILVER_CASE]: 'the Silver Case pickup',
   /* Not "the Special Meeting". Nothing in Act One is allowed to name what he
    * is going to, because nobody has named it to him -- see the forbidden-line
@@ -423,13 +473,18 @@ const CHAPTER_PLAN = Object.freeze({
     routineRequired: false,
   }),
   date: Object.freeze({
-    event: EVENT_IDS.MARGO_DATE_CALL,
-    caller: 'Margo',
+    /* Legacy chapter only. The date was already scheduled in the cabin; no
+     * second incoming call belongs on either apartment's objective panel. */
+    event: null,
+    caller: null,
     routineRequired: false,
   }),
+  /* The morning of the round. No call: beat 12's telephone rang the night
+   * before, at the end of `post_heist`, and a man who has been told eight
+   * o'clock does not need telling twice. */
   golf_morning: Object.freeze({
-    event: EVENT_IDS.LOU_GOLF_CALL,
-    caller: 'Big Uncle Lou',
+    event: null,
+    caller: null,
     routineRequired: false,
   }),
   heist_day: Object.freeze({
@@ -449,9 +504,11 @@ const CHAPTER_PLAN = Object.freeze({
     caller: 'Booskibro',
     routineRequired: false,
   }),
+  /* BEAT 12 lives here. He gets home from the bank after dark, cleans the
+   * job off himself and off the flat, and then Lou rings about a new space. */
   post_heist: Object.freeze({
-    event: null,
-    caller: null,
+    event: EVENT_IDS.LOU_GOLF_CALL,
+    caller: 'Big Uncle Lou',
     routineRequired: false,
   }),
 });
@@ -528,10 +585,11 @@ export const DAY_ONE_LOU_CALL = Object.freeze({
 });
 
 /**
- * The only call in the campaign that is not an instruction.
+ * Legacy first-night attaboy retained for pre-cabin-route saves.
  *
- * Lou rings the night the Squatchfather business is settled, once, after Tony
- * has let himself back into his own flat. He does not name the job, he does
+ * The canonical route now extracts Tony from Squatchfather directly to the
+ * Cabin, so a fresh campaign never comes home for this call. Older saves may
+ * still arrive here and must remain playable. Lou does not name the job, he does
  * not ask for anything, and he does not stay on the line: he says well done in
  * the only register this family has for it, which is a compliment with a
  * future attached to it and no way to decline either.
@@ -561,6 +619,7 @@ export const DAY_ONE_LOU_ATTABOY_CALL = Object.freeze({
   ]),
 });
 
+/** Legacy apartment version; the canonical Sasole call now belongs to Cabin. */
 export const DAY_TWO_BOOSKI_CALL = Object.freeze({
   eventId: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
   characterId: CHARACTER_IDS.BOOSKI,
@@ -582,6 +641,7 @@ export const DAY_TWO_BOOSKI_CALL = Object.freeze({
   ]),
 });
 
+/** Legacy apartment version; the canonical Billy call now belongs to Cabin. */
 export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_SECOND_CALL,
   characterId: CHARACTER_IDS.LOU,
@@ -627,55 +687,45 @@ export const NO_WAKE_LOU_CALL = Object.freeze({
 });
 
 /**
- * The one call in the campaign that is not work.
+ * BEAT 12. Lou's "new space" call, which retires the golf call it replaces.
  *
- * Margo Salas runs the kitchen at the Blue Hour on Ashland. She is a civilian:
- * no stake in Lou, the Bing, or anybody who will be in the room on the big
- * night, which is the entire reason her good opinion is worth anything. She
- * rings on the afternoon of Day 3, once, off the back of the number he gave
- * her at the club — and she is the reason Day 3 is a chapter of its own
- * instead of a gap between the Motel and the verdict.
+ * The bible gives this beat one line and it is the whole of it: *"We got a
+ * new space. Come meet us on the course."* Nothing about Margo -- her thread
+ * is four touches and the course is not one of them -- and nothing about what
+ * the new space is, because beat 12's own continuity note flags exactly that
+ * ambiguity as the risk and the answer is that Tony does not get told either.
+ *
+ * WHAT WAS HERE BEFORE, and why it could not stay. `vo.call.lou.golf` was
+ * four recorded takes ending "Three holes. Home by half ten. After that, your
+ * day starts" -- a call whose entire job was to fit a round in before a bank
+ * job later the same day. The owner moved THE TAKE to the morning of Day 5
+ * and the round to Day 6, so those lines set up a heist that has already
+ * happened. They are retired with the order they served: the cue name is new,
+ * the takes are gone from the manifest, and `npm run vo:apartment` put the
+ * four new lines on the booth sheet.
+ *
+ * It rings on the EVENING of Day 5, in the starter flat, with the bank money
+ * still on the table. That is the point of its position: the job is what
+ * earns the upgrade, so the call reads as the reward for it.
  */
-export const DATE_MARGO_CALL = Object.freeze({
-  eventId: EVENT_IDS.MARGO_DATE_CALL,
-  characterId: CHARACTER_IDS.MARGO,
-  targetSceneId: SCENE_IDS.SILVER_ROOM,
-  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
-  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
-  vo: 'call.margo.date',
-  lines: Object.freeze([
-    'You gave me this number and told me to use it. So.',
-    'The Silver Room. Nine o’clock. It is my one night off in six, so do not waste it.',
-    'I drink rye. One ice cube. One. Write it on your hand if you have to.',
-    'And iron something. I have seen what you wear at four in the morning.',
-  ]),
-  replies: Object.freeze([
-    'I did. I meant it.',
-    'Nine. The Silver Room.',
-    'Rye. One cube. I will remember.',
-    'That was a work night.',
-  ]),
-});
-
-/** Lou's invitation to a quiet three-hole conversation before THE TAKE. */
-export const DAY_FOUR_LOU_GOLF_CALL = Object.freeze({
+export const NEW_SPACE_LOU_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_GOLF_CALL,
   characterId: CHARACTER_IDS.LOU,
   targetSceneId: SCENE_IDS.SILVER_PINES,
   from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
   voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
-  vo: 'call.lou.golf',
+  vo: 'call.lou.new_space',
   lines: Object.freeze([
-    'Silver Pines. Off Route Twenty-Three, past the quarry, second gate.',
-    'Eight o\'clock. Rippinflow and Eric are already complaining about the hour.',
+    'Kid. Sit down. We got a new space.',
+    'Come meet us on the course. Silver Pines, off Route Twenty-Three, second gate.',
+    'Tomorrow at eight. Rippinflow and Eric are already complaining about the hour.',
     'Bring nothing. Wear something you can walk in.',
-    'Three holes. Home by half ten. After that, your day starts.',
   ]),
   replies: Object.freeze([
+    'A new space.',
     'Silver Pines. Second gate.',
-    'Eight o\'clock.',
+    'Tomorrow at eight.',
     'Nothing but walking shoes.',
-    'Home by half ten. Understood.',
   ]),
 });
 
@@ -702,16 +752,63 @@ export const DAY_FOUR_LOU_HEIST_CALL = Object.freeze({
 });
 
 /**
+ * BEAT 19. The call that ends the luxury apartment's quiet evening.
+ *
+ * It rings in the new flat, not this one -- `core/luxury-apartment-story.js`
+ * owns when -- and it lives in this file because this file is where every
+ * telephone in the campaign is written and where the VO pipeline looks for
+ * them. The bible: *"After a quiet period, Lou/Booski contacts Prospect about
+ * moving a highly sensitive Silver Case."*
+ *
+ * Booskibro rather than Lou, because the case is going TO Lou. Beat 20's own
+ * exit is "deliver it directly to Lou at the mansion", and a man does not
+ * ring ahead to tell you he is expecting a delivery from you.
+ *
+ * It names nothing. Sensitive, small, and somebody hands it to you in the
+ * morning -- that is the whole of what he is told, which is the whole of what
+ * he is told about anything at this point in the campaign.
+ */
+export const SILVER_CASE_BOOSKI_CALL = Object.freeze({
+  eventId: EVENT_IDS.BOOSKI_SILVER_CASE_CALL,
+  characterId: CHARACTER_IDS.BOOSKI,
+  targetSceneId: SCENE_IDS.SILVER_CASE,
+  from: getCharacter(CHARACTER_IDS.BOOSKI).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.BOOSKI),
+  vo: 'call.booski.silver_case',
+  lines: Object.freeze([
+    'Tony. Nice place. I hear it has a lift.',
+    'Tomorrow there is a thing that needs moving. Small. Sensitive.',
+    'Ape collects you. You do not open it, you do not set it down, and it goes to Lou himself.',
+    'Sleep well. This one is a compliment.',
+  ]),
+  replies: Object.freeze([
+    'It has a lift.',
+    'Sensitive how?',
+    'To Lou himself. Understood.',
+    'It does not feel like one.',
+  ]),
+});
+
+/**
  * What sleeping in his own bed does, chapter by chapter.
  *
- * Story chapter and calendar day are deliberately separate. Tony gets home
- * from the Jerky Motel at half four in the morning of Day 3, so sleep opens
- * the `no_wake` chapter at noon on that same Day 3. Completing NO WAKE advances
- * directly into `date`; it does not consume another night before Margo calls.
+ * TWO NIGHTS, AND THEN HE MOVES OUT. This table used to have three entries
+ * and ran the flat all the way to the Initiation; beats 12-19 gave the second
+ * half of Chapter 3 to the luxury apartment, so the starter flat's whole
+ * chapter machine is now day one, day two, the morning of THE TAKE and the
+ * morning of the round.
  *
- * Sleeping off the date moves the calendar. Day 4 opens at seven with Margo,
- * then Lou's Golf call and round hand control to heist_day before the evening
- * ceremony.
+ * Story chapter and calendar day are deliberately separate, and the `day`
+ * here is a FLOOR rather than an assertion -- see the long note in `sleep()`.
+ * Snow gets him in from the Jerky Motel at half six on the morning of Day 5, so
+ * lying down opens `heist_day` at noon on that same Day 5: a lie-in, not a
+ * lost day. THE TAKE fills the afternoon, Lou rings that evening about a new
+ * space, and the second night turns the page to the round on Day 6.
+ *
+ * `no_wake` and `date` are gone from this table on purpose. Both beats are
+ * still played -- they are beats 18 and 15 -- but the bible plays them from
+ * the luxury apartment, after the handover, and a chapter this flat can no
+ * longer be in has no business being a destination its bed can reach.
  */
 const SLEEP_CHAPTERS = Object.freeze([
   Object.freeze({
@@ -724,24 +821,24 @@ const SLEEP_CHAPTERS = Object.freeze([
   }),
   Object.freeze({
     from: 'day_two',
-    to: 'no_wake',
+    to: 'heist_day',
     requires: MISSION_IDS.JERKY_MOTEL,
     incomplete: 'day_two_incomplete',
-    day: 3,
+    day: 5,
     timeMinutes: 12 * 60,
   }),
   Object.freeze({
-    from: 'date',
+    from: 'post_heist',
     to: 'golf_morning',
-    requires: MISSION_IDS.SILVER_ROOM,
-    incomplete: 'date_incomplete',
-    day: 4,
+    requires: MISSION_IDS.BANK_HEIST,
+    incomplete: 'heist_incomplete',
+    day: 6,
     timeMinutes: 7 * 60,
   }),
 ]);
-/* Golf returns into heist_day without another sleep; it remains the terminal
- * sleep chapter even though it is no longer the final SLEEP_CHAPTERS target. */
-const LAST_CHAPTER = 'heist_day';
+/* The round is the last thing this flat is ever used for. Silver Pines hands
+ * him the keys to somewhere better and he does not come back. */
+const LAST_CHAPTER = 'golf_morning';
 
 const APARTMENT_RETURN_PRIORITY = Object.freeze([
   /* Newest first. The Initiation is the newest thing that sends him home --
@@ -782,11 +879,11 @@ export function apartmentReturnSource(state) {
 }
 
 /**
- * The last call Tony gets as a prospect.
+ * Legacy direct-to-Initiation call retained for grandfathered saves.
  *
- * It rings once, after he has slept off the Motel, and it is the only reason
- * the apartment door will open on the Initiation. Booskibro is the patriarch
- * and the ceremony leader, so he is the one who tells Tony the night is his.
+ * Fresh campaigns use the Beat-27 luxury-apartment call and existing Special
+ * Meeting pickup/ride. This older call remains only for saves that exposed the
+ * Initiation before the final arc existed.
  */
 export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
   eventId: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
@@ -810,12 +907,13 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
 });
 
 /* ====================================================================== *
- * THE SPECIAL MEETING — ACT ONE, WHICH IS THIS FLAT
+ * THE SPECIAL MEETING — LEGACY ACT-ONE COMPATIBILITY IN THE STARTER FLAT
  *
- * `docs/SPECIAL-MEETING-SCRIPT.md` beats SM-010 to SM-090. Tony gets home from
- * the Cartel Palace, nobody has told him whether killing Sauce was the right
- * call, Booskibro rings to say there is a meeting and it is going to be a
- * special one, and then three men come and collect him.
+ * The canonical campaign never returns here after Cartel Palace. Beat 27 is
+ * owned by the luxury apartment, which plays SM-030 and hands the player to
+ * the existing pickup/ride scene. This block remains solely as an old-save and
+ * direct-entry compatibility surface for the previously shipped starter-flat
+ * route; it must not be used as authority for current dialogue completeness.
  *
  * All nine beats were authored and minted as cues before anything played them:
  * `src/specialmeeting/script.js` had the words and `assets/sfx/manifest.json`
@@ -962,6 +1060,9 @@ export const SPECIAL_MEETING_BOOSKI_CALL = Object.freeze({
   eventId: EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
   characterId: CHARACTER_IDS.BOOSKI,
   targetSceneId: SCENE_IDS.SPECIAL_MEETING,
+  /* Required story call. Booskibro hangs up first after the final authored
+   * line; the player cannot turn SM-030 into a three-word optional bark. */
+  allowHangup: false,
   from: getCharacter(CHARACTER_IDS.BOOSKI).subtitleName,
   voiceProfile: voiceProfileFor(CHARACTER_IDS.BOOSKI),
   /* `callScript()` wants the bank without the `vo.` and without the trailing
@@ -1004,7 +1105,6 @@ const MESSAGE_EVENTS = Object.freeze({
   day_two: TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO,
   no_wake: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
   date: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
-  golf_morning: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
   heist_day: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
   big_night: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
 });
@@ -1055,19 +1155,11 @@ export const CHAPTER_MESSAGES = Object.freeze({
       ]),
     }),
   ]),
-  golf_morning: Object.freeze([
-    Object.freeze({
-      from: 'Big Uncle Lou',
-      characterId: CHARACTER_IDS.LOU,
-      vo: 'machine.lou.golf_morning',
-      at: 'Today, 6:02 AM',
-      lines: Object.freeze([
-        'Morning, kid. Keep the line clear and do not ring back.',
-        'Silver Pines has a second gate. You will hear the rest from me.',
-        'Wear something you can walk in. I will call when the car is moving.',
-      ]),
-    }),
-  ]),
+  /* Golf already starts from Lou's live invitation and the car handoff. The
+   * old voicemail promised another moving-car call that never existed and
+   * reused the heist/big-night exact-once id. Keep the chapter deliberately
+   * empty instead of inventing another save key for redundant exposition. */
+  golf_morning: Object.freeze([]),
   heist_day: Object.freeze([
     Object.freeze({
       from: 'Big Uncle Lou',
@@ -1210,7 +1302,7 @@ export const CHAPTER_NEWS = Object.freeze({
 });
 
 /**
- * Day 4 opens with somebody else in the bed.
+ * Day 7 opens with somebody else in the bed.
  *
  * Margo stayed. She is warm about it and not sentimental about it, she is
  * slightly awkward in the way people are early in the morning in somebody
@@ -1230,8 +1322,8 @@ export const BIG_NIGHT_MARGO_WAKE = Object.freeze({
   lines: Object.freeze([
     'You snore. Not badly. Like a fridge.',
     'I have a delivery at eleven and a man who cannot be trusted with a delivery, so.',
-    'Big day, is it? You have got the face on. The important face.',
-    'Do not do anything stupid tonight. Or do, and ring me about it after.',
+    'You have got the face on. The one where you pretend you are not thinking about work.',
+    'Do not do anything stupid today. Or do, and ring me about it after.',
   ]),
   replies: Object.freeze([
     'I do not snore.',
@@ -1242,14 +1334,52 @@ export const BIG_NIGHT_MARGO_WAKE = Object.freeze({
 });
 
 /**
+ * Margo's live morning dress-help request.
+ *
+ * This used to exist only as a subtitle literal in the luxury scene, so no
+ * VO generator could offer it to the booth and her mouth moved over silence.
+ * Keep it in the wake bank while giving the interaction its own stable cue.
+ */
+export const BIG_NIGHT_MARGO_DRESS_ASK = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.wake.dress',
+  lines: Object.freeze([
+    'Can you get this? The clasp is winning.',
+  ]),
+  replies: Object.freeze([]),
+});
+
+/**
+ * Margo's first look at the home upgrade, spoken while both of them are still
+ * standing at the private lift. This owns a separate cue bank so the two
+ * already-recorded bedside exchanges below keep their cue identity and take
+ * history when the missing arrival beat is added.
+ */
+export const SILVER_ROOM_NEW_PLACE = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.comehome.place',
+  lines: Object.freeze([
+    'Jesus Christ. A private lift, a staircase, and that view. Who the fuck did you have to bury?',
+  ]),
+  replies: Object.freeze([
+    'Nobody on the lease.',
+  ]),
+});
+
+/**
  * The night the Silver Room ends with both of them coming back here.
  *
- * `SilverStory.complete` folds the mission's own verdict -- `cameHome`,
- * `['perfect', 'strong'].includes(outcome)` -- down into the campaign, so
- * this only ever plays for the two best outcomes. Short on purpose: this is
- * the walk from the front door to the bed, not the whole evening, which the
- * Silver Room mission has already had. Same shape as `BIG_NIGHT_MARGO_WAKE`
- * for the same reason -- `lines` is her, `replies[i]` answers `lines[i]`.
+ * `SilverStory.complete` folds the mission's own `cameHome` verdict into the
+ * campaign. The canonical Silver Room route now brings her home after every
+ * completed outcome, so this is an exact-once story beat rather than a grade
+ * reward. Short on purpose: this is the walk from the front door to the bed,
+ * not the whole evening, which the Silver Room mission has already had. Same
+ * shape as `BIG_NIGHT_MARGO_WAKE` for the same reason -- `lines` is her and
+ * `replies[i]` answers `lines[i]`.
  */
 export const SILVER_ROOM_COME_HOME = Object.freeze({
   characterId: CHARACTER_IDS.MARGO,
@@ -1360,14 +1490,6 @@ class ApartmentStory {
       });
       return true;
     }
-    if (definition?.eventId === EVENT_IDS.MARGO_DATE_CALL
-      && !this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
-      this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_DATE_CALL, (state) => {
-        state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
-        state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
-      });
-      return true;
-    }
     if (definition?.eventId === EVENT_IDS.LOU_GOLF_CALL
       && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
       this.campaign.advanceTime(TIME_EVENT_IDS.LOU_GOLF_CALL, (state) => {
@@ -1446,7 +1568,7 @@ class ApartmentStory {
       return {
         ok: false,
         reason: state.story.chapter === LAST_CHAPTER
-          ? 'already_heist_day' : 'unknown_chapter',
+          ? 'already_golf_morning' : 'unknown_chapter',
       };
     }
     if (state.missions[step.requires].status !== 'complete') {
@@ -1455,7 +1577,29 @@ class ApartmentStory {
 
     this.campaign.update((next) => {
       next.story.chapter = step.to;
-      next.story.day = step.day;
+      /* SLEEPING IS A FLOOR, NOT A DATE.
+       *
+       * This assigned `step.day` outright, which was fine while every chapter
+       * boundary was a night in this bed and the table's numbers WERE the
+       * calendar. The Act-One cabin broke that: he now spends Days 2 to 4 out
+       * of the city and lets himself back in on Day 5, so a table that says
+       * "day_two ends on Day 3" would wind the clock BACKWARDS two days the
+       * first time he lay down at home.
+       *
+       * A night's sleep can only ever put you on the morning after the one you
+       * went to bed on, so that is what this says now. The table's day is a
+       * floor -- the earliest that chapter can start -- and it stays exactly
+       * as authoritative for every route that reaches it on time.
+       *
+       * The rule is "the next time it is that hour, at or after the chapter's
+       * floor day". Same day if the hour is still ahead of him -- he came in
+       * from the Motel at 06:30 and THE TAKE starts at noon, which is a lie-in
+       * and not a lost day -- and tomorrow if it is already behind him. */
+      const floor = Math.max(step.day, next.story.day);
+      next.story.day = floor === next.story.day
+        && step.timeMinutes <= next.story.timeMinutes
+        ? floor + 1
+        : floor;
       next.story.timeMinutes = step.timeMinutes;
       next.scene = { id: SCENE_IDS.APARTMENT, spawn: 'wake' };
       /* A new morning is a new morning. These used to carry over, so waking on
@@ -1483,7 +1627,8 @@ class ApartmentStory {
     return {
       ok: true,
       chapter: step.to,
-      day: step.day,
+      /* The day the clock actually landed on, not the table's floor. */
+      day: this.campaign.state.story.day,
       timeMinutes: step.timeMinutes,
     };
   }
@@ -1503,6 +1648,8 @@ class ApartmentStory {
     const state = this.campaign.state;
     const plan = this.#plan();
     if (!plan) return { chapter: state.story.chapter, day: state.story.day, items: [] };
+    const door = this.tryLeave(activities);
+    const eventAnswered = !plan.event || this.#eventAnswered(plan.event);
 
     /* Freeplay. The Initiation is complete and the campaign with it; a
      * standing-orders card over a finished week is homework nobody assigned,
@@ -1517,13 +1664,17 @@ class ApartmentStory {
       label: ROUTINE_LABELS[id],
       done: activities[id] === true,
       required: plan.routineRequired,
+      current: door.kind === 'activity' && door.id === id,
     }));
     if (plan.event) {
+      const ringing = activities.ringingCallId === plan.event;
       items.push({
         id: plan.event,
         label: `Answer ${plan.caller}’s call`,
-        done: this.#eventAnswered(plan.event),
+        done: eventAnswered,
         required: true,
+        current: !eventAnswered && ringing,
+        pending: !eventAnswered && !ringing,
       });
     }
 
@@ -1544,6 +1695,8 @@ class ApartmentStory {
         label: pastimeLabel(item, activities),
         done: activities[item.id] === true,
         required: pastimesStillGate,
+        current: door.kind === 'activity' && door.id === item.id,
+        pending: !eventAnswered,
       });
     }
 
@@ -1566,6 +1719,12 @@ class ApartmentStory {
           required: true,
         });
       }
+      items.push({
+        id: TIME_EVENT_IDS.PHONE_READ_CABIN,
+        label: 'Read Lou’s lay-low instructions',
+        done: state.story.timeEvents.includes(TIME_EVENT_IDS.PHONE_READ_CABIN),
+        required: true,
+      });
     }
 
     /* The first morning's optional half. Only the first morning: by Day Two
@@ -1581,18 +1740,18 @@ class ApartmentStory {
     /* And what the door itself would say if he tried it right now. A chore it
      * is still waiting on is already a line above, so that case adds nothing.
      */
-    const door = this.tryLeave(activities);
     if (door.kind === 'go') {
       items.push({
         id: `depart.${door.destination}`,
         label: `Leave for ${SCENE_LABELS[door.destination] ?? door.destination}`,
         done: false,
         required: true,
+        current: true,
       });
     } else if (door.kind === 'item') {
-      items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
+      items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true, current: true });
     } else if (door.kind === 'stay') {
-      items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+      items.push({ id: door.id, label: 'Sleep', done: false, required: true, current: true });
     } else if (door.kind === 'wait') {
       /* `wait` is not `stay`, and the difference is the whole of Act One's
        * second half. `stay` means the night is over and the answer is bed, so
@@ -1600,21 +1759,24 @@ class ApartmentStory {
        * in his own front room with nothing left to do but be in when they
        * arrive -- which is not a chore, not a sleep, and not something he can
        * go and finish. The label carries the door's own words. */
-      items.push({ id: door.id, label: door.label, done: false, required: true });
+      items.push({ id: door.id, label: door.label, done: false, required: true, current: true });
     } else if (door.kind === 'activity' && !items.some((item) => item.id === door.id)) {
-      items.push({ id: door.id, label: door.label, done: false, required: true });
+      items.push({ id: door.id, label: door.label, done: false, required: true, current: true });
     } else if (door.kind === 'call' && door.id !== plan.event) {
       /* Day Two's SECOND telephone, and any other call the plan table cannot
        * see. Without this row the panel read as a finished morning -- every
        * line ticked -- while the door refused, waiting on a call the list
        * never mentioned. The chapter's own call is already a line above, so
-       * this only draws when the door wants a different phone than the plan's. */
+       * this only draws when the door wants a different phone than the plan's.
+       * `current` hands it to the HUD projection as the one honest next
+       * action, which on that evening it is. */
       const caller = CALL_CALLERS[door.id];
       items.push({
         id: door.id,
         label: caller ? `Wait for ${caller}’s call` : 'Wait for the phone',
         done: false,
         required: true,
+        current: true,
       });
     }
     /* Last line, and only on the first day: the Bing is not until a quarter
@@ -1642,7 +1804,7 @@ class ApartmentStory {
    * priorities of this campaign exactly backwards -- he is told where he is
    * going, and then he takes one thing for himself on the way out. And sitting
    * outside the branch meant it stayed in the path for the whole chapter:
-   * coming home from the Jerky Motel at half four in the morning with nothing
+   * coming home from the Jerky Motel at half six in the morning with nothing
    * left to do, the door stopped saying "go to bed" and started asking him to
    * watch the news, twenty-two hours after the morning that asked for it. A
    * pastime stands between him and the first job of its chapter and nothing
@@ -1717,6 +1879,19 @@ class ApartmentStory {
   tryLeave(activities = {}) {
     const state = this.campaign.state;
     const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
+    /* THE EVENING OF DAY 5, and the last evening this flat gets.
+     *
+     * Wash the bank off, change, put the gear away -- and then beat 12: Lou
+     * rings about a new space and a tee time. There is nothing else to do
+     * about it tonight, so the door says bed, and the bed turns the page to
+     * the morning of the round.
+     *
+     * The cabin branch that used to live here is gone with the route. The
+     * post-heist lay-low was the last surviving piece of the pre-bible order
+     * -- read Lou's lay-low message, drive north, and reach the Silver Case
+     * through a property he had already finished on Day 3. The luxury
+     * apartment owns that doorway now (beat 19), which is the whole reason
+     * `SCENES[COUNTRYSIDE_CABIN].next` could finally give it up. */
     if (state.story.chapter === 'post_heist') {
       const missing = HEIST_CLEANUP_ITEMS.find(
         ({ id }) => bankHeist.cleanup[id] !== true,
@@ -1728,44 +1903,35 @@ class ApartmentStory {
           ...refusal('heist_cleanup'),
         };
       }
-      const silverCase = state.missions[MISSION_IDS.SILVER_CASE];
-      if (silverCase.status !== 'complete') {
-        if (silverCase.status === 'locked') {
-          return {
-            kind: 'stay',
-            id: 'final_arc_locked',
-            ...refusal('final_arc_locked'),
-          };
-        }
-        return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
-      }
-      if (state.missions[MISSION_IDS.INITIATION].status === 'locked') {
-        return {
-          kind: 'stay',
-          id: 'initiation_locked',
-          ...refusal('initiation_locked'),
-        };
-      }
-      return { kind: 'go', destination: SCENE_IDS.INITIATION };
-    }
-    if (state.story.chapter === 'golf_morning') {
       if (!this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_GOLF_CALL,
-          ...refusal('golf_call'),
+          ...refusal('new_space_call'),
         };
       }
+      return {
+        kind: 'stay',
+        id: 'sleep_before_the_course',
+        ...refusal('sleep_after_take'),
+      };
+    }
+    if (state.story.chapter === 'golf_morning') {
+      /* Beat 13. He was told eight o'clock last night, so no telephone
+       * stands between him and the car -- just the one thing that is his. */
       if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
         const pastime = this.#pastimeGate(activities);
         if (pastime) return pastime;
         return { kind: 'go', destination: SCENE_IDS.SILVER_PINES };
       }
-      return {
-        kind: 'stay',
-        id: 'golf_return_pending',
-        ...refusal('golf_return'),
-      };
+      /* Beat 14. The round is over and somebody handed him a set of keys.
+       *
+       * A player only ever sees this branch by coming back to a flat the
+       * campaign has finished with -- a mid-round reload that lands home, or
+       * a save MIGRATIONS[20] moved here with the round already played. Both
+       * of them belong at the new address, so the door takes them there
+       * rather than refusing in a room with nothing left in it. */
+      return { kind: 'go', destination: SCENE_IDS.LUXURY_APARTMENT };
     }
     if (state.story.chapter === 'heist_day') {
       if (!this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
@@ -1775,6 +1941,13 @@ class ApartmentStory {
           ...refusal('heist_call'),
         };
       }
+      /* One game with the boys before he packs a carbine. It sits between the
+       * call and the kit rather than after it, which is the same rule every
+       * other chapter's follows -- he is told where he is going, and then he
+       * takes one thing for himself on the way out. Loading magazines is
+       * plainly not the one thing that is his. */
+      const pastime = this.#pastimeGate(activities);
+      if (pastime) return pastime;
       const missing = HEIST_PREPARATION_ITEMS.find(
         ({ id }) => bankHeist.preparation[id] !== true,
       );
@@ -1815,44 +1988,20 @@ class ApartmentStory {
         destination: SCENE_IDS.INITIATION,
       };
     }
-    if (state.story.chapter === 'no_wake') {
-      if (!this.#eventAnswered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
-        return {
-          kind: 'call',
-          id: EVENT_IDS.LOU_NO_WAKE_CALL,
-          ...refusal('no_wake_call'),
-        };
-      }
-      if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
-        const pastime = this.#pastimeGate(activities);
-        if (pastime) return pastime;
-        return { kind: 'go', destination: SCENE_IDS.NO_WAKE };
-      }
-    }
-    /* Day 3. Nothing about the family happens today, which is the point of it.
-     * He waits for her to ring, he goes, and he comes back. */
-    if (state.story.chapter === 'date') {
-      if (!this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
-        return {
-          kind: 'call',
-          id: EVENT_IDS.MARGO_DATE_CALL,
-          ...refusal('date_call'),
-        };
-      }
-      if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
-        return {
-          kind: 'go',
-          destination: SCENE_IDS.SILVER_ROOM,
-        };
-      }
-      /* Home from the Silver Room. Tomorrow is the whole rest of his life and
-       * there is nothing left to do about it tonight. */
-      return {
-        kind: 'stay',
-        id: 'sleep_before_big_night',
-        ...refusal('sleep_after_date'),
-      };
-    }
+    /* THE HARBOUR JOB AND THE DATE ARE NOT THIS FLAT'S ANY MORE.
+     *
+     * Two branches stood here -- `no_wake` and `date` -- and both are gone
+     * with the reorder rather than left inert. The bible plays beat 15 from
+     * the luxury apartment and beat 18 from the morning after it, so a branch
+     * in this door answering to either chapter would be a branch nothing
+     * routes through: exactly the thing the campaign marathon exists to
+     * catch, and exactly the thing that makes a scene graph rot quietly.
+     *
+     * Lou's harbour refusal did not go anywhere:
+     * `core/luxury-apartment-story.js` reuses `DEPARTURE_REFUSALS.no_wake_call`
+     * verbatim. Margo's date refusal retired with the duplicate call.
+     *
+     * MIGRATIONS[20] moves any save left in those chapters. */
     if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete') {
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
@@ -1934,15 +2083,10 @@ class ApartmentStory {
           ...refusal('lou_package'),
         };
       }
-      if (!activities.whiskeyRelaxed) {
-        return {
-          kind: 'activity',
-          id: 'whiskeyRelaxed',
-          label: 'Take a shot of whiskey',
-          ...refusal('whiskey'),
-          hint: 'Pick up the whiskey and hold F for a pull.',
-        };
-      }
+      /* Legacy saves may still land here because Apartment remains on Bing I's
+       * transition whitelist. Do not recreate the retired production detour:
+       * once the parcel exists, the same waiting driver takes Tony straight
+       * to the restaurant without a compulsory whiskey interaction. */
       return {
         kind: 'go',
         destination: SCENE_IDS.SQUATCHFATHER,
@@ -2012,6 +2156,23 @@ class ApartmentStory {
     const state = this.campaign.state;
     if (!['golf_morning', 'heist_day', 'big_night'].includes(state.story.chapter)) return false;
     if (state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) return false;
+    /* AND ONLY IF THE DATE HAS ACTUALLY HAPPENED.
+     *
+     * This used to lean on the chapter alone and let `cameHome !== false`
+     * carry a save with no verdict, which was right while Front & Center was
+     * a Day 3 beat played from this flat and every save that reached
+     * `golf_morning` had been on it. Beats 12-19 moved the date to the night
+     * AFTER the handover, so a man in this flat on the morning of THE TAKE
+     * has not taken her out yet -- and without this line he would wake up
+     * next to a woman he has exchanged four words with at a club.
+     *
+     * On the live route that makes this whole beat unreachable from the
+     * starter flat, which is the honest state of it: the stayover and the
+     * morning after are the luxury apartment's now (bible beats 16 and 17),
+     * and they are the two the spine still calls `pending` because that flat
+     * does not stage her yet. Everything below this line -- the writing, the
+     * dress mini-game, the geometry staging -- is what the port reuses. */
+    if (state.missions[MISSION_IDS.SILVER_ROOM]?.status !== 'complete') return false;
     /* And only if she actually came back with him.
      *
      * `cameHome` is the Silver Room's own verdict on the evening and it now
@@ -2097,16 +2258,21 @@ class ApartmentStory {
 
   #pendingCall() {
     const state = this.campaign.state;
-    if (state.story.chapter === 'golf_morning'
+    /* BEAT 12, on the evening of THE TAKE rather than the morning of the
+     * round. It rings in `post_heist` because that is where the bible puts
+     * it: home from the bank, cleaned up, and then a telephone. */
+    if (state.story.chapter === 'post_heist'
       && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
-      return DAY_FOUR_LOU_GOLF_CALL;
+      return NEW_SPACE_LOU_CALL;
     }
     if (state.story.chapter === 'heist_day'
       && !this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
       return DAY_FOUR_LOU_HEIST_CALL;
     }
-    /* Both of `big_night`'s telephones, newest night first. The Special
-     * Meeting's has to be tested BEFORE the big night's or it is unreachable:
+    /* Compatibility telephones only. Fresh campaigns receive the Special
+     * Meeting call in the luxury apartment. This older starter-flat seam keeps
+     * pre-migration saves from stranding; the Special Meeting's has to be
+     * tested BEFORE the old big-night call or it is unreachable:
      * `normalize()` force-answers the big-night call for any save whose
      * Initiation is unlocked, and finishing the Palace is what unlocks it, so
      * on this night the second test below is already false. */
@@ -2118,14 +2284,9 @@ class ApartmentStory {
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       return BIG_NIGHT_BOOSKI_CALL;
     }
-    if (state.story.chapter === 'date'
-      && !this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
-      return DATE_MARGO_CALL;
-    }
-    if (state.story.chapter === 'no_wake'
-      && !this.#eventAnswered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
-      return NO_WAKE_LOU_CALL;
-    }
+    /* Margo's later call was retired: the cabin conversation now schedules
+     * Front & Center. Lou's harbour call moved to the luxury apartment; see
+     * `core/luxury-apartment-story.js`, which owns that pending order. */
     if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {

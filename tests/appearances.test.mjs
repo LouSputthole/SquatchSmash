@@ -74,6 +74,7 @@ ensureDomShim();
 
 import { CHARACTER_IDS, SCENE_IDS } from '../src/core/campaign.js';
 import { formalMeetingModel } from '../src/core/formal-appearance.js';
+import { MANSION_PERFORMER_VARIANTS } from '../src/mansion/performer-wardrobe.js';
 import * as WARDROBE_MODULE from '../src/core/wardrobe.js';
 import {
   APPEARANCES, CAMPAIGN_SCENE_COVERAGE, EXTRAS, PHOTOS,
@@ -242,7 +243,7 @@ function wardrobeReach(rel) {
   const withPaths = blankNoise(source, { strings: false });
   const clean = blankNoise(source);
   const names = new Set();
-  const importRe = /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*wardrobe\.js['"]/g;
+  const importRe = /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*\/wardrobe\.js['"]/g;
   for (const match of withPaths.matchAll(importRe)) {
     for (const raw of match[1].split(',')) {
       const name = raw.trim().split(/\s+as\s+/)[0].trim();
@@ -382,6 +383,77 @@ test('Margo is catalogued at home, at the ordinary Bing and in the Silver Room w
     'the data-only wardrobe ledger must not import Margo/date runtime modules');
 });
 
+test('NO WAKE scene variants change clothes without replacing canonical bodies', () => {
+  const boat = appearancesOf(CHARACTER_IDS.BOOSKI)
+    .find((appearance) => appearance.scene === 'no_wake');
+  assert.ok(boat, 'NO WAKE Booski is absent from the wardrobe ledger');
+  assert.strictEqual(boat.model, WARDROBE_MODULE.BOOSKI_NO_WAKE);
+  assert.equal(boat.from.wardrobe, 'BOOSKI_NO_WAKE');
+  assert.strictEqual(WARDROBE_MODULE.WARDROBE.booski, WARDROBE_MODULE.BOOSKI,
+    'the scene variant replaced Booski at the ordinary Bing');
+  for (const field of ['height', 'build', 'hairColour', 'skin', 'watch', 'chain', 'chainStyle']) {
+    assert.equal(boat.model[field], WARDROBE_MODULE.BOOSKI[field],
+      `NO WAKE changed Booski's ${field}`);
+  }
+  assert.equal(boat.model.dress, 'camp');
+  assert.notEqual(boat.model.dress, WARDROBE_MODULE.BOOSKI.dress);
+  const source = read(boat.module);
+  /* The NAMES, not one exact import line. Pinning the line meant the wardrobe
+   * pass and the owner's 2026-08-24 ruling on Lou -- the mansion camp shirt on
+   * the boat, not the suit -- could not both be true at once, and the ruling
+   * is the one that has to win. What matters is that all three looks come from
+   * the shared wardrobe rather than being dressed by hand in the scene. */
+  const wardrobeImport = source.match(/import \{([^}]*)\} from '\.\.\/core\/wardrobe\.js';/);
+  assert.ok(wardrobeImport, 'NO WAKE stopped importing the shared wardrobe');
+  const imported = wardrobeImport[1].split(',').map((name) => name.trim());
+  for (const name of ['BIG_UNCLE_LOU_MANSION', 'BOOSKI_NO_WAKE', 'IRISH_NO_WAKE']) {
+    assert.ok(imported.includes(name), `NO WAKE no longer imports ${name}`);
+  }
+  assert.equal(imported.includes('BIG_UNCLE_LOU'), false,
+    'Lou is back in the suit on the boat; the owner ruled that scene onto the mansion outfit');
+  assert.ok(source.includes("model: { ...BOOSKI_NO_WAKE, face: 'assets/faces/booski.png' }"));
+
+  const irish = appearancesOf(CHARACTER_IDS.IRISH)
+    .find((appearance) => appearance.scene === 'no_wake');
+  assert.ok(irish, 'NO WAKE Irish is absent from the wardrobe ledger');
+  assert.strictEqual(irish.model, WARDROBE_MODULE.IRISH_NO_WAKE);
+  assert.equal(irish.from.wardrobe, 'IRISH_NO_WAKE');
+  assert.strictEqual(WARDROBE_MODULE.WARDROBE.irish, WARDROBE_MODULE.IRISH,
+    'the boat variant replaced Irish at the ordinary Bing');
+  for (const field of ['height', 'build', 'hair', 'hairColour', 'beard', 'skin']) {
+    assert.equal(irish.model[field], WARDROBE_MODULE.IRISH[field],
+      `NO WAKE changed Irish's ${field}`);
+  }
+  assert.equal(irish.model.workVest, true);
+  assert.equal(irish.model.workVestColour, 0x1b304c);
+  assert.equal(irish.model.trouserColour, 0x20242a);
+  assert.ok(source.includes("model: { ...IRISH_NO_WAKE, face: 'assets/faces/irish.png' }"));
+});
+
+test('Mansion Return gives only Lou the named briefing suit', () => {
+  const rows = appearancesOf(CHARACTER_IDS.LOU);
+  const mission = rows.find((appearance) => (
+    appearance.scene === 'mansion_house' && appearance.variant === 'mission'
+  ));
+  const returned = rows.find((appearance) => (
+    appearance.scene === 'mansion_house' && appearance.variant === 'return_briefing'
+  ));
+  assert.ok(mission && returned, 'the two mutually exclusive Mansion Lou looks are not catalogued');
+  assert.strictEqual(mission.model, WARDROBE_MODULE.BIG_UNCLE_LOU_MANSION);
+  assert.strictEqual(returned.model, WARDROBE_MODULE.BIG_UNCLE_LOU_MANSION_RETURN);
+  assert.notStrictEqual(returned.model, mission.model);
+  assert.equal(returned.model.dress, 'suit');
+  assert.equal(returned.model.pinstripe, false);
+  assert.equal(returned.model.hat, false);
+  for (const field of ['height', 'build', 'gut', 'hairColour', 'skin', 'watch', 'chain', 'chainStyle', 'pendantStyle']) {
+    assert.equal(returned.model[field], WARDROBE_MODULE.BIG_UNCLE_LOU[field],
+      `Mansion Return changed Lou's ${field}`);
+  }
+  const source = read(returned.module);
+  assert.ok(source.includes("const louModel = visit === 'return' ? BIG_UNCLE_LOU_MANSION_RETURN : BIG_UNCLE_LOU_MANSION;"));
+  assert.ok(source.includes('model: withFace(louModel, FACES.lou),'));
+});
+
 test('License to Grill catalogs the exact canonical James Blond tuxedo with its scene-owned bare feet', () => {
   const row = appearancesOf(CHARACTER_IDS.JAMES_BLOND).find((appearance) => (
     appearance.scene === 'bada_bing' && appearance.variant === 'license_to_grill'
@@ -484,42 +556,30 @@ test('the mansion ledger includes every authored Family and performer model cons
 
   const performers = house.filter((entry) => entry.from.mansionPerformer);
   assert.deepEqual(performers.map((entry) => entry.from.mansionPerformer.post).sort(), [
-    'poolPerformer0', 'poolPerformer1', 'poolPerformer2',
+    'poolPerformer0', 'poolPerformer1', 'poolPerformer2', 'poolPerformer3', 'poolPerformer4',
     'suitePerformer0', 'suitePerformer1',
-  ], 'the fitting room must show the two suite and three pool performer variants');
+  ], 'the fitting room must show the two suite and five pool performer variants');
+  assert.equal(new Set(performers.map((entry) => entry.character)).size, 7,
+    'the Mansion performer cast duplicates an identity between the suite and pool');
 
   const castSource = read('src/mansion/cast.js');
-  const castModule = await import(pathToFileURL(path.join(ROOT, 'src/bing/cast.js')).href);
+  assert.match(castSource, /from '\.\/performer-wardrobe\.js'/u,
+    'the Mansion cast no longer consumes the renderer-free performer wardrobe');
+  assert.doesNotMatch(castSource, /BADA_BING_PERFORMERS\s*\[/u,
+    'the Mansion rebuilt a parallel performer identity instead of using scene wardrobe data');
   for (const entry of performers) {
     const recipe = entry.from.mansionPerformer;
-    let height;
-    let build;
-    let performerIndex;
-    if (recipe.post.startsWith('suitePerformer')) {
-      const loop = literalAfter(castSource, 'post(`suitePerformer${i}`, {');
-      assert.ok(loop, 'the suite performer loop no longer has an authored post block');
-      assert.match(castSource, /const look = BADA_BING_PERFORMERS\[i === 0 \? 3 : 1\];/u);
-      assert.match(loop, /height: i === 0 \? 1\.74 : 1\.71, build: 1\.08, dress: 'bikini', \.\.\.look,/u);
-      const loopIndex = Number(recipe.post.at(-1));
-      height = loopIndex === 0 ? 1.74 : 1.71;
-      build = 1.08;
-      performerIndex = loopIndex === 0 ? 3 : 1;
-    } else {
-      const block = literalAfter(castSource, `post('${recipe.post}', {`);
-      assert.ok(block, `${recipe.post} no longer has an authored post block`);
-      const modelText = block.match(/model:\s*\{([\s\S]*?)\n\s*\},/u)?.[1];
-      assert.ok(modelText, `${recipe.post} no longer has an inline model literal`);
-      height = Number(modelText.match(/height:\s*([0-9.]+)/u)?.[1]);
-      build = Number(modelText.match(/build:\s*([0-9.]+)/u)?.[1]);
-      performerIndex = Number(modelText.match(/BADA_BING_PERFORMERS\[(\d+)\]/u)?.[1]);
-      assert.ok(Number.isFinite(height) && Number.isFinite(build) && Number.isInteger(performerIndex),
-        `${recipe.post} no longer composes a fixed body with a Bada Bing performer look`);
-    }
-    assert.equal(recipe.index, performerIndex, `${recipe.post} points at the wrong performer identity`);
-    assert.deepEqual(entry.model, {
-      role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-      height, build, dress: 'bikini', ...castModule.BADA_BING_PERFORMERS[performerIndex],
-    }, `${recipe.post} in the wardrobe catalog has drifted from the production model`);
+    const variant = MANSION_PERFORMER_VARIANTS[recipe.post];
+    assert.ok(variant, `${recipe.post} has no canonical Mansion performer variant`);
+    assert.equal(recipe.index, variant.identityIndex,
+      `${recipe.post} points at the wrong performer identity`);
+    assert.equal(entry.character, `performer:bing_${variant.identityIndex}`,
+      `${recipe.post} is filed under the wrong stable performer id`);
+    assert.equal(entry.model, variant.model,
+      `${recipe.post} in the wardrobe catalog is not the production model object`);
+    assert.equal(entry.model.adult, true);
+    assert.equal(entry.model.role, 'performer');
+    assert.ok(entry.model.curveScale >= 1 && entry.model.curveScale <= 1.18);
   }
 });
 
@@ -687,18 +747,34 @@ test('the heist crew reuse canonical bodies while tactical gear stays scene-owne
   assert.ok(source.includes('bandana: false,'));
   assert.ok(source.includes('face: CAN_PAINT_FACES ? (presentation.face ?? null) : null,'));
   assert.ok(source.includes('addPlateCarrier(figure, presentation.shirtDark);'));
+  const expectedSceneModel = Object.freeze({
+    [CHARACTER_IDS.RIPPINFLOW]: WARDROBE_MODULE.RIPPINFLOW_HEIST,
+    [CHARACTER_IDS.DEATHMEGATRON]: WARDROBE_MODULE.DEATHMEGATRON_HEIST,
+  });
   for (const a of appearancesInScene('bank_heist')) {
     const presentation = module.HEIST_CREW_PRESENTATION[a.character];
     assert.ok(presentation, `the heist no longer presents ${a.character}`);
     const canonical = WARDROBE_MODULE.WARDROBE[a.character];
     assert.ok(canonical, `${a.character} has no canonical wardrobe model`);
-    assert.strictEqual(presentation.model, canonical,
-      `${a.name}'s heist presentation copied or replaced the canonical body`);
-    assert.strictEqual(a.model, canonical,
-      `${a.name}'s appearance row does not mirror the canonical body`);
+    const expected = expectedSceneModel[a.character] ?? canonical;
+    assert.strictEqual(presentation.model, expected,
+      `${a.name}'s heist presentation is not the exact named scene model`);
+    assert.strictEqual(a.model, expected,
+      `${a.name}'s appearance row does not mirror the scene presentation`);
+    for (const field of [
+      'height', 'build', 'gut', 'gender', 'bodyShape', 'hair', 'hairColour',
+      'beard', 'skin',
+    ]) {
+      assert.deepEqual(presentation.model[field], canonical[field],
+        `${a.name}'s heist look changed canonical body field ${field}`);
+    }
     assert.equal(typeof presentation.shirtDark, 'number',
       `${a.name}'s scene-owned plate-carrier colour is missing`);
   }
+  assert.equal(WARDROBE_MODULE.DEATHMEGATRON_HEIST.dress, 'shirt');
+  assert.equal(WARDROBE_MODULE.RIPPINFLOW_HEIST.dress, 'shirt');
+  assert.equal(WARDROBE_MODULE.RIPPINFLOW_HEIST.chain, 'silver');
+  assert.equal(WARDROBE_MODULE.RIPPINFLOW_HEIST.watch, 'silver');
 });
 
 test('rows with nothing to show say why, and rows with something to show can be built', () => {
@@ -840,22 +916,16 @@ test('the ledger answers the two questions the workshop asks it', () => {
    * written for: several outfits over several modules, and they have to come
    * back in one list or the workshop cannot put them side by side.
    *
-   * THIS USED TO ASSERT FOUR OUTFITS and it is three, which is a real change
-   * rather than a loosened bound. The fourth was `BIG_UNCLE_LOU_MANSION`, worn
-   * by a Big Uncle Lou sitting in the office carver — and the ledger's whole
-   * reason for existing is that it revealed there was a SECOND Big Uncle Lou
-   * standing 1.7 m away in the plain suit, both mounted unconditionally. The
-   * seated one was removed, so that outfit is now worn by nobody.
-   *
-   * It is deliberately still an `>=`: if somebody seats him again in
-   * `cast.js` and dresses him properly, this goes back to four and the test
-   * should not have to be edited to allow it. */
+   * The mission and return rows now deliberately share the house scene key:
+   * they are mutually exclusive `visit` variants at the same desk, not two
+   * simultaneous men. The distinct model count still proves the fitting room
+   * can put the return briefing suit beside his other real looks. */
   const lou = appearancesOf(CHARACTER_IDS.LOU);
   assert.ok(lou.length >= 5, `Big Uncle Lou is in ${lou.length} places`);
   const outfits = new Set(lou.map((a) => a.model));
-  assert.ok(outfits.size >= 3,
+  assert.ok(outfits.size >= 4,
     `Big Uncle Lou wears ${outfits.size} distinct outfits across the campaign; `
-    + 'the club, the course and the plain suit are three');
+    + 'the club, the course, the house and the return briefing are four');
 
   const characters = ledgerCharacters();
   assert.equal(characters.length, new Set(characters.map((c) => c.id)).size);

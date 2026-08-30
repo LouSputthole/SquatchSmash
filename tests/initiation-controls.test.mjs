@@ -25,7 +25,7 @@ function controller() {
   const adapter = new InitiationPlayerAdapter(camera, { bounds: 88 });
   adapter.teleport({ x: 0, z: -30 }, { heading: 0 });
   adapter.setControl(INITIATION_CONTROL_MODES.PLAYABLE);
-  adapter.setInputActive(true);
+  adapter.enabled = true;
   return adapter;
 }
 
@@ -49,6 +49,20 @@ test('Initiation playable mode uses shared first-person move, mouse-look, and ju
   assert.ok(player.jumpHeight > 0, 'Space did not start the shared Player jump');
 });
 
+test('playable-to-playable phase changes preserve a held movement key', () => {
+  const adapter = controller();
+  const before = adapter.player.position.clone();
+
+  adapter.setKey('KeyW', true);
+  adapter.setControl(INITIATION_CONTROL_MODES.PLAYABLE);
+
+  assert.ok(adapter.player.keys.has('KeyW'),
+    'a same-mode phase transition dropped the physical key that is still held');
+  for (let i = 0; i < 30; i++) adapter.update(1 / 60);
+  assert.ok(adapter.player.position.distanceTo(before) > 0.5,
+    'Tony stopped walking across a playable-to-playable phase boundary');
+});
+
 test('touch joystick forwards its vector and sprint modifier into shared Player keys', () => {
   const adapter = controller();
   const before = adapter.player.position.clone();
@@ -64,11 +78,57 @@ test('touch joystick forwards its vector and sprint modifier into shared Player 
   assert.ok(!adapter.player.keys.has('ShiftLeft'));
 });
 
+test('canonical suspension overrides active touch until the input lifecycle resumes', () => {
+  const adapter = controller();
+  adapter.setTouchActive(true);
+  adapter.setTouchVector(0, -1, { sprint: true });
+  assert.equal(adapter.player.enabled, true);
+  assert.ok(adapter.player.keys.has('KeyW'));
+
+  adapter.setInputSuspended(true);
+  adapter.enabled = false;
+  assert.equal(adapter.player.enabled, false,
+    'touch mode bypassed the canonical suspended lifecycle');
+  assert.equal(adapter.player.keys.size, 0, 'suspension left touch movement held');
+
+  adapter.setTouchVector(0, -1, { sprint: true });
+  adapter.setTouchButton('Space', true);
+  assert.equal(adapter.player.keys.size, 0, 'suspended touch handlers restored held input');
+
+  adapter.setInputSuspended(false);
+  assert.equal(adapter.player.enabled, true,
+    'resuming canonical input did not restore the active touch control channel');
+});
+
+test('procession policy keeps shared movement but removes keyboard and touch sprint', () => {
+  const adapter = controller();
+  adapter.setKey('KeyW', true);
+  adapter.setKey('ShiftLeft', true);
+  assert.ok(adapter.player.keys.has('ShiftLeft'), 'default gameplay unexpectedly blocked sprint');
+
+  adapter.setMovementPolicy({ moveScale: 0.78, allowSprint: false });
+  assert.equal(adapter.player.moveScale, 0.78);
+  assert.equal(adapter.moveScale, 0.78);
+  assert.equal(adapter.allowSprint, false);
+  assert.ok(adapter.player.keys.has('KeyW'), 'pacing policy dropped the held walk key');
+  assert.ok(!adapter.player.keys.has('ShiftLeft'), 'pacing policy left a held sprint key active');
+
+  assert.equal(adapter.setKey('ShiftRight', true), true, 'blocked sprint was not handled as movement input');
+  assert.ok(!adapter.player.keys.has('ShiftRight'), 'keyboard sprint bypassed procession policy');
+  adapter.setTouchVector(0, -1, { sprint: true });
+  assert.ok(adapter.player.keys.has('KeyW'));
+  assert.ok(!adapter.player.keys.has('ShiftLeft'), 'touch sprint bypassed procession policy');
+
+  adapter.setMovementPolicy();
+  assert.equal(adapter.player.moveScale, 1);
+  assert.equal(adapter.allowSprint, true);
+});
+
 test('execution look-only mode preserves free look while locking translation at kneeling height', () => {
   const adapter = controller();
   adapter.teleport({ x: -2.2, z: -8 }, { heading: 0 });
   adapter.setControl(INITIATION_CONTROL_MODES.LOOK_ONLY, { pose: PLAYER_POSES.KNEELING });
-  adapter.setInputActive(true);
+  adapter.enabled = true;
   const before = adapter.player.position.clone();
   const yaw = adapter.player.yaw;
 
@@ -86,7 +146,7 @@ test('authored cutscene mode clears input and freezes the shared Player camera',
   const adapter = controller();
   adapter.setKey('KeyW', true);
   adapter.setControl(INITIATION_CONTROL_MODES.CUTSCENE);
-  adapter.setInputActive(true);
+  adapter.enabled = true;
   const before = adapter.player.position.clone();
   const yaw = adapter.player.yaw;
 
@@ -163,15 +223,24 @@ test('the full forest approach has a deterministic person-width aisle into Tony 
   }
 });
 
-test('phase control policy is first person except deliberate cabin cinema', () => {
-  for (const name of ['approach', 'line_up', 'walk_out', 'trail', 'cabin_arrive', 'cabin_door']) {
+test('the entire Initiation stays first person, including the cabin ritual', () => {
+  for (const name of [
+    'approach', 'line_up', 'walk_out', 'trail', 'cabin_arrive', 'cabin_door',
+    'ceremony_approach',
+  ]) {
     assert.equal(PHASES[name].control, CONTROL_MODES.PLAYABLE, `${name} is not playable first person`);
   }
   for (const name of ['mass_kneel', 'execution_sweep', 'player_aim', 'lou_interrupt']) {
     assert.equal(PHASES[name].control, CONTROL_MODES.LOOK_ONLY, `${name} is not stationary free-look`);
     assert.equal(PHASES[name].playerPose, PLAYER_POSES.KNEELING, `${name} does not lower Tony to his knees`);
   }
-  for (const name of ['ceremony', 'oath_question', 'blade', 'burn', 'room', 'pullback']) {
-    assert.equal(PHASES[name].control, CONTROL_MODES.CUTSCENE, `${name} lost its deliberate camera`);
+  for (const name of [
+    'ceremony', 'oath_question', 'oath_yes', 'blade', 'hand', 'cut', 'card',
+    'oath_1', 'oath_2', 'burn', 'made', 'room', 'room_aside', 'pullback',
+  ]) {
+    assert.equal(PHASES[name].control, CONTROL_MODES.LOOK_ONLY,
+      `${name} took the camera away from the player`);
   }
+  assert.equal(PHASES.ceremony_approach.objective, 'Stand before Uncle Lou');
+  assert.deepEqual(PHASES.ceremony_approach.exits, ['ceremony']);
 });

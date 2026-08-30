@@ -1,4 +1,4 @@
-import { SPEECH_MIX_CLOSE, speak } from '../core/dialogue.js';
+import { SPEECH_MIX_CLOSE, SPEECH_MIX_INDOORS, speak } from '../core/dialogue.js';
 import * as THREE from 'three';
 import { ANCHORS, BATHROOM_DOOR, ROOMS } from './scenes/ApartmentScene.js';
 import { SILVERCASE_APE_PRESENTATION } from './cast/ape.js';
@@ -17,7 +17,7 @@ import {
 } from './preview.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
-import { translateKey } from '../core/settings.js';
+import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPromptHud } from '../core/hud.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -442,9 +442,21 @@ const SPEAKER_BODY = Object.freeze({
   PRUITT: 'pruitt',
 });
 
+/** Resolve a script speaker to the body that is physically in the live set.
+ * The drive-over and apartment deliberately use separate Ape rigs, so the
+ * active world chooses the emitter rather than a global character id. */
+function physicalSpeaker(line) {
+  const bodyId = SPEAKER_BODY[line?.speaker];
+  if (!bodyId) return null;
+  if (bodyId === 'ape' && car.root.visible) return car.ape;
+  return cast[bodyId] ?? null;
+}
+
 /** Cut every mouth in the room. Called wherever the voice itself is cut. */
 function hushCast() {
   for (const actor of cast.all) actor.npc.hush?.();
+  /* CarInterior owns the raw Npc; apartment cast entries wrap one in Actor. */
+  car.ape.hush?.();
 }
 
 /**
@@ -457,10 +469,11 @@ function hushCast() {
  */
 function speakLine(line) {
   hushCast();
-  const actor = cast[SPEAKER_BODY[line.speaker]];
-  if (!actor?.alive) return;
+  const actor = physicalSpeaker(line);
+  if (!actor || actor.alive === false) return;
+  const npc = actor.npc ?? actor;
   const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
-  actor.npc.say(Math.max(authored, voiceSeconds), { audio, source: voiceSource });
+  npc.say(Math.max(authored, voiceSeconds), { audio, source: voiceSource });
 }
 
 const dialogue = new DialogueController({
@@ -480,17 +493,23 @@ const dialogue = new DialogueController({
    * further code change. */
   /* Returns the take's real length so the controller can hold the line for
    * it rather than for an authored guess. See DialogueController._advance. */
-  playCue(cue) {
+  playCue(cue, _voice, line) {
     voiceSource = null;
     voiceSeconds = 0;
     if (!cue || !audio?.hasSample?.(cue)) return 0;
-    /* Through the shared dialogue path. The 0.9 that used to be here was this
-     * scene's own guess at dialogue level; it lives on the voice bus now, once,
-     * for the whole game. `SPEECH_MIX_CLOSE` because the Silver Case is two
-     * men in a room and a hallway -- there is nowhere far enough away for a
-     * positional mix to buy anything, and a line that fades when the player
-     * turns round is worse than one that does not. */
-    const spoken = speak(audio, cue, { mix: SPEECH_MIX_CLOSE });
+    /* Through the shared dialogue path. A person who exists in the world owns
+     * a moving indoor emitter; first-person Tony and HUD/narration stay close
+     * and non-positional. The actor identity and subtitle ride on the receipt
+     * so QA proves the actual recording came from the actual speaker instead
+     * of merely observing nearby audio and text events. */
+    const actor = physicalSpeaker(line);
+    const speakerId = SPEAKER_BODY[line?.speaker] ?? line?.speaker?.toLowerCase() ?? null;
+    const spoken = speak(audio, cue, {
+      ...(actor?.group ? { speaker: actor.group } : {}),
+      mix: actor?.group ? SPEECH_MIX_INDOORS : SPEECH_MIX_CLOSE,
+      speakerId,
+      subtitle: line?.text ?? null,
+    });
     voiceSource = spoken.source;
     voiceSeconds = spoken.seconds;
     return voiceSeconds;
@@ -580,7 +599,7 @@ const pauseMenu = createPauseMenu({
     'E — interact.',
     'Left click — fire. The shot goes where the crosshair is, so aim first.',
     'Right click — reach for your weapon (don’t, unless Ape says so).',
-    '1-4 — pick a response when a choice is on screen. Hold E to finish the prayer.',
+    '1-2 — decide Winston’s fate. Hold E to finish Squatchiel 69:17.',
     'Tab or Escape — pause. M — mute.',
   ],
   onPause: () => {
@@ -589,11 +608,14 @@ const pauseMenu = createPauseMenu({
      * across a rebind stays down forever: the keyup translates to the NEW
      * binding and deletes that, leaving the old code in player.keys walking
      * the player into a wall until the window loses focus. */
-    player.clearKeys();
+    input.clear('pause');
+    input.refresh('pause');
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
   onResume: () => {
     paused = false;
+    dialogue.syncClock();
+    input.refresh('resume');
     if (audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
     clock.getDelta();
     lockPointer();
@@ -624,6 +646,14 @@ const flags = {
   apeFinishedChester: false,
   apeFinishedWinston: false,
 };
+/** Observable authored beats inside the bathroom entrance. These are attempt
+ * state, not campaign state; retrying the checkpoint rebuilds them from zero. */
+const bathroomAmbush = {
+  openingShots: 0,
+  openingImpacts: [],
+  attackerMoving: false,
+  playerWindowOpened: false,
+};
 /**
  * The last trigger pull, for the HUD, the verify script and nothing else.
  * `{ intended, hit, actor, wrong }` — see `resolvePlayerShot`.
@@ -636,7 +666,6 @@ let missedShots = 0;
 
 let running = false;
 let paused = false;
-let pointerLocked = false;
 let firePressed = false;
 let drawPressed = false;
 let earlyDrawCount = 0;
@@ -644,9 +673,10 @@ let holdE = 0;
 let stallTimer = 0;
 let stallWarned = false;
 let couchFireHandled = false;
+let couchShotArmed = false;
 
 const ambientFired = {
-  tv: false, food: false, glasses: false, bathroomDoor: false, chesterGlance: false,
+  food: false, glasses: false, bathroomDoor: false, chesterGlance: false,
 };
 
 // ---------------------------------------------------------------- small helpers
@@ -708,17 +738,14 @@ function lookingAt(targetPos, maxAngle = 0.4, maxDist = 6) {
   return _fwd.dot(_toTarget) > Math.cos(maxAngle);
 }
 
-const TV_POS = new THREE.Vector3(ANCHORS.tvSpot.x, ANCHORS.tvSpot.y, ANCHORS.tvSpot.z);
 const TABLE_POS = new THREE.Vector3(ANCHORS.coffeeTableSpot.x, 0.5, ANCHORS.coffeeTableSpot.z);
 const BATHROOM_DOOR_POS = new THREE.Vector3(BATHROOM_DOOR.x, 1.1, BATHROOM_DOOR.z);
 
-/** ESTABLISH_CONTROL's free-roam flavour: glance at the TV/food/glasses/
- * bathroom door, or stand near Chester, each exactly once. */
+/** ESTABLISH_CONTROL's free-roam flavour: inspect the food/glasses/bathroom
+ * door, or stand near Chester, each exactly once. The old spoken TV bark was
+ * unrelated to the case and could survive into the first execution lead-in;
+ * it is intentionally gone rather than merely quieter. */
 function updateAmbientControl() {
-  if (!ambientFired.tv && lookingAt(TV_POS)) {
-    ambientFired.tv = true;
-    dialogue.interject(SEQUENCES.ambientTV);
-  }
   if (!ambientFired.food && lookingAt(TABLE_POS)) {
     ambientFired.food = true;
     dialogue.interject(SEQUENCES.ambientFood);
@@ -906,7 +933,7 @@ function restoreCheckpoint() {
   player.pitch = 0;
   player.velocity.set(0, 0, 0);
   /* A key held across the death card must not walk the restored player. */
-  player.clearKeys();
+  input.clear('checkpoint-restore');
 
   interactions.setPaused(false);
   ui.hud.classList.add('visible');
@@ -1070,9 +1097,9 @@ const _aimAt = new THREE.Vector3();
 
 /** Which man, if any, the current beat has ordered shot. */
 function orderedTarget() {
-  if (fsm.is(S.COUCH_SHOOTING)) return cast.deke;
+  if (fsm.is(S.COUCH_SHOOTING) && couchShotArmed) return cast.deke;
   if (fsm.is(S.CHAIR_SHOOTING)) return cast.chester;
-  if (fsm.is(S.BATHROOM_AMBUSH)) return cast.pruitt;
+  if (fsm.is(S.BATHROOM_AMBUSH) && reactionWindow.state === 'armed') return cast.pruitt;
   if (fsm.is(S.EXECUTE_WINSTON)) return cast.winston;
   return null;
 }
@@ -1176,6 +1203,38 @@ function apeShootsAt(actor) {
   const hit = shots.traceFrom(_muzzle, _aimAt.clone().sub(_muzzle));
   if (hit?.actor === actor) markBody(actor, hit.point, _muzzle, { spatter: false });
   else markBody(actor, _aimAt, _muzzle, { spatter: false });
+}
+
+const _bathroomImpactNormal = new THREE.Vector3(0, 0, -1);
+
+/**
+ * One of Pruitt's two authored opening misses.
+ *
+ * Both rounds cross the occupied room and strike the south plaster on opposite
+ * sides of the player's current position. They are deliberately not raycasts
+ * at a living target: the opening pair must miss on every frame rate and at
+ * every player position. The third round is still lethal if the real reaction
+ * window expires.
+ */
+function fireBathroomOpeningMiss(index) {
+  const gun = cast.pruitt.weapon;
+  if (gun) {
+    muzzleWorld(gun, _muzzle);
+    impacts.muzzle(_muzzle);
+    audio.play('gun.shot', { volume: 0.95, position: _muzzle });
+  } else {
+    audio.play('gun.shot', { volume: 0.95, position: cast.pruitt.group.position });
+  }
+  cast.pruitt.recoilShot?.();
+  const side = index === 0 ? 0.72 : -0.62;
+  const impact = new THREE.Vector3(
+    THREE.MathUtils.clamp(player.position.x + side, ROOMS.apartment.x0 + 0.25, ROOMS.apartment.x1 - 0.25),
+    index === 0 ? 1.38 : 0.92,
+    ROOMS.apartment.z1 - 0.025,
+  );
+  markSurface(impact, _bathroomImpactNormal);
+  bathroomAmbush.openingShots += 1;
+  bathroomAmbush.openingImpacts.push(impact.toArray());
 }
 
 // ---------------------------------------------------------------- states
@@ -1347,8 +1406,9 @@ function buildStates() {
 
     [S.COUCH_SHOOTING]: {
       enter() {
-        setObjective(OBJECTIVES.COUCH_SHOOTING);
+        setObjective(OBJECTIVES.COUCH_ORDER);
         couchFireHandled = false;
+        couchShotArmed = false;
         // "This is the part where we make sure everybody remembers this
         // conversation." This is where Ape finally says when — so this is
         // where BOTH guns come out, and they stay out through the ambush.
@@ -1357,22 +1417,44 @@ function buildStates() {
         /* Ape names the man, then the screen says which button. "It's unclear
          * who to shoot" was the complaint; the answer is the HUD clarifying
          * him, not replacing him. */
-        sayThenInstruct(SEQUENCES.couchOrder, INSTRUCTIONS.COUCH_SHOOTING);
+        sayThenInstruct(SEQUENCES.couchOrder, INSTRUCTIONS.COUCH_SHOOTING, {
+          onDone: () => {
+            couchShotArmed = true;
+            setObjective(OBJECTIVES.COUCH_SHOOTING);
+          },
+        });
       },
       update() {
         // No countdown, no QTE: the camera and controls stay fully live, and
         // the player fires (or doesn't) on their own left-click, whenever.
         // What has changed is that the click has to land on Deke.
+        if (!couchShotArmed) {
+          // A click during Ape's order belongs to the live first-person view,
+          // not to the execution. The target and objective arm together only
+          // after his final word lands.
+          firePressed = false;
+          return;
+        }
         if (firePressed && !couchFireHandled) {
           firePressed = false;
           if (!resolvePlayerShot()) return;
           couchFireHandled = true;
           cast.deke.kill();
+          cast.chester.startle({
+            shooter: player.position,
+            body: cast.deke.group.position,
+            duration: 1.8,
+          });
           setInstruction('');
-          dialogue.play(SEQUENCES.couchAftermath, { onDone: () => fsm.go(S.LOU_QUESTION) });
+          dialogue.play(SEQUENCES.chesterShotReaction, {
+            onDone: () => dialogue.play(SEQUENCES.couchAftermath, {
+              onDone: () => fsm.go(S.LOU_QUESTION),
+            }),
+          });
         }
       },
       exit() {
+        couchShotArmed = false;
         setInstruction('');
       },
     },
@@ -1381,15 +1463,26 @@ function buildStates() {
       enter() {
         setObjective(OBJECTIVES.LOU_QUESTION);
         cast.ape.moveTo('chair');
-        dialogue.play(SEQUENCES.louQuestionSetup, {
+        cast.ape.focusOn(cast.chester);
+        cast.chester.npc.look = false;
+        cast.chester.npc.gaze = 0;
+        cast.chester.parts.head.rotation.y = 0;
+        dialogue.play(SEQUENCES.louQuestionOpening, {
           onDone: () => {
-            dialogue.presentChoice(CHOICES.louQuestion, {
-              onResolved: (outcome) => {
-                if (outcome === 'lighting') flags.irritatedApe = true;
-                const reaction = SEQUENCES.louQuestionReaction[outcome]
-                  || SEQUENCES.louQuestionReaction.silent;
-                dialogue.play(reaction, { onDone: () => fsm.go(S.SQUATCH_PRAYER) });
-              },
+            // "What?" buys Ape the physical step closer requested by the
+            // exchange. Both bodies remain square to each other; neither gaze
+            // is allowed to drift back to the first-person camera.
+            cast.ape.moveTo('chairClose');
+            after(0.75, () => {
+              cast.ape.focusOn(cast.chester);
+              cast.chester.npc.faceToward(
+                cast.ape.group.position.x,
+                cast.ape.group.position.z,
+                true,
+              );
+              dialogue.play(SEQUENCES.louQuestionPress, {
+                onDone: () => fsm.go(S.SQUATCH_PRAYER),
+              });
             });
           },
         });
@@ -1404,11 +1497,11 @@ function buildStates() {
           onDone: () => {
             dialogue.play(SEQUENCES.squatchPrayer, {
               onDone: () => {
+                setObjective(OBJECTIVES.PRAYER_FINISH);
                 dialogue.presentChoice(CHOICES.prayerFinish, {
                   onResolved: () => {
-                    // The prayer no longer kills him on its own. The owner's
-                    // note: "There should also be a prompt to shoot the guy in
-                    // the chair with Ape." That is its own beat.
+                    // The Prospect's final sentence is the existing player
+                    // finish mechanic, immediately before the paired shot.
                     dialogue.play(SEQUENCES.squatchPrayerFinish, {
                       onDone: () => fsm.go(S.CHAIR_SHOOTING),
                     });
@@ -1479,34 +1572,84 @@ function buildStates() {
     [S.BATHROOM_AMBUSH]: {
       enter() {
         setObjective(OBJECTIVES.BATHROOM_AMBUSH);
-        setInstruction(INSTRUCTIONS.BATHROOM_AMBUSH, { urgent: true });
+        setInstruction('');
         ui.objective.classList.add('urgent');
-        // The door has to come off the latch or he walks through it: the
-        // bathroom leaf is real geometry sitting exactly where he appears.
-        // Fast, because he kicked it.
-        audio.play('door.creak', { volume: 0.7 });
+        this.t = 0;
+        this.revealed = false;
+        this.firstMiss = false;
+        this.secondMiss = false;
+        this.armed = false;
+        bathroomAmbush.openingShots = 0;
+        bathroomAmbush.openingImpacts.length = 0;
+        bathroomAmbush.attackerMoving = false;
+        bathroomAmbush.playerWindowOpened = false;
+
+        // The creak owns the doorway and starts before Pruitt is visible. It
+        // is spatial, full-sized, and given a clean beat before Ape's bark.
+        audio.play('door.creak', {
+          volume: 0.95,
+          position: { x: BATHROOM_DOOR.x, y: 1.05, z: BATHROOM_DOOR.z },
+        });
         swingDoor(
           apartment.doors.bathroomDoor,
           apartment.doors.bathroomDoor.group.rotation.y,
           apartment.doors.bathroomDoor.openRotationY,
-          0.22,
+          0.72,
         );
         setDoorColliderOpen(apartment.doors.bathroomDoor.collider, true);
-        cast.pruitt.reveal();
-        dialogue.interject(SEQUENCES.bathroomWarning);
-        const cluesCount = Object.values(cluesFound).filter(Boolean).length;
-        reactionWindow.start({ readinessBonus: cluesCount >= 2 });
+        cast.ape.moveTo('bathroom');
+        cast.ape.focusPoint(BATHROOM_DOOR.x, BATHROOM_DOOR.z);
+        cast.ape.aimWeapon(true);
+        after(0.18, () => dialogue.play(SEQUENCES.bathroomWarning));
       },
       update(dt) {
+        this.t += dt;
+
+        // He clears the leaf instead of teleporting into the doorway and then
+        // waiting motionless. The full step lasts through the opening pair.
+        if (this.t >= 0.45 && !this.revealed) {
+          this.revealed = true;
+          bathroomAmbush.attackerMoving = true;
+          cast.pruitt.stageAmbush(0);
+        }
+        if (this.revealed && this.t < 1.85) {
+          cast.pruitt.stageAmbush((this.t - 0.45) / 1.4);
+        }
+        if (this.t >= 1.85) bathroomAmbush.attackerMoving = false;
+
+        // Two intentional misses, each with its own muzzle flash, spatial shot
+        // and plaster impact. The player is not targetable until both land.
+        if (!this.firstMiss && this.t >= 1.35) {
+          this.firstMiss = true;
+          fireBathroomOpeningMiss(0);
+        }
+        if (!this.secondMiss && this.t >= 1.85) {
+          this.secondMiss = true;
+          fireBathroomOpeningMiss(1);
+        }
+        if (!this.armed && this.t >= 2.05) {
+          this.armed = true;
+          bathroomAmbush.playerWindowOpened = true;
+          setInstruction(INSTRUCTIONS.BATHROOM_AMBUSH, { urgent: true });
+          const cluesCount = Object.values(cluesFound).filter(Boolean).length;
+          reactionWindow.start({ readinessBonus: cluesCount >= 2 });
+        }
+
+        if (!this.armed) {
+          firePressed = false;
+          return;
+        }
         const event = reactionWindow.update(dt);
         if (event?.event === 'expired') {
-          // Pruitt gets the shot he came out of the bathroom to take.
+          // Waiting through the real response window earns the third, aimed
+          // shot. The opening pair remain guaranteed misses.
           const gun = cast.pruitt.weapon;
           if (gun) {
             muzzleWorld(gun, _muzzle);
             impacts.muzzle(_muzzle);
           }
-          audio.play('gun.shot', { volume: 0.95 });
+          cast.pruitt.recoilShot?.();
+          audio.play('gun.shot', { volume: 0.95, position: _muzzle });
           cast.ape.kill();
           fsm.go(S.FAILED);
           return;
@@ -1542,8 +1685,22 @@ function buildStates() {
         setObjective(OBJECTIVES.AFTERMATH);
         dialogue.play(SEQUENCES.aftermathIntro, {
           onDone: () => {
+            /* The choice is a held tableau, not a paused menu. Winston keeps
+             * breathing and bracing while a quiet recorded clock marks the
+             * room around him for the entire authored 27-second window. The
+             * Actor owns both the live pose and its production observation;
+             * the verifier reads that observation rather than maintaining a
+             * second verifier-only timer. */
+            cast.winston.startTension({
+              pulseSeconds: 4.5,
+              onPulse: () => audio.play('clock.tick', {
+                volume: 0.14,
+                requiredRecorded: true,
+              }),
+            });
             dialogue.presentChoice(CHOICES.aftermath, {
               onResolved: (outcome) => {
+                cast.winston.stopTension();
                 // Sparing him resolves here, the way it always did. Killing
                 // him no longer resolves on the keypress at all — the owner's
                 // note is that if you are not going to spare the last man you
@@ -1558,6 +1715,9 @@ function buildStates() {
             });
           },
         });
+      },
+      exit() {
+        cast.winston.stopTension();
       },
     },
 
@@ -1674,7 +1834,7 @@ function showSilverCaseCompletion({ campaignComplete = silverCaseCampaignComplet
   }
   running = false;
   document.exitPointerLock?.();
-  player.clearKeys?.();
+  input.clear('scene-complete');
   ui.menu?.classList.add('hidden');
   ui.hud.classList.remove('visible');
   sceneInventory.hide();
@@ -1718,29 +1878,51 @@ const fsm = new SilverCaseStateMachine(buildStates(), reportSilverCaseBeat);
 // ---------------------------------------------------------------- input
 
 function lockPointer() {
-  const p = renderer.domElement.requestPointerLock();
-  if (p && typeof p.catch === 'function') p.catch(() => {});
+  return input.requestPointerLock();
 }
 
 const DIGIT_KEY = {
   Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4',
 };
 
-window.addEventListener('keydown', (e) => {
-  // Escape is the key that resumes, so it is read whether paused or not.
-  if (e.code === 'Escape') { pauseMenu.toggle(); return; }
-  if (paused) return;
-  player.setKey(translateKey(e.code), true);
-  if (e.code === 'KeyE') interactions.press();
-  if (DIGIT_KEY[e.code] && dialogue.choice) dialogue.chooseKey(DIGIT_KEY[e.code]);
-  if (e.code === 'KeyM') toggleMute();
-});
-window.addEventListener('keyup', (e) => {
-  player.setKey(translateKey(e.code), false);
-  if (e.code === 'KeyE') interactions.release();
-});
-window.addEventListener('blur', () => {
-  player.clearKeys();
+const input = createFirstPersonInput({
+  player,
+  canvas: renderer.domElement,
+  interaction: interactions,
+  /* Capture may be requested by the start gesture before the scene's audio
+   * bank finishes loading. Pause is the only state that refuses it. */
+  canEnable: () => !paused,
+  canHandleInput: () => true,
+  controlState: () => ({
+    defaultLookEnabled: running && !paused,
+  }),
+  routes: {
+    keyDown(e) {
+      // Escape is the key that resumes, so it is read whether paused or not.
+      if (e.code === 'Escape') { pauseMenu.toggle(); return true; }
+      if (paused) return true;
+      if (DIGIT_KEY[e.code] && dialogue.choice) {
+        dialogue.chooseKey(DIGIT_KEY[e.code]);
+        return true;
+      }
+      if (e.code === 'KeyM') { toggleMute(); return true; }
+      return false;
+    },
+    mouseDown(e, controls) {
+      if (!running) return true;
+      /* An unlocked click belongs to capture, not the gun. Returning false
+       * lets the Adapter make the request from this same user gesture. */
+      if (!controls.locked) return false;
+      if (e.button === 0) firePressed = true;
+      if (e.button === 2 && fsm.is(S.ESTABLISH_CONTROL, S.LOU_QUESTION, S.SQUATCH_PRAYER)) {
+        drawPressed = true;
+      }
+      return true;
+    },
+  },
+  onCaptureChange: (_event, controls) => {
+    if (!controls.locked && running && !paused) pauseMenu.pause();
+  },
 });
 /* A hidden tab must not keep simulating the mission and talking to nobody:
  * route through the pause menu, whose onPause already suspends the audio
@@ -1750,23 +1932,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseMenu.pause();
 });
 
-document.addEventListener('mousemove', (e) => {
-  if (!pointerLocked || paused || !running) return;
-  player.handleMouseMove(e.movementX, e.movementY);
-});
-
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
-renderer.domElement.addEventListener('mousedown', (e) => {
-  if (!running) return;
-  if (!pointerLocked) { lockPointer(); return; }
-  if (e.button === 0) firePressed = true;
-  if (e.button === 2 && fsm.is(S.ESTABLISH_CONTROL, S.LOU_QUESTION, S.SQUATCH_PRAYER)) drawPressed = true;
-});
-document.addEventListener('pointerlockchange', () => {
-  pointerLocked = document.pointerLockElement === renderer.domElement;
-  player.enabled = pointerLocked;
-  if (!pointerLocked && running && !paused) pauseMenu.pause();
-});
 
 let muted = false;
 function toggleMute() {
@@ -1897,6 +2063,11 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !paused) updateGame(dt);
+  /* Where the player's ears are. Without this the WebAudio listener sits at
+   * the world origin facing -Z for the whole scene and every positioned cue is
+   * panned as heard from there -- see the long note in
+   * src/cartel-palace/main.js, where the owner caught it. */
+  audio.updateListener(camera);
   postfx.render();
   postfx.sample(dt);
 }
@@ -2001,6 +2172,12 @@ window.silvercase = {
     weapon: { drawn: viewModel.drawn, visible: viewModel.group.visible },
     inventory: { ...loadout, slots: JSON.parse(inventorySignature || '[]') },
     reactionWindow: reactionWindow.snapshot(),
+    bathroomAmbush: {
+      ...bathroomAmbush,
+      openingImpacts: bathroomAmbush.openingImpacts.map((point) => [...point]),
+    },
+    /** Live production evidence for the held Winston decision tableau. */
+    winstonTension: cast.winston.tensionSnapshot(),
   }),
   begin: () => beginScene(),
   retry: () => { ui.deathOverlay.classList.add('hidden'); restoreCheckpoint(); },
@@ -2053,6 +2230,7 @@ window.silvercase = {
   apartment,
   car,
   player,
+  input,
   interactions,
   audio,
   reactionWindow,

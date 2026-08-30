@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { ensureDomShim, ensureThreeShim } from '../tools/three-shim.mjs';
 
@@ -7,9 +10,15 @@ ensureThreeShim();
 ensureDomShim();
 
 const THREE = await import('three');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { FlightInput } = await import('../src/beefrun/input.js');
+const { createFlightFirstPersonPolicy } = await import('../src/beefrun/first-person-controls.js');
 const { AircraftPhysics } = await import('../src/beefrun/physics.js');
 const { AC_ENOLA } = await import('../src/enolasquatch/config.js');
+const {
+  consumeEnolaChoiceKey, consumeRetiredEnolaSplitThrottleKey,
+} = await import('../src/enolasquatch/choice-input.js');
+const { MissionController } = await import('../src/enolasquatch/mission/MissionController.js');
 const { EnolaSquatch } = await import('../src/enolasquatch/scenes/EnolaSquatch.js');
 
 function flyEnola({ key = null, stick = null }) {
@@ -89,4 +98,113 @@ test('shared A/D and gamepad input visibly bank the Enola Squatch in the command
     'keyboard A and left stick diverged');
   assert.equal(Math.sign(keyboardRight.controlRoll), Math.sign(stickRight.controlRoll),
     'keyboard D and right stick diverged');
+});
+
+test('SQUATCHOLA GAY uses Beef Run’s left-side numbered cockpit card', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'enolasquatch.html'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'src/beefrun/beefrun.css'), 'utf8');
+  const controls = css.match(/#br-controls\s*\{(?<body>[\s\S]*?)\}/)?.groups?.body ?? '';
+  assert.match(controls, /left\s*:\s*1\.4rem\s*;/, 'the shared cockpit card belongs on the left');
+  assert.doesNotMatch(controls, /right\s*:/, 'the Enola must not fork Beef Run into a right-side card');
+  assert.match(html, /<kbd>1<\/kbd><kbd>2<\/kbd><span>start \/ stop engines three &amp; four<\/span>/);
+  assert.match(html, /<kbd>3<\/kbd><kbd>4<\/kbd><span>battery · fuel<\/span>/);
+});
+
+test('a Fat Squatch choice consumes 1-5 before FlightInput can touch an engine or selector', () => {
+  for (const digit of ['1', '2', '3', '4', '5']) {
+    const actions = [];
+    const chosen = [];
+    const flightInput = new FlightInput();
+    flightInput.onAction = (action) => actions.push(action);
+    const mission = {
+      phase: 'release',
+      _releaseStep: 'awaitChoice',
+      chooseReleaseLine(key) { chosen.push(key); return true; },
+    };
+    const policy = createFlightFirstPersonPolicy({
+      isActive: () => true,
+      isOnFoot: () => false,
+      flightInput,
+      lookAircraft() {},
+      pressPrimary() {},
+      releasePrimary() {},
+      beforeKeyDown(event, code) {
+        if (!consumeEnolaChoiceKey(mission, code)) return false;
+        event.preventDefault();
+        return true;
+      },
+    });
+    let prevented = false;
+    const code = `Digit${digit}`;
+    const event = {
+      code, key: digit, repeat: false,
+      preventDefault() { prevented = true; },
+    };
+
+    assert.equal(policy.routes.keyDown(event, { code }), true);
+    assert.deepEqual(chosen, [digit]);
+    assert.deepEqual(actions, [], `${code} leaked into the aircraft action map`);
+    assert.equal(flightInput.keys.has(code), false, `${code} was left held in FlightInput`);
+    assert.equal(prevented, true);
+  }
+});
+
+test('number keys remain ordinary aircraft controls when no mission choice is active', () => {
+  const actions = [];
+  const flightInput = new FlightInput();
+  flightInput.onAction = (action) => actions.push(action);
+  const mission = { phase: 'cruise', _releaseStep: null, _emergencyResolved: true };
+  const policy = createFlightFirstPersonPolicy({
+    isActive: () => true,
+    isOnFoot: () => false,
+    flightInput,
+    lookAircraft() {},
+    pressPrimary() {},
+    releasePrimary() {},
+    beforeKeyDown: (_event, code) => consumeEnolaChoiceKey(mission, code),
+  });
+  const event = { code: 'Digit3', key: '3', repeat: false, preventDefault() {} };
+
+  policy.routes.keyDown(event, { code: 'Digit3' });
+  assert.deepEqual(actions, ['battery']);
+  assert.equal(flightInput.keys.has('Digit3'), true);
+});
+
+test('the retired bracket trim cannot disagree with Enola’s visible common throttle', () => {
+  for (const code of ['BracketLeft', 'BracketRight']) {
+    const flightInput = new FlightInput();
+    flightInput.throttleSplit = code === 'BracketLeft' ? -0.8 : 0.8;
+    flightInput.key(code, true);
+    assert.equal(consumeRetiredEnolaSplitThrottleKey(flightInput, code), true);
+    assert.equal(flightInput.throttleSplit, 0);
+    assert.equal(flightInput.keys.has(code), false);
+  }
+  assert.equal(consumeRetiredEnolaSplitThrottleKey(new FlightInput(), 'KeyZ'), false,
+    'the visible throttle-back control must still reach FlightInput');
+});
+
+test('entering and restoring the cockpit raise the shared left-side controls card', () => {
+  const calls = [];
+  const flightHud = {
+    show: (on) => calls.push(['hud', on]),
+    showControls: (on) => calls.push(['controls', on]),
+  };
+  const mission = {
+    phase: 'walkaround',
+    disarmBoardingTarget() {},
+    preflight: { disarm() {} },
+    player: { enabled: true, mode: 'walk' },
+    interaction: { setPaused() {} },
+    crew: { takeSeats() {} },
+    aircraft: { parts: {}, setCrewDoorOpen() {} },
+    cameras: { setView() {}, lookYaw: 1, lookPitch: 1 },
+    audio: { setHeadset() {} },
+    dialogue: { setHeadset() {} },
+    input: { rudderKeys: false },
+    flightHud,
+  };
+
+  MissionController.prototype.enterCockpit.call(mission, { advance: false });
+  assert.deepEqual(calls, [['hud', true], ['controls', true]]);
+  assert.equal(mission.input.rudderKeys, true);
 });

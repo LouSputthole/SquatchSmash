@@ -31,6 +31,12 @@ import { FINAL_ARC_LOADOUT_STORAGE_KEY } from '../src/core/final-arc-loadout-sto
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5232;
 const BASE = `http://localhost:${PORT}`;
+/* Cartel Palace's measured cold WebGL/Recast boot is about 147 seconds on the
+ * CI-class SwiftShader path. The former fixed 120-second readiness wait could
+ * therefore fail after every preceding reload assertion had passed. Keep the
+ * navigation budget separate and make the heavy scene-readiness ceiling
+ * explicit/overridable instead of teaching the gate to distrust a real boot. */
+const READY_TIMEOUT_MS = Number(process.env.FINAL_ARC_READY_TIMEOUT_MS) || 300_000;
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
@@ -272,6 +278,7 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.jpg': 'image/jpeg',
   '.mp3': 'audio/mpeg',
@@ -352,7 +359,7 @@ async function openSeeded({ state, url, ready }) {
     loadoutValue: LOADOUT_SENTINEL,
   });
   await page.goto(`${BASE}${url}`, { waitUntil: 'load', timeout: 180_000 });
-  await page.waitForFunction(ready, null, { timeout: 120_000 });
+  await page.waitForFunction(ready, null, { timeout: READY_TIMEOUT_MS });
   return { context, page, errors };
 }
 

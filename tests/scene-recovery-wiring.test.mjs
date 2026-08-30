@@ -25,6 +25,12 @@ const CAMPAIGN_PAGES = Object.freeze([
   { id: 'silver_room', href: 'silver.html', entry: 'src/silver/main.js', source: 'src/silver/main.js' },
   { id: 'silver_pines', href: 'golf.html', entry: 'src/golf/main.js', source: 'src/golf/main.js' },
   { id: 'bank_heist', href: 'heist.html', entry: 'src/heist/main.js', source: 'src/heist/main.js' },
+  {
+    id: 'countryside_cabin',
+    href: 'cabin.html',
+    entry: 'src/cabin/main.js',
+    source: 'src/cabin/main.js',
+  },
   { id: 'silver_case', href: 'silvercase.html', entry: 'src/silvercase/main.js', source: 'src/silvercase/main.js' },
   {
     id: 'mansion',
@@ -62,10 +68,12 @@ const CAMPAIGN_PAGES = Object.freeze([
 
 const NON_CAMPAIGN_ROOT_HTML = Object.freeze([
   'combatlab.html',
+  'luxury-apartment.html',
   'preview.html',
   'roster.html',
   'trophyroom.html',
   'wardrobe.html',
+  'weapon-sound-audition.html',
 ]);
 
 /* A separate 90-second arcade game, not a node in the story campaign. */
@@ -83,6 +91,7 @@ const SCENE_ID_TOKENS = Object.freeze({
   silver_room: 'SILVER_ROOM',
   silver_pines: 'SILVER_PINES',
   bank_heist: 'BANK_HEIST',
+  countryside_cabin: 'COUNTRYSIDE_CABIN',
   silver_case: 'SILVER_CASE',
   mansion: 'MANSION',
   mansion_siege: 'MANSION_SIEGE',
@@ -123,7 +132,7 @@ test('every root HTML entry is classified as campaign content or a named tool', 
 });
 
 test('every playable campaign page has shared pause and recovery wiring or an explicit boundary', () => {
-  assert.equal(CAMPAIGN_PAGES.length, 19, 'update the authored campaign inventory intentionally');
+  assert.equal(CAMPAIGN_PAGES.length, 20, 'update the authored campaign inventory intentionally');
   assert.deepEqual(
     /* NO PROTECTED PAGES. Initiation was the only one, held out with
      * "frozen pending the human playtest" while its gameplay waited on the

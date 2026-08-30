@@ -3,11 +3,12 @@
  *
  * `src/core/wardrobe.js` answers "what does Big Uncle Lou wear". It cannot
  * answer "what is Big Uncle Lou wearing at the Bing", because that is not its
- * decision: the club spreads `BIG_UNCLE_LOU_BING`, the mansion spreads
- * `BIG_UNCLE_LOU_MANSION`, the boat spreads plain `BIG_UNCLE_LOU`, and the golf
- * course composes his canonical body under its exported argyle outfit. One
- * man, four outfits, four files, and until this ledger existed there was
- * nowhere to see the four of them next to each other.
+ * decision: the club spreads `BIG_UNCLE_LOU_BING`, the mansion and the boat
+ * both spread `BIG_UNCLE_LOU_MANSION` -- the boat wore the plain suit until the
+ * owner ruled on 2026-08-24 that a man on a boat at dawn is dressed the way he
+ * is dressed at home -- and the golf course composes his canonical body under
+ * its exported argyle outfit. One man, four outfits, four files, and until this
+ * ledger existed there was nowhere to see the four of them next to each other.
  *
  * So this is the second half of the wardrobe: a row per person per scene,
  * naming where in the scene they are and which model that scene actually
@@ -50,7 +51,7 @@
  *
  * IN: everybody with a campaign identity (`CHARACTER_IDS`), plus authored
  * fixed-identity extras reused by a scene — Lou's door man, his six guards,
- * the Bada Bing's bartender and the five exact Mansion performer variants.
+ * the Bada Bing's bartender and the seven exact Mansion performer variants.
  *
  * OUT of the named rows: anonymous room fill. Its finite authored clothing,
  * body and job vocabulary is instead enumerated by
@@ -70,13 +71,16 @@
 import { CHARACTER_IDS, SCENE_IDS } from './campaign.js';
 import { formalMeetingModel } from './formal-appearance.js';
 import { BILLY_HOTDOG_MODEL } from './hotdog-model.js';
-import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
+import { APE_FAMILY_MEMBER, APE_SILVER_ROOM } from '../bing/family-ape.js';
 import { BING_BLACKJACK_DEALER } from '../bing/cast.js';
+import { MANSION_PERFORMER_VARIANTS } from '../mansion/performer-wardrobe.js';
 import {
   AUBBIE, BADA_BING_BARTENDER, BIG_UNCLE_LOU, BIG_UNCLE_LOU_BING,
-  BIG_UNCLE_LOU_MANSION, BOOSKI, CAPTAIN_LOU_SASOLE, DEATHMEGATRON, ERIC,
-  GRATIN, HOG_MAMA, IRISH, KITTENBOSS, MANSION_BOOTH_MAN, MANSION_DOOR_MAN, MANSION_GUARDS,
-  NUMBSKULL, JAMES_BLOND, RIPPINFLOW, SAUCE, SHUBENATOR, SNOW, WILLY,
+  BIG_UNCLE_LOU_MANSION, BIG_UNCLE_LOU_MANSION_RETURN, BOOSKI, BOOSKI_NO_WAKE,
+  CAPTAIN_LOU_SASOLE, DEATHMEGATRON, DEATHMEGATRON_HEIST, ERIC,
+  GRATIN, HOG_MAMA, IRISH, IRISH_NO_WAKE, KITTENBOSS, MANSION_BOOTH_MAN,
+  MANSION_DOOR_MAN, MANSION_GUARDS, NUMBSKULL, JAMES_BLOND, RIPPINFLOW,
+  RIPPINFLOW_HEIST, SAUCE, SHUBENATOR, SNOW, SNOW_MAINTENANCE, WILLY,
 } from './wardrobe.js';
 
 /* ====================================================================== *
@@ -242,8 +246,8 @@ export const SCENES = Object.freeze({
   }),
   enola_squatch: Object.freeze({
     id: 'enola_squatch',
-    label: 'ENOLA SQUATCH — the crew',
-    short: 'Enola',
+    label: 'SQUATCHOLA GAY — the crew',
+    short: 'SQUATCHOLA GAY',
     rig: 'day',
     modules: Object.freeze(['src/enolasquatch/crew.js']),
     note: 'The same block rig as the Beef Run, and unlike the Beef Run it '
@@ -318,6 +322,17 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
     ['src/golf/cast.js'], 'All four exact Silver Pines argyle models are direct ledger rows.'),
   [SCENE_IDS.BANK_HEIST]: coverage(SCENE_IDS.BANK_HEIST, 'appearance-ledger', ['bank_heist'],
     ['src/heist/cast.js'], 'All five fixed heist crew presentations are direct ledger rows.'),
+  [SCENE_IDS.COUNTRYSIDE_CABIN]: coverage(SCENE_IDS.COUNTRYSIDE_CABIN, 'no-fixed-cast', [],
+    ['src/cabin/main.js', 'src/cabin/world.js'],
+    'Tony remains first-person at the cabin, with no fixed visible character cast; its apartment-derived wardrobe is an environmental utility.'),
+  /* No fixed cast TODAY. The bible puts Margo here for the stayover and the
+   * morning after it, and the moment either is built this becomes an
+   * appearance-ledger scene with her as a required appearance -- the same
+   * boundary she already crosses in the starter apartment and the Silver
+   * Room. Until then Tony is alone in it and first-person. */
+  [SCENE_IDS.LUXURY_APARTMENT]: coverage(SCENE_IDS.LUXURY_APARTMENT, 'no-fixed-cast', [],
+    ['src/luxury-apartment/main.js', 'src/luxury-apartment/world.js'],
+    'Tony is first-person in the upgraded flat and it has no fixed visible cast yet; Margo arrives with the stayover beat and this becomes an appearance-ledger scene then.'),
   [SCENE_IDS.SILVER_CASE]: coverage(SCENE_IDS.SILVER_CASE, 'appearance-ledger', ['silver_case'],
     ['src/silvercase/cast/ape.js', 'src/silvercase/cast/prospect.js', 'src/silvercase/cast/cast.js'],
     'Ape and four locals are exact makePerson rows; Tony is an explicit arm-only private-viewmodel source row.',
@@ -326,8 +341,9 @@ export const CAMPAIGN_SCENE_COVERAGE = Object.freeze({
     ['src/mansion/siege/ensemble.js'], 'The fixed defensive ensemble is a direct appearance-ledger scene.'),
   [SCENE_IDS.ENOLA_SQUATCH]: coverage(SCENE_IDS.ENOLA_SQUATCH, 'appearance-ledger', ['enola_squatch'],
     ['src/enolasquatch/crew.js'], 'Captain Sasole uses the canonical block-rig wardrobe adapter; the remaining private aircrew rigs are catalogued source-only.'),
-  [SCENE_IDS.MANSION_RETURN]: coverage(SCENE_IDS.MANSION_RETURN, 'alias', ['mansion_house'],
-    ['src/mansion/cast.js'], 'The return visit reuses the exact house cast and outfits; only poses and evening locations change.'),
+  [SCENE_IDS.MANSION_RETURN]: coverage(SCENE_IDS.MANSION_RETURN, 'appearance-ledger', ['mansion_house'],
+    ['src/mansion/cast.js'], 'The return visit reuses the house cast, with one directly catalogued wardrobe delta for Lou at the briefing.',
+    [{ scene: 'mansion_house', character: CHARACTER_IDS.LOU, variant: 'return_briefing' }]),
   [SCENE_IDS.CARTEL_PALACE]: coverage(SCENE_IDS.CARTEL_PALACE, 'appearance-ledger', ['cartel_palace'],
     ['src/cartel-palace/cast.js'], 'Four guard variants, Mark and Sauce are catalogued from the final mission cast.'),
   [SCENE_IDS.SPECIAL_MEETING]: coverage(SCENE_IDS.SPECIAL_MEETING, 'appearance-ledger', ['special_meeting'],
@@ -413,8 +429,8 @@ const SILVER_BAND_EVIDENCE = [
 ];
 const BING_PERFORMER_EVIDENCE = [
   "name: 'a dancer', tier: i === 3 ? 'ambient' : 'background', job: 'dance',",
-  "height: rand(1.70, 1.76), build: rand(1.04, 1.12), dress: 'bikini',",
-  "Object.freeze({ skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f }),",
+  'const PERFORMERS = BADA_BING_PERFORMERS.slice(0, BADA_BING_CORE_STAGE_COUNT);',
+  "...look, dress: 'bikini', swimStyle: 'classic',",
 ];
 const BING_PATRON_EVIDENCE = [
   "name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',",
@@ -442,18 +458,19 @@ export const PROCEDURAL_APPEARANCE_TEMPLATES = Object.freeze([
     bodyShape: 'curvy',
     job: 'dance',
     evidence: BING_PERFORMER_EVIDENCE,
-    /* One exact authored performer look is enough for the random body extrema.
-     * The four distinct looks and all four routines have their own fixed rows
-     * and pose shots, so colour is not multiplied here. */
+    /* The stage roster is fixed, but the workshop still needs deterministic
+     * shortest/lightest and tallest/fullest geometry fixtures. */
     fixtures: rangeFixturePair({
-      dress: 'bikini', height: [1.70, 1.76], build: [1.04, 1.12],
+      dress: 'bikini', height: [1.71, 1.74], build: [1.08, 1.11],
       min: {
         role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-        skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f,
+        curveScale: 1.12, swimStyle: 'classic',
+        skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0,
       },
       max: {
         role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-        skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f,
+        curveScale: 1.16, swimStyle: 'classic',
+        skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a,
       },
     }),
   }),
@@ -611,6 +628,9 @@ export const EXTRAS = Object.freeze({
   'performer:bing_1': 'The Bada Bing brunette performer',
   'performer:bing_2': 'The Bada Bing black-haired performer',
   'performer:bing_3': 'The Bada Bing blonde performer',
+  'performer:bing_4': 'The Bada Bing auburn performer',
+  'performer:bing_5': 'The Bada Bing raven-haired performer',
+  'performer:bing_6': 'The Bada Bing silver-haired performer',
   'squatchfather:sal': 'Sal the Prospector Sorrento',
   'squatchfather:mcclawsky': 'Captain McClawsky',
   'squatchfather:waiter': "Sorrento's waiter",
@@ -667,6 +687,17 @@ export const PHOTOS = Object.freeze({
   [CHARACTER_IDS.SEFF]: 'seff.png',
   [CHARACTER_IDS.LAG]: 'lag.png',
   [CHARACTER_IDS.BILLY_HOTDOG]: 'billy.png',
+  /* Kittenboss was the one person in this table's blind spot, and it went
+   * unnoticed because nothing had ever asked for her photograph: she is the
+   * only Special Meeting attendee who is not on the Bing roster (she is never
+   * in the club), so no `FAMILY` row named a file for her, and this ledger did
+   * not either. The Special Meeting now resolves all four attendees' faces
+   * through `assets/faces/index.json` -- see FACE_PHOTOS in
+   * src/specialmeeting/cast.js, which names hers because there is no roster
+   * row to read it off -- so the name belongs here too, or the fitting room
+   * would go on previewing her with an authored head after the scene had
+   * stopped doing that. Her dedicated portrait landed in this pass. */
+  [CHARACTER_IDS.KITTENBOSS]: 'kittenboss.png',
 });
 
 /* ====================================================================== *
@@ -787,27 +818,16 @@ const SPECIAL_MEETING_KITTENBOSS = formalMeetingModel(CHARACTER_IDS.KITTENBOSS, 
 
 /* ---- Lou's fixed Mansion performer variants -------------------------
  *
- * The four looks are the exported `BADA_BING_PERFORMERS` cast in
- * `src/bing/cast.js`; importing that renderer-backed module here would break
- * this ledger's data-only boundary. The Mansion then composes five FIXED
- * models from those looks: two in the suite and three at the pool. These are
- * copied exactly, and the appearance test reconstructs each production model
- * from its real post block plus the exported performer look. */
-const BING_PERFORMER_LOOKS = Object.freeze([
-  Object.freeze({ skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f }),
-  Object.freeze({ skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'long', shirt: 0x9a4fd9 }),
-  Object.freeze({ skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 }),
-  Object.freeze({ skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a }),
-]);
-const mansionPerformer = (height, build, index) => Object.freeze({
-  role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
-  height, build, dress: 'bikini', ...BING_PERFORMER_LOOKS[index],
-});
-const MANSION_SUITE_PERFORMER_0 = mansionPerformer(1.74, 1.08, 3);
-const MANSION_SUITE_PERFORMER_1 = mansionPerformer(1.71, 1.08, 1);
-const MANSION_POOL_PERFORMER_0 = mansionPerformer(1.73, 1.08, 0);
-const MANSION_POOL_PERFORMER_1 = mansionPerformer(1.71, 1.06, 2);
-const MANSION_POOL_PERFORMER_2 = mansionPerformer(1.70, 1.04, 1);
+ * Performer identity and Mansion clothing are both renderer-free data now.
+ * The ledger consumes the exact same frozen models as production instead of
+ * maintaining a hand-copied mirror that can silently turn one woman into two. */
+const MANSION_SUITE_PERFORMER_0 = MANSION_PERFORMER_VARIANTS.suitePerformer0.model;
+const MANSION_SUITE_PERFORMER_1 = MANSION_PERFORMER_VARIANTS.suitePerformer1.model;
+const MANSION_POOL_PERFORMER_0 = MANSION_PERFORMER_VARIANTS.poolPerformer0.model;
+const MANSION_POOL_PERFORMER_1 = MANSION_PERFORMER_VARIANTS.poolPerformer1.model;
+const MANSION_POOL_PERFORMER_2 = MANSION_PERFORMER_VARIANTS.poolPerformer2.model;
+const MANSION_POOL_PERFORMER_3 = MANSION_PERFORMER_VARIANTS.poolPerformer3.model;
+const MANSION_POOL_PERFORMER_4 = MANSION_PERFORMER_VARIANTS.poolPerformer4.model;
 
 const SILVERCASE_APE = Object.freeze({
   ...APE_FAMILY_MEMBER.model,
@@ -1014,20 +1034,22 @@ export const APPEARANCES = Object.freeze([
     name: 'Big Uncle Lou',
     scene: 'bing_party',
     where: 'the north end of the floor, beside Billy HotDog',
-    model: BIG_UNCLE_LOU_BING,
-    from: { wardrobe: 'BIG_UNCLE_LOU_BING' },
+    model: BIG_UNCLE_LOU_MANSION,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/bing/hotdog-party.js',
-    evidence: 'model: { ...BIG_UNCLE_LOU_BING, face: faces.has(\'lou.png\')',
+    evidence: 'model: { ...BIG_UNCLE_LOU_MANSION, face: faces.has(\'lou.png\')',
   }),
   row({
     character: CHARACTER_IDS.LOU,
     name: 'Big Uncle Lou',
     scene: 'no_wake',
     where: 'the foredeck, standing, facing aft at Willy',
-    model: BIG_UNCLE_LOU,
-    from: { wardrobe: 'BIG_UNCLE_LOU' },
+    /* The camp shirt, on the owner's ruling of 2026-08-24: the same outfit he
+     * wears at his own house, not the suit he wears to be seen in. */
+    model: BIG_UNCLE_LOU_MANSION,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/nowake/world.js',
-    evidence: 'model: { ...BIG_UNCLE_LOU, face: \'assets/faces/lou.png\' },',
+    evidence: 'model: { ...BIG_UNCLE_LOU_MANSION, face: \'assets/faces/lou.png\' },',
   }),
   row({
     character: CHARACTER_IDS.LOU,
@@ -1066,11 +1088,23 @@ export const APPEARANCES = Object.freeze([
     character: CHARACTER_IDS.LOU,
     name: 'Big Uncle Lou',
     scene: 'mansion_house',
+    variant: 'mission',
     where: 'his office, standing behind the desk, facing the door',
     model: BIG_UNCLE_LOU_MANSION,
     from: { wardrobe: 'BIG_UNCLE_LOU_MANSION' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: withFace(BIG_UNCLE_LOU_MANSION, FACES.lou),',
+    evidence: "const louModel = visit === 'return' ? BIG_UNCLE_LOU_MANSION_RETURN : BIG_UNCLE_LOU_MANSION;",
+  }),
+  row({
+    character: CHARACTER_IDS.LOU,
+    name: 'Big Uncle Lou',
+    scene: 'mansion_house',
+    variant: 'return_briefing',
+    where: 'his office briefing after SQUATCHOLA GAY, behind the same desk',
+    model: BIG_UNCLE_LOU_MANSION_RETURN,
+    from: { wardrobe: 'BIG_UNCLE_LOU_MANSION_RETURN' },
+    module: 'src/mansion/cast.js',
+    evidence: "const louModel = visit === 'return' ? BIG_UNCLE_LOU_MANSION_RETURN : BIG_UNCLE_LOU_MANSION;",
   }),
   row({
     character: CHARACTER_IDS.LOU,
@@ -1359,12 +1393,10 @@ export const APPEARANCES = Object.freeze([
   /* ================================================================== *
    * NO WAKE — the boat
    *
-   * The three who go out and the one who does not come back. Only Lou is
-   * dressed from the wardrobe by name here; Booski, Willy and Irish come
-   * through the Bing roster — `source[CHARACTER_IDS.X].model`, where
-   * `source` is `FAMILY` indexed by id — so their rows are proved against
-   * `FAMILY`. Same frozen object, different route, and the route is the
-   * thing a test has to follow.
+   * The three who go out and the one who does not come back. Lou and Booski
+   * are dressed from named scene wardrobe exports here; Willy comes through
+   * the Bing roster. Same bodies, with Booski and Irish changing only the
+   * clothes they wear for an afternoon on the boat.
    * ================================================================== */
 
   row({
@@ -1372,10 +1404,10 @@ export const APPEARANCES = Object.freeze([
     name: 'Booskibro',
     scene: 'no_wake',
     where: 'the foredeck, port side, beside Lou',
-    model: BOOSKI,
-    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.BOOSKI, 'model'] },
+    model: BOOSKI_NO_WAKE,
+    from: { wardrobe: 'BOOSKI_NO_WAKE' },
     module: 'src/nowake/world.js',
-    evidence: '...source[CHARACTER_IDS.BOOSKI].model',
+    evidence: '...BOOSKI_NO_WAKE, face:',
   }),
   row({
     character: CHARACTER_IDS.WILLY,
@@ -1395,10 +1427,10 @@ export const APPEARANCES = Object.freeze([
     name: 'Irish',
     scene: 'no_wake',
     where: 'forward and to port, well clear of the boarding line',
-    model: IRISH,
-    from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.IRISH, 'model'] },
+    model: IRISH_NO_WAKE,
+    from: { wardrobe: 'IRISH_NO_WAKE' },
     module: 'src/nowake/world.js',
-    evidence: '...source[CHARACTER_IDS.IRISH].model',
+    evidence: '...IRISH_NO_WAKE, face:',
   }),
 
   /* ================================================================== *
@@ -1495,19 +1527,19 @@ export const APPEARANCES = Object.freeze([
     name: 'Ape',
     scene: 'silver_room',
     where: 'the four-top by the pillar, sending the champagne',
-    model: APE_FAMILY_MEMBER.model,
-    from: { module: 'src/bing/family-ape.js', export: 'APE_FAMILY_MEMBER', at: ['model'] },
+    model: APE_SILVER_ROOM,
+    from: { module: 'src/bing/family-ape.js', export: 'APE_SILVER_ROOM', at: [] },
     module: 'src/silver/cast.js',
     evidence: '[CHARACTER_IDS.APE, APE.subtitleName, SILVER_APE_PRESENTATION.model],',
-    /* The exact Bing figure and face, not a Silver Room approximation. Only
-     * his seat and his behaviour belong to this room. */
+    /* The exact Bing body and face in his named Silver Room dinner jacket.
+     * Only his seat and his behaviour belong to this room. */
   }),
 
   /* ================================================================== *
    * THE TAKE — the bank job
    *
-   * Canonical bodies and base clothes under role-coloured plate carriers and
-   * mission masks. The overlays remain scene-owned; identity does not.
+   * Canonical bodies in named job clothes under role-coloured plate carriers
+   * and mission masks. The overlays remain scene-owned; identity does not.
    * ================================================================== */
 
   row({
@@ -1526,11 +1558,11 @@ export const APPEARANCES = Object.freeze([
     name: 'Rippinflow',
     scene: 'bank_heist',
     where: 'the safehouse, on the driver\'s side',
-    model: RIPPINFLOW,
-    from: { wardrobe: 'RIPPINFLOW', module: 'src/heist/cast.js', export: 'HEIST_CREW_PRESENTATION', at: [CHARACTER_IDS.RIPPINFLOW, 'model'] },
+    model: RIPPINFLOW_HEIST,
+    from: { wardrobe: 'RIPPINFLOW_HEIST', module: 'src/heist/cast.js', export: 'HEIST_CREW_PRESENTATION', at: [CHARACTER_IDS.RIPPINFLOW, 'model'] },
     module: 'src/heist/cast.js',
     evidence: '[CHARACTER_IDS.RIPPINFLOW]: Object.freeze({',
-    previewNote: 'The fitting room shows Rippinflow\'s canonical body; the driver-role plate carrier and mission mask are scene-owned overlays.',
+    previewNote: 'The fitting room shows Rippinflow\'s named deep-plum driving look on his canonical body; the plate carrier and mask are scene-owned overlays.',
   }),
   row({
     character: CHARACTER_IDS.SHUBENATOR,
@@ -1548,11 +1580,11 @@ export const APPEARANCES = Object.freeze([
     name: 'DeathMegatron',
     scene: 'bank_heist',
     where: 'the safehouse, east — the heavy, with the carbine',
-    model: DEATHMEGATRON,
-    from: { wardrobe: 'DEATHMEGATRON', module: 'src/heist/cast.js', export: 'HEIST_CREW_PRESENTATION', at: [CHARACTER_IDS.DEATHMEGATRON, 'model'] },
+    model: DEATHMEGATRON_HEIST,
+    from: { wardrobe: 'DEATHMEGATRON_HEIST', module: 'src/heist/cast.js', export: 'HEIST_CREW_PRESENTATION', at: [CHARACTER_IDS.DEATHMEGATRON, 'model'] },
     module: 'src/heist/cast.js',
     evidence: '[CHARACTER_IDS.DEATHMEGATRON]: Object.freeze({',
-    previewNote: 'The fitting room shows DeathMegatron\'s canonical curvy body; the heavy-role plate carrier and mission mask are scene-owned overlays.',
+    previewNote: 'The fitting room shows DeathMegatron\'s midnight utility look on her canonical curvy body; the heavy-role carrier and mask are scene-owned overlays.',
   }),
   row({
     character: CHARACTER_IDS.NUMBSKULL,
@@ -1710,7 +1742,7 @@ export const APPEARANCES = Object.freeze([
     model: MANSION_SUITE_PERFORMER_0,
     from: { mansionPerformer: { post: 'suitePerformer0', index: 3 } },
     module: 'src/mansion/cast.js',
-    evidence: "post(`suitePerformer${i}`, {",
+    evidence: 'const npc = post(postId, {',
   }),
   row({
     character: 'performer:bing_1',
@@ -1721,7 +1753,7 @@ export const APPEARANCES = Object.freeze([
     model: MANSION_SUITE_PERFORMER_1,
     from: { mansionPerformer: { post: 'suitePerformer1', index: 1 } },
     module: 'src/mansion/cast.js',
-    evidence: "post(`suitePerformer${i}`, {",
+    evidence: 'const npc = post(postId, {',
   }),
   row({
     character: 'performer:bing_0',
@@ -1746,15 +1778,37 @@ export const APPEARANCES = Object.freeze([
     evidence: "const secondPoolGirl = post('poolPerformer1', {",
   }),
   row({
-    character: 'performer:bing_1',
-    name: EXTRAS['performer:bing_1'],
+    character: 'performer:bing_4',
+    name: EXTRAS['performer:bing_4'],
     scene: 'mansion_house',
     variant: 'poolPerformer2',
     where: 'standing shoulder-deep in the swimming pool',
     model: MANSION_POOL_PERFORMER_2,
-    from: { mansionPerformer: { post: 'poolPerformer2', index: 1 } },
+    from: { mansionPerformer: { post: 'poolPerformer2', index: 4 } },
     module: 'src/mansion/cast.js',
     evidence: "const poolGirlInWater = post('poolPerformer2', {",
+  }),
+  row({
+    character: 'performer:bing_5',
+    name: EXTRAS['performer:bing_5'],
+    scene: 'mansion_house',
+    variant: 'poolPerformer3',
+    where: 'reclined on the first towel-free west pool lounger',
+    model: MANSION_POOL_PERFORMER_3,
+    from: { mansionPerformer: { post: 'poolPerformer3', index: 5 } },
+    module: 'src/mansion/cast.js',
+    evidence: "mountAmbientPoolRecliner('poolPerformer3', thirdLounger);",
+  }),
+  row({
+    character: 'performer:bing_6',
+    name: EXTRAS['performer:bing_6'],
+    scene: 'mansion_house',
+    variant: 'poolPerformer4',
+    where: 'reclined on the second towel-free west pool lounger',
+    model: MANSION_POOL_PERFORMER_4,
+    from: { mansionPerformer: { post: 'poolPerformer4', index: 6 } },
+    module: 'src/mansion/cast.js',
+    evidence: "mountAmbientPoolRecliner('poolPerformer4', fourthLounger);",
   }),
   row({
     character: CHARACTER_IDS.SNOW,
@@ -1764,11 +1818,29 @@ export const APPEARANCES = Object.freeze([
     model: SNOW,
     from: { wardrobe: 'SNOW' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: withFace(SNOW, FACES.snow),',
+    evidence: 'model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),',
     /* He was built WITHOUT his photograph until 2026-08-06 — owner playtest,
      * "snow doesnt have his face". `snow.png` had been on disk and in the
      * faces index the whole time; the mansion's own FACES table simply never
      * named it, so he got the authored fallback head. Same for Gratin. */
+  }),
+  row({
+    character: CHARACTER_IDS.SNOW,
+    name: 'Snow',
+    scene: 'mansion_house',
+    where: 'the foyer on the RETURN visit — kneeling over the lifted marble, in a work vest',
+    model: SNOW_MAINTENANCE,
+    from: { wardrobe: 'SNOW_MAINTENANCE' },
+    module: 'src/mansion/cast.js',
+    evidence: 'model: withFace(repairing ? SNOW_MAINTENANCE : SNOW, FACES.snow),',
+    /* Owner playtest: *"Maybe Snow is working on it as a maintenance man --
+     * lets give him a maintenance outfit and a voice line about how long its
+     * going to take to get everything fixed up."* The morning after the siege
+     * he is not mopping, he is rebuilding the room, so the same body wears a
+     * different set of clothes. Two rows for one man in one scene because the
+     * two VISITS dress him differently and the fitting room should be able to
+     * show both — his mission-night row is directly above. */
+    previewNote: 'The return visit only. On the night of PROJECT SILENT SQUATCH he is in the same foyer in his own work clothes, with a mop.',
   }),
   row({
     character: CHARACTER_IDS.RIPPINFLOW,
@@ -1934,7 +2006,7 @@ export const APPEARANCES = Object.freeze([
     evidence: 'model: () => withFace(GRATIN, FACES.gratin),',
     /* This post was Aubbie's until the 2026-08-13 playtest: "Voice lines
      * from Aubbie in the siege? he should be dead." He is -- PROJECT SILENT
-     * SQUATCH ends with the "Eliminate Aubbie" objective eight hours before
+     * SQUATCH ends with the "Eliminate Aubbie" objective six hours before
      * the siege starts -- so Gratin, who has no death anywhere in the
      * campaign, inherits the magazines and the wounded guard.
      * tests/mansion-siege-people.test.mjs holds the door on the dead by
@@ -2089,6 +2161,25 @@ export const APPEARANCES = Object.freeze([
    * change (every Bing, party and mansion row flips its `from` shape with it)
    * and it should be somebody's deliberate decision, not this scene's
    * side effect.
+   *
+   * FACES. None of the four models below carries a `face`, and that is not the
+   * omission it looks like — it is this ledger's rule. A face is not a garment:
+   * `PHOTOS` above is the record of whose photograph is whose, and every
+   * consumer (each scene, and the fitting room in src/wardrobe/) composes the
+   * model with that photograph only after checking `assets/faces/index.json`
+   * for whether the file has actually landed. Big Uncle Lou's party row is the
+   * same shape and says so in its evidence: the runtime spreads a
+   * conditionally-resolved face onto `BIG_UNCLE_LOU_BING`, and the row still
+   * mirrors the bare wardrobe object.
+   *
+   * Until 2026-08-24 this scene was the one place in the campaign that staged
+   * named Circle members and passed no face at all, so all four attendees were
+   * built on the procedural drawn head — the second cause behind the owner's
+   * "missing faces" report, the first being the unlit cabin. The scene now
+   * resolves all four through the index the way `populateFamily` does, taking
+   * the three roster names out of `FAMILY` and naming Kittenboss's in the
+   * scene because she has no roster row. Kittenboss's entry in `PHOTOS` was
+   * added in the same change, for the same reason.
    * ================================================================== */
   row({
     character: CHARACTER_IDS.SEFF,

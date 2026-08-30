@@ -470,6 +470,7 @@ try {
     const motel = window.MOTEL;
     const snow = motel.actors.find((actor) => actor.identity === 'snow');
     const driver = new motel.three.Vector3(...motel.arrival.driver);
+    const snowWorld = snow.group.getWorldPosition(new motel.three.Vector3());
     const passenger = new motel.three.Vector3(...motel.arrival.passenger);
     motel.scene.updateMatrixWorld(true);
     motel.camera.updateMatrixWorld(true);
@@ -564,7 +565,7 @@ try {
         .every((name) => Boolean(motel.refs.manCar.group.getObjectByName(name))),
       playerAtPassenger: Math.hypot(motel.pos.x - passenger.x, motel.pos.z - passenger.z),
       snowState: snow.state,
-      snowAtDriver: snow.group.position.distanceTo(driver),
+      snowAtDriver: snowWorld.distanceTo(driver),
       snowFaceOnScreen: Boolean(face) && projectVisible(face),
       snowTorsoOnScreen: Boolean(torso) && projectVisible(torso),
       snowFacePixels: projectedPixels(face),
@@ -644,6 +645,8 @@ try {
     const passenger = new motel.three.Vector3(...motel.arrival.passengerActor);
     motel.scene.updateMatrixWorld(true);
     motel.camera.updateMatrixWorld(true);
+    const snowWorld = snow.group.getWorldPosition(new motel.three.Vector3());
+    const tonyWorld = motel.player.group.getWorldPosition(new motel.three.Vector3());
     const onScreen = (object) => {
       const bounds = new motel.three.Box3().setFromObject(object);
       const center = bounds.getCenter(new motel.three.Vector3()).project(motel.camera);
@@ -657,8 +660,8 @@ try {
       cameraMode: motel.arrival.cameraMode,
       cameraDistance: motel.camera.position.distanceTo(motel.refs.manCar.cabinCenterPosition()),
       snowState: snow.state,
-      snowAtDriver: snow.group.position.distanceTo(driver),
-      tonyAtPassenger: motel.player.group.position.distanceTo(passenger),
+      snowAtDriver: snowWorld.distanceTo(driver),
+      tonyAtPassenger: tonyWorld.distanceTo(passenger),
       snowScale: snow.group.scale.x,
       snowBaseScale: snow.baseScale,
       tonyScale: motel.player.group.scale.x,
@@ -944,55 +947,70 @@ try {
    * synchronous block, so `prepareVoice` found nothing decoded and returned
    * silence every time. Measured on `e2d9e96`: at the frame the subtitle
    * appeared, the only buffers that had ever started were three 1.5 s noise
-   * beds, and `voice.playing()` was false 1.5 s later. */
-  await previewPage.waitForFunction(
-    () => document.getElementById('subtitle')?.textContent.includes('Room twelve. Meat first'),
-    null,
-    { timeout: SCENE_WAIT_MS },
-  );
-  const openingVoice = await previewPage.evaluate(() => ({
-    cue: window.MOTEL.openingCue,
-    decoded: window.MOTEL.voiceReadyFor(window.MOTEL.openingCue),
-    played: window.MOTEL.voice.played.filter((entry) => entry.cue === window.MOTEL.openingCue),
-    subtitle: document.getElementById('subtitle').textContent,
-    /* Under the old code this line arrived four seconds before the wheel, from
-     * `startScene`, and the wheel then said the whole sentence again. */
-    node: window.MOTEL.dialogue?.nodeId ?? null,
-  }));
+   * beds, and `voice.playing()` was false 1.5 s later.
+   *
+   * The subtitle is not the receipt. It is deliberately transient and may be
+   * replaced before Playwright's next poll under a slow rasteriser. The scene
+   * already owns two bounded records: `spoken` is appended when the words
+   * reach the speech floor, and `voice.played` is appended when the decoded
+   * take starts. Wait on both exact records instead. */
+  const openingLine = 'Room twelve. The jerky deal is our cover until daylight. Meat first. Money second.';
+  await previewPage.waitForFunction((line) => {
+    const motel = window.MOTEL;
+    return motel.spoken.includes(`Snow — ${line}`)
+      && motel.voice.played.some((entry) => entry.cue === motel.openingCue);
+  }, openingLine, { timeout: SCENE_WAIT_MS, polling: 80 });
+  const openingVoice = await previewPage.evaluate((line) => {
+    const motel = window.MOTEL;
+    return {
+      line,
+      cue: motel.openingCue,
+      decoded: motel.voiceReadyFor(motel.openingCue),
+      played: motel.voice.played.filter((entry) => entry.cue === motel.openingCue),
+      spoken: motel.spoken.filter((entry) => entry === `Snow — ${line}`),
+      /* Under the old code this line arrived four seconds before the wheel,
+       * from `startScene`, and the wheel then said the whole sentence again. */
+      node: motel.dialogue?.nodeId ?? null,
+    };
+  }, openingLine);
   check("Snow's opening line is voiced, not just subtitled",
     openingVoice.decoded
       && openingVoice.played.length === 1
       && openingVoice.played[0].duration > 0.5
-      && openingVoice.subtitle.includes('Room twelve. Meat first'),
+      && openingVoice.spoken.length === 1,
     JSON.stringify(openingVoice));
   check('the briefing is delivered once, by the wheel that asks for an answer',
-    openingVoice.node === 'snowBrief' && openingVoice.played.length === 1,
-    JSON.stringify({ node: openingVoice.node, plays: openingVoice.played.length }));
+    openingVoice.node === 'snowBrief'
+      && openingVoice.played.length === 1
+      && openingVoice.spoken.length === 1,
+    JSON.stringify({ node: openingVoice.node, plays: openingVoice.played.length,
+      spoken: openingVoice.spoken.length }));
 
   const moneyCaseAim = await aimPublicInteract(previewPage, 'moneyCase');
   check('aiming at Tony\'s case selects the case rather than a cabin neighbour',
     moneyCaseAim.active === 'moneyCase' && /case/i.test(moneyCaseAim.prompt),
     JSON.stringify(moneyCaseAim));
-  const gloveboxAim = await aimPublicInteract(previewPage, 'glovebox');
-  /* The glovebox answers with one of two authored labels (src/motel/main.js):
-   * 'Check your weapon' before the .45 has been looked at, and 'The .45 is
-   * checked and put away' after. This used to test for /weapon/i, which only
-   * matched the first one -- and the arrival now draws the .45, looks at it
-   * and holsters it before Tony can reach a door handle, so the first label
-   * is never the one a player sees here. The scene's own comment says as
-   * much: "in practice this is always the second label". The check went red
-   * on a scene doing exactly what it was rebuilt to do.
-   *
-   * Pinned to the label the beat actually produces, which is a stronger
-   * statement than "the word weapon appears somewhere": the crosshair has to
-   * resolve to the GLOVEBOX, the prompt has to be the already-checked line,
-   * and it must not read as either of the neighbours this check exists to
-   * rule out -- the passenger door beside it and the case on the seat. */
-  check('aiming at the glovebox selects the checked .45 rather than the door or case',
-    gloveboxAim.active === 'glovebox'
-      && /the \.45 is checked and put away/i.test(gloveboxAim.prompt)
-      && !/passenger door|case/i.test(gloveboxAim.prompt),
-    JSON.stringify(gloveboxAim));
+  const gloveboxRetired = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const glovebox = motel.interactableList.find((entry) => entry.id === 'glovebox');
+    return {
+      weaponChecked: motel.S.weaponChecked,
+      enabled: glovebox.enabled(),
+      inventoryText: motel.inventory.find((entry) => entry.id === 'weapon:revolver')?.text || '',
+      pickupCue: motel.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
+    };
+  });
+  /* The arrival now owns the one real glovebox check. Leaving its already-done
+   * prompt active made it compete with the case and passenger door for no new
+   * state. The gun must still exist in the authoritative inventory; only the
+   * dead interaction retires. */
+  check('the automatically checked glovebox retires before the car becomes playable',
+    gloveboxRetired.weaponChecked
+      && !gloveboxRetired.enabled
+      && gloveboxRetired.inventoryText.includes('Compact revolver')
+      && gloveboxRetired.inventoryText.includes('PUT AWAY')
+      && gloveboxRetired.inventoryText.includes('6/6'),
+    JSON.stringify(gloveboxRetired));
   const earlyDoorAim = await aimPublicInteract(previewPage, 'exitCar');
   check('aiming at the passenger door selects the exit without stealing other cabin targets',
     earlyDoorAim.active === 'exitCar' && /passenger door/i.test(earlyDoorAim.prompt),
@@ -1017,9 +1035,6 @@ try {
    * the .45 is the shared catalog revolver, right-side up in the frame, has
    * moved with the gun -- see the betrayal below, where the scene itself
    * says it "appears at the lens". */
-  await aimPublicInteract(previewPage, 'glovebox');
-  await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(240);
   const gloveboxAgain = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
@@ -1030,10 +1045,9 @@ try {
       hud: motel.weapons.hud,
       inventoryText: item?.text || '',
       selected: item?.selected === true,
-      subtitle: document.getElementById('subtitle').textContent,
     };
   });
-  check('the glovebox does not put the .45 back in his hands once the arrival has put it away',
+  check('retiring the glovebox does not put the .45 back in his hands',
     /* Holstering releases the shared rack as well as the lens -- `equipped`
      * is null and there is no weapon HUD, which is the whole point of playing
      * the transaction unarmed: there is nothing to fire, not merely nothing
@@ -1048,49 +1062,29 @@ try {
       && gloveboxAgain.inventoryText.includes('Compact revolver')
       && gloveboxAgain.inventoryText.includes('PUT AWAY')
       && gloveboxAgain.inventoryText.includes('6/6')
-      && !gloveboxAgain.selected
-      && /still six/i.test(gloveboxAgain.subtitle),
+      && !gloveboxAgain.selected,
     JSON.stringify(gloveboxAgain));
 
   /* Owner: "I check revolver and he just keeps saying the voice line over and
-   * over." The pickup line is delivered exactly once; every later press gets
-   * a different, throttled sentence and no re-equip. Pressed here the way a
-   * player does it — real [E], twice more, on the same prompt — and only
-   * after the recording is decoded, so a repeat would be COUNTED rather than
-   * lost to a download race. */
+   * over." There is no later [E] target now, so the pickup line can only belong
+   * to the automatic arrival beat once. */
   await previewPage.waitForFunction(() => window.MOTEL.voiceReadyFor(
     window.MOTEL.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'),
   ), null, { timeout: SCENE_WAIT_MS, polling: 120 });
-  await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(150);
-  await previewPage.keyboard.press('KeyE');
-  await previewPage.waitForTimeout(150);
   const gloveboxRepeat = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const pickupCue = motel.voice.cueForLine('Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.');
     const glovebox = motel.interactableList.find((entry) => entry.id === 'glovebox');
     return {
       weaponChecked: motel.S.weaponChecked,
-      label: glovebox.label(),
+      enabled: glovebox.enabled(),
       pickupPlays: motel.voice.played.filter((entry) => entry.cue === pickupCue).length,
     };
   });
-  check('the glovebox pickup line refuses to repeat, however many times [E] lands',
-    /* <= 1, not === 1: the FIRST press may have beaten the download, in which
-     * case the line was subtitled silent. What a regression produces here is
-     * 2+, because the decoded take replays on the later presses.
-     *
-     * The label test used to read /already out/i, which was the second
-     * glovebox label before the arrival started drawing and holstering the
-     * .45 for him. The gun is not out any more once that beat has finished,
-     * so the authored second label now says so: 'The .45 is checked and put
-     * away' (src/motel/main.js). Same statement, current words -- the point
-     * was always that a second press gets the OTHER label, not the pickup
-     * one, and it still is. */
+  check('the retired glovebox cannot replay its pickup line',
     gloveboxRepeat.weaponChecked
-      && gloveboxRepeat.pickupPlays <= 1
-      && /checked and put away/i.test(gloveboxRepeat.label)
-      && !/check your weapon/i.test(gloveboxRepeat.label),
+      && !gloveboxRepeat.enabled
+      && gloveboxRepeat.pickupPlays <= 1,
     JSON.stringify(gloveboxRepeat));
   const clerkSpawn = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -1236,10 +1230,43 @@ try {
       && previewState.cameraDistance < 0.08
       && !previewState.playerBlocked,
     JSON.stringify(previewState));
+  await previewPage.locator('canvas').click({ position: { x: 240, y: 150 } });
+  await previewPage.waitForFunction(
+    () => window.MOTEL.input.snapshot().locked,
+    null,
+    { timeout: 10000 },
+  ).catch(() => {});
+  const beforeLook = await previewPage.evaluate(() => ({
+    facing: window.MOTEL.facing,
+    input: window.MOTEL.input.snapshot(),
+  }));
+  await previewPage.mouse.move(240, 150);
+  await previewPage.mouse.move(312, 112, { steps: 2 });
+  await previewPage.waitForTimeout(80);
+  const afterLook = await previewPage.evaluate(() => ({
+    facing: window.MOTEL.facing,
+    input: window.MOTEL.input.snapshot(),
+  }));
+  check('the Motel captures the canonical first-person input Adapter',
+    afterLook.input.locked && afterLook.input.pointerLockChanges > 0,
+    JSON.stringify(afterLook.input));
+  check('real mouse input turns the Motel first-person camera',
+    afterLook.input.lookEvents > beforeLook.input.lookEvents
+      && Math.hypot(
+        afterLook.facing.x - beforeLook.facing.x,
+        afterLook.facing.y - beforeLook.facing.y,
+        afterLook.facing.z - beforeLook.facing.z,
+      ) > 0.01,
+    JSON.stringify({ before: beforeLook, after: afterLook }));
   const motion = await moveForward(previewPage);
+  const releasedInput = await previewPage.evaluate(() => ({
+    input: window.MOTEL.input.snapshot(),
+    held: window.MOTEL.heldInput,
+  }));
   check('real WASD input moves Tony forward without a collider trap',
-    motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked,
-    JSON.stringify(motion));
+    motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked
+      && !releasedInput.held.includes('up'),
+    JSON.stringify({ ...motion, input: releasedInput }));
 
   /* Independent public Q path, from a clean campaign and a genuinely seated
    * player. Reusing the E page after it reached the lot would only prove that
@@ -1261,9 +1288,7 @@ try {
     await qPage.waitForFunction(() => window.MOTEL.phase === 'arrival');
     await qPage.evaluate(() => window.MOTEL.completeArrival());
     await qPage.waitForFunction(() => window.MOTEL.phase === 'car', null, { timeout: SCENE_WAIT_MS });
-    /* Take the .45 with him: this context is closed after the probes below,
-     * so it is the safe place to actually pull a trigger. */
-    await qPage.evaluate(() => window.MOTEL.forceInteract('glovebox'));
+    /* The automatic arrival beat already put the .45 under his coat. */
     const beforeQ = await qPage.evaluate(() => ({
       phase: window.MOTEL.phase,
       snowExitedCar: window.MOTEL.arrival.snowExitedCar,
@@ -1938,18 +1963,28 @@ try {
    * Sampled from inside the page instead, on the frame where both halves hold
    * together, so nothing can land between them. The claim is unchanged and
    * the proof is now exact: while the invitation is still being spoken, the
-   * doorway already offers its [E]. */
+   * doorway is already walkable.
+   *
+   * It used to read `activeInteract() === 'enterRoom'`. That prompt is gone --
+   * the owner's note was that pressing a key to walk through an open door is
+   * easy to miss and breaks the scene for anyone who does -- so what this
+   * samples now is the thing the prompt used to stand for: both blockers in
+   * that opening are off while Rico is saying come in. */
   const invitation = await previewPage.evaluate(() => new Promise((resolve, reject) => {
     const motel = window.MOTEL;
     const deadline = performance.now() + 180000;
     const tick = () => {
       const subtitle = document.getElementById('subtitle').textContent;
+      const doorSolid = motel.refs.frontDoor?.collider?.enabled === true;
+      const thresholdHeld = motel.refs.roomTwelveThreshold?.enabled === true;
       if (subtitle.includes('Come in before') && motel.voice.busy()
-        && motel.activeInteract() === 'enterRoom') {
+        && !doorSolid && !thresholdHeld) {
         const rico = motel.actors.find((actor) => actor.name === 'Rico');
         resolve({
           objective: motel.objective,
           active: motel.activeInteract(),
+          doorSolid,
+          thresholdHeld,
           voiceBusy: motel.voice.busy(),
           subtitle,
           rico: rico ? { x: rico.position.x, z: rico.position.z, state: rico.state } : null,
@@ -1957,32 +1992,43 @@ try {
         return;
       }
       if (performance.now() > deadline) {
-        reject(new Error(`the doorway [E] never went live during the invitation: ${subtitle}`));
+        reject(new Error(`the doorway never became walkable during the invitation: ${subtitle}`));
         return;
       }
       requestAnimationFrame(tick);
     };
     tick();
   }));
-  check('Rico steps aside and the [E] doorway prompt is live while he says come in',
+  check('Rico steps aside and the doorway is walkable while he says come in',
     invitation.voiceBusy
-      && invitation.objective.sub.includes('[E]')
-      && invitation.active === 'enterRoom'
+      && !invitation.doorSolid
+      && !invitation.thresholdHeld
       && Math.abs(invitation.rico?.x || 0) >= 0.8,
     JSON.stringify(invitation));
   await previewPage.waitForFunction(
-    () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Step inside'),
+    () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Walk in'),
     null,
     { timeout: SCENE_WAIT_MS },
   );
   const doorObjective = await previewPage.evaluate(() => window.MOTEL.objective);
-  check('answering at the door opens it and says, in words, to go in',
-    doorObjective.sub.includes('Step inside') && doorObjective.sub.includes('[E]'),
+  /* In words, and in the player's words: walk in. The `[E]` half of this
+   * assertion is a negative now so the old prompt cannot creep back into the
+   * objective line without failing here. */
+  check('answering at the door opens it and says, in words, to walk in',
+    doorObjective.sub.includes('Walk in') && !doorObjective.sub.includes('[E]'),
     JSON.stringify(doorObjective));
+  const noKeypress = await previewPage.evaluate(() => {
+    window.MOTEL.teleport(0, -3.0);
+    window.MOTEL.face(0, -12);
+    return { active: window.MOTEL.activeInteract() };
+  });
+  check('the doorway no longer offers a keypress',
+    noKeypress.active !== 'enterRoom',
+    JSON.stringify(noKeypress));
 
-  /* Step in by WALKING in. Crossing the threshold runs the same `enterRoom()`
-   * the [E] prompt runs — there is no way to be inside room twelve that did
-   * not go through the state machine, and this proves the doorway really is
+  /* Step in by WALKING in, which is now the only way. Crossing the opening
+   * runs `enterRoom()` — there is no way to be inside room twelve that did not
+   * go through the state machine — and this proves the doorway really is
    * passable once Rico has been answered. */
   await previewPage.evaluate(() => {
     window.MOTEL.teleport(0, -2.6);
@@ -2008,7 +2054,7 @@ try {
   await capture(previewPage, 'after-room-first-person');
   const meetingGate = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const enabled = Object.fromEntries(['sample', 'jerkyCase', 'placeMoney'].map((id) => {
+    const enabled = Object.fromEntries(['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].map((id) => {
       const target = motel.interactableList.find((entry) => entry.id === id);
       return [id, target ? target.enabled() : null];
     }));
@@ -2017,8 +2063,42 @@ try {
   check('the three transaction objects wait for the spoken package briefing',
     !meetingGate.sampleOut
       && Object.values(meetingGate.enabled).every((enabled) => enabled === false)
-      && !['sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
+      && !['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
     JSON.stringify(meetingGate));
+
+  await previewPage.waitForFunction(() => window.MOTEL.S.casePlacementReady, null, { timeout: SCENE_WAIT_MS });
+  const placementReady = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const target = motel.interactableList.find((entry) => entry.id === 'placeOwnCase');
+    const marker = motel.scene.getObjectByName('motel.room12.case-placement-marker');
+    return {
+      enabled: target?.enabled(),
+      markerVisible: marker?.visible,
+      caseDown: motel.S.caseDown,
+      objective: motel.objective,
+    };
+  });
+  check('room twelve marks the exact table spot before asking for inspection',
+    placementReady.enabled
+      && placementReady.markerVisible
+      && !placementReady.caseDown
+      && placementReady.objective.id === 'place'
+      && /highlighted table spot/i.test(placementReady.objective.sub),
+    JSON.stringify(placementReady));
+  await capture(previewPage, 'case-placement-marker');
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('placeOwnCase'));
+  const placementConfirmed = await previewPage.evaluate(() => ({
+    confirmed: window.MOTEL.S.casePlacementConfirmed,
+    caseDown: window.MOTEL.S.caseDown,
+    markerVisible: window.MOTEL.scene.getObjectByName('motel.room12.case-placement-marker')?.visible,
+    placeDone: window.MOTEL.objectives.done.includes('place'),
+  }));
+  check('placing Lou\'s case animates into authoritative mission state',
+    placementConfirmed.confirmed
+      && placementConfirmed.caseDown
+      && !placementConfirmed.markerVisible
+      && placementConfirmed.placeDone,
+    JSON.stringify(placementConfirmed));
 
   /* ---- the transaction, step by step ----
    *
@@ -2239,6 +2319,19 @@ try {
     roomSpawns.cameraDistance < 0.08 && !roomSpawns.playerVisible,
     JSON.stringify(roomSpawns));
 
+  const windowPolicy = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const z = motel.refs.window12.z;
+    return {
+      declared: motel.refs.window12.playerTraversalBlocked,
+      fromInside: motel.isBlocked(3, z - 0.05, 0, motel.playerRadius),
+      fromOutside: motel.isBlocked(3, z + 0.05, 0, motel.playerRadius),
+    };
+  });
+  check('the room-twelve window is fully blocked in both directions',
+    windowPolicy.declared && windowPolicy.fromInside && windowPolicy.fromOutside,
+    JSON.stringify(windowPolicy));
+
   await previewPage.evaluate(() => {
     window.MOTEL.forceInteract('windowSignal');
     const snow = window.MOTEL.actors.find((actor) => actor.identity === 'snow');
@@ -2396,6 +2489,18 @@ try {
       && revolverPresentation.inventoryText.includes('6/6')
       && revolverPresentation.selected,
     JSON.stringify(revolverPresentation));
+
+  await previewPage.waitForFunction(() => window.MOTEL.S.snowInside, null, { timeout: SCENE_WAIT_MS });
+  const snowDoorEntrance = await previewPage.evaluate(() => ({
+    frontDoorOpen: window.MOTEL.refs.frontDoor.open,
+    frontDoorSolid: window.MOTEL.refs.frontDoor.collider.enabled,
+    windowBroken: window.MOTEL.S.windowBroken,
+  }));
+  check('Snow opens the room-twelve door instead of walking through it or breaking the window',
+    snowDoorEntrance.frontDoorOpen
+      && !snowDoorEntrance.frontDoorSolid
+      && !snowDoorEntrance.windowBroken,
+    JSON.stringify(snowDoorEntrance));
   await capture(previewPage, 'shared-revolver-viewmodel-car');
 
   const mattressState = await previewPage.evaluate(() => {
@@ -2586,11 +2691,90 @@ try {
       && revolverVoice.standIns.length === 0,
     JSON.stringify(revolverVoice));
 
+  const evidencePermutations = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const ids = ['reserve', 'money', 'premium'];
+    const states = [];
+    for (let mask = 0; mask < 8; mask++) {
+      const held = ids.filter((_, bit) => mask & (1 << bit));
+      states.push({ mask, ...motel.evidenceTest.reset(held) });
+    }
+    motel.evidenceTest.reset(['reserve']);
+    const beforePhase = motel.phase;
+    motel.forceInteract('getaway');
+    const partialGate = { beforePhase, afterPhase: motel.phase, objective: motel.objective };
+    motel.evidenceTest.reset(ids);
+    return { states, partialGate, complete: motel.evidence };
+  });
+  check('all evidence permutations agree on the 0/3 through 3/3 car gate',
+    evidencePermutations.states.length === 8
+      && evidencePermutations.states.every((state) => state.count === state.collected.length)
+      && evidencePermutations.states.filter((state) => state.complete).length === 1
+      && evidencePermutations.states.find((state) => state.mask === 7)?.complete === true
+      && evidencePermutations.partialGate.afterPhase === evidencePermutations.partialGate.beforePhase
+      && evidencePermutations.partialGate.objective.id === 'recover'
+      && evidencePermutations.complete.complete,
+    JSON.stringify(evidencePermutations));
 
+  const driveMixPrimer = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const line = motel.S.snowInjured
+      ? 'Hold the case. I am driving.'
+      : 'Seatbelt. Or do not.';
+    const cue = motel.voice.cueForLine(motel.S.snowInjured ? 'Prospect' : 'Snow', line);
+    return {
+      line,
+      cue,
+      playedBefore: motel.voice.played.filter((entry) => entry.cue === cue).length,
+    };
+  });
   await previewPage.evaluate(() => window.MOTEL.drive());
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: SCENE_WAIT_MS });
-  await previewPage.waitForTimeout(900);
+  /* This is an active-play receipt, not a source assertion. Wait until the
+   * drive's own recorded line owns the speech floor while the supplied HTML
+   * score is genuinely playing. The score lives outside AudioEngine, so the
+   * generic voice-duck tests cannot prove this scene-level coexistence. */
+  await previewPage.waitForFunction(
+    ({ line, cue, playedBefore }) => {
+      const motel = window.MOTEL;
+      return motel.phase === 'drive'
+        && motel.audio.music().playing
+        && motel.voice.playing()
+        && document.getElementById('subtitle')?.textContent.includes(line)
+        && motel.voice.played.filter((entry) => entry.cue === cue).length > playedBefore;
+    },
+    driveMixPrimer,
+    { timeout: SCENE_WAIT_MS, polling: 80 },
+  );
+  const jerkyActiveMix = await previewPage.evaluate(({ cue, playedBefore }) => ({
+    phase: window.MOTEL.phase,
+    music: window.MOTEL.audio.music(),
+    voicePlaying: window.MOTEL.voice.playing(),
+    newDriveTakeCount: window.MOTEL.voice.played.filter((entry) => entry.cue === cue).length - playedBefore,
+    musicEvents: window.MOTEL.audio.events.filter((entry) => entry.type.startsWith('music-')),
+  }), driveMixPrimer);
+  check('the recorded drive line and Jerky score coexist in active play',
+    jerkyActiveMix.phase === 'drive'
+      && jerkyActiveMix.music.playing === true
+      && jerkyActiveMix.voicePlaying === true
+      && jerkyActiveMix.newDriveTakeCount === 1
+      && jerkyActiveMix.musicEvents.filter((entry) => entry.type === 'music-start').length === 1
+      && jerkyActiveMix.musicEvents.filter((entry) => entry.type === 'music-stop').length === 0,
+    JSON.stringify(jerkyActiveMix));
   await capture(previewPage, 'after-drive-first-person');
+
+  const jerkyDriveMusic = await previewPage.evaluate(() => window.MOTEL.audio.music());
+  check('the Jerky driving track plays as quiet non-diegetic score',
+    jerkyDriveMusic.playing === true
+      && (jerkyDriveMusic.url.endsWith('/driving-jerky-hotel.mp3')
+        || jerkyDriveMusic.url === 'assets/music/driving-jerky-hotel.mp3'),
+    JSON.stringify(jerkyDriveMusic));
+  check('the Jerky driving score stays below dialogue',
+    jerkyDriveMusic.diegetic === false
+      && jerkyDriveMusic.volume > 0
+      && jerkyDriveMusic.volume <= 0.2
+      && jerkyDriveMusic.loop === true,
+    JSON.stringify(jerkyDriveMusic));
 
   const driveView = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -2670,6 +2854,30 @@ try {
   });
   check('the final Motel WebGL context remains healthy',
     !!webgl.kind && !webgl.contextLost && webgl.error === 0, JSON.stringify(webgl));
+
+  /* Let the real drive update cross its authored distance gate. This exercises
+   * the same finishScene('home') path a player reaches instead of calling the
+   * audio stop helper or a debug-use handler directly. */
+  await previewPage.evaluate(() => {
+    window.MOTEL.driveState.dist = window.MOTEL.driveState.target + 1;
+  });
+  await previewPage.waitForFunction(
+    () => window.MOTEL.phase === 'end',
+    null,
+    { timeout: SCENE_WAIT_MS },
+  );
+  const jerkyDriveTeardown = await previewPage.evaluate(() => ({
+    phase: window.MOTEL.phase,
+    music: window.MOTEL.audio.music(),
+    musicEvents: window.MOTEL.audio.events.filter((entry) => entry.type.startsWith('music-')),
+  }));
+  check('finishing the drive stops and rewinds its score exactly once',
+    jerkyDriveTeardown.phase === 'end'
+      && jerkyDriveTeardown.music.playing === false
+      && jerkyDriveTeardown.musicEvents.filter((entry) => entry.type === 'music-start').length === 1
+      && jerkyDriveTeardown.musicEvents.filter((entry) => entry.type === 'music-stop').length === 1
+      && jerkyDriveTeardown.musicEvents.at(-1)?.type === 'music-stop',
+    JSON.stringify(jerkyDriveTeardown));
 
   await previewPage.close();
 

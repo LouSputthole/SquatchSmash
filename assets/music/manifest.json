@@ -1,5 +1,5 @@
 {
-  "_comment": "Radio playlists. Drop audio files (mp3/ogg/m4a/wav) into this folder and list them here. `station` says which dial position a track belongs to — \"uncle\" for 98.8 UNCLE SQUATCH BEATS, \"ksqch\" for 101.7 KSQCH. Leave it out and the track lands on the first music station. Each station plays its own list in order and loops; a station with no tracks tunes to static and says why.",
+  "_comment": "Music catalog for the one live station, 97.8 THE SQUATCH, plus direct scene cues. Runtime playlist selection uses `cue` and exact `venue`; unscoped non-cue tracks enter 97.8's record pool. Historical `station` values (`uncle` / `ksqch`) are retained only as unresolved legacy metadata and do not create dial positions or filter playback. Do not revive or remove those identities until the owner decides their future.",
   "tracks": [
     {
       "file": "good-ole-days.mp3",
@@ -106,7 +106,7 @@
       "file": "fortunate-son.mp3",
       "title": "Fortunate Son",
       "artist": "Creedence Clearwater Revival",
-      "_note": "The Enola Squatch's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js.",
+      "_note": "SQUATCHOLA GAY's takeoff needle-drop, same mechanism as Beef Run's. No station and no venue -- a cue, not programming. Runtime reads MissionAudio.takeoffAnthemFile in src/beefrun/audio.js, set in src/enolasquatch/main.js.",
       "cue": true
     },
     {
@@ -120,6 +120,51 @@
       "title": "Theme for an Unconfirmed Sighting",
       "_note": "The Bing store room's portable radio during License to Grill (Blond). No station and no venue -- a cue, not programming. Runtime reads signature-music.js's storeRoomJazz.",
       "cue": true
+    },
+    {
+      "file": "driving-jerky-hotel.mp3",
+      "title": "Driving to the Jerky Hotel",
+      "cue": true,
+      "loop": true,
+      "_note": "Low-volume, non-diegetic score for the Jerky Motel drive. It is not radio programming and has no world source."
+    },
+    {
+      "file": "driving-the-take.mp3",
+      "title": "Driving THE TAKE",
+      "cue": true,
+      "loop": true,
+      "_note": "Low-volume, non-diegetic score for THE TAKE's escape drive. It is not radio programming and has no world source."
+    },
+    {
+      "file": "front-and-center-background-35c043f1.mp3",
+      "artist": "lousputthole",
+      "title": "Coco Cabana",
+      "cue": true,
+      "loop": true,
+      "_note": "Non-diegetic supper-club bed. The Silver runtime filters it in the kitchen hallway, opens it in the dining room, and ducks it under story dialogue."
+    },
+    {
+      "file": "front-and-center-opening-b3b9d1cc.mp3",
+      "artist": "lousputthole",
+      "title": "Big Feet on the Dance Floor",
+      "start": 0,
+      "cutAt": 27,
+      "cue": true,
+      "_note": "The first 27 seconds only, immediately after the band's opening joke; it fades directly into Bananaphone."
+    },
+    {
+      "file": "enola-pre-bomb-drop-approach.mp3",
+      "title": "Enola Pre-Bomb-Drop Approach",
+      "duration": 37.704,
+      "cue": true,
+      "_note": "Non-diegetic approach score. The mission aligns its ending to bomb release and hard-cuts it if the release happens early."
+    },
+    {
+      "file": "enola-escape-after-drop.mp3",
+      "title": "Enola Escape After Drop",
+      "duration": 148.2,
+      "cue": true,
+      "_note": "Non-diegetic escape score. It starts only after the explosion and its authored silent aftermath have landed."
     }
   ]
 }

@@ -91,19 +91,24 @@ these ending decisions are documented but not yet production behavior.
 | `motel_watcher` | Watcher | Same source | Mission-local |
 | `motel_clerk` | Clerk | Same source | Mission-local civilian |
 
-The Bing bouncer, bartender, barback, dealer, guards, DJ, performers, staff,
-regulars, contractor, and Lou's associate retain their scene-local role IDs in
-`src/bing/cast.js` until the story makes one recur.
+The Bing bouncer, bartender, barback, dealer, guards, DJ, staff, regulars,
+contractor, and Lou's associate retain their scene-local role IDs in
+`src/bing/cast.js` until the story makes one recur. The seven adult performers
+are the exception: their stable bodies live in `src/bing/performers.js`, the
+first four work the authored club shift, and all seven can receive scene outfit
+overlays without becoming duplicate people.
 
 The Motel ally (Snow, formerly Manny) belongs to the friendly faction. His ally combat
 may target actual Motel hostiles, but scripted movement, waypoint completion,
 generic chase/grab logic, player melee, and player ranged targeting must all
 exclude him. This rule is structural rather than a single-scene timing fix.
 
-All adult nightclub performers at the Bing use the scene's female performer
-profile and non-nude bikini outfit. That presentation is specific to those
-performer roles; it must not leak into generic patrons or other recurring
-characters.
+All adult nightclub performers use the scene's female performer profile and an
+opaque, non-nude performance/resort outfit. `curveScale` is identity data,
+bounded to 1..1.18 and restricted to adult costume-covered performer forms; it
+must not move joints, trigger the generic heavy-body path, or leak into patrons
+and other recurring characters. The Mansion may vary colour, trim and the
+classic/halter/high-waist/one-piece cut while preserving the same body.
 
 ## Current wardrobe direction
 
@@ -155,6 +160,26 @@ wealth vocabulary is intentional, but palette, location and silhouette keep
 them distinct. Rippinflow's single silver line is intentionally not upgraded
 to the founder crest; Captain Lou's functional flight clothes are intentionally
 not turned into Uncle Lou's nightclub clothes.
+
+### Authored scene wardrobe variants
+
+Scene clothes are named, renderer-free data layered over the same canonical
+body. They are imported directly by the scene and deliberately do not enter the
+one-person `WARDROBE` map; a mission outfit must never replace how that person
+appears everywhere else.
+
+| Character / scene | Authored variant | Continuity that must not move |
+|---|---|---|
+| Booskibro / NO WAKE | Open slate camp shirt over a white tee, stone trousers and plain deck shoes. | Height, build, old-money gold chains, crest and watch. |
+| Irish / NO WAKE | Navy open deck vest over a dark-green collared shirt, dark trousers and laced dark shoes/boots. | Height, build, red hair, beard, face, bow lookout and binoculars. |
+| DeathMegatron / THE TAKE | Midnight-navy collared utility shirt and charcoal tactical trousers beneath the role-owned plate carrier. No gown skirt under the armor. | Height, curvy adult body, tied hair, skin and face; the gown remains her Bing/Mansion look. |
+| Rippinflow / THE TAKE | Deep-plum collared driving shirt and charcoal trousers beneath the role-owned plate carrier. | Height, build, thin silver chain with no pendant, silver watch and face. |
+| Ape / Silver Room | Soft charcoal-olive dinner jacket, black open-collar shirt, creased black trousers and deliberately no tie or pocket square. | Height, broad build, hair, beard, skin, face, thin silver chain and silver watch; the canvas vest remains his Bing look. |
+| Big Uncle Lou / Mansion Return | Dark oxblood-charcoal suit, cream shirt and black tie; no fedora, chalk stripe, waistcoat or pocket square. | Height, broad/gutted build, gold watch, layered chain and corno; the camp shirt remains the mission/quiet-house look and the siege preserves that same-night continuity. |
+
+`makePerson` defaults ordinary suits to a business tie. `tie: false` is the
+explicit dinner-jacket exception used by Silver Room Ape; it removes the tie
+and knot while retaining the tailored shirt front, collar, lapels and buttons.
 
 ## Presentation rules
 
