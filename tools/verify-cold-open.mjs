@@ -154,6 +154,11 @@ async function measureFrameRate(target, sampleMs = 2000) {
 async function calibrateWallBudgets(target, label) {
   const fps = await measureFrameRate(target);
   wallScale = Math.max(1, 60 / Math.max(fps, 0.05));
+  /* The page-wide default governs every locator ACTION -- clicks included --
+   * and an unscaled default is the same bug the explicit waits had: at one
+   * frame a second a click's actionability dance takes longer than
+   * Playwright's out-of-the-box patience. Scale it with everything else. */
+  target.setDefaultTimeout?.(budget(30000));
   console.log(`  info  ${label} paints ${fps.toFixed(1)} fps; wall budgets ×${wallScale.toFixed(1)} `
     + `(exit ${budget(EXIT_WALL_BUDGET_MS)}ms, shutdown ${budget(SHUTDOWN_WALL_BUDGET_MS)}ms)`);
   return fps;
