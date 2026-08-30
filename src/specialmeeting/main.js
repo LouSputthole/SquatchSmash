@@ -34,6 +34,7 @@ import { AudioEngine } from '../core/audio.js';
 import {
   SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
+import { previewNavigationHref } from '../core/preview-mode.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -79,16 +80,16 @@ const blackout = document.getElementById('blackout');
 const choicesEl = document.getElementById('choices');
 
 const campaign = createCampaign();
-/* Run ONLY when the campaign already stands at this scene. The unconditional
- * claim rewrote scene and clock for anyone who so much as opened this page
- * mid-campaign -- a bookmark on day two moved the save to the kerb and burned
- * thirty-five minutes. Every sanctioned arrival transitions the save first
- * (the Palace's exit, the flat's Act One door, a preview's own seed), so a
- * save that is elsewhere did not come here on purpose: send it back to its
- * own scene and write nothing at all. */
-if (campaign.state.scene.id !== SCENE_IDS.SPECIAL_MEETING) {
-  globalThis.location?.replace?.(SCENES[campaign.state.scene.id]?.href ?? 'index.html');
-} else {
+/* Direct-entry doctrine (tools/verify-direct-entry.mjs): a direct URL is not
+ * an invitation to rewrite campaign progress. The old boot here claimed the
+ * save and burned DEPART_SPECIAL_MEETING's thirty-five minutes for anyone who
+ * so much as opened this page mid-campaign. Every sanctioned arrival
+ * transitions the save first -- the Palace's exit, the flat's Act One door, a
+ * preview's own seed -- so ownership is simply "the save already stands
+ * here". Without it the night still plays, but as a visit: no clock, no
+ * scene pointer, no hand-off transition committed. */
+const ownsSave = campaign.state.scene.id === SCENE_IDS.SPECIAL_MEETING;
+if (ownsSave) {
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
 }
 
@@ -464,12 +465,18 @@ function startTheWalk() {
 function handOff() {
   if (handedOff) return;
   handedOff = true;
-  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
+  if (ownsSave) campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING);
   blackout?.classList.remove('cut');
   if (blackout) blackout.style.transitionDuration = '1.4s';
   blackout?.classList.add('on');
   setTimeout(() => {
-    navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
+    /* A visit flows on visually but commits nothing: the page changes, the
+     * save does not. The owning path transitions the campaign as ever. */
+    if (ownsSave) {
+      navigateCampaign(campaign, SCENE_IDS.INITIATION, { spawn: 'gathering', location });
+    } else {
+      location.assign(previewNavigationHref(SCENES[SCENE_IDS.INITIATION].href));
+    }
   }, 1400);
 }
 
