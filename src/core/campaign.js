@@ -4791,6 +4791,148 @@ function seedCampaignHubPreview(state, beatId) {
 }
 
 /**
+ * THE LUXURY FLAT'S DEVELOPER CHECKPOINTS, one per state its story tells apart.
+ *
+ * `LUXURY_APARTMENT_PREVIEW_VARIANTS` in core/preview-mode.js is the public
+ * list and its header says why there is one per phase. This is how each is
+ * built, and the build is deliberately thin: `stage` names a rung of
+ * `seedPreviewMovingUp` (or the final arc's own hub seed) and everything after
+ * it is the flat's own ledger, spent one marker at a time.
+ *
+ * NOTHING HERE TYPES AN HOUR. Every marker below goes through
+ * `campaign.advanceTime`, which is exact-once by id and takes its clock from
+ * the TIME_EVENTS anchors -- so a checkpoint lands where the played route
+ * lands, and an anchor that moves takes these fixtures with it instead of
+ * leaving them quietly two hours behind. That is the same trap CLAUDE.md
+ * records for anchors generally, and a hand-written `timeMinutes` here would
+ * be a tenth place to leave one behind.
+ */
+const LUXURY_APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
+  /* Beat 14. Lou's keys, the lift up, and three chores before the date. */
+  arrival: Object.freeze({ stage: 'luxury_apartment_intro', spawn: 'arrival' }),
+  /* Showered, suited, phone in the pocket: the lift now goes to the Silver
+   * Room. The spine has no card for this because it is beat 14's exit. */
+  'date-ready': Object.freeze({ stage: 'silver_room', spawn: 'main' }),
+  /* Beat 16, from the corridor: she is arriving and the two-floor scene runs. */
+  'margo-home': Object.freeze({ stage: 'margo_stayover', spawn: 'main' }),
+  /* Beat 16 after Margo is in and asleep. Bed is the only thing left. */
+  'stayover-night': Object.freeze({
+    stage: 'margo_stayover',
+    spawn: 'main',
+    spend: Object.freeze([TIME_EVENT_IDS.LUXURY_MARGO_COME_HOME]),
+  }),
+  /* Beat 17, 07:10 on Day 7, with the dress and the goodbye still to play. */
+  'margo-morning': Object.freeze({ stage: 'luxury_apartment_morning', spawn: 'main' }),
+  /* Beat 17's quiet window: she has gone and Lou has not rung yet. This is
+   * the only way to review the flat's telephone actually ringing -- the
+   * `no_wake` rung of `seedPreviewMovingUp` has already answered it. */
+  'no-wake-call': Object.freeze({
+    stage: 'luxury_apartment_morning',
+    spawn: 'main',
+    spend: Object.freeze([TIME_EVENT_IDS.LUXURY_MARGO_WAKE]),
+  }),
+  /* Beat 19. Home from South Harbor at twenty past five, Booskibro owed. */
+  'after-no-wake': Object.freeze({ stage: 'luxury_apartment_return', spawn: 'main' }),
+  /* Beat 19 answered: Chapter 3 is over and the lift goes to the pickup. */
+  'case-handoff': Object.freeze({
+    stage: 'luxury_apartment_return',
+    spawn: 'main',
+    answer: Object.freeze([EVENT_IDS.BOOSKI_SILVER_CASE_CALL]),
+  }),
+  /* Beat 27. Home from the Palace on the night of Day 12, special call owed. */
+  'special-meeting-night': Object.freeze({ stage: 'special_meeting_call', spawn: 'main' }),
+  /* The finished campaign, standing in the flat he ends it living in.
+   *
+   * AN HONEST FIXTURE OF A GAP, not a new route. `phase()` reads the Palace as
+   * the seam for beat 27 and nothing behind it, so a made man's save still
+   * reports `special_meeting` and his lift still offers the car that took him
+   * to the ceremony. That is what the campaign does today; this checkpoint is
+   * how somebody can finally look at it. The finale itself is presented in
+   * the starter flat (src/main.js), which is the other half of the same gap.
+   */
+  freeplay: Object.freeze({
+    stage: 'special_meeting_call',
+    spawn: 'main',
+    answer: Object.freeze([EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]),
+    spend: Object.freeze([
+      TIME_EVENT_IDS.DEPART_SPECIAL_MEETING,
+      TIME_EVENT_IDS.COMPLETE_SPECIAL_MEETING,
+      TIME_EVENT_IDS.DEPART_INITIATION,
+    ]),
+    finishCampaign: true,
+  }),
+});
+
+/**
+ * The clock marker each of this flat's telephones spends when it is answered.
+ *
+ * Mirrors `LuxuryApartmentStory.callAnswered`, which writes exactly this pair
+ * -- the event's answer and its marker -- in one `advanceTime`. Seeding it the
+ * same way is what keeps a checkpoint's five-minute call from being free.
+ */
+const LUXURY_PREVIEW_CALL_MARKERS = Object.freeze({
+  [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]: TIME_EVENT_IDS.BOOSKI_SILVER_CASE_CALL,
+  [EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
+});
+
+/**
+ * Dress a live campaign as one luxury-apartment checkpoint. Returns its spawn,
+ * or null for a name that is not on the list.
+ *
+ * It takes the CAMPAIGN rather than a raw state, unlike its Apartment
+ * counterpart, because the tail of each checkpoint is spent through
+ * `advanceTime` and that is a campaign-level door. A reviewer's fixture goes
+ * through the same ledger a player's evening does.
+ */
+function seedLuxuryApartmentPreviewCampaign(campaign, variant) {
+  const checkpoint = LUXURY_APARTMENT_PREVIEW_CHECKPOINTS[variant];
+  if (!checkpoint) return null;
+
+  campaign.update((state) => {
+    if (checkpoint.stage === 'special_meeting_call') {
+      seedCampaignHubPreview(state, 'special_meeting_call');
+      return;
+    }
+    seedPreviewMovingUp(state, checkpoint.stage);
+  });
+
+  for (const eventId of checkpoint.answer ?? []) {
+    campaign.advanceTime(LUXURY_PREVIEW_CALL_MARKERS[eventId], (state) => {
+      state.events[eventId].status = 'answered';
+    });
+  }
+  for (const eventId of checkpoint.spend ?? []) campaign.advanceTime(eventId);
+
+  if (checkpoint.finishCampaign) {
+    campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_INITIATION, (state) => {
+      state.missions[MISSION_IDS.INITIATION].status = 'complete';
+    });
+    /* `normalize` derives `creditsViewed`, `freeplayUnlocked` and
+     * `completedAt` from this one word, and only for a save the frozen
+     * Initiation actually earned it for -- which the marker above is. */
+    campaign.update((state) => {
+      state.finale.status = 'freeplay';
+    });
+  }
+  return checkpoint.spawn;
+}
+
+/**
+ * Build the same normalized temporary campaign state used by a Luxury
+ * Apartment preview, without browser globals or persistent storage. The
+ * Apartment's twin below carries the note about why headless verifiers want
+ * one; this exists so the flat's ten stages can be checked the same way.
+ */
+export function luxuryApartmentPreviewCampaignState(variant) {
+  const campaign = new Campaign(null);
+  const spawn = seedLuxuryApartmentPreviewCampaign(campaign, variant);
+  if (spawn === null) {
+    throw new RangeError(`Unknown Luxury Apartment preview variant "${variant}"`);
+  }
+  return Object.freeze({ state: campaign.state, spawn });
+}
+
+/**
  * Build the same normalized temporary campaign state used by an Apartment
  * preview without consulting browser globals or persistent storage. Headless
  * verifiers use this to dress each preview variant exactly as runtime does.
@@ -4805,8 +4947,29 @@ export function apartmentPreviewCampaignState(variant) {
   return Object.freeze({ state, spawn });
 }
 
-function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null, previewBeat = null) {
+function seedPreviewCampaign(
+  campaign,
+  sceneId,
+  apartmentVariant = null,
+  previewBeat = null,
+  luxuryVariant = null,
+) {
   let apartmentSpawn = null;
+  /* A `luxury=` stage, before anything else touches the state.
+   *
+   * It cannot share the single `campaign.update` below: the flat's checkpoints
+   * finish through `advanceTime`, which commits an update of its own, so this
+   * branch owns its whole build and its own `enter`. `beat=` still wins on
+   * this page -- the spine slide is the public one, and two query parameters
+   * naming two different evenings must resolve the same way every time. */
+  if (!previewBeat && sceneId === SCENE_IDS.LUXURY_APARTMENT && luxuryVariant) {
+    const luxurySpawn = seedLuxuryApartmentPreviewCampaign(campaign, luxuryVariant);
+    if (luxurySpawn === null) {
+      throw new RangeError(`Unknown Luxury Apartment preview variant "${luxuryVariant}"`);
+    }
+    campaign.enter(sceneId, { spawn: luxurySpawn });
+    return;
+  }
   campaign.update((state) => {
     const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
     const squatchfather = state.missions[MISSION_IDS.SQUATCHFATHER];
@@ -5275,6 +5438,7 @@ export function createCampaign(options = {}) {
       preview.sceneId,
       preview.apartmentVariant,
       preview.beatId,
+      preview.luxuryVariant,
     );
     preview.seeded = true;
   }

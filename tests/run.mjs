@@ -333,6 +333,7 @@ const TEST_MODULES = [
   './golf-runtime-polish.test.mjs',
   './squatch-smash-goals.test.mjs',
   './preview-mode.test.mjs',
+  './luxury-apartment-preview.test.mjs',
   './radio-tape.test.mjs',
   './radio-commercials.test.mjs',
   './radio-voice-coverage.test.mjs',
