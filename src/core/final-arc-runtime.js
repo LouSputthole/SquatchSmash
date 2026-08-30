@@ -1,4 +1,5 @@
-import { createCampaign, navigateCampaign } from './campaign.js';
+import { createCampaign, navigateCampaign, SCENES } from './campaign.js';
+import { previewNavigationHref } from './preview-mode.js';
 
 /**
  * Re-open a page's existing completion card after the durable mission was
@@ -80,7 +81,19 @@ export function createFinalArcRuntimeSession({
     },
 
     navigate(nextSceneId, options = {}) {
-      if (preview) return false;
+      /* Preview holds no campaign, so there is nothing to transition -- but
+       * refusing outright made every final-arc Continue button a dead end
+       * and stranded reviewers at day one. The next page seeds itself from
+       * its own preview URL, so the correct move is simply to go there with
+       * `preview=1` intact. The real save is never touched either way. */
+      if (preview) {
+        const scene = SCENES[nextSceneId];
+        if (!scene?.href) return false;
+        const target = options.location ?? location;
+        if (!target || typeof target.assign !== 'function') return false;
+        target.assign(previewNavigationHref(scene.href, target));
+        return true;
+      }
       return navigateCampaign(activeCampaign, nextSceneId, {
         ...options,
         location: options.location ?? location,

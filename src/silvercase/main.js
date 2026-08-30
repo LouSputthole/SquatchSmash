@@ -1697,12 +1697,16 @@ function reportSilverCaseBeat(name) {
   }
   if (name !== S.SCENE_COMPLETE) return;
 
+  /* Preview refuses the durable write and returns false, which used to leave
+   * this flag down and the Continue button a reload -- the reviewer finished
+   * the case and got sent back to its own first frame. Preview completion is
+   * completion: the button may lead on, it just commits nothing. */
   silverCaseCampaignComplete = silverCaseCampaign.complete(
     silverCaseCampaignReport({
       winstonAlive: cast.winston.alive,
       flags,
     }),
-  );
+  ) || campaignPreview;
   campaignAudioFeedback.complete('silver-case', silverCaseCampaignComplete);
   if (silverCaseCampaignComplete && ui.playAgainBtn) {
     ui.playAgainBtn.textContent = "CONTINUE TO LOU'S MANSION";
@@ -1776,7 +1780,7 @@ ui.retryBtn.addEventListener('click', () => {
   restoreCheckpoint();
 });
 ui.playAgainBtn.addEventListener('click', () => {
-  if (silverCaseCampaignComplete && !campaignPreview) {
+  if (silverCaseCampaignComplete) {
     silverCaseCampaign.navigate(SCENE_IDS.MANSION, { spawn: 'gate' });
     return;
   }

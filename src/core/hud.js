@@ -229,6 +229,12 @@ export class Hud {
     if (!this.objectives) return;
     if (!plan || !plan.items?.length) {
       this.objectives.classList.add('hidden');
+      /* Hiding must also forget the last rendered list. Without this, an
+       * empty plan followed by the SAME plan as before hit the key check
+       * below and returned before the un-hide -- the card stayed gone for
+       * good. The shared panel fixed this in objective-panel.js; the
+       * apartment's copy kept the latch. */
+      this._objectivesKey = null;
       return;
     }
     // Only touch the DOM when the list actually reads differently.

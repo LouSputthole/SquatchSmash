@@ -119,7 +119,14 @@ function ensureStyle(doc) {
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = STYLE;
-  doc.head.append(style);
+  /* FIRST in head, not last. This sheet is injected at runtime, after every
+   * page's own <link> stylesheets, and `#objectives.op-panel { top; left }`
+   * ties their specificity -- so appending silently beat golf's "under the
+   * scorecard", the Palace's "under the mission card", and every other
+   * placement a scene wrote for this panel, and the card landed on top of
+   * the furniture it was told to sit beside. These rules are defaults; the
+   * page gets the last word. */
+  doc.head.prepend(style);
 }
 
 /**

@@ -829,6 +829,10 @@ function leaveEnclosure() {
  */
 function beginCabinScene() {
   phase('cabin');
+  /* Retire "GO BELOW DECK" the moment he is below deck. It used to stand,
+   * completed, through the whole of Lou's interrogation -- an objective
+   * naming a thing already done for the length of the scene's longest beat. */
+  setObjective('HEAR LOU OUT', 'This is the meeting');
   state.stagingLocked = true;
   cabin.setLampLevel(1);
   // Everybody takes their mark. Nobody gathers in the cockpit; it is meant to

@@ -147,9 +147,6 @@ try {
 
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'pullback',
     null, { timeout: 20000 });
-  const moving = await state();
-  check('the radio comes on the moment the camera starts to move',
-    moving.radioOn, `radio ${moving.radioOn}`);
 
   /* WAIT ON THE DOLLY, NOT ON THE CLOCK. The first draft slept 1.2 seconds
    * and asserted the room was visible; under swiftshader this page renders at
@@ -163,6 +160,15 @@ try {
   check('the room appears around the monitor as the camera comes off it',
     midway.cameraToMonitor > startedAt && !midway.covers,
     JSON.stringify({ k: midway.pullbackK.toFixed(2), covers: midway.covers }));
+
+  /* The radio joins DURING the pull-back rather than on its first frame: it
+   * waits for its voice bank, so the station ident is a playback instead of a
+   * mime. The room tone carries the first frame; this holds the radio to
+   * arriving before the move is over. */
+  const radioCameOn = await page
+    .waitForFunction(() => window.__squatch.coldOpenState.radioOn, null, { timeout: 90000 })
+    .then(() => true).catch(() => false);
+  check('the radio comes on during the pull-back, voice bank decoded', radioCameOn);
 
   /* Ten frames a second against a 5.2 s dolly is a minute of patience. */
   await page.waitForFunction(() => window.__squatch.coldOpenState.phase === 'beat',

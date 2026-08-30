@@ -32,7 +32,7 @@ import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
 import {
-  SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
+  SCENES, SCENE_IDS, TIME_EVENT_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { Hud } from '../core/hud.js';
@@ -79,10 +79,18 @@ const blackout = document.getElementById('blackout');
 const choicesEl = document.getElementById('choices');
 
 const campaign = createCampaign();
+/* Run ONLY when the campaign already stands at this scene. The unconditional
+ * claim rewrote scene and clock for anyone who so much as opened this page
+ * mid-campaign -- a bookmark on day two moved the save to the kerb and burned
+ * thirty-five minutes. Every sanctioned arrival transitions the save first
+ * (the Palace's exit, the flat's Act One door, a preview's own seed), so a
+ * save that is elsewhere did not come here on purpose: send it back to its
+ * own scene and write nothing at all. */
 if (campaign.state.scene.id !== SCENE_IDS.SPECIAL_MEETING) {
-  campaign.enter(SCENE_IDS.SPECIAL_MEETING, { spawn: 'kerb' });
+  globalThis.location?.replace?.(SCENES[campaign.state.scene.id]?.href ?? 'index.html');
+} else {
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
 }
-campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 attachPixelRatio(renderer);

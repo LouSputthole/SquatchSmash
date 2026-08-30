@@ -628,11 +628,14 @@ function showEnolaCompletion(report, {
 }
 
 mission.onComplete = (report) => {
+  /* Preview's complete() is a refusal by design; landing the plane is still
+   * landing the plane. Without the preview term the Continue button stayed a
+   * reload and the arc could not be walked forward in preview at all. */
   enolaCampaignComplete ||= enolaCampaign.complete({
     ...report,
     payloadReleased: mission.payloadReleased,
     returnedHome: true,
-  });
+  }) || enolaCampaignPreview;
   showEnolaCompletion(report, {
     campaignComplete: enolaCampaignComplete,
     playSting: true,
@@ -1877,7 +1880,7 @@ const pauseMenu = createPauseMenu({
 });
 
 $('es-again')?.addEventListener('click', () => {
-  if (enolaCampaignComplete && !enolaCampaignPreview) {
+  if (enolaCampaignComplete) {
     enolaCampaign.navigate(SCENE_IDS.MANSION_RETURN, { spawn: 'driveway' });
     return;
   }

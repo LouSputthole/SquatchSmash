@@ -70,7 +70,7 @@ import {
   restoreCompletedFinalArcEntry,
 } from '../../core/final-arc-runtime.js';
 import { createMansionSiegeCampaignStory } from '../../core/final-arc-story.js';
-import { isPreviewMode } from '../../core/preview-mode.js';
+import { isPreviewMode, previewNavigationHref } from '../../core/preview-mode.js';
 import { SmokeSystem } from '../../world/smoke.js';
 import { BloodImpactSystem, DeathBloodPool } from '../../world/blood.js';
 import { BallisticImpactSystem } from '../../world/impacts.js';
@@ -1261,11 +1261,13 @@ const mission = new SiegeMission({
     if (sequence === 'briefing') dialogue.playBriefing(weaponSystem.equipped);
     else if (sequence) dialogue.play(sequence);
     if (beat === B.COMPLETE) {
+      /* Preview's complete() refuses the durable write; the fight is still
+       * won. The flag also arms the Continue button below. */
       siegeCampaignComplete = siegeCampaign.complete({
         attackersDown: mission.attackersDown,
         littleFriendSaid: mission.littleFriendSaid,
         sasoleMet: true,
-      });
+      }) || siegeCampaignPreview;
       showMissionCard();
     }
     /* THE TWO FIGHTS THAT ARE NOT WAVES.
@@ -2132,6 +2134,20 @@ $('continueBtn')?.addEventListener('click', (event) => {
   event.preventDefault();
   siegeCampaign.navigate(SCENE_IDS.ENOLA_SQUATCH, { spawn: 'airfield' });
 });
+
+/* THE CARD'S ANCHORS ARE RAW HREFS, and in preview a raw href is a leak: the
+ * page it lands on runs against the player's REAL save. "HOME — THE
+ * APARTMENT" out of a preview siege didn't just misroute, it opened
+ * index.html on whatever campaign was in localStorage. Rewriting the hrefs
+ * up front keeps every exit -- home, the quiet house, the Enola handoff when
+ * the click handler declines -- inside the preview sandbox. The preview
+ * notice's own "Exit to saved game" link is the one deliberate way out, and
+ * it is not in these overlays. */
+if (siegeCampaignPreview) {
+  for (const anchor of document.querySelectorAll('#menu a[href], #missionCard a[href]')) {
+    anchor.setAttribute('href', previewNavigationHref(anchor.getAttribute('href')));
+  }
+}
 
 /* ================================================================== */
 /* The wake-up                                                           */

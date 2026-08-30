@@ -33,6 +33,34 @@ export const APARTMENT_PREVIEW_VARIANTS = Object.freeze([
   'after-heist',
 ]);
 
+/**
+ * Which apartment variant a preview lands on when a MISSION exits home.
+ *
+ * This is the missing half of the variant system. The variants above let a
+ * reviewer *start* at a checkpoint; this table lets one *arrive* at the right
+ * checkpoint by playing a scene through. Without it, every mission's exit
+ * navigated to a bare `index.html?preview=1`, which seeds nothing -- so
+ * finishing any preview put the reviewer back in the day-one wake-up, however
+ * deep into the campaign the scene they just finished sits.
+ *
+ * Keyed by the scene being LEFT, because that is the one fact the exit knows.
+ * Scenes that do not send the player home (graveyard, motel handoff, the
+ * final arc's chain) are deliberately absent; scenes whose homecoming has no
+ * authored variant yet (the Palace's Special-Meeting-night flat, the
+ * post-Initiation freeplay flat) fall back to the bare page until those
+ * checkpoints exist.
+ */
+export const APARTMENT_PREVIEW_RETURN_VARIANTS = Object.freeze({
+  bada_bing_one: 'after-bing-one',
+  squatchfather: 'after-squatchfather',
+  airstrip_smuggling: 'after-beef-run',
+  jerky_motel: 'after-motel',
+  no_wake: 'after-no-wake',
+  silver_room: 'after-silver-room',
+  silver_pines: 'after-golf',
+  bank_heist: 'after-heist',
+});
+
 export class PreviewMemoryStorage {
   constructor() {
     this.values = new Map();
@@ -226,9 +254,15 @@ export function getPreviewRuntime(locationLike = globalThis.location) {
 
 /**
  * Preserve preview mode across campaign navigation. Existing query strings
- * (notably `visit=2`) and hashes are retained.
+ * (notably `visit=2`) and hashes are retained. An `apartment` variant, when
+ * given and known, rides along so an exit-to-the-flat lands on the checkpoint
+ * matching the campaign stage instead of a bare (day-one) page.
  */
-export function previewNavigationHref(href, locationLike = globalThis.location) {
+export function previewNavigationHref(
+  href,
+  locationLike = globalThis.location,
+  { apartment = null } = {},
+) {
   if (!isPreviewMode(locationLike)) return href;
 
   const value = String(href);
@@ -238,6 +272,9 @@ export function previewNavigationHref(href, locationLike = globalThis.location) 
   const [path, query = ''] = withoutHash.split('?');
   const params = new URLSearchParams(query);
   params.set('preview', PREVIEW_VALUE);
+  if (apartment && APARTMENT_PREVIEW_VARIANTS.includes(apartment)) {
+    params.set('apartment', apartment);
+  }
   const encoded = params.toString();
   return `${path}${encoded ? `?${encoded}` : ''}${hash}`;
 }

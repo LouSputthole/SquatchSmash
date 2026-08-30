@@ -18,6 +18,7 @@ import {
 } from '../src/core/apartment-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
 import {
+  APARTMENT_PREVIEW_RETURN_VARIANTS,
   APARTMENT_PREVIEW_VARIANTS,
   isPreviewMode,
   previewBeefRunCheckpointForLocation,
@@ -92,6 +93,38 @@ test('preview query and route resolution preserve existing query parameters', ()
     previewNavigationHref('index.html', { pathname: '/game/index.html', search: '' }),
     'index.html',
   );
+});
+
+test('a preview exit home carries the apartment checkpoint for the scene it left', () => {
+  const current = { pathname: '/game/nowake.html', search: '?preview=1' };
+  /* The mission exit's whole job: index.html?preview=1 alone seeds nothing
+   * and wakes the reviewer on day one, however deep the finished scene sits. */
+  assert.equal(
+    previewNavigationHref('index.html', current, { apartment: 'after-no-wake' }),
+    'index.html?preview=1&apartment=after-no-wake',
+  );
+  // An unknown variant is dropped rather than smuggled into the URL.
+  assert.equal(
+    previewNavigationHref('index.html', current, { apartment: 'not-a-checkpoint' }),
+    'index.html?preview=1',
+  );
+  // Outside preview the option is inert along with everything else.
+  assert.equal(
+    previewNavigationHref('index.html', { pathname: '/game/nowake.html', search: '' },
+      { apartment: 'after-no-wake' }),
+    'index.html',
+  );
+  /* Every scene that exits to the flat has a mapped morning, and every mapped
+   * morning is a real seedable variant. */
+  for (const [scene, variant] of Object.entries(APARTMENT_PREVIEW_RETURN_VARIANTS)) {
+    assert.ok(APARTMENT_PREVIEW_VARIANTS.includes(variant), `${scene} -> ${variant}`);
+  }
+  for (const scene of [
+    'bada_bing_one', 'squatchfather', 'airstrip_smuggling', 'jerky_motel',
+    'no_wake', 'silver_room', 'silver_pines', 'bank_heist',
+  ]) {
+    assert.ok(scene in APARTMENT_PREVIEW_RETURN_VARIANTS, scene);
+  }
 });
 
 test('heist preview checkpoint and difficulty inputs are bounded', () => {
@@ -196,7 +229,10 @@ test('motel preview starts unlocked without reading or writing canonical localSt
       spawn: 'front_door',
       location: { assign: (href) => navigated.push(href) },
     });
-    assert.deepEqual(navigated, ['index.html?preview=1']);
+    /* The exit home names the morning it earned. A bare `?preview=1` was the
+     * "every preview ends at day one" bug: the memory save dies with the
+     * page, so the stage must ride in the URL. */
+    assert.deepEqual(navigated, ['index.html?preview=1&apartment=after-motel']);
     assert.equal(canonicalStorage.raw, sentinel);
   } finally {
     delete globalThis.location;

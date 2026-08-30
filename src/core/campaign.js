@@ -1,4 +1,5 @@
 import {
+  APARTMENT_PREVIEW_RETURN_VARIANTS,
   getPreviewRuntime,
   installPreviewNotice,
   previewNavigationHref,
@@ -1071,7 +1072,6 @@ export const SCENES = Object.freeze({
        * flat -- the call, the getting ready, the door refusing him and the
        * headlights -- and the front door is what ends it. The kerb is the
        * next thing he stands on. */
-      SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.SPECIAL_MEETING,
       SCENE_IDS.INITIATION,
       SCENE_IDS.MANSION,
@@ -4037,10 +4037,21 @@ export function navigateCampaign(
     throw new TypeError('Campaign navigation requires a location with assign()');
   }
 
+  /* Which scene this navigation is LEAVING, read before the transition
+   * overwrites it. In a real campaign it is nothing; in preview it is the
+   * whole ballgame -- the preview save dies with this page, so the stage has
+   * to travel in the URL. An exit to the flat carries the apartment variant
+   * matching the mission just finished, which is how "keep moving forward"
+   * lands a reviewer at the right morning instead of back at day one. */
+  const leaving = campaign.state?.scene?.id ?? null;
   const before = campaign.state;
   const state = campaign.transition(sceneId, { spawn });
   try {
-    location.assign(previewNavigationHref(scene.href));
+    location.assign(previewNavigationHref(scene.href, globalThis.location, {
+      apartment: sceneId === SCENE_IDS.APARTMENT
+        ? APARTMENT_PREVIEW_RETURN_VARIANTS[leaving] ?? null
+        : null,
+    }));
     return state;
   } catch (error) {
     // location.assign() can be rejected by sandboxed/embedded browsers. Do

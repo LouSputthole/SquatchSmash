@@ -41,6 +41,7 @@ import {
   EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
+  SCENES,
   SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
@@ -55,7 +56,7 @@ import {
 import { createCampaignFinaleView } from './core/campaign-finale-view.js';
 import { createCampaignCreditsView } from './core/campaign-credits-view.js';
 import { BEAT_S, ColdOpen, monitorFillDistance } from './core/cold-open.js';
-import { isPreviewMode } from './core/preview-mode.js';
+import { isPreviewMode, previewNavigationHref } from './core/preview-mode.js';
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
@@ -67,6 +68,7 @@ import {
   SMASH_PLAY_SECONDS,
   SPECIAL_MEETING_ACT_ONE,
   TV_WATCH_SECONDS,
+  apartmentHostsChapter,
   createApartmentStory,
   isSpecialMeetingNight,
   pastimeActivityEvents,
@@ -308,7 +310,18 @@ const wakingOnGolfMorning = !returningToApartment
 const wakingOnHeistDay = !returningToApartment
   && campaignAtLoad.story.chapter === 'heist_day';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
-  campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
+  if (apartmentHostsChapter(campaignAtLoad.story.chapter)) {
+    campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
+  } else {
+    /* A final-arc save. From The Silver Case to the Palace the player lives
+     * at Lou's; the flat has no plan, no door copy, and no objectives for
+     * those chapters, and claiming the save here -- which is what this page
+     * did unconditionally -- was a durable soft-lock: the scene pointer was
+     * overwritten to a flat that could not host it, reachable from a shipped
+     * siege end-card link, a bookmark, or the back button. Send the save back
+     * to its own scene instead, and write nothing. */
+    globalThis.location?.replace?.(SCENES[campaignAtLoad.scene.id]?.href ?? 'index.html');
+  }
 }
 /* The Squatchfather's return leg.
  *
@@ -1142,10 +1155,11 @@ function enterColdOpen() {
 /**
  * The camera has started to come off the monitor.
  *
- * The radio goes on HERE, at the first frame of movement, because the owner
- * asked for it there: the room announcing itself with sound at the same
- * instant it announces itself with picture is what makes it read as a place
- * rather than as a menu. Everything else stays quiet.
+ * The room announces itself with sound as it announces itself with picture:
+ * the room tone starts on the first frame of movement, and the radio joins
+ * during the pull-back -- as soon as its voice bank has decoded -- so the
+ * station introduces itself out loud rather than mouthing its ident into an
+ * empty buffer table. Everything else stays quiet.
  */
 function runColdOpenReveal() {
   audio.init().then(async () => {
@@ -3613,7 +3627,11 @@ function showEnding(kind) {
       next.id = 'next-level';
       overlay.querySelector('.panel').appendChild(next);
     }
-    next.href = 'bing.html';
+    /* The handler below owns the real navigation, but the href has to be
+     * preview-safe on its own: a middle-click or open-in-new-tab never runs
+     * the handler, and a bare `bing.html` out of a preview lands the club on
+     * the player's real save. */
+    next.href = previewNavigationHref('bing.html');
     next.onclick = (event) => {
       event.preventDefault();
       saveApartmentProgress();

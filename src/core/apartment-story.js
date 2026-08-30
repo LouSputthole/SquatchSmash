@@ -79,6 +79,7 @@ export const DEPARTURE_REFUSALS = Object.freeze({
   day_two_call: 'Booskibro said he would call with the next job.',
   second_bing_call: 'Lou said he would call when he wanted you back at the Bing.',
   sleep_after_motel: 'It is not even light out. Whatever is next can wait until I have slept.',
+  campaign_complete: 'The week is over. Nobody is calling tonight, and that suits me fine.',
   first_call: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
   sleep_after_squatchfather: 'That is enough going out for one night.',
   lou_package: 'I am not going anywhere until I find Lou’s package.',
@@ -455,6 +456,41 @@ const CHAPTER_PLAN = Object.freeze({
   }),
 });
 
+/**
+ * Can the flat stage a morning for this chapter at all?
+ *
+ * From The Silver Case to the Cartel Palace the player lives at Lou's, and
+ * the flat has no plan, no door copy, and no objectives for those chapters --
+ * `objectives()` returns an empty list and the door falls back to Day One
+ * refusals. index.html uses this to send a mid-arc save back to its own scene
+ * instead of claiming it into a flat that cannot host it.
+ */
+export function apartmentHostsChapter(chapter) {
+  return Object.hasOwn(CHAPTER_PLAN, chapter);
+}
+
+/**
+ * Who is on the other end of each telephone the door can wait on.
+ *
+ * The plan table above only knows each chapter's FIRST call. Day Two has two
+ * -- Booskibro in the morning, Lou after the Beef Run -- which is how the
+ * panel once showed a finished, all-ticked morning while the door held out
+ * for Lou's second call, and named Booskibro while doing it. The door already
+ * knows exactly which event it wants; this table just puts the right name on
+ * that row.
+ */
+const CALL_CALLERS = Object.freeze({
+  [EVENT_IDS.LOU_FIRST_CALL]: 'Big Uncle Lou',
+  [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: 'Booskibro',
+  [EVENT_IDS.LOU_SECOND_CALL]: 'Big Uncle Lou',
+  [EVENT_IDS.LOU_NO_WAKE_CALL]: 'Big Uncle Lou',
+  [EVENT_IDS.MARGO_DATE_CALL]: 'Margo',
+  [EVENT_IDS.LOU_GOLF_CALL]: 'Big Uncle Lou',
+  [EVENT_IDS.LOU_HEIST_CALL]: 'Big Uncle Lou',
+  [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: 'Booskibro',
+  [EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: 'Booskibro',
+});
+
 export const HEIST_PREPARATION_ITEMS = Object.freeze([
   Object.freeze({ id: 'armor', label: 'Put on concealable armor' }),
   Object.freeze({ id: 'gloves', label: 'Take black gloves' }),
@@ -708,11 +744,12 @@ const SLEEP_CHAPTERS = Object.freeze([
 const LAST_CHAPTER = 'heist_day';
 
 const APARTMENT_RETURN_PRIORITY = Object.freeze([
-  /* Newest first, and the Palace is now the newest thing that sends him home.
-   * It was missing from this list entirely, which mattered: mission completion
-   * accumulates, so a man letting himself in the night the Palace was over was
-   * told he was back from THE TAKE and asked to wash the bank off himself,
-   * because the heist is also complete and used to be top of the list. */
+  /* Newest first. The Initiation is the newest thing that sends him home --
+   * the campaign's last homecoming -- and it was missing the way the Palace
+   * once was: mission completion accumulates, so the man walking in MADE was
+   * told "Sauce is dealt with, nobody has rung", because the Palace was also
+   * complete and sat on top of this list. Same bug, one rung later. */
+  SCENE_IDS.INITIATION,
   SCENE_IDS.CARTEL_PALACE,
   SCENE_IDS.BANK_HEIST,
   SCENE_IDS.SILVER_PINES,
@@ -1467,6 +1504,14 @@ class ApartmentStory {
     const plan = this.#plan();
     if (!plan) return { chapter: state.story.chapter, day: state.story.day, items: [] };
 
+    /* Freeplay. The Initiation is complete and the campaign with it; a
+     * standing-orders card over a finished week is homework nobody assigned,
+     * so the panel goes away rather than re-listing a night already lived. */
+    if (state.story.chapter === 'big_night'
+      && state.missions[MISSION_IDS.INITIATION].status === 'complete') {
+      return { chapter: state.story.chapter, day: state.story.day, items: [] };
+    }
+
     const items = DEPARTURE_REQUIREMENTS.map(({ id }) => ({
       id,
       label: ROUTINE_LABELS[id],
@@ -1558,6 +1603,19 @@ class ApartmentStory {
       items.push({ id: door.id, label: door.label, done: false, required: true });
     } else if (door.kind === 'activity' && !items.some((item) => item.id === door.id)) {
       items.push({ id: door.id, label: door.label, done: false, required: true });
+    } else if (door.kind === 'call' && door.id !== plan.event) {
+      /* Day Two's SECOND telephone, and any other call the plan table cannot
+       * see. Without this row the panel read as a finished morning -- every
+       * line ticked -- while the door refused, waiting on a call the list
+       * never mentioned. The chapter's own call is already a line above, so
+       * this only draws when the door wants a different phone than the plan's. */
+      const caller = CALL_CALLERS[door.id];
+      items.push({
+        id: door.id,
+        label: caller ? `Wait for ${caller}’s call` : 'Wait for the phone',
+        done: false,
+        required: true,
+      });
     }
     /* Last line, and only on the first day: the Bing is not until a quarter
      * to midnight, so everything above it is true and useless for seventeen
@@ -1730,6 +1788,18 @@ class ApartmentStory {
       return { kind: 'go', destination: SCENE_IDS.BANK_HEIST };
     }
     if (state.story.chapter === 'big_night') {
+      /* The other end of the chapter. The campaign's last mission is done,
+       * and without this check the branch below re-offered the Initiation
+       * forever -- a finished player's door said "Leave for the Initiation"
+       * into eternity. Freeplay's door is honest instead: nobody is calling. */
+      if (state.missions[MISSION_IDS.INITIATION].status === 'complete') {
+        return {
+          kind: 'wait',
+          id: 'campaign_complete',
+          label: 'The week is over',
+          ...refusal('campaign_complete'),
+        };
+      }
       if (isSpecialMeetingNight(state)) return this.#specialMeetingDoor(activities);
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
         return {

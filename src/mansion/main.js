@@ -1250,6 +1250,9 @@ function eveningObjective() {
 if (interior.props.guestRoom.bed) {
   interaction.register(interior.props.guestRoom.bed, {
     label: () => {
+      /* Preview has no durable evening to wind down; the bed is simply the
+       * registered way forward, so it says where forward goes. */
+      if (mansionPreview) return 'Sleep — on to <b>the siege</b>';
       if (windDownReady()) return 'Sleep in the guest room';
       return (eveningWindDown()?.done.length ?? 0) > 0
         ? 'One more thing around the house, then the <b>bed</b>'
@@ -1257,13 +1260,18 @@ if (interior.props.guestRoom.bed) {
     },
     hold: 1.15,
     enabled: () => {
-      if (!running || mansionPreview || mansionVisit === 'return') return false;
+      if (!running || mansionVisit === 'return') return false;
+      if (mansionPreview) return true;
       const mission = mansionCampaign.story?.mission;
       return mission?.status === 'complete'
         && mission.eveningReady === true
         && mission.sleptAtMansion !== true;
     },
     onUse: () => {
+      if (mansionPreview) {
+        mansionCampaign.navigate(SCENE_IDS.MANSION_SIEGE, { spawn: 'guest_suite' });
+        return true;
+      }
       if (!windDownReady()) {
         const state = eveningWindDown();
         const menu = MANSION_EVENING_BEAT_IDS
@@ -2279,16 +2287,23 @@ function announceMissionLeg() {
 }
 
 function returnLouLabel() {
-  if (mansionVisit !== 'return' || mansionPreview) {
+  if (mansionVisit !== 'return') {
     return 'Big Uncle Lou. He has been waiting for you and he is not going to say so.';
   }
+  if (mansionPreview) return 'Leave for the Cartel Palace';
   return mansionCampaign.story?.mission?.status === 'complete'
     ? 'Leave for the Cartel Palace'
     : "Receive Lou's briefing";
 }
 
 function useReturnBriefing() {
-  if (mansionVisit !== 'return' || mansionPreview) return false;
+  if (mansionVisit !== 'return') return false;
+  /* Preview has no briefing to commit; Lou is still the way to the Palace.
+   * Refusing here was what made the return visit a preview dead end. */
+  if (mansionPreview) {
+    mansionCampaign.navigate(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
+    return true;
+  }
   const status = mansionCampaign.story?.mission?.status;
   if (status === 'complete') {
     mansionCampaign.navigate(SCENE_IDS.CARTEL_PALACE, { spawn: 'approach' });
