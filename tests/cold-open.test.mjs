@@ -96,6 +96,21 @@ test('the reveal fires once, when the camera starts to move', () => {
   assert.deepEqual(open.update(0.1), [], 'it does not fire again');
 });
 
+test('a slow rendered frame preserves wall time across the reveal seams', () => {
+  const open = new ColdOpen();
+  open.quit();
+
+  /* The live failure was not a missing Quit event. Two WebGL scenes rendered
+   * slowly, the apartment capped each frame to 0.05 seconds, and this five
+   * second pull-back took several minutes. A single real-time step may cross
+   * both short phases and must neither lose the overshoot nor skip events. */
+  const events = open.update(SHUTDOWN_S + PULLBACK_S + 0.1);
+  assert.deepEqual(events, ['reveal', 'land']);
+  assert.equal(open.phase, 'beat');
+  assert.ok(Math.abs(open.t - 0.1) < 1e-9, `expected 0.1s of the beat, got ${open.t}`);
+  assert.equal(open.owningCamera, false);
+});
+
 test('the pull-back runs from the monitor to the chair and stops', () => {
   const open = new ColdOpen();
   open.quit();

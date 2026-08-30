@@ -202,6 +202,8 @@ campaignFinaleView.setRollCreditsHandler(() => campaignCreditsView.roll());
 const coldOpen = new ColdOpen();
 /** True from boot until the pull-back has landed him in the chair. */
 let coldOpenActive = false;
+/** True only while a confirmed game Quit automatically leaves the desk. */
+let automaticDeskExitStanding = false;
 /** Scratch, so the dolly does not allocate sixty vectors a second. */
 const _coldOpenEye = new THREE.Vector3();
 const _coldOpenLook = new THREE.Vector3();
@@ -710,6 +712,23 @@ const arcade = createArcade({
     browserInput?.refresh(`arcade-input-${mode}`);
     if (mode === 'dom') document.exitPointerLock?.();
     else if (game.seated && game.started && !game.paused) requestLock();
+  },
+  /* The framed-app chrome normally returns to SquatchOS. During the opening,
+   * however, revealing a desktop while leaving Tony in the chair bypasses the
+   * campaign's entire first transition. Click and both held-Tab routes now
+   * enter the same state machine as Squatch Smash's Quit / YES button. */
+  onExitRequest(app) {
+    if (app?.id !== 'smash' || !coldOpenActive) return false;
+    coldOpen.quit();
+    return true; // also consumes repeated requests while shutdown is running
+  },
+  exitPresentation(app) {
+    if (app?.id !== 'smash' || !coldOpenActive) return null;
+    return {
+      label: 'QUIT SQUATCH SMASH',
+      ariaLabel: 'Quit Squatch Smash',
+      title: 'Quit Squatch Smash.',
+    };
   },
 });
 const screenTexture = new THREE.CanvasTexture(arcade.canvas);
@@ -1279,26 +1298,38 @@ function runColdOpenReveal() {
  * The forty seconds of silence still come from `beginMorning`'s existing ring
  * delay, not a second timer, so exactly one clock decides when Lou rings.
  */
-function endColdOpen() {
-  coldOpenActive = false;
-  const squatchSmash = arcade.app;
+function exitSquatchSmashDesk() {
+  const squatchSmash = arcade.appById?.('smash');
+  automaticDeskExitStanding = true;
   standFromPC();
   arcade.toDesktop();
-  /* This is a confirmed Quit, not an ordinary stand-up. The app contract is
-   * deliberate here: silently retaining the shutdown page would make the
-   * next desktop launch look as though Squatch Smash never really closed. */
-  if (squatchSmash?.id !== 'smash' || typeof squatchSmash.closeSession !== 'function') {
-    throw new Error('Cold-open Squatch Smash app cannot close its session');
-  }
-  squatchSmash.closeSession();
+  /* This is a confirmed Quit, not an ordinary stand-up. Throw the framed
+   * session away so its shutdown card cannot be waiting next time. The desk
+   * exit itself does not depend on this optional cleanup: even a damaged app
+   * session must never be allowed to keep the player in the chair. */
+  squatchSmash?.closeSession?.();
+  return true;
+}
+
+function endColdOpen() {
+  coldOpenActive = false;
+  exitSquatchSmashDesk();
   apartmentStory.beginMorning({ delay: BEAT_S });
 }
 
 /** What the embedded Squatch Smash calls when the player confirms quitting. */
 window.__SQUATCH_SMASH_HOST = {
   quitSquatchSmash() {
-    if (!coldOpenActive) return false;
-    return coldOpen.quit();
+    if (coldOpenActive) {
+      coldOpen.quit();
+      return true;
+    }
+    /* Owner, 2026-08-29: "I can't get up from the fucking desk." The old
+     * host accepted confirmed Quit only while the pristine-save cold-open
+     * flag was live. Existing saves reached this same iframe and this same
+     * YES button, got `false`, and stayed forever on its shutdown card. Quit
+     * now means leave the computer on every embedded desk session. */
+    return exitSquatchSmashDesk();
   },
 
   /* [Q], FROM INSIDE THE FRAME.
@@ -5938,7 +5969,14 @@ function frame() {
       focusRush.apply(camera, player, { baseMoveScale: player.moveScale });
       applyDrunkFx();
 
-      player.update(dt);
+      /* The cold-open camera now follows real wall time. Its final automatic
+       * chair rise must do the same or a low-frame-rate machine reaches the
+       * room and then appears trapped for another long simulated tween. This
+       * flag is deliberately narrower than every other frozen player motion. */
+      player.update(automaticDeskExitStanding ? rawDt : dt);
+      if (automaticDeskExitStanding && player.mode === 'walk') {
+        automaticDeskExitStanding = false;
+      }
       const reflectedPose = game.inBed || player.mode === 'bed'
         ? 'bed'
         : game.seated || game.sitting || game.onToilet || player.mode === 'seated'
@@ -5997,7 +6035,12 @@ function frame() {
        * view is already exactly where his head is, so there is nothing to
        * hand back and nothing to snap. */
       if (coldOpenActive) {
-        for (const event of coldOpen.update(dt)) {
+        /* Owner, 2026-08-29: "I can't get up from the fucking desk." The Quit
+         * event reached this code on the live build; the defect was feeding a
+         * presentation clock the physics delta capped at 0.05. Under the two
+         * WebGL renderers, 5.2 authored seconds took several wall minutes.
+         * Presentation follows wall time; collision simulation stays capped. */
+        for (const event of coldOpen.update(rawDt)) {
           if (event === 'reveal') runColdOpenReveal();
           else if (event === 'land') endColdOpen();
         }

@@ -90,11 +90,12 @@ export class Campground extends WebApp {
    * Throw away a run the player explicitly quit.
    *
    * Ordinary standing/desktop exits preserve this same-origin game's page so
-   * the run can resume; the cold-open YES button is different. It says Quit,
-   * shows the shutdown card and must start fresh if Squatch Smash is launched
-   * again later. Use the base overlay suspension here — not this class's
-   * pause-only `suspend()` override — so the hidden renderer and audio are
-   * actually unloaded. `show()` will restore GAME_URL on the next launch.
+   * the run can resume; the confirmed YES button is different on every
+   * embedded desk session. It says Quit, shows the shutdown card and must
+   * start fresh if Squatch Smash is launched again later. Use the base overlay
+   * suspension here — not this class's pause-only `suspend()` override — so
+   * the hidden renderer and audio are actually unloaded. `show()` will restore
+   * GAME_URL on the next launch.
    */
   closeSession() {
     return this.overlay.suspend();

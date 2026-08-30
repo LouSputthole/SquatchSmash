@@ -418,14 +418,24 @@ sharedPauseMenu = createPauseMenu({
    * camera comes off the monitor, and this menu is built once at boot. */
   showSaveData: () => !apartmentHost()?.coldOpenActive?.(),
   getObjective: () => `Smash the campground before time runs out. ${Math.ceil(timeLeft)} seconds remain; ${goals.completed} of ${goals.total} goals complete.`,
-  instructions: [
-    'W A S D or arrows — move. Shift — charge.',
-    'Space or left click — smash.',
-    'F or right click — ground stomp.',
-    'R — rage mode when the bar is full. M — mute.',
-    'Standalone: Tab, P or Escape — pause.',
-    'At the apartment desk: Tab — exit to SquatchOS; Q — leave the desk.',
-  ],
+  instructions: () => {
+    const rows = [
+      'W A S D or arrows — move. Shift — charge.',
+      'Space or left click — smash.',
+      'F or right click — ground stomp.',
+      'R — rage mode when the bar is full. M — mute.',
+    ];
+    /* The opening works only while Squatch Smash plausibly is the downloaded
+     * game. The old help copy named the apartment and SquatchOS before the
+     * player could press Quit, spoiling the reveal on its required route. */
+    if (apartmentHost()?.coldOpenActive?.()) {
+      rows.push('Escape — pause. Hold Tab — quit Squatch Smash.');
+    } else {
+      rows.push('Standalone: Tab, P or Escape — pause.');
+      rows.push('At the apartment desk: Tab — exit to SquatchOS; Q — leave the desk.');
+    }
+    return rows;
+  },
   onPause: () => {
     state = 'paused';
     keys.clear();
