@@ -42,15 +42,28 @@ export const FOG_DENSITY_DAY = 0.0040;
 export const FOG_DENSITY_NIGHT = 0.0082;
 
 /**
- * How far up the sky the cloud deck sits, and how fast it crosses.
+ * How big a cloud is, and how fast the deck crosses.
  *
- * The deck is a plane the shader projects onto, so `DECK_SCALE` is really
- * "how big is a cloud": 0.30 gives puffs that take about eight seconds of
- * looking to cross the 68-degree field of view at `DECK_DRIFT`, which reads
- * as a light breeze rather than as a screensaver.
+ * The deck is a plane the shader projects the view direction onto, so
+ * `DECK_SCALE` is how many noise cells fit across the sky — and at 0.30 the
+ * answer was three. Straight up the projection collapses to the origin, and
+ * at 6 degrees above the horizon (`lift` floors at 0.075) the radius reaches
+ * only |dir.xz| / 0.075 * 0.30 = 4.0, so the entire visible hemisphere sat
+ * inside about three cells of a noise whose first octave is unit-scale. That
+ * is not a cloud deck, it is one smooth blob the width of the sky, which is
+ * exactly what it looked like: haze, at any cover.
+ *
+ * 2.6 puts about 35 cells across the same hemisphere — puffs a few degrees
+ * wide, which is what "some slight clouds" looks like from the ground.
+ *
+ * `DECK_DRIFT` is in deck units per second and therefore has to move with
+ * the scale, or the same wind becomes eight times slower: 0.030 crosses one
+ * cell in roughly half a minute, about 0.2 degrees a second at mid
+ * elevations. A cloud takes minutes to cross the 68-degree field of view,
+ * which is weather rather than a screensaver.
  */
-const DECK_SCALE = 0.30;
-const DECK_DRIFT = 0.0042;
+const DECK_SCALE = 2.6;
+const DECK_DRIFT = 0.030;
 
 const VERTEX = `
 varying vec3 vDirection;
@@ -135,7 +148,14 @@ void main() {
   vec2 deck = dir.xz / lift * uDeckScale + vec2(uTime * uDeckDrift, uTime * uDeckDrift * 0.35);
   float shape = fbm(deck);
   float detail = fbm(deck * 2.7 + vec2(3.1, 8.7));
-  float density = clamp((shape * 0.78 + detail * 0.22 - (1.0 - uCloudCover)) * 3.1, 0.0, 1.0);
+  /* 4.6, not 3.1. Owner: "maybe some slight clouds" -- which is a sky with
+   * separate puffs in it, not a thin wash over the whole dome. The ramp is
+   * what decides which: at 3.1 an fbm that averages 0.47 spends most of its
+   * range inside the ramp and every cloud has a hundred metres of fade, so
+   * against the corrected daylight blue the deck read as haze. A steeper
+   * ramp spends the same noise on edges instead, and uCloudCover then means
+   * what it says: how much of the sky has cloud ON it. */
+  float density = clamp((shape * 0.78 + detail * 0.22 - (1.0 - uCloudCover)) * 4.6, 0.0, 1.0);
   // Thin the deck out toward the horizon, where a real one is seen edge-on.
   density *= smoothstep(0.02, 0.30, up);
 
@@ -160,6 +180,55 @@ const _white = new THREE.Color(0xffffff);
 function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
 /**
+ * WHY THE DAY IS WRITTEN IN DISPLAY VALUES AND THE NIGHT IS NOT.
+ *
+ * Owner, cabin playtest: *"I want it day time and sunny out, maybe some
+ * slight clouds."* The clock was already right — Day 2 at 09:20 is `dayness`
+ * 1.000 — and the sky was still a dark navy gradient. It was a colour-space
+ * seam, and it is measurable in one line: paint the whole dome 0.5 and read
+ * the framebuffer back. It comes out 128, not 188. A `ShaderMaterial` with
+ * its own fragment shader gets no `colorspace_fragment` chunk, so this dome
+ * writes WORKING-space (linear) values straight into an sRGB target, while
+ * every lit surface beside it goes through the renderer's encode.
+ *
+ * Every colour here is derived from a `DayNight` hex, and `Color.setHex`
+ * decodes sRGB to linear. So the midday zenith left here as 0x4d7ad7 and the
+ * horizon as 0xcfb792 — roughly a gamma darker than they read in source. The
+ * comment on the horizon's own multiplier says it "lands on 0xeceade": that
+ * is this colour ENCODED, which is what its author was picturing. The code
+ * and its comment disagreed, and the comment was right about the intent.
+ *
+ * Encoding the output outright is the obvious fix and it is the wrong one:
+ * it lifts the night out of the dark the dungeon chapter is authored around
+ * (a 21:30 zenith of 0x04060e becomes 0x2a3355). So the transfer is applied
+ * BY DAYNESS, through a threshold that is zero at both authored night
+ * checkpoints — 0.146 at the Day 3 20:45 nightfall and 0.000 at 21:30 — and
+ * full through the day. Dawn and dusk cross it on their own.
+ */
+const DISPLAY_LIFT_FROM = 0.35;
+const DISPLAY_LIFT_TO = 0.92;
+
+function displayLiftAt(dayness) {
+  const t = clamp01((dayness - DISPLAY_LIFT_FROM) / (DISPLAY_LIFT_TO - DISPLAY_LIFT_FROM));
+  return t * t * (3 - 2 * t);
+}
+
+/** The sRGB transfer function, per channel — what the renderer would apply. */
+function encodeChannel(v) {
+  if (v <= 0.0031308) return v * 12.92;
+  return 1.055 * (v ** (1 / 2.4)) - 0.055;
+}
+
+function liftToDisplay(colour, amount) {
+  if (amount <= 0) return colour;
+  return colour.setRGB(
+    colour.r + (encodeChannel(clamp01(colour.r)) - colour.r) * amount,
+    colour.g + (encodeChannel(clamp01(colour.g)) - colour.g) * amount,
+    colour.b + (encodeChannel(clamp01(colour.b)) - colour.b) * amount,
+  );
+}
+
+/**
  * A sky for one scene.
  *
  * `update(time, elapsed)` takes a `DayNight` (or anything publishing the same
@@ -172,7 +241,9 @@ export class SkyDome {
    * @param {THREE.Scene} scene
    * @param {{ camera?: THREE.Camera, radius?: number, cloudCover?: number }} options
    *   `radius` must stay inside the scene's camera far plane. `cloudCover`
-   *   is 0 (empty blue) to 1 (overcast); 0.5 is a good day with weather in it.
+   *   is 0 (empty blue) to 1 (overcast) and, since the density ramp was
+   *   sharpened, it really is how much of the sky carries cloud: 0.42 is the
+   *   cabin's scattered day, 0.6 and up starts closing the blue in.
    */
   constructor(scene, { camera = null, radius = 180, cloudCover = 0.52 } = {}) {
     this.scene = scene;
@@ -181,6 +252,8 @@ export class SkyDome {
 
     this.fogColour = new THREE.Color(0x38414f);
     this.fogDensity = FOG_DENSITY_DAY;
+    /** 0 at night, 1 through the day. Published so a test can pin it. */
+    this.displayLift = 0;
 
     this.uniforms = {
       uZenith: { value: new THREE.Color(0x4d84c4) },
@@ -272,16 +345,32 @@ export class SkyDome {
     u.uCloudLit.value.copy(time.sunColour ?? _white.setHex(0xffffff))
       .lerp(_white.setHex(0xffffff), 0.42)
       .multiplyScalar(0.30 + 0.78 * dayness);
+    /* 0.80 at full day rather than 1.04: a puff needs an underside darker
+     * than the sky behind it or it is a bright patch, not a cloud. */
     u.uCloudShade.value.copy(time.hemiSky ?? u.uCloudShade.value)
-      .multiplyScalar(0.42 + 0.62 * dayness);
+      .multiplyScalar(0.42 + 0.38 * dayness);
     u.uCloudOpacity.value = 0.22 + 0.78 * dayness;
     u.uCloudCover.value = this.cloudCover;
 
     /* One horizon, one fog. The scene's fog gets the dome's own horizon
      * colour so the treeline dissolves INTO the sky instead of into a
-     * separate grey, and the density opens up by day and closes at night. */
+     * separate grey, and the density opens up by day and closes at night.
+     *
+     * Taken BEFORE the display lift below, and that ordering is the whole
+     * point: `fog.color` is consumed by lit materials, which the renderer
+     * encodes on the way out. Handing them an already-encoded horizon
+     * encodes it twice and turns the far treeline white. */
     this.fogColour.copy(u.uHorizon.value).lerp(u.uZenith.value, 0.16);
     this.fogDensity = FOG_DENSITY_NIGHT + (FOG_DENSITY_DAY - FOG_DENSITY_NIGHT) * dayness;
+
+    /* The day, in the values the framebuffer actually shows. See
+     * DISPLAY_LIFT_FROM: zero at both authored night checkpoints, so the
+     * dungeon chapter's dark is untouched to the bit. */
+    this.displayLift = displayLiftAt(dayness);
+    for (const colour of [
+      u.uZenith.value, u.uHorizon.value, u.uGround.value,
+      u.uDiscColour.value, u.uCloudLit.value, u.uCloudShade.value,
+    ]) liftToDisplay(colour, this.displayLift);
 
     if (this.camera) this.mesh.position.copy(this.camera.position);
   }

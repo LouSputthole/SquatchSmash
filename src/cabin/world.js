@@ -26,7 +26,7 @@ import { loadModels } from '../world/models.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
 import { buildCabinBasement, resolveCabinFloor } from './basement.js';
-import { buildCabinBodyCleanup } from './body-cleanup.js';
+import { CABIN_CLEANUP_LAYOUT, buildCabinBodyCleanup } from './body-cleanup.js';
 import { buildLagActor } from './lag.js';
 import { buildCabinShootingRange } from './shooting-range.js';
 import {
@@ -1066,8 +1066,10 @@ function buildProperty({
       treeSpecies: forest.counts.species,
       forestChunks: forest.counts.chunks,
       undergrowth: forest.counts.undergrowth,
+      saplings: forest.counts.saplings,
       rocks: groundScatter.rocks,
       deadfall: groundScatter.logs,
+      stumps: groundScatter.stumps,
       trailBlazes: wayfinding.blazes,
       duskBeacons: wayfinding.beacons,
       firepitSeats: firepit.seatCount,
@@ -2065,6 +2067,12 @@ const TREE_SPECIES = Object.freeze([
   },
 ]);
 
+/**
+ * A sapling's needles: young growth, so the pale end of the fir and hemlock
+ * ranges rather than a sixth species with a share of its own.
+ */
+const SAPLING_CROWN = Object.freeze([0x24512c, 0x36683a]);
+
 function speciesAt(pick) {
   let run = 0;
   for (const species of TREE_SPECIES) {
@@ -2098,6 +2106,7 @@ function buildForest(root, M, colliders, disposables) {
         z: PROPERTY.minZ + (cz + 0.5) * chunkSize,
         trees: [],
         brush: [],
+        saplings: [],
       });
     }
     return chunks.get(key);
@@ -2134,8 +2143,16 @@ function buildForest(root, M, colliders, disposables) {
        * of reach the old circle test could not see. Ground scatter avoids
        * THIS, so a boulder or a deadfall log cannot be planted inside a tree
        * it thought it had cleared. Eight of them were, by 10 to 45 cm, and
-       * they only ever showed up once the far LOD started drawing trunks. */
+       * they only ever showed up once the far LOD started drawing trunks.
+       *
+       * `spread` stays for the round tests that only want one number; the
+       * footprint is the box the collector will build, from the trunk's own
+       * rotation. See `instanceFootprint`. */
       plan.spread = plan.radius + (plan.height / 2) * Math.abs(Math.sin(plan.lean));
+      _footEuler.set(plan.lean, plan.yaw, 0);
+      const trunkFoot = instanceFootprint(_footEuler, plan.radius, plan.height / 2, plan.radius);
+      plan.footX = trunkFoot.hx;
+      plan.footZ = trunkFoot.hz;
       getChunk(x, z).trees.push(plan);
       plantedTrees.push(plan);
       addBounds(
@@ -2150,13 +2167,48 @@ function buildForest(root, M, colliders, disposables) {
     }
   }
 
-  // Ferns, salal and young conifers live only in near LOD.
-  const brushStep = 3.15;
+  /* THE FOREST FLOOR. Ferns, salal and grass, near LOD only.
+   *
+   * Owner, cabin playtest: *"we need a bit more detail in the forest."* It
+   * was 1,617 identical plants over a 220 m property — one every 30 m², all
+   * the same 0x31502d frond cluster at the same proportions, which from the
+   * bridge reads as scattered weeds rather than as ground cover.
+   *
+   * 2.20 m of grid instead of 3.15 is 2.05x the cells, and the same
+   * acceptance hash then puts one plant every 14 m². Three FORMS share the
+   * one geometry and the one instanced draw call per chunk, separated by
+   * instance scale and `setColorAt` exactly as the five tree species are:
+   * a low spreading fern, a compact shrub, and a narrow grass tuft that is
+   * nearly twice its own width tall. No second mesh, no second material, no
+   * extra draw call — the same trade the species mix already made.
+   *
+   * -1.0 rather than -0.6 on the shared exclusion: the plants stop 0.78 m
+   * clear of the 2.45 m trail ribbon instead of 1.18 m, which closes the bald
+   * verge either side of every path without putting a frond on one. Every
+   * other authored margin — the pad, the range lane, the bridge, the creek,
+   * the overlook's view corridor — relaxes by the same metre and keeps its
+   * clearance.
+   */
+  const BRUSH_FORMS = Object.freeze([
+    // share, xz, y, colour range: a fern is wider than it is tall.
+    { id: 'fern', share: 0.42, spread: 1.12, rise: 0.82, tint: [0x2c4a28, 0x3d6033] },
+    { id: 'salal', share: 0.33, spread: 0.74, rise: 1.24, tint: [0x22401e, 0x2f5028] },
+    { id: 'grass', share: 0.25, spread: 0.54, rise: 1.90, tint: [0x5a6b30, 0x7d8a44] },
+  ]);
+  const brushFormAt = (pick) => {
+    let run = 0;
+    for (const form of BRUSH_FORMS) {
+      run += form.share;
+      if (pick < run) return form;
+    }
+    return BRUSH_FORMS[BRUSH_FORMS.length - 1];
+  };
+  const brushStep = 2.20;
   for (let gx = PROPERTY.minX + 2; gx < PROPERTY.maxX - 2; gx += brushStep) {
     for (let gz = PROPERTY.minZ + 2; gz < PROPERTY.maxZ - 2; gz += brushStep) {
-      const x = gx + (hashAt(gx, gz, 121) - 0.5) * 2.4;
-      const z = gz + (hashAt(gx, gz, 122) - 0.5) * 2.4;
-      if (!canPlantTree(x, z, -0.6)) continue;
+      const x = gx + (hashAt(gx, gz, 121) - 0.5) * 1.7;
+      const z = gz + (hashAt(gx, gz, 122) - 0.5) * 1.7;
+      if (!canPlantTree(x, z, -1.0)) continue;
       if (hashAt(x, z, 123) > 0.31 + treeDensityAt(x, z) * 0.18) continue;
       getChunk(x, z).brush.push({
         x,
@@ -2164,6 +2216,44 @@ function buildForest(root, M, colliders, disposables) {
         y: heightAt(x, z),
         scale: 0.42 + hashAt(x, z, 124) * 0.68,
         yaw: hashAt(x, z, 125) * Math.PI * 2,
+        form: brushFormAt(hashAt(x, z, 126)),
+        tone: hashAt(x, z, 127),
+      });
+    }
+  }
+
+  /* SAPLINGS, in the crowns' own instanced mesh.
+   *
+   * A young conifer is one cone, and `cabin-tree-crowns-near` is already an
+   * instanced mesh of cones with a per-instance tint that switches off at
+   * `nearFoliage`. Allocating a few more instances in it is therefore the
+   * whole feature: no geometry, no material, no draw call, and the LOD band
+   * is correct for free, because a 1.6 m tree is detail you only ever see
+   * close up. Their footing is `heightAt(x, z)` like every trunk's.
+   */
+  const saplingStep = 7.4;
+  for (let gx = PROPERTY.minX + 5; gx < PROPERTY.maxX - 5; gx += saplingStep) {
+    for (let gz = PROPERTY.minZ + 5; gz < PROPERTY.maxZ - 5; gz += saplingStep) {
+      const x = gx + (hashAt(gx, gz, 131) - 0.5) * 5.6;
+      const z = gz + (hashAt(gx, gz, 132) - 0.5) * 5.6;
+      if (!canPlantTree(x, z, 0.9)) continue;
+      const density = treeDensityAt(x, z);
+      if (!density || hashAt(x, z, 133) > density * 0.62) continue;
+      const height = 1.05 + hashAt(x, z, 134) * 1.55;
+      const spread = 0.34 + hashAt(x, z, 135) * 0.42;
+      // Clear of the standing trunks' true footprint, same rule as the
+      // deadfall: a sapling growing out of a fir is a gate violation.
+      if (plantedTrees.some((tree) => (
+        Math.hypot(x - tree.x, z - tree.z) < spread + (tree.spread ?? tree.radius) + 0.25
+      ))) continue;
+      getChunk(x, z).saplings.push({
+        x,
+        z,
+        y: heightAt(x, z),
+        height,
+        spread,
+        yaw: hashAt(x, z, 136) * Math.PI * 2,
+        tone: hashAt(x, z, 137),
       });
     }
   }
@@ -2184,8 +2274,10 @@ function buildForest(root, M, colliders, disposables) {
     side: THREE.DoubleSide,
   });
   const farCrownMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+  // White here for the same reason as the trunks and crowns: the plant's
+  // form carries its own tint on `instanceColor` and the shader multiplies.
   const brushMaterial = new THREE.MeshStandardMaterial({
-    color: 0x31502d,
+    color: 0xffffff,
     roughness: 1,
     side: THREE.DoubleSide,
   });
@@ -2205,6 +2297,7 @@ function buildForest(root, M, colliders, disposables) {
   for (const tree of plantedTrees) speciesCounts[tree.kind] += 1;
   let trees = 0;
   let undergrowth = 0;
+  let saplings = 0;
   for (const chunk of chunks.values()) {
     const chunkGroup = group(`cabin-forest-chunk-${chunk.cx}-${chunk.cz}`);
     const near = group('forest-near-lod');
@@ -2212,9 +2305,16 @@ function buildForest(root, M, colliders, disposables) {
     const brushGroup = group('forest-undergrowth-lod');
     chunkGroup.add(near, far, brushGroup);
 
+    /* Saplings ride the crowns' allocation, so a chunk that grew none of the
+     * standing trees has nowhere to put them and drops them rather than
+     * opening a second instanced mesh for a handful of cones. */
+    const chunkSaplings = chunk.trees.length ? chunk.saplings : [];
+
     if (chunk.trees.length) {
       const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, chunk.trees.length);
-      const crowns = new THREE.InstancedMesh(crownGeometry, crownMaterial, chunk.trees.length * 3);
+      const crowns = new THREE.InstancedMesh(
+        crownGeometry, crownMaterial, chunk.trees.length * 3 + chunkSaplings.length,
+      );
       const farCrowns = new THREE.InstancedMesh(farCrownGeometry, farCrownMaterial, chunk.trees.length);
       trunks.name = 'cabin-tree-trunks';
       crowns.name = 'cabin-tree-crowns-near';
@@ -2335,6 +2435,20 @@ function buildForest(root, M, colliders, disposables) {
           farCrowns.setColorAt(i, speciesColour(species.crown, tree.tone, FAR_CROWN_DIM));
         }
       }
+      /* The saplings, after the last authored crown tier. One cone standing
+       * on the ground: a young conifer is not a trunk plus a canopy at this
+       * distance, and giving it one would put a 4 cm stem in the trunks'
+       * instanced mesh, which lives at every distance out to 158 m. */
+      for (const sapling of chunkSaplings) {
+        dummy.position.set(sapling.x, sapling.y + sapling.height / 2, sapling.z);
+        dummy.rotation.set(0, sapling.yaw, 0);
+        dummy.scale.set(sapling.spread, sapling.height, sapling.spread);
+        dummy.updateMatrix();
+        crowns.setMatrixAt(crownAt, dummy.matrix);
+        crowns.setColorAt(crownAt, speciesColour(SAPLING_CROWN, sapling.tone));
+        crownAt += 1;
+        saplings += 1;
+      }
       trunks.instanceMatrix.needsUpdate = true;
       crowns.instanceMatrix.needsUpdate = true;
       farCrowns.instanceMatrix.needsUpdate = true;
@@ -2383,11 +2497,19 @@ function buildForest(root, M, colliders, disposables) {
         const plant = chunk.brush[i];
         dummy.position.set(plant.x, plant.y, plant.z);
         dummy.rotation.set(0, plant.yaw, 0);
-        dummy.scale.set(plant.scale, plant.scale, plant.scale);
+        // The form is the whole difference between a fern, a shrub and a
+        // tuft of grass: one geometry, three proportions, three tints.
+        dummy.scale.set(
+          plant.scale * plant.form.spread,
+          plant.scale * plant.form.rise,
+          plant.scale * plant.form.spread,
+        );
         dummy.updateMatrix();
         brush.setMatrixAt(i, dummy.matrix);
+        brush.setColorAt(i, speciesColour(plant.form.tint, plant.tone));
       }
       brush.instanceMatrix.needsUpdate = true;
+      if (brush.instanceColor) brush.instanceColor.needsUpdate = true;
       brush.castShadow = false;
       brush.receiveShadow = true;
       brushGroup.add(brush);
@@ -2409,6 +2531,7 @@ function buildForest(root, M, colliders, disposables) {
     counts: {
       trees,
       undergrowth,
+      saplings,
       chunks: built.length,
       species: Object.freeze({ ...speciesCounts }),
     },
@@ -2435,43 +2558,138 @@ function buildForest(root, M, colliders, disposables) {
 }
 
 /**
- * Half the world-space AABB of a capsule/cylinder along one axis.
+ * The X and Z half extents the geometry collector will actually measure for
+ * one instance — which is not its radius, and not a capsule's swept bound.
  *
- * Support function of a cylinder of half-length `half` and radius `r` whose
- * unit axis has component `a` on the axis being measured. This is exactly the
- * box the geometry collector builds from the instance matrix, which is why
- * placement clears THIS rather than a centre-line distance.
+ * `Box3.applyMatrix4` transforms the eight CORNERS of the local bounding box
+ * and takes their bounds, so a rotated body's footprint is the rotation
+ * row's absolute terms against the scaled half extents. Nothing else is a
+ * bound on it:
+ *
+ *   a 0.86 m boulder tilted 0.5 rad measures 1.27 m across — 1.48 x its own
+ *   radius, where the previous "scaled 0.75..1.20 on Z, so 1.20 x radius"
+ *   estimate said 1.03, and that 24 cm is exactly how a fallen log came to
+ *   sit 19 cm inside a boulder it had been told to clear
+ *
+ *   a stump is a plain cylinder and its footprint is still 1.41 x radius,
+ *   because a square rotated 45 degrees about Y has a wider box than the
+ *   square
+ *
+ * So every scatter body computes this from the same rotation it is rendered
+ * with, and clearance is a box test between two of them.
  */
-function capsuleHalfExtent(half, r, a) {
-  return half * Math.abs(a) + r * Math.sqrt(Math.max(0, 1 - a * a));
+function instanceFootprint(rotation, hx, hy, hz) {
+  if (rotation.isQuaternion) _footMatrix.makeRotationFromQuaternion(rotation);
+  else _footMatrix.makeRotationFromEuler(rotation);
+  const e = _footMatrix.elements;
+  return {
+    hx: Math.abs(e[0]) * hx + Math.abs(e[4]) * hy + Math.abs(e[8]) * hz,
+    hz: Math.abs(e[2]) * hx + Math.abs(e[6]) * hy + Math.abs(e[10]) * hz,
+  };
 }
+const _footMatrix = new THREE.Matrix4();
+const _footEuler = new THREE.Euler();
+const _footQuaternion = new THREE.Quaternion();
+const _footUp = new THREE.Vector3(0, 1, 0);
+const _footAxis = new THREE.Vector3();
 
 function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) {
-  const hitsTree = (x, z, radius) => plantedTrees.some((tree) => (
-    Math.hypot(x - tree.x, z - tree.z) < radius + (tree.spread ?? tree.radius) + 0.16
+  /* EVERY PIECE OF SCATTER CLEARS EVERY TRUNK AND EVERY PIECE ALREADY DOWN,
+   * and all of it is a box test on purpose. The gate audits one AABB per
+   * rendered instance, and a centre-to-centre distance does not bound a box:
+   * two footprints 1.3 radii apart on the diagonal are 0.92 radii apart on
+   * BOTH axes, which is an overlap on both axes and therefore a finding.
+   * One list, seeded with the trunks, and everything that lands adds itself
+   * to it. */
+  const footprints = plantedTrees.map((tree) => ({
+    x: tree.x,
+    z: tree.z,
+    hx: tree.footX ?? tree.radius,
+    hz: tree.footZ ?? tree.radius,
+  }));
+  /* The two yard skids are authored ground furniture west of the fire ring,
+   * 6.8 m out from it and therefore outside every landmark radius the shared
+   * exclusion knows about. A 23 cm stone landed 12 cm inside one. They stand
+   * on the same ground as the scatter, so they belong in the same list; the
+   * 0.90 x 2.55 m box is the skid's own target volume. */
+  for (const skid of Object.values(CABIN_CLEANUP_LAYOUT.staging)) {
+    _footEuler.set(0, skid.rotationY ?? 0, 0);
+    const foot = instanceFootprint(_footEuler, 0.63, 0.35, 1.28);
+    footprints.push({ x: skid.x, z: skid.z, hx: foot.hx, hz: foot.hz });
+  }
+  const footprintClear = (x, z, hx, hz, margin = 0.06) => !footprints.some((f) => (
+    Math.abs(f.x - x) < f.hx + hx + margin && Math.abs(f.z - z) < f.hz + hz + margin
   ));
+
+  /* One rock, decided once. Its tilt and its three scales used to be hashed
+   * again in the render loop, which meant the clearance test could only ever
+   * guess at the box the instance would occupy. The plan carries them, so
+   * the footprint below and the matrix further down are the same body. */
+  const rockPlan = (x, z, radius, salt) => {
+    const tiltX = hashAt(x, z, salt + 1) * 0.5;
+    const tiltZ = hashAt(x, z, salt + 2) * 0.4;
+    const yaw = hashAt(x, z, salt) * Math.PI * 2;
+    const scaleY = radius * (0.48 + hashAt(x, z, salt + 3) * 0.32);
+    const scaleZ = radius * (0.75 + hashAt(x, z, salt + 4) * 0.45);
+    _footEuler.set(tiltX, yaw, tiltZ);
+    return {
+      x,
+      z,
+      y: heightAt(x, z),
+      radius,
+      yaw,
+      tiltX,
+      tiltZ,
+      scaleY,
+      scaleZ,
+      foot: instanceFootprint(_footEuler, radius, scaleY, scaleZ),
+    };
+  };
+
   const rockPlans = [];
   for (let gx = PROPERTY.minX + 6; gx < PROPERTY.maxX - 6; gx += 11.5) {
     for (let gz = PROPERTY.minZ + 6; gz < PROPERTY.maxZ - 6; gz += 11.5) {
       const x = gx + (hashAt(gx, gz, 151) - 0.5) * 7.0;
       const z = gz + (hashAt(gx, gz, 152) - 0.5) * 7.0;
       if (insideRect(x, z, CABIN.pad, 4) || trailFrame(x, z).distance < 2.5) continue;
-      /* 0.36 -> 0.385, and the same trade in the deadfall pass below.
-       * Clearing a trunk's true AABB instead of its centre line is stricter,
-       * and it cost the property three boulders and three logs -- 102 rocks
-       * to 99 and 25 deadfall to 22, both under the density floors
+      /* 0.36 -> 0.385 -> 0.40, and the same trade in the deadfall pass
+       * below. Clearing a trunk's true AABB instead of its centre line is
+       * stricter, and it cost the property three boulders and three logs --
+       * 102 rocks to 99 and 25 deadfall to 22, both under the density floors
        * `countryside-cabin-world.test.mjs` holds (>= 100 and >= 25). The
        * clearance is the correctness fix and stays; the acceptance threshold
-       * buys the density back from the same deterministic hash. Measured
-       * after: 108 rocks and 28 logs, so both floors have headroom rather
-       * than sitting one boulder above failing. */
+       * buys the density back from the same deterministic hash. */
       if (hashAt(x, z, 153) > 0.40) continue;
       const radius = 0.30 + hashAt(x, z, 154) * 0.80;
-      /* A rock instance is scaled 0.75..1.20 of `radius` on Z, so its AABB
-       * reaches 1.20 x radius, not 1.02. Clearing at 1.02 planted boulders
-       * 10 to 14 cm inside distant trunks. */
-      if (hitsTree(x, z, radius * 1.20)) continue;
-      rockPlans.push({ x, z, y: heightAt(x, z), radius, yaw: hashAt(x, z, 155) * Math.PI * 2 });
+      const plan = rockPlan(x, z, radius, 155);
+      if (!footprintClear(x, z, plan.foot.hx, plan.foot.hz)) continue;
+      rockPlans.push(plan);
+      footprints.push({ x, z, hx: plan.foot.hx, hz: plan.foot.hz });
+    }
+  }
+
+  /* A SECOND, FINER PASS OF STONES, in the same instanced mesh.
+   *
+   * Owner: *"we need a bit more detail in the forest."* The boulder grid is
+   * 11.5 m and half of it lands under a tree, so the floor between the
+   * trunks had nothing on it at all. These are 13 to 34 cm — under the 72 cm
+   * at which a rock becomes a thing you can walk into, so not one of them
+   * adds a collider — and they ride the boulders' own draw call.
+   */
+  const stoneGrid = 6.9;
+  for (let gx = PROPERTY.minX + 5; gx < PROPERTY.maxX - 5; gx += stoneGrid) {
+    for (let gz = PROPERTY.minZ + 5; gz < PROPERTY.maxZ - 5; gz += stoneGrid) {
+      const x = gx + (hashAt(gx, gz, 161) - 0.5) * 4.4;
+      const z = gz + (hashAt(gx, gz, 162) - 0.5) * 4.4;
+      // Closer to the paths than a boulder may come: a stone beside a trail
+      // is dressing, and it is 30 cm tall.
+      if (insideRect(x, z, CABIN.pad, 3) || trailFrame(x, z).distance < 1.9) continue;
+      if (hashAt(x, z, 163) > 0.30) continue;
+      const radius = 0.13 + hashAt(x, z, 164) * 0.21;
+      const plan = rockPlan(x, z, radius, 165);
+      if (!footprintClear(x, z, plan.foot.hx, plan.foot.hz)) continue;
+      rockPlans.push(plan);
+      footprints.push({ x, z, hx: plan.foot.hx, hz: plan.foot.hz });
     }
   }
   const rockGeometry = new THREE.DodecahedronGeometry(1, 0);
@@ -2483,8 +2701,8 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
   for (let i = 0; i < rockPlans.length; i++) {
     const p = rockPlans[i];
     dummy.position.set(p.x, p.y + p.radius * 0.35, p.z);
-    dummy.rotation.set(hashAt(p.x, p.z, 156) * 0.5, p.yaw, hashAt(p.x, p.z, 157) * 0.4);
-    dummy.scale.set(p.radius, p.radius * (0.48 + hashAt(p.x, p.z, 158) * 0.32), p.radius * (0.75 + hashAt(p.x, p.z, 159) * 0.45));
+    dummy.rotation.set(p.tiltX, p.yaw, p.tiltZ);
+    dummy.scale.set(p.radius, p.scaleY, p.scaleZ);
     dummy.updateMatrix();
     rocks.setMatrixAt(i, dummy.matrix);
     if (p.radius > 0.72) addBounds(
@@ -2499,9 +2717,13 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
   rocks.receiveShadow = true;
   root.add(rocks);
 
+  /* 13.2 m of grid, not 17.5: a 224 m property with twenty-eight fallen
+   * trees on it has one every 1,800 m², which is a wood nobody has ever
+   * walked through. The same acceptance hash over 1.76x the cells is the
+   * cheapest honest way to raise it, and the clearance below is unchanged. */
   const logPlans = [];
-  for (let gx = PROPERTY.minX + 10; gx < PROPERTY.maxX - 10; gx += 17.5) {
-    for (let gz = PROPERTY.minZ + 10; gz < PROPERTY.maxZ - 10; gz += 17.5) {
+  for (let gx = PROPERTY.minX + 10; gx < PROPERTY.maxX - 10; gx += 13.2) {
+    for (let gz = PROPERTY.minZ + 10; gz < PROPERTY.maxZ - 10; gz += 13.2) {
       const x = gx + (hashAt(gx, gz, 171) - 0.5) * 9;
       const z = gz + (hashAt(gx, gz, 172) - 0.5) * 9;
       if (!canPlantTree(x, z, 1.0) || hashAt(x, z, 173) > 0.325) continue;
@@ -2522,26 +2744,49 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
        * degrees is 3.8 m square, most of it empty corner. Four logs cleared
        * the cylinder and still buried a trunk 18 to 45 cm inside the box —
        * invisible while distant trunks were not drawn, and four gate
-       * violations the moment they were. Both bodies are capsules with a
-       * known support function, so the two boxes are computed here exactly as
-       * the collector will and asked to stay apart. */
-      const logAxis = [ax * Math.cos(pitch), Math.sin(pitch), az * Math.cos(pitch)];
-      const logHalfX = capsuleHalfExtent(half, radius, logAxis[0]);
-      const logHalfZ = capsuleHalfExtent(half, radius, logAxis[2]);
-      const hitsStandingTree = plantedTrees.some((tree) => {
-        // rotation.set(lean, yaw, 0): the trunk tips in Z only.
-        const treeHalfX = tree.radius;
-        const treeHalfZ = capsuleHalfExtent(tree.height / 2, tree.radius, Math.sin(tree.lean));
-        return Math.abs(tree.x - x) < logHalfX + treeHalfX + 0.05
-          && Math.abs(tree.z - z) < logHalfZ + treeHalfZ + 0.05;
-      });
-      if (hitsStandingTree) continue;
+       * violations the moment they were. The box is now taken from the
+       * quaternion the instance is rendered with, by the same
+       * `instanceFootprint` every other body uses. */
+      _footAxis.set(ax * Math.cos(pitch), Math.sin(pitch), az * Math.cos(pitch)).normalize();
+      _footQuaternion.setFromUnitVectors(_footUp, _footAxis);
+      const foot = instanceFootprint(_footQuaternion, radius, half, radius);
+      if (!footprintClear(x, z, foot.hx, foot.hz)) continue;
       logPlans.push({ x, z, y: (y0 + y1) / 2, length, radius, yaw, pitch, ax, az });
+      footprints.push({ x, z, hx: foot.hx, hz: foot.hz });
     }
   }
+
+  /* CUT STUMPS, in the deadfall's own instanced mesh.
+   *
+   * A stump is the same cylinder standing up, so it costs no geometry, no
+   * material and no draw call — and it is the one piece of forest dressing
+   * that says somebody has worked this land, which is what the forestry shed
+   * and the woodpile are already claiming. They are 30 to 52 cm across and
+   * up to 95 cm tall, so they block like the boulders do and get the same
+   * kind of collider.
+   */
+  const stumpPlans = [];
+  for (let gx = PROPERTY.minX + 9; gx < PROPERTY.maxX - 9; gx += 15.0) {
+    for (let gz = PROPERTY.minZ + 9; gz < PROPERTY.maxZ - 9; gz += 15.0) {
+      const x = gx + (hashAt(gx, gz, 181) - 0.5) * 10.5;
+      const z = gz + (hashAt(gx, gz, 182) - 0.5) * 10.5;
+      const radius = 0.30 + hashAt(x, z, 183) * 0.22;
+      if (!canPlantTree(x, z, radius + 0.6) || hashAt(x, z, 184) > 0.34) continue;
+      const height = 0.42 + hashAt(x, z, 185) * 0.53;
+      const yaw = hashAt(x, z, 186) * Math.PI * 2;
+      _footEuler.set(0, yaw, 0);
+      const foot = instanceFootprint(_footEuler, radius, height / 2, radius);
+      if (!footprintClear(x, z, foot.hx, foot.hz)) continue;
+      stumpPlans.push({ x, z, y: heightAt(x, z), radius, height, yaw, foot });
+      footprints.push({ x, z, hx: foot.hx, hz: foot.hz });
+    }
+  }
+
   const logGeometry = new THREE.CylinderGeometry(1, 1, 1, 8);
   const logMaterial = M.cabinLogDark;
-  const logs = new THREE.InstancedMesh(logGeometry, logMaterial, logPlans.length);
+  const logs = new THREE.InstancedMesh(
+    logGeometry, logMaterial, logPlans.length + stumpPlans.length,
+  );
   logs.name = 'cabin-deadfall';
   logs.userData.geometryGate = { checkSupport: false };
   const up = new THREE.Vector3(0, 1, 0);
@@ -2575,12 +2820,32 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
       ownGeometry(logCollider, `cabin-deadfall-log-collision:${i}`);
     }
   }
+  for (let i = 0; i < stumpPlans.length; i++) {
+    const p = stumpPlans[i];
+    dummy.position.set(p.x, p.y + p.height / 2, p.z);
+    dummy.rotation.set(0, p.yaw, 0);
+    dummy.scale.set(p.radius, p.height, p.radius);
+    dummy.updateMatrix();
+    logs.setMatrixAt(logPlans.length + i, dummy.matrix);
+    // The collider is the footprint the instance really occupies, so the
+    // thing you walk into is the thing you can see.
+    const stumpCollider = addBounds(
+      colliders,
+      [
+        [p.x - p.foot.hx, p.y, p.z - p.foot.hz],
+        [p.x + p.foot.hx, p.y + p.height, p.z + p.foot.hz],
+      ],
+      'cabin-deadfall-stump',
+      { id: `cabin-deadfall-stump:${i}`, kind: 'world' },
+    );
+    ownGeometry(stumpCollider, `cabin-deadfall-stump-collision:${i}`);
+  }
   logs.instanceMatrix.needsUpdate = true;
   logs.castShadow = true;
   logs.receiveShadow = true;
   root.add(logs);
   disposables.push(rockGeometry, logGeometry);
-  return { rocks: rockPlans.length, logs: logPlans.length };
+  return { rocks: rockPlans.length, logs: logPlans.length, stumps: stumpPlans.length };
 }
 
 function buildPropertyBoundary(root, M, colliders) {

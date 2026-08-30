@@ -103,9 +103,16 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
   assert.ok(Object.values(landscape.treeSpecies).every((count) => count >= 30),
     'each authored tree silhouette needs a meaningful stand, not one token specimen');
   assert.ok(landscape.forestChunks >= 40, 'the explorable terrain needs authored forest coverage');
-  assert.ok(landscape.undergrowth >= 1500, 'the forest floor must remain dressed');
-  assert.ok(landscape.rocks >= 100, 'the property needs terrain detail beyond trees');
-  assert.ok(landscape.deadfall >= 25, 'the woods need fallen timber and deadfall');
+  /* Owner, cabin playtest: *"we need a bit more detail in the forest."*
+   * 1,617 plants over a 220 m property is one every 30 m² and reads as
+   * scattered weeds; 3,271 is one every 14 m² and reads as ground cover.
+   * Saplings, stumps and the small-stone tier are the same note answered in
+   * the three instanced meshes that were already there. */
+  assert.ok(landscape.undergrowth >= 3000, 'the forest floor must remain dressed');
+  assert.ok(landscape.saplings >= 120, 'the near band needs young trees, not only mature ones');
+  assert.ok(landscape.rocks >= 300, 'the property needs terrain detail beyond trees');
+  assert.ok(landscape.deadfall >= 45, 'the woods need fallen timber and deadfall');
+  assert.ok(landscape.stumps >= 25, 'worked land needs cut stumps');
   assert.ok(landscape.trailBlazes >= 30, 'the full trail needs frequent visible blazes');
   assert.ok(landscape.duskBeacons >= 5, 'major approaches need dusk-visible beacons');
   assert.equal(landscape.firepitSeats, 3, 'the fire ring label needs real seating');
