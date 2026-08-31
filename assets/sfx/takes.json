@@ -18019,6 +18019,12 @@
     "vo.zyn.5": {
       "text": "8158ea6aa3a4",
       "source": "assumed"
+    },
+    "vo.door.refusal.campaign_complete.1": {
+      "text": "608671152eab",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
     }
   }
 }

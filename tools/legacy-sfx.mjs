@@ -140,11 +140,46 @@ const CUES = Object.freeze([
   // ---- Campground: boss ----
   ['boss.hit', 'a heavy armoured body absorbing a huge blow, dense padded impact with body armour plates knocking together, no voice', 0.7, 'campground.boss.boss_hit'],
   ['boss.down', 'an armoured body collapsing to the ground, plates and webbing clattering, followed by a short bright victory accent', 1.4, 'campground.boss.boss_down'],
+
+  // ---- Motel: the briefs nothing was triggering ----
+  // Nine sounds sat in the queue with no `call` for as long as the queue has
+  // existed -- described props in a room that draws them, and silence when you
+  // touch them. Eight are promoted here and given hooks in `src/motel/`. The
+  // ninth, `motel.vehicles.engine_idle`, is the second car in the lot, and
+  // `car.engine.idle` is already that recording and already in this scene's
+  // sample list: it gets the hook and the take that exists, not a second idle.
+  ['cleaver.swipe', 'a heavy meat cleaver swung fast through air and chopping into wooden furniture, sharp whoosh into a deep splitting thunk, close, no voice', 0.7, 'motel.combat.cleaver_swipe'],
+  ['curtain.rip', 'a plastic shower curtain torn off its rings and the metal rod clattering down onto a tiled bathroom floor, no voice', 1.0, 'motel.combat.curtain_rip'],
+  ['jerky.bend', 'a stiff cured strip of dried meat bent slowly until its outer edge cracks, dry fibrous crackle, close mic, no voice', 0.6, 'motel.jerky.jerky_bend'],
+  ['wax.seal.break', 'a hard wax seal cracked and broken off a package, short brittle snap with small fragments falling away, close mic, no voice', 0.5, 'motel.jerky.wax_seal_break'],
+  ['sealer.run', 'a countertop vacuum food sealer running one cycle, pump drawing air down with a rising whine, heat bar clunking, latch clicking open, no voice', 2.6, 'motel.jerky.vacuum_sealer_run'],
+  ['fan.click', 'one dry plastic tick from an unbalanced ceiling fan as a blade passes its mount, single close click in a quiet room, no voice', 0.5, 'motel.motel.ceiling_fan_click'],
+  ['ac.drip', 'a single drop of condensate falling from a window air-conditioner onto wet concrete below, small wet plink with a little open-air reverb, exterior night, no voice', 0.5, 'motel.motel.ac_drip'],
+  ['vending.bump', 'a vending machine compressor kicking in, dull relay clunk then a low motor hum settling in underneath, empty corridor, no voice', 1.6, 'motel.motel.vending_hum_bump'],
+
+  // ---- Motel and campground: the ambience beds ----
+  // These promote out of `queue.ambience`, which has no `call` column, and that
+  // is not an oversight to work around: a bed is not an oscillator export with
+  // a name, it is what `startAmbience()` and `startLoop()` lay under the room.
+  // Everything here is `loop: true` and sits inside the API's 30s ceiling --
+  // the brief's 30s and 45s are how long the room should FEEL, not how many
+  // seconds of file a seamless loop needs.
+  ['ambience.motel.neon', 'a large neon motel sign buzzing at night, steady mains hum with a thin electrical harmonic over it and an occasional flicker tick, exterior, no voice, no music', 22, 'motel.ambience.amb_neon_hum', true],
+  ['ambience.motel.ac', 'a cheap through-wall air conditioner running badly, motor drone with a loose panel rattling irregularly against the housing, close interior, no voice, no music', 22, 'motel.ambience.amb_ac_rattle', true],
+  ['ambience.motel.night', 'a warm humid night beside a distant highway, far-off traffic passing, cicadas and crickets, dry wind moving through palm fronds, no voice, no music', 22, 'motel.ambience.amb_night_traffic', true],
+  ['ambience.motel.room', 'the room tone of a cheap motel room at night, fan turning overhead, a television murmuring low through the wall, plumbing ticking in the walls, no voice, no music', 22, 'motel.ambience.amb_room_tone', true],
+  ['ambience.motel.tv', 'a late-night television heard through a thin motel wall, muffled indistinct speech and canned laughter with no word readable, no music bed', 22, 'motel.ambience.amb_tv_murmur', true],
+  ['ambience.motel.pool', 'the bottom of a drained concrete swimming pool at night, enclosed dead boxy reverb, slow water dripping into a corner, faint wind over the lip, no voice, no music', 20, 'motel.ambience.amb_pool_bottom', true],
+  ['ambience.motel.alley', 'a rear service alley at night, a kitchen extractor fan droning, a metal dumpster ticking as it cools, distant road, no voice, no music', 20, 'motel.ambience.amb_alley', true],
+  ['ambience.motel.tension', 'a low sustained suspense drone, dark synth bass pulsing slowly and evenly, uneasy and patient, no melody, no drums, no voice', 22, 'motel.ambience.amb_tension_pulse', true],
+  ['ambience.campground.day', 'a wooded campground on a summer afternoon, songbirds calling, wind moving through pine tops, a small petrol generator running far away, no voice, no music', 22, 'campground.ambience.amb_forest_day', true],
 ]);
 
 /** The cue table in manifest shape. */
 export function legacySfxCues() {
-  return CUES.map(([name, prompt, duration]) => ({ name, duration, prompt }));
+  return CUES.map(([name, prompt, duration, , loop]) => (
+    loop ? { name, duration, prompt, loop: true } : { name, duration, prompt }
+  ));
 }
 
 /** Every manifest name this tool owns. */
@@ -168,7 +203,14 @@ export function syncLegacySfxManifest(manifest, cues = legacySfxCues()) {
  */
 export function checkLegacySfxManifest(manifest, queue, cues = legacySfxCues()) {
   const failures = [];
-  const briefs = new Map((queue.sfx || []).map((entry) => [entry.id, entry]));
+  /* Both brief lists, because ambience beds are briefed in `queue.ambience`.
+   * `hooked` is the subset that is supposed to have a `call`: an effect brief
+   * names the oscillator export its recording replaces, an ambience bed has no
+   * such export to name, and demanding one of a bed would only teach the next
+   * reader to add a fake hook to get past this check. */
+  const briefs = new Map([...(queue.sfx || []), ...(queue.ambience || [])]
+    .map((entry) => [entry.id, entry]));
+  const hooked = new Set((queue.sfx || []).map((entry) => entry.id));
 
   const expected = new Map();
   for (const cue of cues) {
@@ -178,7 +220,7 @@ export function checkLegacySfxManifest(manifest, queue, cues = legacySfxCues()) 
   for (const [name, , , briefId] of CUES) {
     const brief = briefs.get(briefId);
     if (!brief) failures.push(`${name} promotes ${briefId}, which is not in the queue`);
-    else if (!brief.call) failures.push(`${name} promotes ${briefId}, which has lost its code hook`);
+    else if (hooked.has(briefId) && !brief.call) failures.push(`${name} promotes ${briefId}, which has lost its code hook`);
   }
 
   const declared = new Map();
@@ -191,6 +233,9 @@ export function checkLegacySfxManifest(manifest, queue, cues = legacySfxCues()) 
     if (!actual) { failures.push(`missing cue ${name}`); continue; }
     if (actual.prompt !== cue.prompt) failures.push(`drifted prompt ${name}`);
     if (actual.duration !== cue.duration) failures.push(`drifted duration ${name}`);
+    /* A bed that loses `loop` renders as a one-shot that fades out under the
+     * room, which sounds like the scene running out of air rather than a bug. */
+    if (Boolean(actual.loop) !== Boolean(cue.loop)) failures.push(`drifted loop flag ${name}`);
     /* A promoted effect with a voice is a line of dialogue filed as a noise. */
     if (actual.voice || actual.say) failures.push(`${name} is cast to a voice`);
     /* The API refuses anything under half a second, and a clipped cue comes

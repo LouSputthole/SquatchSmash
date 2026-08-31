@@ -38,6 +38,7 @@ const SAMPLE_CUES = [
   'camper.scream', 'sasquatch.roar', 'bee.swarm', 'tranq.fire', 'tranq.hit',
   'ui.time.bonus', 'ui.powerup', 'ui.goal.complete', 'ui.final.frenzy',
   'sting.run.end', 'boss.hit', 'boss.down',
+  'ambience.campground.day',
 ];
 const samples = new Map();
 
@@ -270,6 +271,36 @@ const BASS = [
 ];
 // Sparse lead phrase over the back half of a 64-step (4-bar) loop
 const LEAD = { 32: N.E3, 36: N.G3, 40: N.A3, 44: N.G3, 46: N.E3, 48: N.B3, 54: N.A3, 58: N.G3, 62: N.E3 };
+
+/**
+ * The campground bed: birds, wind in the pines, a generator somewhere else.
+ *
+ * The scene has never had one -- it went straight from silence to a square-bass
+ * groove. This is recording-only and idempotent, and it is safe to call every
+ * frame: the file is still downloading for the first second of a run, and a
+ * call that finds nothing decoded yet simply does nothing and gets asked again.
+ */
+let ambience = null;
+
+export function startAmbience() {
+  if (!ctx || ambience) return;
+  const buf = samples.get('ambience.campground.day');
+  if (!buf) return;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const g = ctx.createGain();
+  g.gain.value = 0.18;
+  src.connect(g).connect(master);
+  src.start();
+  ambience = src;
+}
+
+export function stopAmbience() {
+  if (!ambience) return;
+  try { ambience.stop(); } catch { /* already stopped */ }
+  ambience = null;
+}
 
 export function startMusic() {
   if (!ctx || musicTimer) return;

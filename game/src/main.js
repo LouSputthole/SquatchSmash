@@ -611,6 +611,7 @@ function startGame() {
   hudEl.classList.add('visible');
   sfx.roar();
   sfx.startMusic();
+  sfx.startAmbience();
   campers.panicNear(player.position, 14);
   rangers.spawn(2);
   shake = 0.4;
@@ -630,6 +631,7 @@ const TYPE_LABELS = {
 function endGame(clearedEverything) {
   state = 'over';
   sfx.stopMusic();
+  sfx.stopAmbience();
   hudEl.classList.remove('visible');
   vignetteEl.classList.remove('rage');
   tranqTintEl.classList.remove('on');
@@ -1411,6 +1413,10 @@ function tick() {
     return;
   }
   const dt = Math.min(clock.getDelta(), 0.05);
+
+  /* The bed is still downloading when `startGame` asks for it, so ask again.
+   * `startAmbience` is idempotent and returns immediately once it is running. */
+  if (state === 'playing') sfx.startAmbience();
 
   // Hit-stop: a few frozen frames to sell the biggest impacts
   if (hitStop > 0) {

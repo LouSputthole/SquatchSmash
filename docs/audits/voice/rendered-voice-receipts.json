@@ -3304,6 +3304,19 @@
       "channels": 1
     },
     {
+      "cue": "vo.door.refusal.campaign_complete.1",
+      "file": "vo.door.refusal.campaign_complete.1.mp3",
+      "sha256": "1f1d7f86480af55f809284a667bae4ee33866b9824c5fd834bf09f31dea1bb0b",
+      "bytes": 62737,
+      "indexVersion": "d091c88d46",
+      "textHash": "608671152eab",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B",
+      "durationSeconds": 3.854,
+      "sampleRate": 48000,
+      "channels": 1
+    },
+    {
       "cue": "vo.door.refusal.luxury_get_ready.1",
       "file": "vo.door.refusal.luxury_get_ready.1.mp3",
       "sha256": "943b016e39f96e3b0126643046382035c162234c9e334ea51b9286fa787ce25d",
