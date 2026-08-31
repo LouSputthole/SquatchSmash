@@ -283,26 +283,50 @@ test('the first clear and disposing an adopted panel both remove stale UI', () =
   assert.equal(existing.classList.contains('hidden'), true);
 });
 
-test('a changed objective is prominent for twelve seconds, then collapses without tick resets', () => {
-  assert.ok(OBJECTIVE_DISPLAY_MS >= 10_000 && OBJECTIVE_DISPLAY_MS <= 15_000);
+test('the card stays up by default — only an empty plan takes it down', () => {
+  /* Owner, 2026-08-31: "all the objectives displ;ay then basically dissapear.
+   * We should keep them displayed no need to hide them so often." The
+   * twelve-second fade this suite used to pin is opt-in now; the shipped
+   * default never arms a timer. */
   const doc = fakeDoc();
   const scheduler = fakeScheduler();
   const panel = createObjectivePanel({ doc, scheduler });
-  const plan = { title: 'THE JOB', items: [{ label: 'Reach the cabin' }] };
 
-  panel.set(plan);
+  panel.set({ title: 'THE JOB', items: [{ label: 'Reach the cabin' }] });
+  assert.equal(panel.element.classList.contains('hidden'), false);
+  assert.equal(scheduler.pending, 0);
+  scheduler.advance(OBJECTIVE_DISPLAY_MS * 10);
+  assert.equal(panel.element.classList.contains('hidden'), false);
+
+  /* The production shape: scenes call set() from their frame loop. Identical
+   * state neither hides the card nor schedules anything. */
+  panel.set({ title: 'THE JOB', items: [{ label: 'Reach the cabin' }] });
+  assert.equal(scheduler.pending, 0);
+  assert.equal(panel.element.classList.contains('hidden'), false);
+
+  /* The one honest exit. */
+  panel.set(null);
+  assert.equal(panel.element.classList.contains('hidden'), true);
+});
+
+test('a scene that opts back in still gets one fade window, without tick resets', () => {
+  assert.ok(OBJECTIVE_DISPLAY_MS >= 10_000 && OBJECTIVE_DISPLAY_MS <= 15_000);
+  const doc = fakeDoc();
+  const scheduler = fakeScheduler();
+  const panel = createObjectivePanel({ doc, scheduler, autoCollapse: true });
+
+  panel.set({ title: 'THE JOB', items: [{ label: 'Reach the cabin' }] });
   assert.equal(panel.element.classList.contains('hidden'), false);
   scheduler.advance(OBJECTIVE_DISPLAY_MS - 1);
   assert.equal(panel.element.classList.contains('hidden'), false);
 
-  /* This is the production shape: scenes call set() from their frame loop.
-   * Identical state must not buy another twelve seconds every frame. */
+  /* Identical frame-loop state must not buy another twelve seconds. */
   panel.set({ title: 'THE JOB', items: [{ label: 'Reach the cabin' }] });
   scheduler.advance(1);
   assert.equal(panel.element.classList.contains('hidden'), true);
 
-  /* Progress is new information. It comes back up, gets its own complete
-   * reading window, and can still be reviewed explicitly after collapsing. */
+  /* Progress is new information: it comes back up for its own window, and can
+   * still be reviewed explicitly after collapsing. */
   panel.set({
     title: 'THE JOB',
     items: [{ label: 'Help the guests', tally: { count: 2, total: 6 } }],
