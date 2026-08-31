@@ -9,7 +9,11 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**9 silent cues across 1 scenes.**
+**10 silent cues across 2 scenes.**
+
+## nowake — 1
+
+- `footstep.sand` (0.6s) — src/nowake/audio.js
 
 ## world — 9
 
