@@ -20,6 +20,7 @@ import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
 import { Radio, radioHudWithinRange } from '../core/radio.js';
+import { newsSegmentsFor } from '../core/stations.js';
 import { applyBody } from '../core/settings.js';
 import { Tv } from '../core/tv.js';
 import { createBongBehavior } from '../world/bong.js';
@@ -324,6 +325,12 @@ const radio = new Radio(audio, hud, time, {
     defaultPower: false,
   }),
   canPlayNotice: () => false,
+  /* THE WIRE, FINALLY IN THE NEW PLACE. The player lives here from Day 6 to
+   * the ceremony -- the lake, the scientists, the estate, the detonation and
+   * the compound all become eligible during this window -- and until this
+   * line the flat had no news surface at all, so five fully recorded
+   * bulletins could never air anywhere. Same hook as the starter flat's. */
+  news: () => newsSegmentsFor(campaign.state),
   output: 0.88,
   hudVisible: () => radioHudWithinRange(camera?.position, home?.radioPos),
 });
