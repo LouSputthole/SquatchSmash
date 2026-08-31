@@ -48,9 +48,19 @@ export const NO_WAKE_AUDIO_PREFIXES = Object.freeze([
 
 const NO_WAKE_AUDIO_CUE_SET = new Set(NO_WAKE_AUDIO_CUE_NAMES);
 
+/**
+ * Swept up by the `footstep.` prefix but never NO WAKE's to load: the scene
+ * walks boards and nothing else (the dock and the whole boat are `wood`, plus
+ * the one authored `boat.board.step`). `footstep.sand` is golf's bunker grain
+ * and sits on the generation ledger until recorded; without this exclusion the
+ * zero-pending delivery gate reported it as a NO WAKE pickup.
+ */
+const NO_WAKE_AUDIO_EXCLUDED = new Set(['footstep.sand']);
+
 export function isNoWakeAudioPreloadCue(cue, radioCueNames = []) {
   const name = typeof cue === 'string' ? cue : cue?.name;
   if (!name) return false;
+  if (NO_WAKE_AUDIO_EXCLUDED.has(name)) return false;
   return new Set(radioCueNames).has(name)
     || NO_WAKE_AUDIO_CUE_SET.has(name)
     || NO_WAKE_AUDIO_PREFIXES.some((prefix) => name.startsWith(prefix));
