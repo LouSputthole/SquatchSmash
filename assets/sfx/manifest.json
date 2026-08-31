@@ -3129,6 +3129,13 @@
       "prompt": "a mobile phone ringing and vibrating on a wooden bedside table, ringtone with a buzzing rattle against wood, continuous, no music, no voice"
     },
     {
+      "_comment": "The ring in Tony's EAR when he places a call -- distinct from phone.ring, which is the handset ringing at him. Owner, 2026-08-31: 'there's no ringing when I call Margo.' Phone.startOutgoing plays this on a loop until the other side picks up; the incoming ring stands in quietly until this is generated.",
+      "name": "phone.ringback",
+      "duration": 3,
+      "loop": true,
+      "prompt": "classic telephone ringback tone heard through an earpiece held to the ear, two soft warbling ring bursts with a pause, thin bandlimited phone-line character, seamless loop, no voice, no music"
+    },
+    {
       "name": "phone.hangup",
       "duration": 0.7,
       "promptInfluence": 0.5,
@@ -13589,13 +13596,6 @@
       "say": "I contain multitudes. Hold the can lower."
     },
     {
-      "_comment": "CABIN II pyre. Owner, 2026-08-31: 'We put a little more work into the pouring the gasoline on the bodies, at the burning them scene.' The dungeon has the gasoline VO exchange but no pour itself.",
-      "name": "gasoline.pour",
-      "duration": 3.2,
-      "promptInfluence": 0.5,
-      "prompt": "gasoline glugging from a tilted metal jerry can onto heavy fabric and the ground outdoors at night, uneven sloshing stream with hollow can resonance and a wet spatter tail, no voice, no music"
-    },
-    {
       "_comment": "IGNITION — Light the pyre",
       "name": "vo.cabin.dungeon.ignition.lag.1",
       "voice": "lag",
@@ -13800,24 +13800,33 @@
     },
     {
       "_comment": "cabin.margo.first_call — Phone call with MARGO",
+      "name": "vo.call.margo.cabin_date.pickup",
+      "voice": "margo",
+      "say": "…Hello?"
+    },
+    {
       "name": "vo.call.margo.cabin_date.1",
       "voice": "margo",
-      "say": "Tony. I was starting to think the number was decorative."
+      "say": "Tony from the Bing. I was starting to think the number was decorative.",
+      "needsRerecord": true
     },
     {
       "name": "vo.call.margo.cabin_date.tony.1",
       "voice": "player",
-      "say": "Hello? Tony. From the Bing."
+      "say": "Margo. It’s Tony. From the Bing.",
+      "needsRerecord": true
     },
     {
       "name": "vo.call.margo.cabin_date.2",
       "voice": "margo",
-      "say": "Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you."
+      "say": "Look at you, arriving with a plan. Nine o’clock, then. If you’re late, I eat without you.",
+      "needsRerecord": true
     },
     {
       "name": "vo.call.margo.cabin_date.tony.2",
       "voice": "player",
-      "say": "Work dragged me out of town. I’m calling before the trees learn my name."
+      "say": "Work dragged me out of town — I’m calling before the trees learn my name. Front & Center, the Silver Room, nine o’clock.",
+      "needsRerecord": true
     },
     {
       "name": "vo.call.margo.cabin_date.3",
@@ -13827,7 +13836,8 @@
     {
       "name": "vo.call.margo.cabin_date.tony.3",
       "voice": "player",
-      "say": "Front & Center. Silver Room. Nine. I won’t waste it."
+      "say": "I won’t waste it.",
+      "needsRerecord": true
     },
     {
       "_comment": "cabin.booski.sasole — Phone call with BOOSKIBRO",
@@ -13982,6 +13992,13 @@
       "name": "vo.call.ape.cabin_morning.tony.3",
       "voice": "player",
       "say": "Too late to be useful, but appreciated."
+    },
+    {
+      "_comment": "CABIN II pyre. Owner, 2026-08-31: 'We put a little more work into the pouring the gasoline on the bodies, at the burning them scene.' The dungeon has the gasoline VO exchange but no pour itself.",
+      "name": "gasoline.pour",
+      "duration": 3.2,
+      "promptInfluence": 0.5,
+      "prompt": "gasoline glugging from a tilted metal jerry can onto heavy fabric and the ground outdoors at night, uneven sloshing stream with hollow can resonance and a wet spatter tail, no voice, no music"
     },
     {
       "name": "vo.cabin.lag.general.arrival",

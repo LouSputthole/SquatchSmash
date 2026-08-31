@@ -123,6 +123,32 @@ test('Cabin projects one truthful main objective and one contextual phone step',
     step: 'Stay on the line',
   });
 
+  /* Owner, 2026-08-31: "the objective is answer Lou's call and hear Lou out,
+   * and it's Booski that calls." The card names the live caller now; Lou is
+   * only the fallback when no definition is on the line. */
+  assert.deepEqual(presentation.cabinObjectivePresentation(waitingPlan, {
+    phoneRinging: true,
+    caller: 'BOOSKIBRO',
+  }), {
+    label: 'Answer Booskibro\u2019s call',
+    step: 'Pick up the phone',
+  });
+  assert.deepEqual(presentation.cabinObjectivePresentation(waitingPlan, {
+    phoneConnected: true,
+    caller: 'BIG UNCLE LOU',
+  }), {
+    label: 'Hear Lou out',
+    step: 'Stay on the line',
+  });
+  assert.deepEqual(presentation.cabinObjectivePresentation(waitingPlan, {
+    phoneConnected: true,
+    caller: 'MARGO',
+    outgoing: true,
+  }), {
+    label: 'Talk to Margo',
+    step: 'Stay on the line',
+  });
+
   const restored = presentation.cabinObjectivePresentation({
     label: 'Finish Cabin Chapter',
     step: 'Finish the cabin chapter',

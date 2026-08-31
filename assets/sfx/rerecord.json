@@ -27,7 +27,33 @@
     "the takes and `npm run vo:takes` has stamped them.",
     "Remove a line from `lines` once its replacement take is indexed."
   ],
-  "lines": [],
+  "lines": [
+    {
+      "cue": "vo.call.margo.cabin_date.1",
+      "retiredText": "Tony. I was starting to think the number was decorative.",
+      "note": "Owner 2026-08-31: Tony proposes the spot, so her open names him back."
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.tony.1",
+      "retiredText": "Hello? Tony. From the Bing.",
+      "note": "She has the pickup 'Hello?' now (vo.call.margo.cabin_date.pickup); he identifies."
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.2",
+      "retiredText": "Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you.",
+      "note": "The spot is his line now; hers accepts and keeps the deadline threat."
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.tony.2",
+      "retiredText": "Work dragged me out of town. I’m calling before the trees learn my name.",
+      "note": "Tony names Front & Center / Silver Room / nine o’clock here."
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.tony.3",
+      "retiredText": "Front & Center. Silver Room. Nine. I won’t waste it.",
+      "note": "No longer repeats the venue back at her."
+    }
+  ],
   "retired": [
     {
       "cue": "vo.bing.full.bartender.open.tony.1mgwzff",

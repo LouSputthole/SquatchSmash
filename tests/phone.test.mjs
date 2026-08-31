@@ -7,7 +7,7 @@ globalThis.document ??= {
   }),
 };
 
-const { Phone, callScript } = await import('../src/core/phone.js');
+const { Phone, callScript, OUTGOING_RING_SECONDS } = await import('../src/core/phone.js');
 const {
   phoneThreadsForCampaign,
   phoneReadEventForThread,
@@ -246,9 +246,15 @@ test('a call is both halves, and Tony’s take their cue from the caller’s ban
   ]);
 });
 
-test('an outgoing call has no incoming ring or decline and Tony speaks before the other person answers', () => {
+test('an outgoing call rings in his ear, the other person picks up, then Tony speaks', () => {
+  /* Owner, 2026-08-31: "there's no ringing when I call Margo. She should...
+   * the phone to ring, and she should pick up and, like, say hello or
+   * something." The dial now holds a ringback loop for OUTGOING_RING_SECONDS,
+   * the pickup line answers first, and only then does the reversed exchange
+   * begin. There is still no incoming ring or decline. */
   const played = [];
   const loops = [];
+  const stopped = [];
   const answered = [];
   const states = [];
   const definition = {
@@ -256,11 +262,13 @@ test('an outgoing call has no incoming ring or decline and Tony speaks before th
     vo: 'call.margo.cabin_date',
     outgoing: true,
     allowHangup: false,
-    lines: ['Tony. I was starting to think the number was decorative.'],
-    replies: ['Hello? Tony. From the Bing.'],
+    pickup: '…Hello?',
+    lines: ['Tony from the Bing. I was starting to think the number was decorative.'],
+    replies: ['Margo. It’s Tony. From the Bing.'],
   };
   assert.deepEqual(callScript(definition), [
-    { who: 'me', text: 'Hello? Tony. From the Bing.', cue: 'vo.call.margo.cabin_date.tony.1' },
+    { who: 'them', text: '…Hello?', cue: 'vo.call.margo.cabin_date.pickup' },
+    { who: 'me', text: 'Margo. It’s Tony. From the Bing.', cue: 'vo.call.margo.cabin_date.tony.1' },
     { who: 'them', text: definition.lines[0], cue: 'vo.call.margo.cabin_date.1' },
   ]);
 
@@ -269,7 +277,7 @@ test('an outgoing call has no incoming ring or decline and Tony speaks before th
     audio: {
       play(name) { played.push(name); return null; },
       startLoop(name) { loops.push(name); },
-      stopLoop() {},
+      stopLoop(name) { stopped.push(name); },
     },
     onCallState: (connected) => states.push(connected),
   });
@@ -279,21 +287,28 @@ test('an outgoing call has no incoming ring or decline and Tony speaks before th
   assert.equal(phone.ringing, false);
   assert.equal(phone.inCall, true);
   assert.equal(phone.outgoing, true);
+  assert.equal(phone.call.state, 'calling', 'the dial must begin ringing in his ear');
   assert.equal(phone.call.connected, false, 'the screen must begin in its calling state');
-  assert.deepEqual(loops, [], 'an outgoing decision played the incoming ringtone');
+  assert.deepEqual(loops, ['phone.ring'], 'the ringback stand-in must loop while dialing');
   assert.deepEqual(answered, [definition]);
   assert.deepEqual(states, [true]);
-  assert.equal(phone.hangUp(), false, 'required outgoing dialogue became skippable');
+  assert.equal(phone.hangUp(), false, 'required outgoing dialogue became skippable mid-dial');
 
   phone.update(0.01);
-  assert.deepEqual(played, ['vo.call.margo.cabin_date.tony.1']);
-  assert.equal(phone.call.connected, false);
+  assert.deepEqual(played, [], 'nobody speaks while the phone is still ringing');
+  phone.update(OUTGOING_RING_SECONDS);
+  assert.equal(phone.call.state, 'talking');
+  assert.ok(stopped.includes('phone.ring'), 'the ringback must stop at the pickup');
+  phone.update(0.01);
+  assert.deepEqual(played, ['vo.call.margo.cabin_date.pickup']);
+  assert.equal(phone.call.connected, true, 'her pickup is the connection');
   phone.update(10);
-  assert.deepEqual(played.slice(0, 2), [
+  phone.update(10);
+  assert.deepEqual(played.slice(0, 3), [
+    'vo.call.margo.cabin_date.pickup',
     'vo.call.margo.cabin_date.tony.1',
     'vo.call.margo.cabin_date.1',
   ]);
-  assert.equal(phone.call.connected, true, 'the caller never changed from calling to connected');
 });
 
 test('both halves of a call are played, and an unrecorded one holds a beat', () => {

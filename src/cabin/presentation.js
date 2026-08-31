@@ -22,9 +22,18 @@ const ANSWER_LOU = /answer lou(?:['\u2019]s)? call/i;
  * immediate instruction is yet true in the room: a call that has not started
  * ringing is anticipation, not an interactable objective.
  */
+/** 'BIG UNCLE LOU' \u2192 'Lou', 'BOOSKIBRO' \u2192 'Booskibro', 'MARGO' \u2192 'Margo'. */
+function shortCallerName(from) {
+  const word = String(from ?? '').trim().split(/\s+/).pop();
+  if (!word) return null;
+  return word[0].toUpperCase() + word.slice(1).toLowerCase();
+}
+
 export function cabinObjectivePresentation(plan = {}, {
   phoneRinging = false,
   phoneConnected = false,
+  caller = null,
+  outgoing = false,
 } = {}) {
   let label = String(plan.label || 'Lay low at the cabin');
   let step = String(plan.step || 'Keep your phone close');
@@ -35,11 +44,18 @@ export function cabinObjectivePresentation(plan = {}, {
   if (FINISH_CHAPTER.test(step)) step = 'Keep your phone close';
 
   const expectsLou = ANSWER_LOU.test(label) || ANSWER_LOU.test(step);
+  /* Owner, 2026-08-31: *"After the Margot call, the objective is answer
+   * Lou's call and hear Lou out, and it's Booski that calls."* It was: this
+   * block named Lou for EVERY call at the cabin, because Lou's was the only
+   * call when it was written. The card now names whoever is actually on the
+   * line -- the ring edge passes the live definition's `from` -- and only
+   * falls back to Lou when no caller is known. */
+  const name = shortCallerName(caller) ?? 'Lou';
   if (phoneConnected) {
-    label = 'Hear Lou out';
+    label = outgoing ? `Talk to ${name}` : `Hear ${name} out`;
     step = 'Stay on the line';
   } else if (phoneRinging) {
-    label = 'Answer Lou\u2019s call';
+    label = `Answer ${name}\u2019s call`;
     step = 'Pick up the phone';
   } else if (expectsLou) {
     label = 'Lay low at the cabin';

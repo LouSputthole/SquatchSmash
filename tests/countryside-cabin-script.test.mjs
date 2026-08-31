@@ -93,14 +93,21 @@ test('Margo has both a one-shot setup hook and the authored call it sets up', ()
   assert.equal(margoCalls[0].vo, 'call.margo.cabin_date',
     'materially changed lines must not reuse the old recordings');
   assert.equal(margoCalls[0].lines.length, 3, 'the scheduling call should stay short');
-  assert.match(margoCalls[0].lines.join(' '), /Front & Center/);
-  assert.match(margoCalls[0].lines.join(' '), /Silver Room/);
+  /* Owner, 2026-08-31: "I should tell her the spot, not her to tell me the
+   * spot." Front & Center is Tony's line now; hers accepts. And the dial is
+   * answered — she has the pickup word before the exchange begins. */
+  assert.doesNotMatch(margoCalls[0].lines.join(' '), /Front & Center/);
+  assert.match(margoCalls[0].replies.join(' '), /Front & Center/);
+  assert.equal(margoCalls[0].pickup, '…Hello?');
+  assert.match(margoCalls[0].replies.join(' '), /Silver Room/);
   assert.match(margoCalls[0].lines.join(' '), /Nine o’clock/);
-  assert.doesNotMatch(margoCalls[0].lines.join(' '),
+  const everyWord = [margoCalls[0].pickup, ...margoCalls[0].lines, ...margoCalls[0].replies].join(' ');
+  assert.doesNotMatch(everyWord,
     /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/,
     'the call must not hard-code a weekday that can drift from the campaign clock');
   const turns = callScript(margoCalls[0]);
-  assert.equal(turns[0].who, 'me');
-  assert.equal(turns[0].text, 'Hello? Tony. From the Bing.');
-  assert.equal(turns[1].who, 'them');
+  assert.equal(turns[0].who, 'them');
+  assert.equal(turns[0].text, '…Hello?', 'the dial is answered before anybody talks');
+  assert.equal(turns[1].who, 'me');
+  assert.match(turns[1].text, /Margo\. It’s Tony\./);
 });

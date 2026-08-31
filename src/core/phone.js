@@ -48,6 +48,14 @@ export const H = 620;
  * is how you get a caller ringing back before he has finished giving up.
  */
 export const RING_SECONDS = 18;
+/**
+ * How long an outgoing call rings in his ear before the other side picks up.
+ * Owner, 2026-08-31: *"there's no ringing when I call Margo. She should...
+ * the phone to ring, and she should pick up and, like, say hello or
+ * something."* Just under one full ring cycle: long enough to be a real
+ * dial, short enough that nobody checks their watch.
+ */
+export const OUTGOING_RING_SECONDS = 3.4;
 /** A line with no recording holds for this long, plus a bit per character. */
 const READ_BASE = 1.4;
 const READ_PER_CHAR = 0.045;
@@ -152,6 +160,13 @@ export const THREADS = [
 export function callScript(def, { outgoing = def?.outgoing === true } = {}) {
   const turns = [];
   const lines = def?.lines ?? [];
+  /* An outgoing call the other person answers starts with THEM answering:
+   * `pickup` is that first word into the phone ("…Hello?"), on
+   * `vo.<bank>.pickup`, before the reversed pairs begin. Only outgoing calls
+   * read it — an incoming call's pickup is the player's own [E]. */
+  if (outgoing && def?.pickup) {
+    turns.push({ who: 'them', text: def.pickup, cue: `vo.${def.vo}.pickup` });
+  }
   for (let i = 0; i < lines.length; i++) {
     const reply = def.replies?.[i];
     const theirs = { who: 'them', text: lines[i], cue: `vo.${def.vo}.${i + 1}` };
@@ -223,7 +238,12 @@ export class Phone {
   }
 
   get ringing() { return !!this.call && this.call.state === 'ringing'; }
-  get inCall() { return !!this.call && this.call.state === 'talking'; }
+  /* A dial he placed counts as being on the phone: the button hangs up (or
+   * is refused on a required call) rather than wandering into the menus. */
+  get inCall() {
+    return !!this.call
+      && (this.call.state === 'talking' || this.call.state === 'calling');
+  }
   get outgoing() { return !!this.call && this.call.direction === 'outgoing'; }
   get unreadCount() { return this.threads.filter((thread) => thread.unread).length; }
 
@@ -285,10 +305,18 @@ export class Phone {
   startOutgoing(def) {
     if (!def || this.call) return false;
     this.call = {
-      def, state: 'talking', t: 0, line: -1, hold: 0, source: null,
+      def, state: 'calling', t: 0, line: -1, hold: 0, source: null,
       direction: 'outgoing', connected: false,
       turns: callScript(def, { outgoing: true }),
     };
+    /* The ring in his ear. `phone.ringback` is the authored tone (on the
+     * generation ledger until recorded); the incoming ring cue stands in
+     * quietly so dialing is never silent in the meantime. */
+    this._outgoingRingCue = this.audio?.hasSample?.('phone.ringback')
+      ? 'phone.ringback' : 'phone.ring';
+    this.audio?.startLoop?.(this._outgoingRingCue, {
+      volume: this._outgoingRingCue === 'phone.ringback' ? 0.5 : 0.3,
+    });
     this.onCallState?.(true, def);
     this.onAnswered?.(def);
     if (def.meeting) this.onMeeting?.();
@@ -312,8 +340,10 @@ export class Phone {
   hangUp({ force = false } = {}) {
     if (!this.call) return false;
     const { def, state } = this.call;
-    if (state === 'talking' && def.allowHangup === false && !force) return false;
+    if ((state === 'talking' || state === 'calling')
+      && def.allowHangup === false && !force) return false;
     this.audio?.stopLoop?.('phone.ring', 0.08);
+    if (this._outgoingRingCue) this.audio?.stopLoop?.(this._outgoingRingCue, 0.08);
     try { this.call.source?.stop(); } catch { /* already finished */ }
     this.audio?.play?.('phone.hangup', { volume: 0.5 });
     this.recents.unshift({
@@ -375,6 +405,18 @@ export class Phone {
 
     if (this.call.state === 'ringing') {
       if (this.call.t >= RING_SECONDS) this.hangUp();
+      return;
+    }
+
+    /* An outgoing dial rings in his ear, then the other side picks up and
+     * the conversation begins at its own pace. */
+    if (this.call.state === 'calling') {
+      if (this.call.t >= OUTGOING_RING_SECONDS) {
+        this.audio?.stopLoop?.(this._outgoingRingCue ?? 'phone.ring', 0.08);
+        this.call.state = 'talking';
+        this.call.t = 0;
+        this.call.hold = 0;
+      }
       return;
     }
 

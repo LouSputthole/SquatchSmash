@@ -295,6 +295,8 @@ function repaintObjectives() {
   const current = cabinObjectivePresentation(story.objectivePlan(), {
     phoneRinging: phone.ringing,
     phoneConnected: phone.inCall,
+    caller: phone.call?.def?.from ?? null,
+    outgoing: phone.call?.def?.outgoing === true,
   });
   objectivePanel.set({
     title: 'CURRENT OBJECTIVE',
@@ -1982,6 +1984,8 @@ const pauseMenu = createPauseMenu({
     const current = cabinObjectivePresentation(story.objectivePlan(), {
       phoneRinging: phone.ringing,
       phoneConnected: phone.inCall,
+      caller: phone.call?.def?.from ?? null,
+      outgoing: phone.call?.def?.outgoing === true,
     });
     return current.step ? `${current.label} — ${current.step}` : current.label;
   },

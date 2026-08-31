@@ -432,8 +432,8 @@ export function cabinBeatActions(id) {
   return (cabinBeat(id)?.lines || []).filter((entry) => entry.action || entry.stage);
 }
 
-const phoneCall = (id, from, caller, vo, lines, replies, { outgoing = false } = {}) => Object.freeze({
-  id, from, caller, vo, allowHangup: false, outgoing,
+const phoneCall = (id, from, caller, vo, lines, replies, { outgoing = false, pickup = null } = {}) => Object.freeze({
+  id, from, caller, vo, allowHangup: false, outgoing, pickup,
   lines: Object.freeze(lines),
   replies: Object.freeze(replies),
 });
@@ -465,22 +465,29 @@ export const CABIN_PHONE_CALLS = Object.freeze({
    * says a word about any of that. Play it straight: two adults make a plan,
    * quickly, and neither turns it into a speech.
    */
+  /* Owner, 2026-08-31: *"there's no ringing when I call Margo. She should...
+   * pick up and, like, say hello or something. And then I should tell her
+   * the spot, not her to tell me the spot."* So: the dial rings
+   * (Phone.startOutgoing owns the ringback), she answers with the pickup
+   * line, and Front & Center is TONY'S idea -- he has been carrying her
+   * number since the Bing and he arrives with a plan. She keeps the last
+   * word, because she always will. */
   MARGO_FIRST_CALL: phoneCall(
     'cabin.margo.first_call',
     'MARGO',
     CABIN_SPEAKERS.MARGO,
     'call.margo.cabin_date',
     [
-      'Tony. I was starting to think the number was decorative.',
-      'Front & Center. Ask for the Silver Room. Nine o’clock. If you’re late, I eat without you.',
+      'Tony from the Bing. I was starting to think the number was decorative.',
+      'Look at you, arriving with a plan. Nine o’clock, then. If you’re late, I eat without you.',
       'Good. Rye, one cube. And wear something that has met an iron.',
     ],
     [
-      'Hello? Tony. From the Bing.',
-      'Work dragged me out of town. I’m calling before the trees learn my name.',
-      'Front & Center. Silver Room. Nine. I won’t waste it.',
+      'Margo. It’s Tony. From the Bing.',
+      'Work dragged me out of town — I’m calling before the trees learn my name. Front & Center, the Silver Room, nine o’clock.',
+      'I won’t waste it.',
     ],
-    { outgoing: true },
+    { outgoing: true, pickup: '…Hello?' },
   ),
   /**
    * BEAT 5. Booski about the Captain, which is the Beef Run.
@@ -578,6 +585,17 @@ export const MARGO_CALL_READY = Object.freeze({
 
 function phoneCues(call) {
   const cues = [];
+  /* An outgoing call's first recorded thing is the other person answering —
+   * `vo.<bank>.pickup`, read by Phone.callScript before the reversed pairs. */
+  if (call.pickup) {
+    cues.push(Object.freeze({
+      name: 'vo.' + call.vo + '.pickup',
+      voice: call.caller.voice,
+      say: call.pickup,
+      beat: call.id,
+      speaker: call.caller.key,
+    }));
+  }
   for (let index = 0; index < call.lines.length; index += 1) {
     cues.push(Object.freeze({
       name: 'vo.' + call.vo + '.' + (index + 1),

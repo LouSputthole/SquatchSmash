@@ -346,6 +346,15 @@ export class CabinChapterRuntime {
    */
   _updateCalls(dt) {
     if (this.phone.call) return;
+    /* Owner, 2026-08-31, on the Day 4 wake: *"you get the phone call, and
+     * then there's a voice over about getting a clean shirt and stuff"* —
+     * the Billy ring was armed 0.8 s after the wake and landed on top of
+     * Tony's MORNING monologue. Nobody on this phone rings over a line
+     * being said: the scheduler holds while a dialogue beat is open or
+     * queued, for every call alike, and rings the moment the room is
+     * quiet. Beats always end (action-gated ones end on the player's own
+     * act), so nothing deadlocks. */
+    if (this.dialogue.current || this.beatQueue.length) return;
     this.callRetry = Math.max(0, this.callRetry - dt);
     if (this.callRetry > 0) return;
     if (!this.story.arrivalRestComplete() && !this.story.openingCallComplete()) {

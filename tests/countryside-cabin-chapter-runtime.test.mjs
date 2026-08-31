@@ -560,7 +560,11 @@ test('body wrapping, carry, gas, fire, drinking, blackout, and one Booski mornin
   blackoutDone();
   tick(harness, 0.7);
   assert.equal(harness.phone.call, null);
-  tick(harness, 0.2);
+  /* Owner, 2026-08-31: the Billy ring used to land on top of Tony's MORNING
+   * monologue ("Clean shirt, find the phone..."). The scheduler now lets the
+   * wake dialogue finish before any ring. */
+  drainDialogue(harness, 'MORNING dialogue did not drain');
+  tick(harness, 0.9);
   assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
   finishCurrentCall(harness);
   assert.equal(harness.story.chapterComplete(), true);
@@ -891,9 +895,15 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     });
     assert.equal(harness.runtime.start(), 'billy_call');
     assert.deepEqual(wakes, [{ restored: true }]);
+    /* The old pin required the ring AND the wake monologue simultaneously --
+     * the exact collision the owner reported on 2026-08-31. The bed
+     * restores, MORNING plays out, and only then does Booski ring. */
     tick(harness, 0.1);
-    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
     assert.equal(harness.dialogue.current, 'MORNING');
+    assert.equal(harness.phone.call, null, 'nobody rings over the wake monologue');
+    drainDialogue(harness, 'MORNING did not drain');
+    tick(harness, 0.9);
+    assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
   });
 
   await t.test('a save carrying Ape’s old call marker still receives only Booski', () => {
@@ -922,6 +932,9 @@ test('reload restoration resumes Margo, Gratin execution, staged bodies, an igni
     assert.deepEqual(complete, []);
 
     tick(harness, 0.2);
+    assert.equal(harness.dialogue.current, 'MORNING');
+    drainDialogue(harness, 'MORNING did not drain');
+    tick(harness, 0.9);
     assert.equal(harness.phone.call.def.id, CABIN_PHONE_CALLS.BOOSKI_BILLY.id);
     finishCurrentCall(harness);
     assert.equal(harness.story.chapterComplete(), true);

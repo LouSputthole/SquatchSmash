@@ -23,6 +23,7 @@ const SFX_DIR = path.join(ROOT, 'assets', 'sfx');
 const MANIFEST_FILE = path.join(SFX_DIR, 'manifest.json');
 const LEDGER_FILE = path.join(SFX_DIR, 'takes.json');
 const INDEX_FILE = path.join(SFX_DIR, 'index.json');
+const REWORD_QUEUE_FILE = path.join(SFX_DIR, 'rerecord.json');
 const DEFAULT_OUTPUT = path.join(ROOT, 'docs', 'audits', 'voice', 'rendered-voice-receipts.json');
 const SCHEMA = 'squatchsmash.rendered-voice-receipts.v1';
 
@@ -51,11 +52,22 @@ function fileOf(cue) {
 }
 
 async function currentRenderedTakes() {
-  const [manifest, ledger, index] = await Promise.all([
+  const [manifest, ledger, index, queue] = await Promise.all([
     readJson(MANIFEST_FILE), readJson(LEDGER_FILE), readJson(INDEX_FILE),
+    readJson(REWORD_QUEUE_FILE),
   ]);
   const cues = new Map((manifest.sfx ?? []).map((cue) => [cue.name, cue]));
   const indexed = new Set(index.files ?? []);
+  /* The re-record queue (assets/sfx/rerecord.json) is the one documented
+   * shape of drift: a rewritten line whose old wording is on the record and
+   * whose cue is stamped `needsRerecord`. Such a take is no longer evidence
+   * of the CURRENT script -- it leaves this audit's rows until the new
+   * render lands -- but it is not the silent rewrite this gate exists to
+   * refuse: the queue names it, the stamp marks it, and the stamped text
+   * hash must still match the documented retired wording exactly. Any drift
+   * outside that triangle throws, same as ever. */
+  const retiredHash = new Map((queue.lines ?? [])
+    .map((entry) => [entry.cue, textHash(entry.retiredText ?? '')]));
   const rows = [];
 
   for (const [cueName, take] of Object.entries(ledger.takes ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
@@ -64,7 +76,10 @@ async function currentRenderedTakes() {
     if (!cue || typeof cue.say !== 'string' || !cue.say.trim()) {
       throw new Error(`Rendered ledger entry has no spoken manifest cue: ${cueName}`);
     }
-    if (take.text !== textHash(cue.say)) throw new Error(`Rendered text stamp drift: ${cueName}`);
+    if (take.text !== textHash(cue.say)) {
+      if (cue.needsRerecord === true && take.text === retiredHash.get(cueName)) continue;
+      throw new Error(`Rendered text stamp drift: ${cueName}`);
+    }
     const voice = cue.voice || 'player';
     const voiceId = manifest.voices?.[voice]?.id ?? null;
     if (!voiceId || take.voice !== voice || take.voiceId !== voiceId) {
@@ -137,7 +152,15 @@ async function decodeRows(rows) {
   let browser;
   try {
     const baseUrl = await listen(server);
-    browser = await chromium.launch({ headless: true });
+    /* Same resolution as the scene verifiers: a runner with a pre-installed
+     * browser names it via PLAYWRIGHT_BROWSERS_PATH, and forcing that build
+     * avoids the headless-shell download the default launch would demand. */
+    browser = await chromium.launch({
+      headless: true,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM
+        || (process.env.PLAYWRIGHT_BROWSERS_PATH
+          ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
+    });
     const page = await browser.newPage();
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
