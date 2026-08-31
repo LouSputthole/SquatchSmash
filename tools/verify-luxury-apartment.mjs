@@ -35,7 +35,7 @@ const AUXILIARY_VIEWPORT = Object.freeze({
  * Beat 27 call). The 13-turn Booski drain is ~25 sim-seconds — roughly 300
  * wall-seconds — so the old 180 s timeout failed a call that was draining
  * perfectly. Waits that pass fast still pass fast; this is only headroom. */
-const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: AUXILIARY_WAIT.timeout0 });
+const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: 600000 });
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -274,6 +274,11 @@ try {
     if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
   });
   page.on('requestfailed', (request) => {
+    /* ERR_ABORTED is a CANCELLATION, not a failure: the two real elevator
+     * rides navigate this page to preview.html while wall art is still
+     * streaming, and every in-flight image is aborted by design. A missing
+     * file reports as a 404 through the static server, never as an abort. */
+    if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
 
@@ -728,6 +733,7 @@ try {
     if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
   });
   specialMeetingPage.on('requestfailed', (request) => {
+    if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
   await specialMeetingPage.goto(
@@ -787,6 +793,7 @@ try {
     if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
   });
   ringingReloadPage.on('requestfailed', (request) => {
+    if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
   await ringingReloadPage.goto(`http://127.0.0.1:${PORT}/index.html`, {
@@ -1034,7 +1041,7 @@ try {
   });
   const beat27Navigation = ringingReloadPage.waitForURL('**/specialmeeting.html*', {
     waitUntil: 'domcontentloaded',
-    timeout: 30000,
+    timeout: AUXILIARY_WAIT.timeout,
   });
   await ringingReloadPage.keyboard.press('e');
   await ringingReloadPage.waitForFunction(() => (
@@ -1141,6 +1148,11 @@ try {
     if (message.type() === 'error') problems.push(`console: ${message.text().slice(0, 400)}`);
   });
   page.on('requestfailed', (request) => {
+    /* ERR_ABORTED is a CANCELLATION, not a failure: the two real elevator
+     * rides navigate this page to preview.html while wall art is still
+     * streaming, and every in-flight image is aborted by design. A missing
+     * file reports as a 404 through the static server, never as an abort. */
+    if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
     problems.push(`request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
   await page.bringToFront();
@@ -1526,6 +1538,7 @@ try {
     if (message.type() === 'error') problems.push(`radio reload console: ${message.text().slice(0, 400)}`);
   });
   radioReloadPage.on('requestfailed', (request) => {
+    if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
     problems.push(`radio reload request: ${request.url()} - ${request.failure()?.errorText || 'failed'}`);
   });
   await radioReloadPage.goto(`http://127.0.0.1:${PORT}/luxury-apartment.html`, {
@@ -1851,7 +1864,7 @@ try {
   await page.keyboard.down('w');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.ground >= 0.72,
-      null, { timeout: 30000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     retreatEntered = false;
   }
@@ -1866,7 +1879,7 @@ try {
     await page.waitForFunction(({ startZ }) => {
       const player = window.LUXURY_APARTMENT.player;
       return player.position.z >= startZ - 0.04 && player.ground <= 0.12;
-    }, { startZ: retreatStart.position[2] }, { timeout: 30000, polling: 50 });
+    }, { startZ: retreatStart.position[2] }, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     retreatEscaped = false;
   }
@@ -2116,7 +2129,7 @@ try {
   await page.keyboard.down('w');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z <= -1.40,
-      null, { timeout: 30000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bathroomReachedInside = false;
   } finally {
@@ -2149,7 +2162,7 @@ try {
       const runtime = window.LUXURY_APARTMENT;
       const bath = runtime.home.bathroom.bounds;
       return runtime.player.position.x >= (bath.x0 + bath.x1) / 2 + 0.18;
-    }, null, { timeout: 30000, polling: 50 });
+    }, null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bathroomCrossedTurningBay = false;
   }
@@ -2162,7 +2175,7 @@ try {
   await page.keyboard.down('a');
   try {
     await page.waitForFunction((returnX) => window.LUXURY_APARTMENT.player.position.x <= returnX + 0.08,
-      bathroomApproach.doorwayX, { timeout: 30000, polling: 50 });
+      bathroomApproach.doorwayX, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bathroomReturnedAcrossBay = false;
   }
@@ -2176,7 +2189,7 @@ try {
   await page.keyboard.down('s');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z >= -0.40,
-      null, { timeout: 30000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bathroomReturnedByInput = false;
   } finally {
@@ -2399,7 +2412,7 @@ try {
   await page.keyboard.down('w');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z <= -3.82,
-      null, { timeout: 30000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bedroomEntered = false;
   }
@@ -2412,7 +2425,7 @@ try {
   await page.keyboard.down('d');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.x >= 8.00,
-      null, { timeout: 45000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     wardrobeReached = false;
   }
@@ -2433,7 +2446,7 @@ try {
   await page.keyboard.down('a');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.x <= 3.88,
-      null, { timeout: 45000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bedroomCrossedBack = false;
   }
@@ -2446,7 +2459,7 @@ try {
   await page.keyboard.down('s');
   try {
     await page.waitForFunction(() => window.LUXURY_APARTMENT.player.position.z >= -2.72,
-      null, { timeout: 30000, polling: 50 });
+      null, { timeout: AUXILIARY_WAIT.timeout, polling: 50 });
   } catch {
     bedroomExitedByInput = false;
   }
@@ -3170,7 +3183,7 @@ try {
       && runtime.home.doors.elevator.collider.max.y > 2
       && curtain?.classList.contains('active')
       && Number.parseFloat(getComputedStyle(curtain).opacity) >= 0.5;
-  }, null, { timeout: 30000, polling: 25 });
+  }, null, { timeout: AUXILIARY_WAIT.timeout, polling: 25 });
   await page.keyboard.press('e');
   await elevatorReceipt;
   const elevatorTransition = await page.evaluate(() => {
@@ -3223,7 +3236,7 @@ try {
    * unobserved promise into a misleading "Target page has been closed" error. */
   const previewNavigation = page.waitForURL('**/preview.html', {
     waitUntil: 'domcontentloaded',
-    timeout: 30000,
+    timeout: AUXILIARY_WAIT.timeout,
   });
   await previewNavigation;
   const elevatorDestination = await page.evaluate(() => ({

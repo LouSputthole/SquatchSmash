@@ -2706,25 +2706,30 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
    * the meshes at world positions inside a group at the origin, which reads
    * fine on screen and lies to everything that asks the group where the
    * sink IS — the room-completeness check read (0, 0, 0). */
+  /* Station z -1.60 and 0.90 long, NOT -2.07 and 1.10: the first cut ran
+   * the counter north to z -2.64, which is on top of the toilet's derived
+   * stand column at z -2.465 — the pee probe watched all 225 stream drops
+   * die at their emission point inside the vanity's own collider. The pan's
+   * stand spot is part of the room's walkable contract. */
   const vanityGroup = group('luxury-marble-vanity');
-  vanityGroup.position.set(-7.36, 0, -2.07);
+  vanityGroup.position.set(-7.36, 0, -1.60);
   vanityGroup.add(
-    box({ name: 'luxury-vanity-slab', size: [0.50, 0.06, 1.10], pos: [0.008, VAN_TOP - 0.03, 0], mat: M.marble }),
-    box({ name: 'luxury-vanity-apron', size: [0.035, 0.09, 1.10], pos: [-0.225, VAN_TOP - 0.105, 0], mat: M.marbleDark }),
-    box({ name: 'luxury-vanity-leg-north', size: [0.44, 0.88, 0.05], pos: [0.03, 0.44, -0.515], mat: M.marbleDark }),
-    box({ name: 'luxury-vanity-leg-south', size: [0.44, 0.88, 0.05], pos: [0.03, 0.44, 0.515], mat: M.marbleDark }),
-    box({ name: 'luxury-vanity-shelf', size: [0.40, 0.03, 0.98], pos: [0.05, 0.24, 0], mat: M.marble }),
-    cylinder({ name: 'luxury-vanity-shelf-towel-a', r: 0.055, h: 0.34, pos: [0.03, 0.32, -0.21], rotX: Math.PI / 2, mat: M_TOWEL }),
-    cylinder({ name: 'luxury-vanity-shelf-towel-b', r: 0.055, h: 0.34, pos: [0.03, 0.32, 0.21], rotX: Math.PI / 2, mat: M_TOWEL }),
+    box({ name: 'luxury-vanity-slab', size: [0.50, 0.06, 0.90], pos: [0.008, VAN_TOP - 0.03, 0], mat: M.marble }),
+    box({ name: 'luxury-vanity-apron', size: [0.035, 0.09, 0.90], pos: [-0.225, VAN_TOP - 0.105, 0], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-leg-north', size: [0.44, 0.88, 0.05], pos: [0.03, 0.44, -0.415], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-leg-south', size: [0.44, 0.88, 0.05], pos: [0.03, 0.44, 0.415], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-shelf', size: [0.40, 0.03, 0.78], pos: [0.05, 0.24, 0], mat: M.marble }),
+    cylinder({ name: 'luxury-vanity-shelf-towel-a', r: 0.055, h: 0.34, pos: [0.03, 0.32, -0.17], rotX: Math.PI / 2, mat: M_TOWEL }),
+    cylinder({ name: 'luxury-vanity-shelf-towel-b', r: 0.055, h: 0.34, pos: [0.03, 0.32, 0.17], rotX: Math.PI / 2, mat: M_TOWEL }),
     cylinder({ name: 'luxury-vanity-bowl-outer', rTop: 0.165, rBottom: 0.075, h: 0.15, pos: [0, VAN_TOP + 0.075, 0], mat: M_PORCELAIN }),
     cylinder({ name: 'luxury-vanity-bowl-base', r: 0.075, h: 0.012, pos: [0, VAN_TOP + 0.006, 0], mat: M_PORCELAIN }),
     cylinder({ name: 'luxury-vanity-drain', r: 0.02, h: 0.008, pos: [0, VAN_TOP + 0.02, 0], mat: M.chrome, cast: false }),
     cylinder({ name: 'luxury-vanity-mixer-riser', r: 0.016, h: 0.24, pos: [0.19, VAN_TOP + 0.12, 0], mat: M.chrome }),
     cylinder({ name: 'luxury-vanity-mixer-spout', r: 0.013, h: 0.15, pos: [0.115, VAN_TOP + 0.235, 0], rotZ: Math.PI / 2, mat: M.chrome }),
     box({ name: 'luxury-vanity-mixer-handle', size: [0.012, 0.05, 0.03], pos: [0.19, VAN_TOP + 0.27, 0], mat: M.chrome, rotX: -0.3 }),
-    box({ name: 'luxury-vanity-soap-tray', size: [0.14, 0.02, 0.09], pos: [0.03, VAN_TOP + 0.01, 0.36], mat: M.marbleDark }),
-    cylinder({ name: 'luxury-vanity-lotion-a', rTop: 0.028, rBottom: 0.032, h: 0.16, pos: [0.06, VAN_TOP + 0.08, -0.35], mat: mat({ color: 0x3a4a52, roughness: 0.4 }) }),
-    cylinder({ name: 'luxury-vanity-lotion-b', rTop: 0.022, rBottom: 0.026, h: 0.11, pos: [-0.02, VAN_TOP + 0.055, -0.38], mat: M_GOLD_BATH }),
+    box({ name: 'luxury-vanity-soap-tray', size: [0.14, 0.02, 0.09], pos: [0.03, VAN_TOP + 0.01, 0.30], mat: M.marbleDark }),
+    cylinder({ name: 'luxury-vanity-lotion-a', rTop: 0.028, rBottom: 0.032, h: 0.16, pos: [0.06, VAN_TOP + 0.08, -0.28], mat: mat({ color: 0x3a4a52, roughness: 0.4 }) }),
+    cylinder({ name: 'luxury-vanity-lotion-b', rTop: 0.022, rBottom: 0.026, h: 0.11, pos: [-0.02, VAN_TOP + 0.055, -0.31], mat: M_GOLD_BATH }),
     // The lit mirror, gilt-framed, mounted on the east lining.
     box({ name: 'luxury-vanity-mirror-frame', size: [0.026, 0.92, 0.80], pos: [0.246, 1.54, 0], mat: M_GOLD_BATH }),
     box({ name: 'luxury-vanity-mirror-light', size: [0.05, 0.045, 0.62], pos: [0.22, 2.16, 0], mat: mat({ color: 0xf4efdd, roughness: 0.55, emissive: 0x87795a, emissiveIntensity: 0.55 }), cast: false }),
@@ -2741,7 +2746,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   const sink = {
     group: vanityGroup,
     mirror: vanityMirror,
-    bounds: [[-7.61, 0, -2.64], [-7.12, VAN_TOP, -1.50]],
+    bounds: [[-7.61, 0, -2.06], [-7.12, VAN_TOP, -1.15]],
   };
   addProp(furnishings, sink, 'luxury-main-bath-sink', 0, 'prop', sink.bounds);
 

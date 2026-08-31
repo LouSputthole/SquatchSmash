@@ -1682,11 +1682,18 @@ async function verifyParity() {
   toilet.setBowel(1);
   toilet.resetPushes();
 
+  /* Stand at the fixture's own derived stand point BEFORE starting the aim:
+   * `startAim` latches the nearest toilet from where the player is, so the
+   * 2026-08-31 rebuild that moved the pan onto its WC duct left a parity
+   * call from the spawn latching nothing (toiletId null, 225 samples, 0 on
+   * target). `toiletStand` moves with the toilet, which is the whole point
+   * of a parity surface. */
+  player.position.set(home.toiletStand.x, home.toiletFloorY + 1.66, home.toiletStand.z);
+  camera.position.copy(player.position);
+  camera.lookAt(home.toiletBowl);
+  camera.updateMatrixWorld(true);
   const aimStarted = toilet.startAim();
   if (aimStarted) {
-    camera.position.copy(player.position);
-    camera.lookAt(home.toiletBowl);
-    camera.updateMatrixWorld(true);
     for (let i = 0; i < 120; i++) toilet.update(1 / 60);
   }
   const aimCompleted = aimStarted ? Boolean(toilet.stopAim({ quiet: true })) : false;
