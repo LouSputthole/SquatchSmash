@@ -317,8 +317,11 @@ test('every Luxury collider declares stable authored spatial meaning', async () 
   const records = world.colliders.map((collider) => readSpatialPrimitive(collider));
   /* 66 -> 107 on 2026-08-31: the two monolithic stair-rail slabs became 36
    * per-step rail boxes plus 7 under-flight soffits so the player can walk
-   * beneath the open section to the bathroom. Nothing else moved. */
-  assert.equal(records.length, 107, 'the complete live Luxury collision inventory changed');
+   * beneath the open section to the bathroom. Nothing else moved.
+   * 107 -> 109 the same day: the mansion-standard bathroom rebuild adds the
+   * WC duct (world) and the marble stool (prop); the plant sits on the duct
+   * cap above head-bump height and deliberately carries no collider. */
+  assert.equal(records.length, 109, 'the complete live Luxury collision inventory changed');
   assert.ok(records.every(Boolean), 'an addBounds call bypassed the spatial contract');
   assert.equal(new Set(records.map(({ id }) => id)).size, records.length,
     'Luxury collider spatial ids are not unique');
@@ -326,7 +329,7 @@ test('every Luxury collider declares stable authored spatial meaning', async () 
     Object.fromEntries([...records.reduce((counts, { kind }) => (
       counts.set(kind, (counts.get(kind) ?? 0) + 1)
     ), new Map())].sort(([left], [right]) => left.localeCompare(right))),
-    { door: 3, prop: 22, seat: 9, world: 73 },
+    { door: 3, prop: 23, seat: 9, world: 74 },
   );
   world.dispose();
 });
@@ -681,8 +684,11 @@ test('luxury authored polish includes a deep two-facade skyline, lighting and us
   assert.ok(sinkBounds.min.x >= LUXURY_APARTMENT.bathroom.x0 - 1e-6
     && sinkBounds.max.x <= LUXURY_APARTMENT.bathroom.x1 + 1e-6,
   'wall-mounted sink and mirror do not bleed through the bathroom shell');
-  assert.ok(toiletBounds.min.z - (LUXURY_APARTMENT.bathroom.z0 + 0.10) <= 0.02,
-    'toilet tank is set against the finished north wall');
+  /* Since the 2026-08-31 mansion-standard rebuild the cistern stands on the
+   * tiled WC duct (front face z -3.715), 5 mm proud into it per the
+   * mansion's own anti-seam rule, not against the bare north shell. */
+  assert.ok(Math.abs(toiletBounds.min.z - -3.715) <= 0.02,
+    'toilet tank is set against the WC duct');
   assert.ok(toiletBounds.min.x >= LUXURY_APARTMENT.bathroom.x0
     && toiletBounds.max.x <= LUXURY_APARTMENT.bathroom.x1
     && toiletBounds.min.z >= LUXURY_APARTMENT.bathroom.z0

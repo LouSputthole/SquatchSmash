@@ -1884,14 +1884,20 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
 
   /* The underside of the open section, so a head under the flight bumps the
    * soffit instead of clipping up through the treads. Only the steps a person
-   * can actually walk beneath need one. */
+   * can actually walk beneath need one.
+   *
+   * Inset 0.10 from each rail line: `collider()` pads every box 0.02 in x/z,
+   * so a soffit at the stair edge and a rail column at sideX +/- 0.055 meet
+   * pad-to-pad and the geometry gate reads the kiss as a 0.046 m
+   * interpenetration (measured — it turned Verify red on main 5f4d3076).
+   * The rail columns already own their own edges full-height there. */
   for (let i = 0; i < STAIR_STEPS; i++) {
     const y = i * LUXURY_STAIR_RISE;
     if (y < 1.95) continue;
     const zTo = stair.z1 - i * LUXURY_STAIR_RUN;
     const zFrom = zTo - LUXURY_STAIR_RUN - 0.006;
     addBounds(colliders,
-      [[stair.x0, y - 0.34, zFrom], [stair.x1, y - 0.10, zTo]],
+      [[stair.x0 + 0.10, y - 0.34, zFrom], [stair.x1 - 0.10, y - 0.10, zTo]],
       `luxury-stair-soffit-collider-${String(i).padStart(2, '0')}`,
       0,
       'luxury-stair-soffit-collision',
@@ -2585,22 +2591,191 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     collisionEdgeInset: 0.085,
   });
 
+  /* ---- THE MANSION-STANDARD REBUILD, 2026-08-31 ----
+   *
+   * The owner's standing note for this room was "to the mansion standard",
+   * and the mansion ensuites (MansionInterior.js buildBathroom) define what
+   * that means: tiled walls to shoulder height under a marble cap and gilt
+   * band, a marble floor border round a mosaic panel, a boxed WC duct so the
+   * cistern has a wall to stand on, one marble vanity with a vessel bowl and
+   * a lit mirror instead of a rented pedestal basin, and the tub dressed
+   * with a filler, a tray, towels and a robe. Everything below is that
+   * language re-measured for a 3.7 x 3.1 room under a 2.66 ceiling.
+   *
+   * Interior faces: x -10.58 / -7.08, z -3.98 / -1.08. Every lining panel
+   * buries its hidden face 30 mm inside the shell wall it dresses (the
+   * mansion's own anti-coplanar rule) and everything in this lining shares
+   * one structural assembly, so the gate audits the room against the
+   * furniture rather than the wainscot against its own wall. */
+  const M_GOLD_BATH = mat({ color: 0xc9a86a, roughness: 0.32, metalness: 0.85 });
+  const M_PORCELAIN = mat({ color: 0xeceee9, roughness: 0.20 });
+  const M_TOWEL = mat({ color: 0xe6ddc8, roughness: 1 });
+  const mosaicTex = T.tileTex(12, '#5f6a72', '#cfd8dc');
+  mosaicTex.repeat.set(10, 8);
+  const M_MOSAIC = mat({ map: mosaicTex, roughness: 0.28 });
+
+  const lining = group('luxury-bath-lining');
+  const TILE_TOP = 2.0;
+  const addLining = (mesh) => lining.add(structural(mesh, 'luxury-bath-lining'));
+  // Tile to shoulder height on all four interior faces, the south run cut
+  // round the doorway exactly as the mansion cuts its own.
+  addLining(boxFrom(-10.61, 0, -3.98, -10.56, TILE_TOP, -1.08, M.splash, { name: 'luxury-bath-tile-west' }));
+  addLining(boxFrom(-7.10, 0, -3.98, -7.05, TILE_TOP, -1.08, M.splash, { name: 'luxury-bath-tile-east' }));
+  addLining(boxFrom(-10.58, 0, -4.01, -7.08, TILE_TOP, -3.96, M.splash, { name: 'luxury-bath-tile-north' }));
+  addLining(boxFrom(bath.doorX1, 0, -1.11, -7.08, TILE_TOP, -1.06, M.splash, { name: 'luxury-bath-tile-south' }));
+  // Marble cap on the tiling with the gilt band under it, per wall.
+  for (const [name, x0, z0, x1, z1] of [
+    ['west', -10.615, -3.98, -10.555, -1.08],
+    ['east', -7.105, -3.98, -7.045, -1.08],
+    ['north', -10.58, -4.015, -7.08, -3.955],
+    ['south', bath.doorX1, -1.115, -7.08, -1.055],
+  ]) {
+    addLining(boxFrom(x0, TILE_TOP, z0, x1, TILE_TOP + 0.09, z1, M.marble, { name: `luxury-bath-dado-cap-${name}` }));
+    addLining(boxFrom(x0 + 0.002, TILE_TOP - 0.06, z0 + 0.002, x1 - 0.002, TILE_TOP - 0.01, z1 - 0.002, M_GOLD_BATH,
+      { name: `luxury-bath-gilt-band-${name}`, cast: false }));
+  }
+  // Floor: a dark marble border framing a mosaic panel in the open middle,
+  // both risen from inside the structural slab so no face is coplanar.
+  addLining(boxFrom(-9.31, 0.020, -2.41, -7.89, 0.034, -1.29, M.marbleDark, { name: 'luxury-bath-floor-border', cast: false }));
+  addLining(boxFrom(-9.25, 0.020, -2.35, -7.95, 0.038, -1.35, M_MOSAIC, { name: 'luxury-bath-floor-mosaic', cast: false }));
+  furnishings.add(own(lining, 'luxury-bath-lining', { structural: true }));
+
+  /* THE WC DUCT — the mansion's answer to "toilet away from wall": a tiled
+   * box with a marble cap along the north lining for the cistern to stand
+   * on. The cistern's back sits 5 mm INTO the duct's face (two faces at the
+   * same depth is the flicker; a cistern that touches its wall has never
+   * shown a seam). */
+  const DUCT_FRONT = -3.715;
+  addLining(boxFrom(-8.05, 0, -3.955, -7.101, 1.02, DUCT_FRONT, M.splash, { name: 'luxury-bath-wc-duct' }));
+  addLining(boxFrom(-8.06, 1.02, -3.955, -7.101, 1.07, DUCT_FRONT - 0.01, M.marble, { name: 'luxury-bath-wc-duct-cap', cast: false }));
+  addBounds(colliders, [[-8.05, 0, -3.955], [-7.101, 1.07, DUCT_FRONT]],
+    'luxury-bath-wc-duct-collider', 0, 'luxury-bath-lining', 'world');
+
   // Keep a full turning bay between the newly reachable door and the tub.
   // The old south edge left exactly one player diameter and turned the open
   // door into a second obstruction even after the stair-rail issue was fixed.
   const tub = P.makeTub(M, { x0: -10.50, z0: -3.88, x1: -9.35, z1: -2.42 });
-  // Seat the cistern against the finished north face and keep the shared sink
-  // frame entirely inside the east shell. Both had small but visible air/bleed
-  // gaps after the bathroom moved out of the loft.
-  const toilet = P.makeToilet(M, { x: -7.55, z: -3.62, rotY: 0 });
-  const sink = P.makeBathSink(M, { x: -7.30, z: -2.05, rotY: -Math.PI / 2 });
+  /* The shared tub ships a curtain on a rail and a wall-mount shower kit —
+   * the starter-flat dressing. Its only cylinders and its only plane ARE
+   * that kit, so one sweep retires the lot before the luxury fittings go
+   * in: a frameless glass screen on the rim, a ceiling rain head, and a
+   * deck-mounted filler where the old riser stood. */
+  for (const child of [...tub.group.children]) {
+    if (child.geometry?.type === 'CylinderGeometry' || child.geometry?.type === 'PlaneGeometry') {
+      child.visible = false;
+    }
+  }
+  tub.group.add(
+    box({ name: 'luxury-tub-screen-glass', size: [0.02, 1.46, 0.93], pos: [-9.39, 1.29, -3.415], mat: M.bathGlass, cast: false }),
+    box({ name: 'luxury-tub-screen-cap', size: [0.034, 0.03, 0.95], pos: [-9.39, 2.035, -3.415], mat: M.chrome }),
+    box({ name: 'luxury-tub-screen-edge', size: [0.028, 1.48, 0.022], pos: [-9.39, 1.29, -2.955], mat: M_GOLD_BATH }),
+    cylinder({ name: 'luxury-tub-rain-drop', r: 0.015, h: 0.34, pos: [-9.93, 2.49, -3.15], mat: M.chrome }),
+    cylinder({ name: 'luxury-tub-rain-plate', r: 0.115, h: 0.022, pos: [-9.93, 2.31, -3.15], mat: M.chrome }),
+    cylinder({ name: 'luxury-tub-rain-face', r: 0.10, h: 0.012, pos: [-9.93, 2.296, -3.15], mat: mat({ color: 0xb8bec4, roughness: 0.5 }), cast: false }),
+    cylinder({ name: 'luxury-tub-filler-column', r: 0.018, h: 0.38, pos: [-9.93, 0.75, -3.80], mat: M.chrome }),
+    cylinder({ name: 'luxury-tub-filler-spout', r: 0.014, h: 0.20, pos: [-9.93, 0.92, -3.70], rotX: Math.PI / 2, mat: M.chrome }),
+    box({ name: 'luxury-tub-tray', size: [1.06, 0.022, 0.17], pos: [-9.925, 0.585, -3.15], mat: mat({ color: 0x8a6a48, roughness: 0.8 }) }),
+    cylinder({ name: 'luxury-tub-tray-towel', r: 0.045, h: 0.30, pos: [-10.15, 0.64, -3.15], rotZ: Math.PI / 2, mat: M_TOWEL }),
+    box({ name: 'luxury-tub-tray-soap', size: [0.075, 0.026, 0.05], pos: [-9.68, 0.61, -3.15], mat: mat({ color: 0xe4d7b0, roughness: 0.6 }) }),
+  );
+  /* The ShowerSystem and its loop follow these two points; the wall-mount
+   * head they used to describe is hidden above, so they move to the rain
+   * head or the water falls from a fitting that no longer exists. */
+  tub.headPos.set(-9.93, 2.28, -3.15);
+  tub.standPos.set(-9.93, 0, -3.15);
   addProp(furnishings, tub, 'luxury-rainfall-shower', 0);
+
+  // The cistern stands on the duct, not lost against the shell.
+  const toilet = P.makeToilet(M, { x: -7.55, z: -3.335, rotY: 0 });
   const toiletCollision = toilet.bounds.map((corner) => [...corner]);
-  toiletCollision[0][2] = bath.z0 + 0.14;
-  const sinkCollision = sink.bounds.map((corner) => [...corner]);
-  sinkCollision[1][0] = bath.x1 - 0.14;
+  /* The duct owns the space behind the pan. `collider()` pads both boxes
+   * 0.02 in z, so the authored faces need 0.045 of daylight for the
+   * inflated pair to audit clear — a 1 mm gap measured as a 0.039 m
+   * interpenetration at the gate. Nobody stands behind a toilet. */
+  toiletCollision[0][2] = DUCT_FRONT + 0.045;
   addProp(furnishings, toilet, 'luxury-main-toilet', 0, 'seat', toiletCollision);
-  addProp(furnishings, sink, 'luxury-main-bath-sink', 0, 'prop', sinkCollision);
+
+  /* THE VANITY, replacing the shared pedestal basin the mansion's owner
+   * threw out of both ensuites ("two sinks, get rid of the old sink"). A
+   * marble slab on two dark panel legs, a vessel bowl, a wall mixer, and a
+   * gilt-framed lit mirror. It keeps the `luxury-main-bath-sink` prop id so
+   * every collider name and wall-clearance pin survives the upgrade. */
+  const VAN_TOP = 0.94;
+  const vanityGroup = group('luxury-marble-vanity');
+  vanityGroup.add(
+    box({ name: 'luxury-vanity-slab', size: [0.50, 0.06, 1.10], pos: [-7.352, VAN_TOP - 0.03, -2.07], mat: M.marble }),
+    box({ name: 'luxury-vanity-apron', size: [0.035, 0.09, 1.10], pos: [-7.585, VAN_TOP - 0.105, -2.07], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-leg-north', size: [0.44, 0.88, 0.05], pos: [-7.33, 0.44, -2.585], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-leg-south', size: [0.44, 0.88, 0.05], pos: [-7.33, 0.44, -1.555], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-shelf', size: [0.40, 0.03, 0.98], pos: [-7.31, 0.24, -2.07], mat: M.marble }),
+    cylinder({ name: 'luxury-vanity-shelf-towel-a', r: 0.055, h: 0.34, pos: [-7.33, 0.32, -2.28], rotX: Math.PI / 2, mat: M_TOWEL }),
+    cylinder({ name: 'luxury-vanity-shelf-towel-b', r: 0.055, h: 0.34, pos: [-7.33, 0.32, -1.86], rotX: Math.PI / 2, mat: M_TOWEL }),
+    cylinder({ name: 'luxury-vanity-bowl-outer', rTop: 0.165, rBottom: 0.075, h: 0.15, pos: [-7.36, VAN_TOP + 0.075, -2.07], mat: M_PORCELAIN }),
+    cylinder({ name: 'luxury-vanity-bowl-base', r: 0.075, h: 0.012, pos: [-7.36, VAN_TOP + 0.006, -2.07], mat: M_PORCELAIN }),
+    cylinder({ name: 'luxury-vanity-drain', r: 0.02, h: 0.008, pos: [-7.36, VAN_TOP + 0.02, -2.07], mat: M.chrome, cast: false }),
+    cylinder({ name: 'luxury-vanity-mixer-riser', r: 0.016, h: 0.24, pos: [-7.17, VAN_TOP + 0.12, -2.07], mat: M.chrome }),
+    cylinder({ name: 'luxury-vanity-mixer-spout', r: 0.013, h: 0.15, pos: [-7.245, VAN_TOP + 0.235, -2.07], rotZ: Math.PI / 2, mat: M.chrome }),
+    box({ name: 'luxury-vanity-mixer-handle', size: [0.012, 0.05, 0.03], pos: [-7.17, VAN_TOP + 0.27, -2.07], mat: M.chrome, rotX: -0.3 }),
+    box({ name: 'luxury-vanity-soap-tray', size: [0.14, 0.02, 0.09], pos: [-7.33, VAN_TOP + 0.01, -1.71], mat: M.marbleDark }),
+    cylinder({ name: 'luxury-vanity-lotion-a', rTop: 0.028, rBottom: 0.032, h: 0.16, pos: [-7.30, VAN_TOP + 0.08, -2.42], mat: mat({ color: 0x3a4a52, roughness: 0.4 }) }),
+    cylinder({ name: 'luxury-vanity-lotion-b', rTop: 0.022, rBottom: 0.026, h: 0.11, pos: [-7.38, VAN_TOP + 0.055, -2.45], mat: M_GOLD_BATH }),
+    // The lit mirror, gilt-framed, mounted on the east lining.
+    box({ name: 'luxury-vanity-mirror-frame', size: [0.026, 0.92, 0.80], pos: [-7.114, 1.54, -2.07], mat: M_GOLD_BATH }),
+    box({ name: 'luxury-vanity-mirror-light', size: [0.05, 0.045, 0.62], pos: [-7.14, 2.16, -2.07], mat: mat({ color: 0xf4efdd, roughness: 0.55, emissive: 0x87795a, emissiveIntensity: 0.55 }), cast: false }),
+  );
+  const vanityMirror = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.72, 0.84),
+    new THREE.MeshStandardMaterial({ color: 0xdfe6ec, roughness: 0.12, metalness: 0.55 }),
+  );
+  vanityMirror.name = 'luxury-vanity.mirror.surface';
+  vanityMirror.rotation.y = -Math.PI / 2;
+  vanityMirror.position.set(-7.128, 1.54, -2.07);
+  vanityMirror.userData.planarMirrorSurface = true;
+  vanityGroup.add(vanityMirror);
+  const sink = {
+    group: vanityGroup,
+    mirror: vanityMirror,
+    bounds: [[-7.61, 0, -2.64], [-7.12, VAN_TOP, -1.50]],
+  };
+  addProp(furnishings, sink, 'luxury-main-bath-sink', 0, 'prop', sink.bounds);
+
+  // A marble stool with the towel stack, in the bay between tub and duct.
+  const stool = {
+    group: group('luxury-bath-stool'),
+    bounds: [[-8.84, 0, -3.69], [-8.46, 0.62, -3.31]],
+  };
+  stool.group.add(
+    cylinder({ name: 'luxury-bath-stool-body', rTop: 0.16, rBottom: 0.185, h: 0.42, pos: [-8.65, 0.21, -3.50], mat: M.marbleDark }),
+    cylinder({ name: 'luxury-bath-stool-top', r: 0.175, h: 0.025, pos: [-8.65, 0.4325, -3.50], mat: M.marble }),
+    box({ name: 'luxury-bath-stool-towel-a', size: [0.26, 0.06, 0.24], pos: [-8.65, 0.475, -3.50], mat: M_TOWEL }),
+    box({ name: 'luxury-bath-stool-towel-b', size: [0.23, 0.055, 0.21], pos: [-8.64, 0.533, -3.505], mat: mat({ color: 0xd8cdb2, roughness: 1 }) }),
+  );
+  addProp(furnishings, stool, 'luxury-bath-stool', 0, 'prop', stool.bounds);
+
+  // Wall dressing: heated rail with its towel, and a robe on a hook by the
+  // door — hung on the south lining, clear of the door's inward swing.
+  const bathTextiles = group('luxury-bath-textiles');
+  bathTextiles.add(
+    cylinder({ name: 'luxury-bath-rail-bracket-a', r: 0.012, h: 0.05, pos: [-8.70, 1.15, -1.135], rotX: Math.PI / 2, mat: M.chrome }),
+    cylinder({ name: 'luxury-bath-rail-bracket-b', r: 0.012, h: 0.05, pos: [-8.20, 1.15, -1.135], rotX: Math.PI / 2, mat: M.chrome }),
+    cylinder({ name: 'luxury-bath-rail', r: 0.013, h: 0.56, pos: [-8.45, 1.15, -1.16], rotZ: Math.PI / 2, mat: M.chrome }),
+    box({ name: 'luxury-bath-rail-towel', size: [0.46, 0.54, 0.055], pos: [-8.45, 0.90, -1.175], mat: M_TOWEL }),
+    cylinder({ name: 'luxury-bath-robe-hook', r: 0.011, h: 0.07, pos: [-9.55, 1.86, -1.145], rotX: Math.PI / 2, mat: M_GOLD_BATH }),
+    box({ name: 'luxury-bath-robe-shoulders', size: [0.34, 0.10, 0.075], pos: [-9.55, 1.76, -1.155], mat: mat({ color: 0xf1ece0, roughness: 1 }) }),
+    box({ name: 'luxury-bath-robe-body', size: [0.30, 0.86, 0.065], pos: [-9.55, 1.28, -1.16], mat: mat({ color: 0xf1ece0, roughness: 1 }) }),
+    box({ name: 'luxury-bath-robe-belt', size: [0.31, 0.05, 0.07], pos: [-9.55, 1.18, -1.158], mat: mat({ color: 0xe0d8c6, roughness: 1 }) }),
+    box({ name: 'luxury-bath-mat', size: [0.68, 0.014, 0.60], pos: [-8.94, 0.036, -2.98], mat: M_TOWEL, cast: false }),
+  );
+  furnishings.add(own(bathTextiles, 'luxury-bath-wall-fixture'));
+
+  /* And the mansion's plant — on the WC duct's marble cap, not the floor.
+   * At floor level every corner of this room is claimed: the south-east put
+   * its fronds 0.05 m into the vanity leg (measured at the gate), and the
+   * west is the door's swing. On the cap it dresses the cistern shelf the
+   * way the mansion dresses its own, and it needs no collider up there. */
+  const bathPlant = P.makePlant(M, { x: -7.85, z: -3.835, scale: 0.45 });
+  bathPlant.group.position.y = 1.07;
+  addProp(furnishings, bathPlant, 'luxury-bath-plant', 0, 'prop', null);
 
   // The generic toilet includes a roll hanging from the pan. Hide that pair
   // and mount the paper to the actual east wall beside this fixture.

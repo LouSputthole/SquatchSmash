@@ -9551,7 +9551,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "PASS",
-            "typed": 107,
+            "typed": 109,
             "unmarkedRigs": 0,
             "untyped": 0,
             "visibilityFilteredActorIds": [
