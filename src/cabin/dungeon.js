@@ -775,18 +775,18 @@ export function buildCabinDungeon({
    *
    * IT RESTS ON ITS OWN BOW, which is both what a bow-handled saw does on a
    * flat table and the only thing that makes it readable here. Laid dead flat
-   * its 0.011 m blade is a line, and it sat 0.12 m in front of the folded
+   * an 0.011 m blade is a line, and it sat 0.12 m in front of the folded
    * towels at almost exactly their height, so a 0.70 m white slab was its
-   * backdrop from the authored inspection stance. The 0.046 m grip ring lifts
-   * the handle end, which tilts the blade 8.5 degrees into the overhead lamp,
-   * and the whole tool moved 0.12 m forward to z 10.14 so it is clear of the
-   * towels rather than pressed against them.
+   * backdrop from the authored inspection stance. Three things fix that: the
+   * grip ring lifts the handle end, the blade thickens to 0.016, and the whole
+   * tool moves 0.12 m forward to z 10.14. Measured after, it stands 0.082 m
+   * off the table instead of 0.050 with 0.121 m of clear air behind it.
    *
    * The tilt is not chosen, it is measured: the grip ring's underside sits
    * 0.0405 m below the toe of the blade, and over the 0.54 m between them
-   * that is atan(0.0405 / 0.54) = 0.075 rad. At that angle both the bow and
-   * the toe touch the table at local y -0.0175, which is where the group is
-   * set. */
+   * that is atan(0.0405 / 0.54) = 0.075 rad, or 4.3 degrees. At that angle
+   * both the bow and the toe touch the table at local y -0.0175, which is
+   * where the group is set. */
   {
     const saw = toolAnchor('saw', -5.95, tableTop + 0.0175, 10.14, 0.18);
     saw.rotation.z = -0.075;
