@@ -4860,6 +4860,14 @@ function startDrive() {
   S.snowSeated = false;
   player.group.scale.setScalar(PLAYER_SCALE);
   phase = 'drive';
+  /* The getaway renders a different world with the listener in a moving car,
+   * and `syncListenerPose` keeps feeding it the drive camera. The motel's beds
+   * are pinned to motel coordinates -- room twelve, the alley, the drained
+   * pool, the second car in the lot -- so leaving them running put a swimming
+   * pool ten metres off the hood for the whole escape. When they were four
+   * oscillator textures that read as generic hum and nobody noticed; they are
+   * location-specific recordings now and it is unmistakable. */
+  sfx.stopAmbience();
   driveHudEl.classList.add('show');
   metersEl.classList.remove('show');
   sfx.setMusic('chase');
@@ -5199,17 +5207,21 @@ function updateAmbient(dt) {
   if (Math.random() < dt * 0.06) sfx.plumbing();
   if (Math.random() < dt * 0.03) sfx.siren(true);
 
-  /* The props that were drawn and silent. All four are positional, so distance
-   * decides whether you hear them -- there is no need to know which phase the
-   * scene is in or where the player is standing. */
-  if (Math.random() < dt * 0.5 && refs.acUnits.length) {
+  /* The props that were drawn and silent. Positional, so distance decides
+   * whether you hear them -- but `updateAmbient` runs in EVERY phase, outside
+   * the guarded block above, and the last two phases are a car chase and an
+   * end card. Distance cannot save a cue whose coordinates stopped meaning
+   * anything, so the phase has to. (The older ice/plumbing/siren lines below
+   * are flat, not panned, and are left as they were.) */
+  const atMotel = phase !== 'drive' && phase !== 'end';
+  if (atMotel && Math.random() < dt * 0.5 && refs.acUnits.length) {
     const unit = refs.acUnits[Math.floor(Math.random() * refs.acUnits.length)];
     /* `refs.acUnits` holds the UPPER units, seven metres up. The drip is heard
      * where it lands, not where it leaves -- on the walkway underneath, which
      * is also the only place a player is ever standing to hear it. */
     if (!unit.dropped) sfx.acDrip({ x: unit.x, y: 0.2, z: unit.z });
   }
-  if (Math.random() < dt * 0.035) {
+  if (atMotel && Math.random() < dt * 0.035) {
     sfx.vendingBump({ x: refs.vending.x, y: 1.2, z: refs.vending.z });
   }
   /* The counter sealer runs a bag while the deal is still a deal. Once the
@@ -5219,8 +5231,11 @@ function updateAmbient(dt) {
   }
   /* Idempotent, and deliberately called every frame: the recording is still
    * downloading for the first second or so of the scene, and this is what
-   * retries until it lands. It starts once and stops with the ambience. */
-  sfx.engineIdle(refs.secondCar.group.position);
+   * retries until it lands. It starts once and stops with the ambience, so the
+   * drive already silences it -- but the guard is here rather than left to
+   * that, because "somebody else nulls the thing I early-return on" is an
+   * invariant in another module and this is one boolean. */
+  if (atMotel) sfx.engineIdle(refs.secondCar.group.position);
 
   // Chatter
   barkT -= dt;

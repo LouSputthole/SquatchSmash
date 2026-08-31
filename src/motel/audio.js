@@ -1245,25 +1245,37 @@ export function sting() {
 // silent or borrowed somebody else's sound. `sfx.packaging()` was standing in
 // for tearing a curtain off a wall.
 //
-// These are recordings only. There is no oscillator arm underneath them, and
-// writing eight of them would be inventing a fallback for sounds that never
-// had one: if a file is missing these props go back to the silence they have
-// had all along, which costs the scene exactly what it already cost.
+// Five of them are recordings only, and deliberately so: the sealer, the fan,
+// the drip, the vending machine and the lot car were silent before this, so a
+// missing file puts them back exactly where they already were and writing five
+// oscillator arms would be inventing fallbacks for sounds that never had one.
+//
+// The other four are NOT in that position, and the difference matters. The
+// cleaver, the curtain and the two inspection checks each REPLACED a call that
+// always made a noise -- `punch()` and `packaging()` -- and `loadSamples`
+// deletes a cue on any fetch or decode failure, so recording-only would have
+// turned an offline reload into a butcher whose cleaver lands in silence.
+// They fall back to the sound they took the place of. See the module header:
+// every caller keeps a fallback, and that promise is older than these cues.
 
 export function cleaverSwipe(position = null) {
-  playSample('cleaver.swipe', { volume: 0.8, position });
+  if (playSample('cleaver.swipe', { volume: 0.8, position })) return;
+  punch(true);
 }
 
 export function curtainRip(position = null) {
-  playSample('curtain.rip', { volume: 0.75, position });
+  if (playSample('curtain.rip', { volume: 0.75, position })) return;
+  packaging();
 }
 
 export function jerkyBend() {
-  playSample('jerky.bend', { volume: 0.8 });
+  if (playSample('jerky.bend', { volume: 0.8 })) return;
+  packaging();
 }
 
 export function waxSeal() {
-  playSample('wax.seal.break', { volume: 0.8 });
+  if (playSample('wax.seal.break', { volume: 0.8 })) return;
+  packaging();
 }
 
 export function sealerRun(position = null) {
