@@ -290,3 +290,41 @@ test('Cabin reflection resolves every persisted shared outfit ID without changin
   assert.match(mainSource, /store:\s*appearanceStore/);
   assert.match(mainSource, /outfitId:\s*initialCabinOutfitId/);
 });
+
+/* THE RIFLE HAS TO SURVIVE [Q].
+ *
+ * Owner: *"the gun at the cabin also isnt in my inventory i have it and then
+ * I put it away and it dissapears instead of going into my inventory."* Two
+ * halves fix that and both are asserted here, because neither shows up in a
+ * headless scene run: the take has to spend a pocket, and the pocket has to
+ * know how to draw a weapon id. `ITEMS` is the starter flat's catalog and a
+ * slot holding `carbine` against it renders blank -- which is exactly what a
+ * lost gun looks like. */
+test('a rifle taken off a cabin rack lands in a pocket that can draw it', async () => {
+  const { WEAPON_IDS, weaponDef } = await import('../src/core/weapons/index.js');
+  const { ITEMS } = await import('../src/core/inventory.js');
+
+  /* Every id mounted on a cabin rack, from all three mounts in main.js:
+   * the cellar anteroom (dungeon.js armoryMounts), the main-room wall rack
+   * (world.js CABIN_WALL_RACK_WEAPON) and the east-wall shotgun. */
+  const rackIds = [
+    WEAPON_IDS.AK47, WEAPON_IDS.BARRETT, WEAPON_IDS.CARBINE, WEAPON_IDS.SHOTGUN,
+  ];
+  for (const id of rackIds) {
+    assert.ok(id, 'rack weapon id is defined');
+    const def = weaponDef(id);
+    assert.ok(def, `${id} has a weapon catalog entry`);
+    assert.equal(typeof def.name, 'string');
+    assert.ok(def.name.length > 0, `${id} has a name the pocket can print`);
+    assert.equal(ITEMS[id], undefined, `${id} is not in the starter flat catalog`);
+  }
+
+  // The pocket catalog the HUD is handed, not the apartment one.
+  assert.match(mainSource, /const CABIN_ITEMS = Object\.freeze\(\{/);
+  assert.match(mainSource, /hud\.setInventory\(inventory, CABIN_ITEMS\)/);
+  assert.doesNotMatch(mainSource, /hud\.setInventory\(inventory, ITEMS\)/);
+
+  // The take spends a slot and selects it rather than selecting an empty one.
+  assert.match(mainSource, /cabin\.inventory\.add\(event\.id\)/);
+  assert.match(mainSource, /cabin\.inventory\.select\(slot\)/);
+});

@@ -211,10 +211,29 @@ async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null }
     const samples = [];
     let frames = 0;
     let distance = Math.hypot(player.position.x - point[0], player.position.z - point[1]);
+    /* STEER EVERY FRAME, AND REMEMBER THE CLOSEST APPROACH.
+     *
+     * This aimed once, held W, and demanded the player be inside a 0.08 m
+     * band on the exact frame it was sampled. Measured on the corridor
+     * carry: he starts 0.348 m from [0.86, 6.77], accelerates out of a
+     * standing start, and by frame 60 is 2.42 m past it and still going --
+     * a single frame step crossed the whole 0.16 m band, and nothing ever
+     * turned him back. The route then reported a traversal failure against
+     * a scene that walks perfectly well.
+     *
+     * A player steers. Re-aiming each frame keeps every real property this
+     * check exists for -- production `player.update`, real collision, real
+     * ground -- and lets an overshoot correct itself. `closest` accepts the
+     * honest case where he passes through the band between two samples. */
+    let closest = distance;
     while (distance > radius && frames < limit) {
+      const dx = point[0] - player.position.x;
+      const dz = point[1] - player.position.z;
+      player.yaw = Math.atan2(-dx, -dz);
       player.update(1 / 60);
       frames += 1;
       distance = Math.hypot(player.position.x - point[0], player.position.z - point[1]);
+      closest = Math.min(closest, distance);
       if (frames === 1 || frames % 60 === 0 || distance <= radius) {
         samples.push({
           frame: frames,
@@ -246,7 +265,8 @@ async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null }
       feet,
       frames,
       frameBudget: limit,
-      reached: distance <= radius,
+      closest,
+      reached: distance <= radius || closest <= radius,
       samples,
       penetrations,
     };
@@ -708,7 +728,85 @@ try {
   await capture(page, '01-day-arrival');
 
   await page.locator('#start-btn').click();
-  await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.state.phase === 'active');
+  /* THE START HANDLER IS 146 SECONDS COLD, and the default 180 000 ms wait was
+   * never enough to cover it. Measured on an idle sandbox at 1280x720 under
+   * SwiftShader: click to `state.phase === 'active'` took 146 s, spent almost
+   * entirely in the handler's own awaits -- audio.init(), the radio manifest,
+   * and a decode of roughly two hundred cues (163 authored Cabin VO lines plus
+   * the weapon, radio and Lag prefixes). That leaves 34 s of headroom, and the
+   * fifteen boot checks and the '01-day-arrival' capture above spend it, which
+   * is why this one step failed every run while the other fourteen passed.
+   *
+   * Ten minutes is not a guess at a bigger number: it is the same budget the
+   * Special Meeting verifier already carries for the same reason. A scene that
+   * genuinely never starts still fails, four times slower. */
+  await page.waitForFunction(() => window.COUNTRYSIDE_CABIN.state.phase === 'active',
+    null, { timeout: 600000 });
+
+  /* AHEAD OF THE POINTER-LOCK SEAM ON PURPOSE. This drives the armory and the
+   * inventory through evaluate() and needs no captured input, and the capture
+   * wait below is the one thing in this file that does not reliably clear on a
+   * cold SwiftShader page. A check that needs nothing from that seam must not
+   * sit behind it -- everything after a failing step simply never runs. */
+  /* ---------------------------------------------------------------- */
+  /* A GUN HE TAKES IS A GUN HE STILL HAS                              */
+  /* ---------------------------------------------------------------- */
+  /* Owner: *"the gun at the cabin also isnt in my inventory. i have it and
+   * then I put it away and it dissapears instead of going into my
+   * inventory."*
+   *
+   * It was never destroyed -- `retainTaken` reserves the wall copy, so walking
+   * back to the rack re-equipped it -- but the take selected an EMPTY pocket
+   * and put nothing in it, so [Q] stowed the rifle out of his hands into
+   * nowhere visible. A gun you can only recover by remembering which wall you
+   * took it off is a gun you have lost.
+   *
+   * Take it the way the rack does, stow it the way he did, and require both
+   * that the pocket still holds it and that its number key brings it back. */
+  const gun = await page.evaluate(async () => {
+    const c = window.COUNTRYSIDE_CABIN;
+    /* The racks hang off the built world (`c.cabin`), not off the runtime
+     * handle; the armories are the runtime's. Try each armory against the
+     * wall rack's own first weapon id rather than assuming which mount owns
+     * it -- the cabin has three (dungeon, wall, shotgun).
+     *
+     * DUCK-TYPE, DO NOT MATCH THE NAME. A `/armor/i` filter here found
+     * `armory` and `rifleRackArmory` and silently skipped `wallRack` -- the
+     * one mount that actually holds the carbine -- and the check failed with
+     * "no armory would take it" against a scene that was working fine.
+     * `Armory.take` returns false for an id it owns no stand for, so asking
+     * every object that has a `take` is both correct and naming-proof. */
+    const armories = Object.values(c).filter((v) => v && typeof v.take === 'function');
+    const id = c.cabin?.wallRack?.racks?.[0]?.id ?? null;
+    if (!armories.length || !id) {
+      return { ok: false, id, armories: armories.length,
+        rackIds: (c.cabin?.wallRack?.racks ?? []).map((r) => r.id) };
+    }
+    const took = armories.some((a) => a.take(id));
+    if (!took) return { ok: false, id, why: 'no armory would take it' };
+    /* The pockets belong to the built world (`c.cabin`), like the racks
+     * two lines up -- the runtime handle has no bare `inventory`. */
+    const inHand = { held: c.cabin.inventory.held, equipped: c.weapons?.equipped ?? null };
+    c.weapons.stow();
+    const afterStow = {
+      items: c.cabin.inventory.items.slice(),
+      equipped: c.weapons?.equipped ?? null,
+    };
+    const slot = afterStow.items.indexOf(id);
+    if (slot >= 0) {
+      c.cabin.inventory.select(slot);
+      if (c.weapons.equipped !== id) c.weapons.equip(id);
+    }
+    return {
+      ok: true, id, inHand, afterStow, slot,
+      redrawn: c.weapons?.equipped ?? null,
+    };
+  });
+  check('a rifle taken off the wall lands in a pocket, survives [Q], and its number key draws it again',
+    gun.ok && gun.inHand.equipped === gun.id
+      && gun.afterStow.items.includes(gun.id) && gun.afterStow.equipped === null
+      && gun.slot >= 0 && gun.redrawn === gun.id,
+    JSON.stringify(gun));
   /* Cross the browser-to-Player seam with a real canvas gesture. Headless
    * Chromium does not consistently honor pointer lock requested from the
    * overlay button, even though a direct gameplay click is accepted. */
@@ -729,6 +827,7 @@ try {
   const afterMove = await page.evaluate(() => window.COUNTRYSIDE_CABIN.player.position.toArray());
   check('Real production keyboard input moves the first-person player',
     Math.hypot(afterMove[0] - beforeMove[0], afterMove[2] - beforeMove[2]) > 0.025);
+
 
   await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;

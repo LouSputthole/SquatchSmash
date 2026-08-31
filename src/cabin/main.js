@@ -24,6 +24,25 @@ import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { ITEMS } from '../core/inventory.js';
+
+/* WHAT THE POCKETS CAN SHOW.
+ *
+ * `ITEMS` is the starter flat's catalog -- beer, smokes, eggs -- and a slot
+ * holding an id it does not know draws blank. The guns come from the weapon
+ * catalog by id, so a weapon added there needs no entry here. Same split the
+ * mansion's `loadout.js` made for the same reason, and the same reason the
+ * owner gave it: *"This way I can grab guns and stuff too."* */
+const CABIN_ITEMS = Object.freeze({
+  ...ITEMS,
+  ...Object.fromEntries(Object.values(WEAPON_IDS)
+    .filter((id) => weaponDef(id))
+    .map((id) => [id, Object.freeze({
+      icon: '⌐', name: weaponDef(id).name, hint: '[Click] to fire · [R] to reload',
+    })])),
+});
+
+/** A slot is a gun when the weapon catalog knows the id in it. */
+const isCabinWeapon = (id) => Boolean(id && weaponDef(id));
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Phone } from '../core/phone.js';
@@ -1286,8 +1305,24 @@ const armoryCollider = (prefix) => (x0, x1, y0, y1, z0, z1) => {
 };
 const armoryEvent = (event) => {
   if (event.type === 'take') {
-    const emptyPocket = cabin.inventory.items.findIndex((item) => item === null);
-    if (emptyPocket >= 0) cabin.inventory.select(emptyPocket);
+    /* THE GUN GOES IN A POCKET.
+     *
+     * This used to select an EMPTY pocket and toast "ready", which left the
+     * bar showing nothing while the rifle was in his hands -- and then [Q]
+     * stowed it out of his hands with no slot to stow it INTO. Owner: *"the
+     * gun at the cabin also isnt in my inventory, i have it and then I put it
+     * away and it dissapears."* It was not destroyed -- `retainTaken` keeps
+     * the wall copy reserved, so walking back to the rack re-equipped it --
+     * but nothing on screen said so, and a gun you can only recover by
+     * remembering which wall you took it off is a gun you have lost.
+     *
+     * `add` is idempotent enough for a durable rack: a second take of an id
+     * already owned re-selects the slot it is in rather than spending a
+     * second one. */
+    const owned = cabin.inventory.items.indexOf(event.id);
+    const slot = owned >= 0 ? owned
+      : (cabin.inventory.add(event.id) ? cabin.inventory.items.indexOf(event.id) : -1);
+    if (slot >= 0) cabin.inventory.select(slot);
     hud.toast(`${weaponDef(event.id).name} ready`, 'good');
   }
   else if (event.type === 'resupply') hud.toast('Ammunition restocked', 'good');
@@ -1595,7 +1630,7 @@ if (campaign.hasItem(ITEM_IDS.PHONE) && !cabin.inventory.has('phone')) {
 }
 if (cabin.phoneProp?.group) cabin.phoneProp.group.visible = !cabin.inventory.has('phone');
 cabin.inventory.onChange = (inventory) => {
-  hud.setInventory(inventory, ITEMS);
+  hud.setInventory(inventory, CABIN_ITEMS);
   const held = inventory.held;
   heldPhone.group.visible = held === 'phone';
   poseHeldDrink(heldDrinks, held === 'beer' ? 'can' : held === 'whiskey' ? 'bottle' : null, 0);
@@ -1792,10 +1827,18 @@ input = createFirstPersonInput({
       const number = /^Digit([1-5])$/.exec(event.code)?.[1];
       if (number) {
         cabin.inventory.select(Number(number) - 1);
-        if (cabin.inventory.held && weapons?.equipped) {
+        /* EQUIP ONLY WHERE HE ASKED FOR IT -- the mansion's loadout learned
+         * this twice and wrote it down: driving the weapon system from the
+         * inventory's own change handler put a stowed gun straight back into
+         * his hands, because [Q] leaves the gun sitting in its slot. A number
+         * key is the player asking; nothing else is. */
+        const held = cabin.inventory.held;
+        if (isCabinWeapon(held)) {
+          if (weapons && weapons.equipped !== held) weapons.equip(held);
+        } else if (weapons?.equipped) {
           weapons.stow();
-          renderCombatHud();
         }
+        renderCombatHud();
         return true;
       }
       return false;
