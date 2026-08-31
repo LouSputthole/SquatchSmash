@@ -402,7 +402,8 @@ class LuxuryApartmentStory {
        * things together. I am not walking out before she does."
        *
        * The refusal keys are cue names and stay exactly as they are; this is
-       * the panel learning to read them. */
+       * the panel learning to read them. (Both audits found this
+       * independently and chose the same morning words.) */
       items.push({
         id: door.id,
         label: LUXURY_STAY_LABELS[phase] ?? 'Sleep',

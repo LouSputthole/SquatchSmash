@@ -437,6 +437,21 @@ test('the objective panel says exactly what the door is waiting on', () => {
   assert.deepEqual(waiting.items.map((item) => item.id), [`depart.${SCENE_IDS.SILVER_ROOM}`]);
   assert.deepEqual(waiting.items.map((item) => item.label), ['Leave for Front & Center']);
 
+  /* THE TWO `stay` NIGHTS ARE NOT THE SAME NIGHT.
+   *
+   * Beat 16's stay is the bed and says so. Beat 17's stay is ten past seven on
+   * Day 7 with Margo still collecting her things, and the panel answered it
+   * "Sleep" -- the flat telling a man who has just woken up to go back to bed,
+   * while the door beside it said "I am not walking out before she does".
+   * Caught by playing the `margo-morning` preview stage, 2026-08-31. */
+  const night = walkToPhase(afterTheHandover(), 'stayover').objectives();
+  assert.deepEqual(night.items.map((item) => item.id), ['luxury_stayover']);
+  assert.deepEqual(night.items.map((item) => item.label), ['Sleep']);
+
+  const morning = walkToPhase(afterTheHandover(), 'morning').objectives();
+  assert.deepEqual(morning.items.map((item) => item.id), ['luxury_margo_morning']);
+  assert.deepEqual(morning.items.map((item) => item.label), ['See Margo out']);
+
   const quiet = walkToPhase(afterTheHandover(), 'return').objectives();
   assert.deepEqual(quiet.items.map((item) => item.id), [EVENT_IDS.BOOSKI_SILVER_CASE_CALL]);
 
