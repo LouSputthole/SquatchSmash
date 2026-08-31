@@ -323,5 +323,8 @@ test('the headless geometry builder produces both authored states', () => {
   assert.equal(waiting.sedan.headlightsOn, false);
   assert.ok(Math.abs(arrived.sedan.vehicle.z - SEDAN_STOP.z) < 0.01, 'arrived: at the kerb');
   assert.equal(arrived.sedan.headlightsOn, true);
-  assert.ok(arrived.sedan.trunk.hinge.rotation.z < -0.9, 'with the boot open');
+  /* SHUT, since 2026-08-31: the live script keeps the lid down until
+   * SM-410's reveal, and the concealed rider's visibility rides on it —
+   * this state used to open the boot from before the reveal moved. */
+  assert.equal(arrived.sedan.trunk.hinge.rotation.z, 0, 'with the boot shut at the kerb');
 });
