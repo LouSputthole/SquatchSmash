@@ -189,7 +189,10 @@ test('canonical Lag is reused with a cabin-specific four-state firewood loop and
   assert.equal(lag.group.parent, scene);
   assert.equal(lag.group.name, 'cabin-lag');
   assert.equal(lag.group.userData.npc.name, 'Lag');
-  assert.equal(lag.group.userData.npc.outfit, 'tracksuit');
+  /* Owner, 2026-08-31: "He's an Alabama country boy." The canonical Lag
+   * traded the tracksuit for a patterned camp shirt (src/bing/family.js),
+   * and out here chopping firewood the camp shirt is the truer fit. */
+  assert.equal(lag.group.userData.npc.outfit, 'camp');
   assert.equal(lag.npc.characterId, 'lag');
   assert.equal(lag.group.userData.npc.characterId, 'lag');
   assert.equal(lag.group.userData.npc.family, true);

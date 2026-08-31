@@ -802,14 +802,22 @@ const BING_SEFF = Object.freeze({
   hair: 'short', hairColour: 0x14100e, skin: 0xe8c39c,
   belt: 'leather',
 });
+/* Both brought forward on the owner's 2026-08-31 wardrobe rulings, mirroring
+ * src/bing/family.js: Old Stove dresses like the old-timer he is off the
+ * airfield (brown suit, cream shirt, proper tie, gold watch), and Lag —
+ * "He's an Alabama country boy" — trades the tracksuit for a patterned camp
+ * shirt, denim-blue trousers and a leather belt. */
 const BING_OLD_STOVE = Object.freeze({
-  height: 1.72, build: 1.1, dress: 'shirt', shirt: 0x24303a,
+  height: 1.72, build: 1.1, dress: 'suit', jacketColour: 0x3a2c24,
+  shirt: 0xd9d2c2, tie: true, tieColour: 0x5a2a20, watch: 'gold',
   hair: 'receding', hairColour: 0x9a9a9a, beard: true, skin: 0xc08a5e,
   belt: 'leather',
 });
 const BING_LAG = Object.freeze({
-  height: 1.74, build: 0.9, dress: 'tracksuit', shirt: 0x1f3a2a,
-  hair: 'crop', hairColour: 0x2a1c14, glasses: true, skin: 0xe8c39c,
+  height: 1.74, build: 0.9, dress: 'camp', pattern: true,
+  shirt: 0x7a3a28, shirtAccent: 0xd8c9a2, trouserColour: 0x35486a,
+  belt: 'leather', hair: 'crop', hairColour: 0x2a1c14,
+  glasses: true, skin: 0xe8c39c,
 });
 const SPECIAL_MEETING_SEFF = formalMeetingModel(CHARACTER_IDS.SEFF, BING_SEFF);
 const SPECIAL_MEETING_LAG = formalMeetingModel(CHARACTER_IDS.LAG, BING_LAG);

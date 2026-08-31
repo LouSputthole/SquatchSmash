@@ -13,7 +13,13 @@ test('every exact rendered take has a current text, performer, index, hash, and 
     fs.readFile(RECEIPTS, 'utf8').then(JSON.parse),
   ]);
   assert.equal(await validateEvidence(current, evidence), current.length);
-  assert.equal(current.length, 543);
+  /* 543 -> 538 on 2026-08-31: the five rewritten Margo cabin-call lines are
+   * queued in assets/sfx/rerecord.json with their retired wording, and a
+   * queued rewrite is no longer certified as evidence of the CURRENT script
+   * (tools/verify-rendered-voices.mjs reads the queue). They return to this
+   * count when the replacement takes are rendered and the queue entries are
+   * removed. */
+  assert.equal(current.length, 538);
   assert.ok(evidence.receipts.every((row) => row.durationSeconds > 0.1));
 });
 

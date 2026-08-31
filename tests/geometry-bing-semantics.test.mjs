@@ -72,13 +72,20 @@ const BING_STATE_IDS = Object.freeze([
  * sign. That one deliberate prop was 17 records in every HotDog state, so
  * party/attack are 4696 -> 4679, cleanup 4618 -> 4601, and graveyard
  * 4546 -> 4529. Visit one never mounted it and stays 6017. The measured
- * findings and suppression counts below are unchanged. */
+ * findings and suppression counts below are unchanged.
+ *
+ * MOVED 2026-08-31 on the owner's wardrobe rulings: Lag's camp shirt
+ * (pattern grid, sleeve hems, front edges) and belt, Old Stove's suit, tie
+ * and gold watch, and Irish's flat cap, trim and collar accent are +80
+ * records on every state alike — the uniform-delta signature of clothing on
+ * a cast present in all five, with nothing placed by hand moved. Measured
+ * with tools/verify-geometry-worker.mjs per state. */
 const EXPECTED_RECORDS = Object.freeze({
-  'bing:visit-one': 6017,
-  'bing:party': 4679,
-  'bing:attack': 4679,
-  'bing:cleanup': 4601,
-  'bing:graveyard': 4529,
+  'bing:visit-one': 6097,
+  'bing:party': 4759,
+  'bing:attack': 4759,
+  'bing:cleanup': 4681,
+  'bing:graveyard': 4609,
 });
 
 function snapshotFor(built) {
