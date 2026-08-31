@@ -101,6 +101,12 @@
   .record .r-scope.cue-scope { color: #ef9a86; }
   .record.picked button.pick { color: #171106; background: var(--gold-hot); }
   #song-picks-summary strong { color: var(--gold-hot); user-select: all; }
+  #all-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  #all-picks-line {
+    flex: 1; min-width: 240px; color: var(--gold-hot);
+    font: 12px/1.4 Consolas, monospace; overflow-wrap: anywhere; user-select: all;
+  }
+  #all-picks .copy-status { color: #aebf9a; font-size: 12px; min-width: 120px; }
   @media (max-width: 720px) {
     header, .weapon-head { align-items: stretch; flex-direction: column; }
     .candidate-grid { grid-template-columns: 1fr; }
@@ -124,6 +130,11 @@
   <main>
     <div class="notice">
       Audition masters live under <code>assets/audio/auditions/</code>, outside the production SFX index. Missing files are marked only when played, so the page stays quiet in normal QA. Approved favorites are review data—not production routing—until deliberately promoted.
+    </div>
+    <div class="notice" id="all-picks">
+      <button id="copyPicks" class="primary" type="button">Copy my picks</button>
+      <span id="all-picks-line">No picks starred yet.</span>
+      <span class="copy-status" id="copyPicksStatus"></span>
     </div>
     <div id="weapons"></div>
 
@@ -425,6 +436,54 @@
   } catch {
     summary.textContent = 'Could not load assets/music/manifest.json — serve the repo statically and reload.';
   }
+</script>
+<script type="module">
+  /* One line that carries every pick out of this browser. Favorites live only
+   * in localStorage — the page is static, nothing is ever sent anywhere — so
+   * the owner needs a copyable receipt to hand the picks back for wiring. */
+  import { WEAPON_AUDITION_STORAGE_KEY } from './src/core/weapons/audition.js';
+  import { FOOTSTEP_AUDITION_STORAGE_KEY, SONG_PICK_STORAGE_KEY } from './src/core/sfx-audition.js';
+
+  const line = document.getElementById('all-picks-line');
+  const status = document.getElementById('copyPicksStatus');
+  const readStore = (key) => {
+    try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; }
+  };
+  function picksLine() {
+    const weapons = readStore(WEAPON_AUDITION_STORAGE_KEY);
+    const steps = readStore(FOOTSTEP_AUDITION_STORAGE_KEY);
+    const cabin = Object.entries(readStore(SONG_PICK_STORAGE_KEY))
+      .filter(([, on]) => on === true).map(([file]) => file).sort();
+    const count = Object.keys(weapons).length + Object.keys(steps).length + cabin.length;
+    if (!count) return null;
+    return `SQUATCHPICKS::${JSON.stringify({ weapons, steps, cabin })}`;
+  }
+  function render() {
+    const text = picksLine();
+    line.textContent = text ?? 'No picks starred yet.';
+    return text;
+  }
+  render();
+  // Stars are persisted by the other scripts on click; re-read after any click.
+  document.addEventListener('click', () => requestAnimationFrame(render));
+  function selectLineForManualCopy() {
+    const range = document.createRange();
+    range.selectNodeContents(line);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    status.textContent = 'Selected — press Ctrl+C.';
+  }
+  document.getElementById('copyPicks').addEventListener('click', () => {
+    const text = render();
+    if (!text) { status.textContent = 'Nothing starred yet.'; return; }
+    // clipboard is absent over plain HTTP; fall back to selecting the line.
+    if (!navigator.clipboard?.writeText) { selectLineForManualCopy(); return; }
+    navigator.clipboard.writeText(text).then(
+      () => { status.textContent = 'Copied — paste it to Claude.'; },
+      selectLineForManualCopy,
+    );
+  });
 </script>
 </body>
 </html>
