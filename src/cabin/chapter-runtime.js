@@ -2,6 +2,7 @@ import {
   CABIN_HOSTAGE_IDS,
   COUNTRYSIDE_CABIN_LANDMARKS,
 } from '../core/countryside-cabin-story.js';
+import { GRATIN_AIM_SECONDS, GRATIN_SHOT_GAP_SECONDS } from './execution-choice.js';
 import { CABIN_PHONE_CALLS, MARGO_CALL_READY } from './script.js';
 
 /* The owner's two clocks, in seconds of simulated time. "Maybe have Lou
@@ -617,21 +618,57 @@ export class CabinChapterRuntime {
     return true;
   }
 
+  /**
+   * HE HAS TO TURN BEFORE HE CAN SHOOT.
+   *
+   * Owner, cabin playtest: *"if you choose no to shooting them, the animation
+   * from Gratin, he doesn't really face the ones that he's shooting."*
+   *
+   * The old schedule fired at 0.72 s and 1.82 s from a standing start. The
+   * turns those two shots need are 137.2 and 134.2 degrees (measured; see
+   * `createCabinGratinExecutionStaging`), so neither shot could ever have been
+   * taken facing its man -- there was not time to turn even if anything had
+   * asked him to, and nothing did. Each shot now leads with an `aimAt` beat
+   * `GRATIN_AIM_SECONDS` ahead of it, and the slots are rebuilt from the
+   * surviving captives so a reload with one already dead does not leave him
+   * standing through a turn toward a body that is not there.
+   */
   _beginGratinExecution({ restored = false } = {}) {
     if (this.executionClock || this.story.executionChoice() !== 'gratin') return false;
+    const slot = GRATIN_AIM_SECONDS + GRATIN_SHOT_GAP_SECONDS;
     const authoredShots = [
-      { at: 0.72, id: CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER },
-      { at: 1.82, id: CABIN_HOSTAGE_IDS.ATEAM_MEMBER },
-    ].filter(({ id }) => !this.story.hostageDead(id));
+      CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER,
+      CABIN_HOSTAGE_IDS.ATEAM_MEMBER,
+    ]
+      .filter((id) => !this.story.hostageDead(id))
+      .map((id, index) => ({
+        id,
+        aimAt: index * slot,
+        at: index * slot + GRATIN_AIM_SECONDS,
+      }));
     if (!authoredShots.length) return false;
-    this.executionClock = { elapsed: 0, next: 0, shots: authoredShots };
+    this.executionClock = { elapsed: 0, next: 0, nextAim: 0, shots: authoredShots };
     this.callbacks.onGratinExecutionStart?.({ restored });
+    this._runExecutionAims();
     return true;
+  }
+
+  _runExecutionAims() {
+    const clock = this.executionClock;
+    if (!clock) return;
+    while (
+      clock.nextAim < clock.shots.length
+      && clock.elapsed >= clock.shots[clock.nextAim].aimAt
+    ) {
+      const shot = clock.shots[clock.nextAim++];
+      if (!this.story.hostageDead(shot.id)) this.callbacks.onGratinAim?.(shot.id);
+    }
   }
 
   _updateExecution(dt) {
     if (!this.executionClock) return;
     this.executionClock.elapsed += dt;
+    this._runExecutionAims();
     while (
       this.executionClock.next < this.executionClock.shots.length
       && this.executionClock.elapsed >= this.executionClock.shots[this.executionClock.next].at
@@ -647,6 +684,7 @@ export class CabinChapterRuntime {
     }
     if (this.executionClock.next >= this.executionClock.shots.length) {
       this.executionClock = null;
+      this.callbacks.onGratinExecutionEnd?.();
       this._queueGratinAftermath();
       this.callbacks.onSync?.();
     }

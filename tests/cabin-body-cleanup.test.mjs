@@ -7,6 +7,8 @@ import {
   BODY_BURN_DURATION_S,
   BODY_CARRY_POSITION,
   CABIN_CLEANUP_BODIES,
+  GAS_POUR_SECONDS,
+  GAS_POUR_STAGES,
   buildCabinBodyCleanup,
   cabinCleanupRestoreState,
   createCabinBonfireCastStaging,
@@ -272,4 +274,99 @@ test('bonfire cast staging uses both authored stump seats and restores daytime p
   assert.ok(Math.abs(gratin.group.rotation.y - originals.gratinYaw) < 1e-12);
   assert.equal(gratin.job, 'stand');
   assert.equal(gratin.seated, false);
+});
+
+/**
+ * THE FUEL PASS IS PLAYED, NOT SWITCHED ON.
+ *
+ * Owner, cabin playtest: *"We put a little more work into the pouring the
+ * gasoline on the bodies, at the burning them scene."*
+ *
+ * The can has to leave its stand, cross the pyre mouth-down, coat the two
+ * bundles in the order the stream reaches them, and come back -- and a save
+ * restored after the pour must land on the finished frame without replaying
+ * any of it or re-firing a single cue.
+ */
+test('the gasoline pass crosses the pyre, coats both bundles in order, and returns the can', () => {
+  const { cleanup } = fixture();
+  const [first, second] = CABIN_CLEANUP_BODIES.map(({ id }) => id);
+  const home = cleanup.gasCan.position.clone();
+  for (const id of [first, second]) {
+    assert.equal(cleanup.wrap(id), true);
+    assert.equal(cleanup.beginCarry(id), true);
+    assert.equal(cleanup.placeAtFire(id), true);
+  }
+
+  const stream = cleanup.root.getObjectByName('cabin-cleanup.gas-stream');
+  assert.ok(stream, 'the pour needs a stream to show');
+  assert.equal(stream.visible, false, 'and it stays hidden until the can is tipped');
+
+  assert.equal(cleanup.pourGas(), true);
+  assert.equal(cleanup.snapshot().pouring, true);
+  assert.equal(cleanup.snapshot().pourProgress, 0);
+
+  const samples = [];
+  for (let t = 0; t < GAS_POUR_SECONDS + 0.3; t += 1 / 60) {
+    cleanup.update(1 / 60);
+    samples.push({
+      p: cleanup.snapshot().pourProgress,
+      streaming: stream.visible,
+      x: cleanup.gasCan.position.x,
+      tilt: cleanup.gasCan.rotation.z,
+      wet: [...cleanup.bodies.values()].map((record) => record.wet),
+    });
+  }
+
+  // Mouth-down over the pyre, and the mouth walks from the first bundle to
+  // the second rather than sitting in one place.
+  const streaming = samples.filter((s) => s.streaming);
+  assert.ok(streaming.length > 60, `the stream should run for over a second, got ${streaming.length} frames`);
+  assert.ok(Math.min(...streaming.map((s) => s.tilt)) < -1.5, 'the can never tipped mouth-down');
+  const walked = Math.max(...streaming.map((s) => s.x)) - Math.min(...streaming.map((s) => s.x));
+  assert.ok(walked > 0.9, `the mouth only crossed ${walked.toFixed(2)} m of the pyre`);
+
+  // The first bundle is wet before the second is touched.
+  const firstWetAt = samples.findIndex((s) => s.wet[0] >= 0.99);
+  const secondWetAt = samples.findIndex((s) => s.wet[1] >= 0.99);
+  assert.ok(firstWetAt > 0 && secondWetAt > firstWetAt,
+    `coats landed out of order: ${firstWetAt} then ${secondWetAt}`);
+
+  const done = cleanup.snapshot();
+  assert.equal(done.pouring, false);
+  assert.equal(done.pourProgress, 1);
+  assert.equal(stream.visible, false, 'nothing is still pouring when the pass is over');
+  assert.ok(cleanup.gasCan.position.distanceTo(home) < 0.01, 'the can goes back where it came from');
+  assert.ok(Math.abs(cleanup.gasCan.rotation.z) < 0.01, 'and it is set down upright');
+});
+
+test('every authored pour stage fires once, in order, and never again after a reload', () => {
+  const events = [];
+  const { cleanup } = fixture({ onEvent: (event) => events.push(event) });
+  for (const { id } of CABIN_CLEANUP_BODIES) {
+    cleanup.wrap(id);
+    cleanup.beginCarry(id);
+    cleanup.placeAtFire(id);
+  }
+  cleanup.pourGas();
+  for (let t = 0; t < GAS_POUR_SECONDS + 0.5; t += 1 / 60) cleanup.update(1 / 60);
+
+  const staged = events.filter((event) => event.type === 'pour-stage').map((event) => event.stage);
+  assert.deepEqual(staged, GAS_POUR_STAGES.map(({ id }) => id));
+  assert.equal(events.filter((event) => event.type === 'pour-complete').length, 1);
+
+  // Another two seconds of frames must not announce anything else.
+  const before = events.length;
+  for (let t = 0; t < 2; t += 1 / 60) cleanup.update(1 / 60);
+  assert.equal(events.length, before, 'the finished pass kept talking');
+
+  // Reload: the fuel is on them, and not one cue plays again.
+  const restored = fixture({ onEvent: (event) => events.push(event) });
+  const replayed = events.length;
+  restored.cleanup.sync(cleanup.snapshot());
+  assert.equal(events.length, replayed, 'a restored pour re-announced its stages');
+  const snapshot = restored.cleanup.snapshot();
+  assert.equal(snapshot.gasPoured, true);
+  assert.equal(snapshot.pourProgress, 1);
+  assert.equal(snapshot.pouring, false);
+  assert.ok([...restored.cleanup.bodies.values()].every((record) => record.wet === 1));
 });
