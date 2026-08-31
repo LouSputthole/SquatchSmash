@@ -395,7 +395,14 @@ export async function buildLuxuryApartment(ctx = {}) {
   register('elevator', doors.elevator.target, {
     label: () => {
       const status = ctx.elevatorStatus?.();
-      if (status && !status.ready) return 'Private <b>elevator</b> · get ready first';
+      /* The scene may name the reason it is refusing; the chore count is the
+       * fallback and the only one the standalone preview ever needs. On the
+       * campaign route the reason is the campaign door's -- see
+       * `luxuryElevatorStatus` in luxury-apartment/main.js for what a fixed
+       * "get ready first" was telling a man whose panel said LEAVE. */
+      if (status && !status.ready) {
+        return status.label ?? 'Private <b>elevator</b> · get ready first';
+      }
       return state.elevatorOpen ? 'Take the private <b>elevator</b>' : 'Call the private <b>elevator</b>';
     },
     onUse: () => {

@@ -202,6 +202,19 @@ const campaign = createCampaign();
 const luxuryStory = createLuxuryApartmentStory({ campaign });
 const routed = campaign.state.scene.id === SCENE_IDS.LUXURY_APARTMENT;
 
+/* AND ONCE THERE IS A SAVE, THE CLOCK IS THE SAVE'S.
+ *
+ * The authored 8:30 PM above is the standalone preview's evening and nothing
+ * routed ever replaced it. Measured in a browser across all ten `luxury=`
+ * stages on 2026-08-31: every one of them read "Day 8 · 8:30 PM" on the HUD
+ * while the ledger underneath said Day 6 11:45 at the handover, Day 6 23:20
+ * for the stayover, Day 7 07:10 for Margo's morning and Day 13 20:50 after
+ * the credits. `applyTimeOfDay` feeds `setCityTime` from the same minutes, so
+ * beat 17's morning was also lit and skied as night. Both sibling hubs seed
+ * the clock from the save before their first frame -- src/main.js:409 and
+ * src/cabin/main.js:152 -- and this is that line. */
+if (routed) time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
+
 /** The flat's standing order when nothing in the campaign is asking. */
 const LUXURY_OBJECTIVE = 'Explore both floors or try the private games room.';
 
@@ -623,6 +636,46 @@ function luxuryDeparture() {
   };
 }
 
+/**
+ * WHAT THE LIFT'S OWN PROMPT SAYS WHEN IT IS NOT GOING ANYWHERE.
+ *
+ * `readyTally` counts beat 14's three chores and nothing else, so anywhere
+ * past getting ready it is stuck at 1/3 forever -- the phone walks in from the
+ * starter flat, and nobody ever asks him to shower or change again. The lift's
+ * label read that tally directly, so the handle under his crosshair said "get
+ * ready first" on all ten `luxury=` stages, measured 2026-08-31. Three of them
+ * boot with a `go` door and three more reach one by answering the telephone:
+ * on `date-ready` the panel says "Leave for Front & Center", pressing E does
+ * leave, and the prompt he read on the way in told him he was not ready. The
+ * panel is derived from `tryLeave` for exactly this reason (see
+ * `LuxuryApartmentStory.objectives`); so is the handle now.
+ */
+function luxuryElevatorStatus() {
+  const tally = readyTally.snapshot();
+  if (!routed) return tally;
+  /* `luxuryDeparture` refuses the ride outright while a call is up, so the
+   * prompt has to refuse it too. Otherwise the one beat where the lift is
+   * offered and then withdrawn is the one where he is being told where to go. */
+  if (phone.inCall) {
+    return { ...tally, ready: false, label: 'Private <b>elevator</b> · finish the call' };
+  }
+  const door = luxuryStory.tryLeave();
+  if (door.kind === 'go') return { ...tally, ready: true };
+  return {
+    ...tally,
+    ready: false,
+    /* Short enough for a prompt and true for the beat it belongs to: the
+     * chores, the woman who is still in the flat, or a telephone nobody has
+     * rung yet. The full line stays in `DEPARTURE_REFUSALS`, which is what
+     * `beginElevatorExit` speaks when he actually pulls the handle. */
+    label: door.kind === 'stay'
+      ? 'Private <b>elevator</b> · she is still here'
+      : door.kind === 'call'
+        ? 'Private <b>elevator</b> · wait for the call'
+        : 'Private <b>elevator</b> · get ready first',
+  };
+}
+
 function beginElevatorExit() {
   if (state.phase !== 'active') return false;
 
@@ -873,6 +926,7 @@ function sleepAtHome() {
    * evening that did not earn her), and it writes the Day 7 morning the
    * bible asks for. A refused night says why instead of silently doing
    * nothing, because a bed that ignores you is a bed you assume is broken. */
+  let storySleep = null;
   if (routed) {
     const night = luxuryStory.sleep();
     if (!night.ok) {
@@ -880,6 +934,7 @@ function sleepAtHome() {
       if (door.line) hud.say(door.line, 4200);
       return false;
     }
+    storySleep = night;
   }
   state.resting = true;
   syncInput('sleep-start');
@@ -888,7 +943,13 @@ function sleepAtHome() {
     audio.play('bed.rustle', { volume: 0.48 });
     restCurtain.classList.add('active');
     window.setTimeout(() => {
-      time.skipHours(11.5);
+      /* The ledger already decided what time he gets up: LUXURY_STAYOVER_REST
+       * is anchored at 07:10 on Day 7, and the toast three lines below has
+       * always read the campaign's day. Skipping a flat eleven and a half
+       * hours on top of that left the two disagreeing on the same screen.
+       * The preview keeps the skip: it has no ledger to ask. */
+      if (storySleep) time.setTime(storySleep.day, storySleep.timeMinutes);
+      else time.skipHours(11.5);
       highs.sleepItOff();
       focusRush.stop();
       state.sleepCount += 1;
@@ -1009,7 +1070,7 @@ try {
     time,
     onFrontDoor: useFrontDoor,
     onElevator: useElevator,
-    elevatorStatus: () => readyTally.snapshot(),
+    elevatorStatus: () => luxuryElevatorStatus(),
     onBathroomDoor: (open) => useDoor('Bathroom door', open),
     onBed: useBed,
     onCouch: () => sitAt('couch', home.poses.couch),

@@ -390,7 +390,17 @@ class LuxuryApartmentStory {
     if (door.kind === 'activity') {
       items.push({ id: door.id, label: door.label, done: false, required: true });
     } else if (door.kind === 'stay') {
-      items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+      items.push({
+        id: door.id,
+        /* Beat 16's stay IS the bed. Beat 17's is not: at ten past seven the
+         * thing he is waiting on is Margo leaving, and a panel that answers
+         * "Sleep" there disagrees with the door it was derived from -- the
+         * same failure `tests/specialmeeting-act-one.test.mjs` already guards
+         * for the starter flat's wait. */
+        label: door.id === 'luxury_margo_morning' ? 'See Margo out' : 'Sleep',
+        done: false,
+        required: true,
+      });
     } else if (door.kind === 'go') {
       items.push({
         id: `depart.${door.destination}`,

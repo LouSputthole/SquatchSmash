@@ -831,6 +831,34 @@ test('luxury interactions preserve tap/hold parity and expose deterministic cont
   world.dispose();
 });
 
+test('the lift prompt says whatever the scene is actually refusing on', async () => {
+  /* WHY THIS IS A TEST AND NOT A COMMENT.
+   *
+   * The label used to hardcode "get ready first" for every refusal, and the
+   * scene handed it `readyTally` -- beat 14's three chores -- on the campaign
+   * route as well as the preview. So the handle read "get ready first" on all
+   * ten `luxury=` preview stages, measured in a browser 2026-08-31, including
+   * the three that boot with a `go` door where pressing E does leave. The
+   * scene now supplies the reason; this holds the fallback and the override.
+   */
+  let status = { ready: false, label: null };
+  const { world, registered } = await build({ elevatorStatus: () => status });
+  const lift = registered.get(world.utilityTargets.elevator);
+
+  assert.equal(lift.label(), 'Private <b>elevator</b> · get ready first');
+
+  status = { ready: false, label: 'Private <b>elevator</b> · she is still here' };
+  assert.equal(lift.label(), 'Private <b>elevator</b> · she is still here');
+
+  status = { ready: true };
+  assert.equal(lift.label(), 'Call the private <b>elevator</b>');
+  lift.onUse();
+  assert.equal(world.state.elevatorOpen, true);
+  assert.equal(lift.label(), 'Take the private <b>elevator</b>');
+
+  world.dispose();
+});
+
 test('luxury styling owns the standalone hub surfaces', () => {
   for (const selector of [
     'body.luxury-apartment', '#luxury-grade', '#luxury-vignette', '#luxury-rest',
