@@ -612,6 +612,10 @@ export async function buildCountrysideCabin(ctx) {
     splitWood: exterior.splitWood,
     woodpileState: exterior.woodpileState,
     setFireLit: exterior.setFireLit,
+    firepitSeats: exterior.firepitSeats,
+    firepitRadioPos: exterior.firepitRadioPos,
+    firepitRadioTarget: exterior.firepitRadioTarget,
+    setFirepitRadioLive: exterior.setFirepitRadioLive,
     shootingRange,
     bodyCleanup,
     cleanup: bodyCleanup,
@@ -830,6 +834,126 @@ function buildWindows(root, M, south, west) {
   frameWindow({ name: 'cabin-west-window', orientation: 'west', a0: west.z0, a1: west.z1, y0: west.y0, y1: west.y1, fixed: MAIN.x0 });
 }
 
+/**
+ * CLOSE THE HOLE BETWEEN THE WALL PLATE AND THE ROOF.
+ *
+ * Owner, cabin playtest: *"There's also a big gap in the cabin wall above the
+ * wall where the roof, on the sides of it. The roof, there's... it should be,
+ * like, a triangle piece fitting up top to make the wall meet with the roof.
+ * The wall is perfectly a straight square at the top, and then the roof, which
+ * is angled over the top, doesn't connect at all. So we gotta fix that."*
+ *
+ * Every wall block stops dead at `WALL_H` = 3.05 while the ridge stands at
+ * 5.05, so the whole shed above the plate was open air. Measured by firing
+ * horizontal rays east from x = -6.9 through every (y, z) inside the wall's
+ * own z span and under the roof plane: 412 of 434 came out the far side of
+ * the building without hitting anything. You could see straight through the
+ * cabin over its own walls. With the closures below it is 0 of 434.
+ *
+ * The roof underside is a plane, so both closures fall out of one equation:
+ *
+ *   underside(z) = ridgeY - |z - centreZ| * (rise / run) - 0.08 / cos(angle)
+ *
+ * with 0.08 the half-thickness of the 0.16 m slab. That gives:
+ *
+ *   apex, z = 0.25   4.9657   -> 1.916 m of gable open at the ridge
+ *   wall,  z = 5.5   3.2157   -> 0.166 m of eave slot along the long walls
+ *
+ * The gable ends (the two x-facing walls, which the ridge runs into) take a
+ * pentagon: flat on the plate across the wall's own z span, then up the two
+ * rakes to the apex. It is clipped to the wall footprint rather than run out
+ * to the 0.75 m rake overhang, so its bottom corners land on wall and not on
+ * air. The long walls take a plain 0.166 m frieze board, split around the
+ * bathroom lean-to whose own roof already occupies that band.
+ */
+function buildGableEnds(root, M, { rise, run, angle, centreZ, ridgeY }) {
+  const slabClearance = 0.08 / Math.cos(angle);
+  const underside = (z) => ridgeY - Math.abs(z - centreZ) * (rise / run) - slabClearance;
+  const eaveY = Math.min(underside(MAIN.z0), underside(MAIN.z1));
+  const apexY = underside(centreZ);
+
+  for (const [name, x0] of [['west', MAIN.x0 - WALL], ['east', MAIN.x1]]) {
+    const shape = new THREE.Shape();
+    shape.moveTo(MAIN.z0, WALL_H);
+    shape.lineTo(MAIN.z1, WALL_H);
+    shape.lineTo(MAIN.z1, underside(MAIN.z1));
+    shape.lineTo(centreZ, apexY);
+    shape.lineTo(MAIN.z0, underside(MAIN.z0));
+    shape.closePath();
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: WALL, bevelEnabled: false });
+    /* ExtrudeGeometry builds in XY and extrudes along +Z. A -90 degree turn
+     * about Y sends shape-X to world +Z and the extrusion to world -X, so the
+     * panel is placed at its high-x face and grows back through the wall. */
+    const panel = new THREE.Mesh(geometry, M.wall);
+    panel.name = `cabin-gable-${name}`;
+    panel.rotation.y = -Math.PI / 2;
+    panel.position.x = x0 + WALL;
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    panel.userData.geometryGate = { assemblyId: 'cabin-shell', structural: true };
+    root.add(panel);
+
+    // Horizontal log courses on the outside face, on `addCladding`'s pitch and
+    // clipped to the triangle's width at each course height.
+    const row = 0.255;
+    const faceX = name === 'west' ? x0 - 0.035 : x0 + WALL + 0.035;
+    const wallHalf = (MAIN.z1 - MAIN.z0) / 2;
+    for (let y = WALL_H + row / 2; y < apexY - 0.06; y += row) {
+      // The panel is a pentagon, not a triangle: it is full wall width up to
+      // the eave line and only tapers above it. Clamping matters -- the raw
+      // ratio is 5.747 at the plate, half a metre wider than the wall itself,
+      // so the bottom three courses would have hung out past both corners.
+      const halfWidth = Math.min(wallHalf, (apexY - y) / (apexY - eaveY) * wallHalf);
+      if (halfWidth < 0.12) continue;
+      root.add(box({
+        name: `cabin-gable-${name}-course`,
+        size: [0.075, row * 0.86, halfWidth * 2],
+        pos: [faceX, y, centreZ],
+        mat: M.cabinLog,
+        cast: false,
+      }));
+    }
+
+    // Bargeboards up both rakes, so the siding dies into trim, not into air.
+    // Exactly corner to ridge, plus enough to close the mitre at the apex.
+    // A longer board looked right on paper and hung 0.09 m off both corners.
+    const rakeLength = Math.hypot((MAIN.z1 - MAIN.z0) / 2, apexY - eaveY) + 0.02;
+    for (const towards of [-1, 1]) {
+      root.add(box({
+        name: `cabin-gable-${name}-rake`,
+        size: [0.10, 0.19, rakeLength],
+        pos: [
+          faceX,
+          (eaveY + apexY) / 2,
+          centreZ + towards * ((MAIN.z1 - MAIN.z0) / 4),
+        ],
+        mat: M.cabinLogDark,
+        rotX: towards * angle,
+      }));
+    }
+  }
+
+  /* The same slot runs the length of the two long walls, 0.166 m of it. The
+   * north board is broken around the bathroom lean-to, whose own roof sits at
+   * WALL_H + 0.18 and already fills that band over its 3.0 m of wall plus a
+   * 0.35 m eave either side.
+   *
+   * It is a FRIEZE BOARD, not more wall. Built first in `M.wall`, it showed
+   * from outside as a cream stripe the length of the building where the log
+   * cladding stops -- `addCladding` only runs to WALL_H. Dark timber reads as
+   * the trim it is and ties into the two bargeboards at each corner. */
+  const closure = (name, x0, x1, z) => root.add(box({
+    name: `cabin-eave-closure-${name}`,
+    size: [x1 - x0, eaveY - WALL_H, WALL + 0.07],
+    pos: [(x0 + x1) / 2, (WALL_H + eaveY) / 2, z],
+    mat: M.cabinLogDark,
+    cast: false,
+  }));
+  closure('south', MAIN.x0 - WALL, MAIN.x1 + WALL, MAIN.z1 + WALL / 2);
+  closure('north-west', MAIN.x0 - WALL, BATH.x0 - 0.35, MAIN.z0 - WALL / 2);
+  closure('north-east', BATH.x1 + 0.35, MAIN.x1 + WALL, MAIN.z0 - WALL / 2);
+}
+
 function buildRoof(root, M) {
   const rise = 2.0;
   const run = (MAIN.z1 - MAIN.z0) / 2 + 0.75;
@@ -837,6 +961,7 @@ function buildRoof(root, M) {
   const angle = Math.atan2(rise, run);
   const centreZ = (MAIN.z0 + MAIN.z1) / 2;
   const ridgeY = WALL_H + rise;
+  buildGableEnds(root, M, { rise, run, angle, centreZ, ridgeY });
   for (const side of [-1, 1]) {
     const slab = box({
       name: side < 0 ? 'cabin-roof-north' : 'cabin-roof-south',
@@ -1049,6 +1174,40 @@ function buildProperty({
     else ctx.onLeave?.();
   });
 
+  /* The three fire benches are ordinary seats, not a story beat: they answer
+   * before the pyre and after it. `sitPose`/`sitExit` are handed straight to
+   * the shared `Player.sitAt`/`standFrom` the couch and the bed edge use. */
+  for (const seat of firepit.seats) {
+    const seatDescriptor = {
+      label: 'Sit on the <b>bench</b>',
+      enabled: () => ctx.canSitAtFire?.(seat.index) ?? true,
+      onUse: () => ctx.onFirepitBench?.(seat),
+    };
+    interactionTargets[`firepitBench${seat.index}`] = seat.target;
+    seat.target.userData.interact = seatDescriptor;
+    interaction.register(seat.target, seatDescriptor);
+  }
+
+  /* The one receiver is wherever the scene last put it, and the scene is the
+   * only thing that knows. Ask rather than mirror the flag out here. */
+  let fireRadioLive = false;
+  const fireRadioPlaying = () => ctx.isRadioPlayingAt?.('firepit') ?? fireRadioLive;
+  const fireRadioDescriptor = {
+    label: () => (fireRadioPlaying()
+      ? 'Turn off the <b>fire radio</b> &middot; hold to tune'
+      : 'Play the <b>fire radio</b> &middot; hold to tune'),
+    holdLabel: 'Tuning the <b>fire radio</b>…',
+    hold: 0.60,
+    onTap: () => {
+      fireRadioLive = !fireRadioPlaying();
+      ctx.onRadioTap?.('firepit');
+    },
+    onUse: () => ctx.onRadioHold?.('firepit'),
+  };
+  interactionTargets.firepitRadio = firepit.radioTarget;
+  firepit.radioTarget.userData.interact = fireRadioDescriptor;
+  interaction.register(firepit.radioTarget, fireRadioDescriptor);
+
   const lagDescriptor = {
     label: 'Talk to <b>Lag</b>',
     enabled: () => ctx.canTalkToLag?.() ?? true,
@@ -1086,9 +1245,17 @@ function buildProperty({
     splitWood: woodpile.split,
     woodpileState: woodpile.state,
     setFireLit: firepit.setLit,
+    firepitSeats: firepit.seats,
+    firepitRadioPos: firepit.radioPos,
+    firepitRadioTarget: firepit.radioTarget,
+    setFirepitRadioLive(live) {
+      fireRadioLive = Boolean(live);
+      return fireRadioLive;
+    },
     update(dt, elapsed, playerPosition) {
       creek.update(elapsed);
       firepit.update(elapsed);
+      firepit.setRadioLive(fireRadioPlaying(), elapsed);
       woodpile.update(dt);
       lag.update(dt, playerPosition);
       wayfinding.update(elapsed);
@@ -1431,6 +1598,32 @@ function buildShed(root, M, colliders) {
   return { group: g, target, y };
 }
 
+/**
+ * Where standing up from a fire bench puts you.
+ *
+ * Straight back from the seat, away from the fire, and far enough out that the
+ * 0.30 m player capsule clears the bench's own axis-aligned volume. A fixed
+ * 1.15 m looked right and was not: the two benches whose long side runs across
+ * the radial buried their exit inside their own collider (measured: bench-1
+ * needs 1.66 m, bench-2 1.35 m), and the player would have stood up inside
+ * the bench and been shoved out sideways.
+ */
+function benchStandingExit(x, z, angle, benchCollider, capsule = 0.30) {
+  const cx = (benchCollider.min.x + benchCollider.max.x) / 2;
+  const cz = (benchCollider.min.z + benchCollider.max.z) / 2;
+  const hx = (benchCollider.max.x - benchCollider.min.x) / 2 + capsule;
+  const hz = (benchCollider.max.z - benchCollider.min.z) / 2 + capsule;
+  for (let t = 0.90; t <= 3.0; t += 0.05) {
+    const px = x + Math.cos(angle) * t;
+    const pz = z + Math.sin(angle) * t;
+    if (Math.abs(px - cx) > hx || Math.abs(pz - cz) > hz) {
+      // One more step of daylight, so the exit is not flush against the box.
+      return new THREE.Vector3(x + Math.cos(angle) * (t + 0.10), 0, z + Math.sin(angle) * (t + 0.10));
+    }
+  }
+  return new THREE.Vector3(x + Math.cos(angle) * 3.0, 0, z + Math.sin(angle) * 3.0);
+}
+
 function buildFirepit(root, M, colliders, footings) {
   const p = LANDMARKS.firepit;
   const y = heightAt(p.x, p.z);
@@ -1452,6 +1645,7 @@ function buildFirepit(root, M, colliders, footings) {
     g.add(cylinder({ r: 0.14, h: 1.65, pos: [p.x, y + 0.19, p.z], rotZ: Math.PI / 2, rotY: a, mat: M.cabinLogDark }));
   }
   const seatAngles = [0.15, 2.25, 4.35];
+  const benchSeats = [];
   for (let i = 0; i < seatAngles.length; i++) {
     const angle = seatAngles[i];
     const x = p.x + Math.cos(angle) * 3.15;
@@ -1468,13 +1662,94 @@ function buildFirepit(root, M, colliders, footings) {
       bench.add(box({ size: [0.14, 0.48, 0.14], pos: [lx, 0.72, 0.30], mat: M.cabinLogDark }));
     }
     g.add(bench);
-    addBounds(
+
+    /* THE BENCH COLLIDER IS THE BENCH, NOT A TWO-METRE SQUARE ROUND IT.
+     *
+     * Owner, cabin playtest: *"the collision next to the benches, to the
+     * fires is kinda weird. It... like, you have to basically walk over the
+     * fire. The collision's, like, large around the bench."*
+     *
+     * He is describing a real number. Every bench took the SAME axis-aligned
+     * 2.080 x 2.080 m box regardless of which way it was turned, while the
+     * bench itself is 1.90 x 0.64 m. Measured in the built world:
+     *
+     *   bench-0  visible 0.917 x 1.974 m  ->  collider 2.080 x 2.080  (2.39x)
+     *   bench-1  visible 1.880 x 1.691 m  ->  collider 2.080 x 2.080  (1.36x)
+     *   bench-2  visible 2.003 x 1.272 m  ->  collider 2.080 x 2.080  (1.70x)
+     *
+     * Bench-0 turns its thin edge to the fire, so 0.66 m of pure air on its
+     * inner face was solid: its collider reached to 2.075 m from the fire
+     * centre while the stone ring stands out to 1.53 m, leaving a 0.545 m
+     * slot a 0.60 m player capsule cannot enter. Sweeping that capsule round
+     * the fire, 38 of 120 bearings were blocked at r = 1.9 m, and due east --
+     * straight at bench-0 -- the nearest free standing spot was 4.5 m out.
+     * Getting round the fire circle meant going wide or going over the fire.
+     *
+     * Take the bench's own turned bounds and add 0.06 m of glove (0.08 m in
+     * the end: `collider()` pads another 0.02 on x/z), so the volume follows
+     * the wood instead of the compass. Measured after: 8 of 120 bearings
+     * blocked at r = 1.9 m, due east is free at 1.9 m instead of 4.5 m, and a
+     * 0.10 m flood fill of the 1.65..5.60 m annulus still reaches all twelve
+     * compass stations -- you can now walk a full lap between the stones and
+     * the benches. Bounds are read BEFORE the sit proxy is parented to the
+     * bench, so the proxy cannot inflate the collision.
+     */
+    bench.updateMatrixWorld(true);
+    const benchBounds = new THREE.Box3().setFromObject(bench);
+    const BENCH_COLLIDER_MARGIN = 0.06;
+    const benchCollider = addBounds(
       colliders,
-      [[x - 1.02, seatY, z - 1.02], [x + 1.02, seatY + 1.02, z + 1.02]],
+      [
+        [benchBounds.min.x - BENCH_COLLIDER_MARGIN, seatY, benchBounds.min.z - BENCH_COLLIDER_MARGIN],
+        [benchBounds.max.x + BENCH_COLLIDER_MARGIN, seatY + 1.02, benchBounds.max.z + BENCH_COLLIDER_MARGIN],
+      ],
       `cabin-firepit-bench-${i}`,
       { kind: 'seat' },
     );
     noteFooting(footings, `firepit-bench-${i}`, x, z, seatY, 'firepit-seat');
+
+    /* SOMEWHERE TO ACTUALLY SIT.
+     *
+     * Owner, cabin playtest: *"it'd be nice if you could actually sit in the
+     * scene."*
+     *
+     * The seat slab tops out 0.60 m above the bench base and the shared
+     * seated eye rides 0.70 m over a cushion (measured off the two indoor
+     * poses this cabin already authors: the couch sits at 1.13 over a 0.42
+     * cushion, the bed edge at 1.22 over a 0.55 mattress). That puts the eye
+     * at seatY + 1.30, facing the fire down the bench's own -Z.
+     *
+     * The proxy is the bench's own 1.90 x 0.64 m footprint carried up through
+     * the standing eye band (y 0.58..1.72 local). The trap in CLAUDE.md is
+     * that a box is invisible to a ray that starts inside it -- here the
+     * bench collider above owns that same footprint, so the player physically
+     * cannot stand in the proxy. He reads it from outside, level, at the
+     * 2.7 m interaction reach.
+     */
+    const sitProxy = targetBox(
+      `cabin-firepit-bench-${i}-sit`,
+      [1.90, 1.14, 0.64],
+      [0, 1.15, 0.08],
+    );
+    bench.add(sitProxy);
+    const seat = {
+      index: i,
+      angle,
+      bench,
+      target: sitProxy,
+      pose: {
+        position: new THREE.Vector3(x, seatY + 1.30, z),
+        // Player yaw is the camera convention (-Z forward), so facing the
+        // fire from a bench on bearing `angle` is atan2(cos, sin).
+        yaw: Math.atan2(Math.cos(angle), Math.sin(angle)),
+        pitch: -0.06,
+        yawRange: 1.45,
+        pitchMin: -0.80,
+        pitchMax: 0.60,
+      },
+      exit: benchStandingExit(x, z, angle, benchCollider),
+    };
+    benchSeats.push(seat);
   }
   // Layered low-poly tongues read as a fire from every approach. Flat crossed
   // cards showed their rectangular silhouette whenever the player faced one
@@ -1501,6 +1776,67 @@ function buildFirepit(root, M, colliders, footings) {
   const glow = new THREE.PointLight(0xff6a28, 3.2, 14, 1.7);
   glow.position.set(p.x, y + 1.0, p.z);
   g.add(glow);
+
+  /* THE SET THEY LISTEN TO OUT HERE.
+   *
+   * Owner, cabin playtest: *"Maybe we have another radio that's out here by
+   * the fire that you guys are listening to, and we need to make sure when
+   * you're listening to that radio that the other radio isn't playing."*
+   *
+   * It sits on a split round at bearing 1.20 rad, 3.55 m out -- between
+   * bench-0 and bench-1 and outside the seating ring, so it adds nothing to
+   * the inner corridor the bench colliders just gave back. Exclusivity is not
+   * a mute flag: the scene owns ONE `Radio`, with one PannerNode, and moving
+   * that one panner between this set and the sideboard set is the only way to
+   * change which one you hear (see `setRadioSource` in main.js).
+   */
+  const radioAngle = 1.20;
+  const radioX = p.x + Math.cos(radioAngle) * 3.55;
+  const radioZ = p.z + Math.sin(radioAngle) * 3.55;
+  const radioBaseY = heightAt(radioX, radioZ);
+  const radioStand = group('cabin-firepit-radio-stand');
+  ownGeometry(radioStand, 'cabin-firepit-radio', { checkSupport: false });
+  radioStand.add(cylinder({
+    name: 'cabin-firepit-radio-round',
+    r: 0.30,
+    h: 0.46,
+    pos: [radioX, radioBaseY + 0.23, radioZ],
+    mat: M.cabinLogDark,
+  }));
+  radioStand.add(cylinder({
+    name: 'cabin-firepit-radio-round-cut',
+    r: 0.27,
+    h: 0.022,
+    pos: [radioX, radioBaseY + 0.462, radioZ],
+    mat: M.cabinLog,
+  }));
+  const fireRadio = P.makeRadio(M, {
+    x: radioX,
+    y: radioBaseY + 0.473,
+    z: radioZ,
+    // The prop's face is on its own +Z; aim it back at the fire.
+    rotY: Math.atan2(-Math.cos(radioAngle), -Math.sin(radioAngle)),
+  });
+  fireRadio.group.name = 'cabin-firepit-radio';
+  radioStand.add(fireRadio.group);
+  const fireRadioPos = new THREE.Vector3(radioX, radioBaseY + 0.60, radioZ);
+  /* Eye-band proxy again, and the split round underneath it is solid, so the
+   * player cannot stand inside the volume he has to aim at. */
+  const fireRadioTarget = targetBox(
+    'cabin-firepit-radio-target',
+    [0.78, 1.90, 0.78],
+    [radioX, radioBaseY + 1.05, radioZ],
+  );
+  radioStand.add(fireRadioTarget);
+  g.add(radioStand);
+  addBounds(
+    colliders,
+    [[radioX - 0.34, radioBaseY, radioZ - 0.34], [radioX + 0.34, radioBaseY + 0.72, radioZ + 0.34]],
+    'cabin-firepit-radio-round',
+    { kind: 'prop' },
+  );
+  noteFooting(footings, 'firepit-radio', radioX, radioZ, radioBaseY, 'firepit-seat');
+
   /* Same eye-band rule as `makeLandmarkProxy`. At 1.5 m the lid stood 16 cm
    * under the standing eye and 0 of 1880 level rays from clear ground found
    * it; you could only tend the fire by looking at your boots. It spans the
@@ -1528,8 +1864,21 @@ function buildFirepit(root, M, colliders, footings) {
     group: g,
     target,
     seatCount: seatAngles.length,
+    seats: benchSeats,
+    radio: fireRadio,
+    radioTarget: fireRadioTarget,
+    radioPos: fireRadioPos,
     get lit() { return lit; },
     setLit,
+    /** Light this set's dial only while it is the one holding the panner. */
+    setRadioLive(live, elapsed = 0) {
+      if (live) {
+        fireRadio.needle.position.x = Math.sin(elapsed * 0.7) * 0.052;
+        fireRadio.led.material = M.ledRed;
+      } else {
+        fireRadio.led.material = M.bulbOff;
+      }
+    },
     update(elapsed) {
       if (!lit) return;
       const flicker = 0.90 + Math.sin(elapsed * 12.3) * 0.08 + Math.sin(elapsed * 19.7) * 0.04;
@@ -3326,6 +3675,10 @@ function buildDomesticHub({
     pcOn: false,
     tapOn: false,
     radioOn: false,
+    /* Which set holds the scene's single receiver: 'cabin' (the sideboard) or
+     * 'firepit'. Only one of them can ever be lit, because only one of them
+     * can ever be the panner's position. */
+    radioSource: 'cabin',
     tvOn: false,
     phoneTaken: false,
     bathDoorOpen: false,
@@ -3452,14 +3805,21 @@ function buildDomesticHub({
 
   utilityTargets.radio = radio.group;
   interaction.register(radio.group, {
-    label: () => (state.radioOn ? 'Turn off the <b>radio</b> &middot; hold to tune' : 'Turn on the <b>radio</b> &middot; hold to tune'),
+    // Reads "turn off" only while this set is the one actually playing; with
+    // the fire radio live, pressing it brings the station back indoors.
+    label: () => (state.radioOn && state.radioSource !== 'firepit'
+      ? 'Turn off the <b>radio</b> &middot; hold to tune'
+      : 'Turn on the <b>radio</b> &middot; hold to tune'),
     holdLabel: 'Tuning the <b>radio</b>…',
     hold: 0.60,
     onTap: () => {
-      if (ctx.onRadioTap) ctx.onRadioTap();
-      else state.radioOn = !state.radioOn;
+      if (ctx.onRadioTap) ctx.onRadioTap('cabin');
+      else {
+        state.radioOn = state.radioSource === 'cabin' ? !state.radioOn : true;
+        state.radioSource = 'cabin';
+      }
     },
-    onUse: () => ctx.onRadioHold?.(),
+    onUse: () => ctx.onRadioHold?.('cabin'),
   });
 
   const phone = P.makePhone(M, { x: -3.88, y: nightstand.top + 0.008, z: -4.38, rotY: -0.4 });
@@ -3712,7 +4072,7 @@ function buildDomesticHub({
       if (cook >= 1) state.panState = 'done';
     }
 
-    if (state.radioOn) {
+    if (state.radioOn && state.radioSource !== 'firepit') {
       radio.needle.position.x = Math.sin(elapsed * 0.7) * 0.052;
       radio.led.material = M.ledRed;
     } else {

@@ -675,7 +675,6 @@ export function buildCabinDungeon({
   for (const [x, z] of [[-6.84, 10.12], [-4.16, 10.12], [-6.84, 10.98], [-4.16, 10.98]]) {
     worktable.add(box({ name: `cabin-dungeon-worktable-leg-${x}-${z}`, size: [0.14, 0.90, 0.14], pos: [x, D.floorY + 0.45, z], mat: materials.blackSteel }));
   }
-  const toolY = workAt.topY + 0.12;
   const tools = {};
   const toolAssemblies = {};
   const toolPart = (id, mesh) => {
@@ -687,24 +686,195 @@ export function buildCabinDungeon({
     toolAssemblies[id].push(mesh);
     return mesh;
   };
-  toolPart('pliers', box({ name: 'cabin-dungeon-pliers', size: [0.10, 0.055, 0.48], pos: [-6.42, toolY, 10.24], mat: materials.steel, rotY: -0.34 }));
-  toolPart('saw', box({ name: 'cabin-dungeon-medical-saw', size: [0.44, 0.060, 0.18], pos: [-5.90, toolY, 10.28], mat: materials.steel, rotY: 0.18 }));
-  toolPart('saw', box({ name: 'cabin-dungeon-medical-saw-handle', size: [0.20, 0.095, 0.22], pos: [-6.20, toolY + 0.02, 10.20], mat: materials.oldWood, rotY: 0.18 }));
+  /* EVERY TOOL SHOULD SAY WHAT IT IS WITHOUT A LABEL.
+   *
+   * Owner, cabin playtest: *"The dungeon of the cabin with Gratin. It's pretty
+   * good. We could use more detail on the tools. I really like the battery and
+   * the effect there. The other tools is not really clear what they are."*
+   *
+   * He is right about which one works and why. The car battery is four parts
+   * with a silhouette nothing else has -- a case, a label and two posts of
+   * different colours -- so it reads as a battery from across the room. The
+   * rest were one or two untextured boxes: the pliers were a single 0.10 x
+   * 0.055 x 0.48 m bar, the bucket a closed 0.29 m cylinder with no rim and no
+   * handle, the syringes three plain rods. Counted before this pass, the seven
+   * tools were 15 meshes between them -- 1, 2, 3, 3, 3, 2 and 1 -- and the
+   * battery owned three of the fifteen.
+   *
+   * Each tool is now a small assembly with the shape that names it: the
+   * pliers get a pivot, splayed grips and serrated jaws; the saw a toothed
+   * blade, a spine and a closed bow grip; the syringes barrels, flanges,
+   * plungers and needles; the leads real alligator clips; the bucket an open
+   * mouth, a rolled rim, a bail and dirty water in the bottom. The battery is
+   * untouched -- it is the bar the others are being brought up to.
+   *
+   * They stay one geometry-gate assembly, and each stays one interaction
+   * target: the tool group is what the crosshair takes, so picking a tool up
+   * is unchanged.
+   */
+  /* Tools whose visible geometry cannot reliably take the crosshair from the
+   * authored approach publish a tight invisible surface here instead. */
+  const toolAimProxies = {};
+  const toolAnchor = (id, x, y, z, rotY = 0) => {
+    const g = group(`cabin-dungeon-tool-${id}`);
+    g.position.set(x, y, z);
+    g.rotation.y = rotY;
+    toolPart(id, g);
+    return g;
+  };
+  const tableTop = workAt.topY + 0.08;
+
+  /* Lineman's pliers, lying open with the jaws toward the rack. Local origin
+   * is the pivot: handles run -Z, jaws +Z, 0.47 m end to end. */
+  {
+    const pliers = toolAnchor('pliers', -6.42, tableTop + 0.031, 10.24, -0.34);
+    // The pivot keeps the assembly's canonical name: it is the part the
+    // authored-room ledger asks for and the point the crosshair aims at.
+    pliers.add(cylinder({ name: 'cabin-dungeon-pliers', r: 0.032, h: 0.052, pos: [0, 0, 0], mat: materials.blackSteel }));
+    for (const side of [-1, 1]) {
+      pliers.add(box({
+        name: `cabin-dungeon-pliers-handle-${side < 0 ? 'left' : 'right'}`,
+        size: [0.030, 0.028, 0.150],
+        pos: [side * 0.022, 0, -0.090],
+        mat: materials.steel,
+        rotY: side * 0.09,
+      }));
+      pliers.add(box({
+        name: `cabin-dungeon-pliers-grip-${side < 0 ? 'left' : 'right'}`,
+        size: [0.042, 0.040, 0.150],
+        pos: [side * 0.038, 0, -0.225],
+        mat: side < 0 ? materials.redRubber : materials.rubber,
+        rotY: side * 0.09,
+      }));
+      pliers.add(box({
+        name: `cabin-dungeon-pliers-jaw-${side < 0 ? 'left' : 'right'}`,
+        size: [0.026, 0.026, 0.090],
+        pos: [side * 0.013, 0, 0.062],
+        mat: materials.steel,
+        rotY: -side * 0.05,
+      }));
+      pliers.add(box({
+        name: `cabin-dungeon-pliers-nose-${side < 0 ? 'left' : 'right'}`,
+        size: [0.017, 0.019, 0.085],
+        pos: [side * 0.008, 0, 0.146],
+        mat: materials.blackSteel,
+        rotY: -side * 0.03,
+      }));
+    }
+    // The cutting shoulder behind the jaws; it is what makes a plier a plier.
+    pliers.add(box({
+      name: 'cabin-dungeon-pliers-cutter',
+      size: [0.058, 0.024, 0.028],
+      pos: [0, 0, 0.036],
+      mat: materials.blackSteel,
+    }));
+  }
+
+  /* Amputation saw: toothed edge toward the aisle, spine along the back,
+   * closed bow grip at -X.
+   *
+   * IT RESTS ON ITS OWN BOW, which is both what a bow-handled saw does on a
+   * flat table and the only thing that makes it readable here. Laid dead flat
+   * an 0.011 m blade is a line, and it sat 0.12 m in front of the folded
+   * towels at almost exactly their height, so a 0.70 m white slab was its
+   * backdrop from the authored inspection stance. Three things fix that: the
+   * grip ring lifts the handle end, the blade thickens to 0.016, and the whole
+   * tool moves 0.12 m forward to z 10.14. Measured after, it stands 0.082 m
+   * off the table instead of 0.050 with 0.121 m of clear air behind it.
+   *
+   * The tilt is not chosen, it is measured: the grip ring's underside sits
+   * 0.0405 m below the toe of the blade, and over the 0.54 m between them
+   * that is atan(0.0405 / 0.54) = 0.075 rad, or 4.3 degrees. At that angle
+   * both the bow and the toe touch the table at local y -0.0175, which is
+   * where the group is set. */
+  {
+    const saw = toolAnchor('saw', -5.95, tableTop + 0.0175, 10.14, 0.18);
+    saw.rotation.z = -0.075;
+    saw.add(box({ name: 'cabin-dungeon-medical-saw', size: [0.42, 0.016, 0.056], pos: [0.03, 0.008, 0], mat: materials.steel, cast: false }));
+    saw.add(box({ name: 'cabin-dungeon-medical-saw-spine', size: [0.45, 0.021, 0.020], pos: [0.025, 0.011, -0.036], mat: materials.blackSteel }));
+    for (let i = 0; i < 8; i++) {
+      saw.add(box({
+        name: `cabin-dungeon-medical-saw-tooth-${i + 1}`,
+        size: [0.019, 0.009, 0.019],
+        pos: [-0.15 + i * 0.046, 0.005, 0.035],
+        mat: materials.steel,
+        rotY: Math.PI / 4,
+        cast: false,
+      }));
+    }
+    saw.add(cylinder({ name: 'cabin-dungeon-medical-saw-ferrule', r: 0.019, h: 0.040, pos: [-0.204, 0.014, 0], rotZ: Math.PI / 2, mat: materials.blackSteel }));
+    saw.add(box({ name: 'cabin-dungeon-medical-saw-handle', size: [0.100, 0.046, 0.050], pos: [-0.262, 0.017, 0], mat: materials.oldWood }));
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(0.046, 0.011, 7, 18), materials.oldWood);
+    bow.name = 'cabin-dungeon-medical-saw-bow';
+    bow.rotation.x = Math.PI / 2;
+    bow.position.set(-0.300, 0.017, 0);
+    saw.add(bow);
+    for (const x of [-0.238, -0.286]) {
+      saw.add(cylinder({ name: 'cabin-dungeon-medical-saw-rivet', r: 0.005, h: 0.050, pos: [x, 0.017, 0], mat: materials.steel, cast: false }));
+    }
+    /* THE SAW LIES FLATTER THAN THE TOWELS BEHIND IT.
+     *
+     * Same class of problem the coiled leads already solve below. The saw now
+     * rests on the table instead of standing on edge, which puts its aim point
+     * at y -4.044 while the nearest folded towel -- 0.12 m further from the
+     * approach and directly on the line -- spans -4.045..-3.975. Measured from
+     * the authored `dungeonToolSaw` stance, the crosshair ray entered that
+     * towel 0.10 m before it reached the blade and the towel took the prompt.
+     * (The old edge-standing blade cleared it by two millimetres, which was
+     * luck rather than staging.) A tight box standing 0.10 m proud of the
+     * blade puts the saw back in front of everything on its own line.
+     */
+    toolAimProxies.saw = invisibleTarget(
+      'cabin-dungeon-medical-saw-target',
+      [0.80, 0.16, 0.30],
+      [-5.95, tableTop + 0.10, 10.14],
+    );
+  }
+
   toolPart('battery', box({ name: 'cabin-dungeon-car-battery', size: [0.54, 0.34, 0.38], pos: [-4.48, workAt.topY + 0.24, 10.55], mat: materials.blackSteel }));
   for (const [id, x, material] of [['positive', -4.62, materials.redRubber], ['negative', -4.34, materials.rubber]]) {
     toolPart('battery', cylinder({ name: `cabin-dungeon-battery-${id}-post`, r: 0.045, h: 0.10, pos: [x, workAt.topY + 0.46, 10.55], mat: material }));
   }
-  for (const [index, x] of [-5.42, -5.14, -4.88].entries()) {
-    toolPart('syringes', cylinder({
-      name: `cabin-dungeon-syringe-${index + 1}`,
-      r: 0.025,
-      h: 0.42,
-      pos: [x, toolY + 0.025, 10.28 + index * 0.06],
-      rotZ: Math.PI / 2,
-      mat: index === 1 ? materials.acid : materials.steel,
-      cast: false,
-    }));
+
+  /* Three glass syringes in a row, barrels along X, needles pointing at the
+   * rack. Only the middle one is still charged; that is the amber one. */
+  {
+    const syringes = toolAnchor('syringes', -5.15, tableTop + 0.021, 10.34);
+    const glass = mat({ color: 0xcfd8d4, roughness: 0.18, metalness: 0.04, transparent: true, opacity: 0.62 });
+    for (const [index, offset] of [-0.27, 0, 0.27].entries()) {
+      const z = offset * 0.30;
+      // The barrel is the syringe, and keeps the ledger's name.
+      syringes.add(cylinder({
+        name: `cabin-dungeon-syringe-${index + 1}`,
+        r: 0.021,
+        h: 0.155,
+        pos: [0.012, 0, z],
+        rotZ: Math.PI / 2,
+        mat: glass,
+        cast: false,
+      }));
+      if (index === 1) {
+        syringes.add(cylinder({
+          name: 'cabin-dungeon-syringe-2-charge',
+          r: 0.017,
+          h: 0.088,
+          pos: [-0.014, 0, z],
+          rotZ: Math.PI / 2,
+          mat: materials.acid,
+          cast: false,
+        }));
+      }
+      // Finger flange, plunger rod and thumb pad off the back of the barrel.
+      syringes.add(box({ name: `cabin-dungeon-syringe-${index + 1}-flange`, size: [0.009, 0.050, 0.050], pos: [-0.066, 0, z], mat: glass, cast: false }));
+      syringes.add(cylinder({ name: `cabin-dungeon-syringe-${index + 1}-plunger`, r: 0.007, h: 0.070, pos: [-0.103, 0, z], rotZ: Math.PI / 2, mat: materials.steel, cast: false }));
+      syringes.add(box({ name: `cabin-dungeon-syringe-${index + 1}-thumb`, size: [0.008, 0.038, 0.038], pos: [-0.140, 0, z], mat: materials.rubber, cast: false }));
+      // Luer hub, then the needle itself.
+      syringes.add(cylinder({ name: `cabin-dungeon-syringe-${index + 1}-hub`, rTop: 0.009, rBottom: 0.020, h: 0.026, pos: [0.102, 0, z], rotZ: -Math.PI / 2, mat: materials.blackSteel, cast: false }));
+      syringes.add(cylinder({ name: `cabin-dungeon-syringe-${index + 1}-needle`, r: 0.0032, h: 0.080, pos: [0.155, 0, z], rotZ: Math.PI / 2, mat: materials.steel, cast: false }));
+    }
   }
+
+  /* Folded towels, one rolled, one that has already been used. */
   for (const [index, z] of [10.48, 10.73, 10.90].entries()) {
     toolPart('towels', box({
       name: `cabin-dungeon-folded-towel-${index + 1}`,
@@ -713,26 +883,130 @@ export function buildCabinDungeon({
       mat: materials.towel,
       cast: false,
     }));
+    toolPart('towels', box({
+      name: `cabin-dungeon-folded-towel-${index + 1}-fold`,
+      size: [0.70 - index * 0.05, 0.014, 0.055],
+      pos: [-5.80, workAt.topY + 0.155 + index * 0.075, z - 0.072],
+      mat: materials.canvas,
+      cast: false,
+    }));
   }
-  const leadMaterial = [materials.redRubber, materials.rubber];
-  for (const [index, x] of [-6.75, -6.35].entries()) {
-    const lead = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.018, 7, 22, Math.PI * 1.6), leadMaterial[index]);
-    lead.name = `cabin-dungeon-electrical-lead-${index + 1}`;
-    lead.position.set(x, workAt.topY + 0.20, 10.78);
-    lead.rotation.x = Math.PI / 2;
-    toolPart('leads', lead);
+  /* The roll and the used one are parked at the two ends of the table rather
+   * than beside the stack. Everything on this bench lies within a few
+   * centimetres of the same height and the authored approach looks along it at
+   * about 20 degrees, so anything set between a tool and the door takes that
+   * tool's crosshair. These two sit BEHIND their neighbours on every authored
+   * line: the roll past the battery at z 10.20, the stained one out at
+   * x -6.75 where only the pliers' own footprint reaches. */
+  toolPart('towels', cylinder({
+    name: 'cabin-dungeon-rolled-towel',
+    r: 0.052,
+    h: 0.30,
+    pos: [-4.15, tableTop + 0.052, 10.20],
+    rotZ: Math.PI / 2,
+    mat: materials.towel,
+    cast: false,
+  }));
+  toolPart('towels', box({
+    name: 'cabin-dungeon-used-towel',
+    size: [0.26, 0.020, 0.19],
+    pos: [-6.75, tableTop + 0.010, 10.20],
+    mat: materials.blood,
+    rotY: 0.42,
+    cast: false,
+  }));
+
+  /* Jumper leads: a coil of cable each, ending in a real alligator clip so it
+   * is obvious they are the other half of the battery. */
+  {
+    const leadMaterial = [materials.redRubber, materials.rubber];
+    for (const [index, x] of [-6.75, -6.35].entries()) {
+      const lead = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.018, 7, 22, Math.PI * 1.6), leadMaterial[index]);
+      lead.name = `cabin-dungeon-electrical-lead-${index + 1}`;
+      lead.position.set(x, workAt.topY + 0.20, 10.78);
+      lead.rotation.x = Math.PI / 2;
+      toolPart('leads', lead);
+      const clip = group(`cabin-dungeon-electrical-clip-${index + 1}`);
+      clip.position.set(x + 0.02, workAt.topY + 0.20, 10.78 - 0.20);
+      clip.rotation.y = index ? -0.24 : 0.20;
+      clip.add(box({ name: `cabin-dungeon-clip-${index + 1}-boot`, size: [0.036, 0.034, 0.048], pos: [0, 0, 0.026], mat: leadMaterial[index] }));
+      clip.add(box({ name: `cabin-dungeon-clip-${index + 1}-body`, size: [0.028, 0.030, 0.060], pos: [0, 0, -0.020], mat: materials.steel }));
+      clip.add(cylinder({ name: `cabin-dungeon-clip-${index + 1}-spring`, r: 0.013, h: 0.030, pos: [0, 0, -0.010], rotZ: Math.PI / 2, mat: materials.rust }));
+      for (const jaw of [-1, 1]) {
+        clip.add(box({
+          name: `cabin-dungeon-clip-${index + 1}-jaw-${jaw < 0 ? 'lower' : 'upper'}`,
+          size: [0.024, 0.010, 0.056],
+          pos: [0, jaw * 0.012, -0.070],
+          mat: materials.blackSteel,
+          rotX: jaw * 0.22,
+        }));
+      }
+      toolPart('leads', clip);
+    }
   }
   dungeonRoot.add(worktable);
   addCollider([[-7.12, D.floorY, 9.92], [-3.88, D.floorY + 1.34, 11.18]], 'cabin-dungeon-worktable', 'prop');
 
   // Bucket and gas can sit below the table, reachable but outside the aisle.
-  const bucket = cylinder({ name: 'cabin-dungeon-bucket', r: 0.29, h: 0.52, pos: [-6.32, D.floorY + 0.26, 11.45], mat: materials.steel });
+  /* A galvanised pail: tapered open wall, rolled rim, bail handle on its ears,
+   * and an inch of dirty water in the bottom. The old prop was a closed
+   * cylinder, which from any angle above the rim read as a solid drum. */
+  // Origin stays where the old single cylinder's centre was, so the authored
+  // `dungeonToolBucket` viewpoint still looks at the pail and not at the slab.
+  const bucket = group('cabin-dungeon-bucket');
+  bucket.position.set(-6.32, D.floorY + 0.26, 11.45);
+  const galvanised = mat({
+    color: 0x62686b, roughness: 0.54, metalness: 0.52, side: THREE.DoubleSide,
+  });
+  const pail = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.29, 0.235, 0.50, 18, 1, true),
+    galvanised,
+  );
+  pail.name = 'cabin-dungeon-bucket-wall';
+  pail.position.y = -0.01;
+  pail.castShadow = true;
+  bucket.add(pail);
+  bucket.add(cylinder({ name: 'cabin-dungeon-bucket-base', r: 0.234, h: 0.022, pos: [0, -0.249, 0], mat: materials.blackSteel }));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.288, 0.016, 6, 20), materials.steel);
+  rim.name = 'cabin-dungeon-bucket-rim';
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.24;
+  bucket.add(rim);
+  bucket.add(cylinder({ name: 'cabin-dungeon-bucket-water', r: 0.252, h: 0.008, pos: [0, -0.145, 0], mat: materials.wet, cast: false }));
+  for (const side of [-1, 1]) {
+    bucket.add(box({
+      name: `cabin-dungeon-bucket-ear-${side < 0 ? 'west' : 'east'}`,
+      size: [0.024, 0.040, 0.030],
+      pos: [side * 0.292, 0.195, 0],
+      mat: materials.blackSteel,
+    }));
+  }
+  const bail = new THREE.Mesh(new THREE.TorusGeometry(0.285, 0.011, 6, 20, Math.PI), materials.blackSteel);
+  bail.name = 'cabin-dungeon-bucket-bail';
+  bail.position.y = 0.195;
+  bail.rotation.z = 0.34;
+  bail.rotation.y = Math.PI / 2;
+  bucket.add(bail);
   add(bucket, 'cabin-dungeon-tools');
   tools.bucket = bucket;
   toolAssemblies.bucket = [bucket];
+  /* Pressed-steel jerry can: ribbed sides, a lever cap and a pour spout, so
+   * it is recognisable as the thing that ends the night rather than a red
+   * block. It also matches the can waiting at the pyre. */
   const gasCan = group('cabin-dungeon-gas-can');
-  gasCan.add(box({ name: 'cabin-dungeon-gas-can-body', size: [0.46, 0.62, 0.28], pos: [-5.55, D.floorY + 0.31, 11.50], mat: materials.redRubber }));
-  gasCan.add(box({ name: 'cabin-dungeon-gas-can-handle', size: [0.26, 0.12, 0.12], pos: [-5.55, D.floorY + 0.68, 11.50], mat: materials.rubber }));
+  gasCan.position.set(-5.55, D.floorY, 11.50);
+  gasCan.rotation.y = 0.22;
+  gasCan.add(box({ name: 'cabin-dungeon-gas-can-body', size: [0.36, 0.50, 0.22], pos: [0, 0.25, 0], mat: materials.redRubber }));
+  for (const x of [-0.10, 0.10]) {
+    gasCan.add(box({ name: 'cabin-dungeon-gas-can-rib', size: [0.026, 0.44, 0.235], pos: [x, 0.25, 0], mat: materials.rust, cast: false }));
+  }
+  gasCan.add(box({ name: 'cabin-dungeon-gas-can-shoulder', size: [0.36, 0.05, 0.22], pos: [0, 0.515, 0], mat: materials.redRubber }));
+  for (const x of [-0.11, 0.11]) {
+    gasCan.add(box({ name: 'cabin-dungeon-gas-can-strap', size: [0.045, 0.10, 0.045], pos: [x, 0.585, 0], mat: materials.redRubber }));
+  }
+  gasCan.add(box({ name: 'cabin-dungeon-gas-can-handle', size: [0.28, 0.048, 0.048], pos: [0, 0.655, 0], mat: materials.rubber }));
+  gasCan.add(cylinder({ name: 'cabin-dungeon-gas-can-cap', r: 0.042, h: 0.052, pos: [0.115, 0.560, 0.055], mat: materials.blackSteel }));
+  gasCan.add(cylinder({ name: 'cabin-dungeon-gas-can-spout', r: 0.024, h: 0.24, pos: [0.235, 0.44, 0.055], rotZ: -0.78, mat: materials.rust }));
   add(gasCan, 'cabin-dungeon-tools');
   tools.gasCan = gasCan;
 
@@ -1382,7 +1656,7 @@ export function buildCabinDungeon({
       ? invisibleTarget('cabin-dungeon-electrical-leads-target', [0.36, 0.26, 0.26], [
         -6.75, workAt.topY + 0.20, 10.78,
       ])
-      : target;
+      : toolAimProxies[id] ?? target;
     if (interactionTarget !== target) add(interactionTarget, 'cabin-dungeon-interaction');
     toolTargets[id] = interactionTarget;
     utilityTargets[`dungeonTool${id[0].toUpperCase()}${id.slice(1)}`] = interactionTarget;

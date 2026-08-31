@@ -236,15 +236,28 @@ export class Player {
     };
   }
 
-  /** Stand back up from the chair. */
+  /**
+   * Stand back up from the chair.
+   *
+   * STAND UP ONTO THE FLOOR YOU ARE ACTUALLY ON. `EYE_STAND` is a height
+   * ABOVE the floor, not a world Y. Every earlier caller sat on a floor at
+   * y = 0, so the two were the same number and nothing noticed; the Mansion
+   * theatre (-2.8) and the luxury loft each wrote their own floor-aware exit
+   * rather than use this one. The Cabin's firepit benches stand on terrain at
+   * y = -1.845, and the un-sampled tween put the eye at +1.66 -- 1.845 m in
+   * the air -- before `update()` dragged it back down over the next several
+   * frames. Sampling the floor under the exit lands the tween exactly where
+   * the walking update will put the eye anyway, so nothing pops.
+   */
   standFrom(target, done) {
     this.mode = 'frozen';
     this.yawCenter = null;
+    const floor = this.world?.groundAt ? this.world.groundAt(target.x, target.z) : 0;
     this._tween = {
       t: 0,
       dur: motionDuration(0.85),
       fromPos: this.position.clone(),
-      toPos: new THREE.Vector3(target.x, EYE_STAND, target.z),
+      toPos: new THREE.Vector3(target.x, floor + EYE_STAND, target.z),
       fromPitch: this.pitch,
       toPitch: 0,
       fromYaw: this.yaw,
@@ -255,6 +268,9 @@ export class Player {
         this.pitchMax = Math.PI / 2 - 0.05;
         this.eyeHeight = EYE_STAND;
         this.targetEye = EYE_STAND;
+        // The walking update eases `ground`; start it on the floor the tween
+        // just landed on so the first frame after standing is already level.
+        this.ground = floor;
         done?.();
       },
     };

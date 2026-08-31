@@ -437,8 +437,12 @@ test('explicit NO and the full ten-second timeout both make Gratin execute the c
 test('Gratin speaks his execution aftermath only after both authored shots land', () => {
   const { campaign, storage } = seedWokenCabin();
   const shots = [];
+  const aims = [];
   const harness = runtimeHarness(campaign, {
-    callbacks: { onGratinShot: (id) => shots.push(id) },
+    callbacks: {
+      onGratinShot: (id) => shots.push(id),
+      onGratinAim: (id) => aims.push(id),
+    },
   });
   prepareIntel(harness.story);
   harness.story.chooseExecution('gratin');
@@ -447,12 +451,23 @@ test('Gratin speaks his execution aftermath only after both authored shots land'
 
   assert.equal(harness.runtime.snapshot().executionRunning, true);
   assert.equal(harness.dialogue.current, null);
-  tick(harness, 0.8);
+  /* HE TURNS BEFORE HE FIRES. The first aim is issued the moment the clock
+   * starts and the first round leaves GRATIN_AIM_SECONDS later, so the pistol
+   * is genuinely pointed at the baiter it kills -- 129.5 degrees off the
+   * heading Gratin was standing on. Owner: "he doesn't really face the ones
+   * that he's shooting." */
+  assert.deepEqual(aims, [CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER]);
+  assert.deepEqual(shots, []);
+  tick(harness, 1.2);
   assert.deepEqual(shots, [CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER]);
   assert.equal(harness.dialogue.current, null);
   assert.equal(harness.dialogue.receipts.some(({ beat }) => beat === 'GRATIN_EXECUTES'), false);
 
-  tick(harness, 1.1);
+  tick(harness, 1.6);
+  assert.deepEqual(aims, [
+    CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER,
+    CABIN_HOSTAGE_IDS.ATEAM_MEMBER,
+  ]);
   assert.deepEqual(shots, [
     CABIN_HOSTAGE_IDS.COUNTER_STRIKE_PLAYER,
     CABIN_HOSTAGE_IDS.ATEAM_MEMBER,

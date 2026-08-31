@@ -76,6 +76,41 @@ export const BODY_CARRY_BOB_SPEED = 5.2;
 export const BODY_CARRY_BOB_METRES = 0.012;
 export const BODY_BURN_DURATION_S = 18;
 
+/**
+ * THE FUEL PASS, PLAYED OUT INSTEAD OF SWITCHED ON.
+ *
+ * Owner, cabin playtest: *"We put a little more work into the pouring the
+ * gasoline on the bodies, at the burning them scene."*
+ *
+ * `pourGas()` used to be one frame: a flag went true, the can snapped to a
+ * 1.25 rad list 0.18 m in the air, four ground decals appeared at full
+ * opacity, and one hiss played. Nothing crossed the pyre and nothing landed
+ * on the bodies -- and the recorded exchange over it runs for seconds
+ * ("Even coat. No heroics." / "Hold the can lower.").
+ *
+ * It is a 4.60 s pass now, in five authored stages the scene turns into cues:
+ * the can is lifted and the cap comes off, it tilts mouth-down over the first
+ * bundle, the stream walks across both of them, it is righted, and it is set
+ * down beside the fire. The two bundles darken and go slick as the stream
+ * passes over each of them, in that order, so the coat lands where the stream
+ * was rather than everywhere at once.
+ */
+export const GAS_POUR_SECONDS = 4.60;
+/** Stage boundaries as fractions of the pour, in the order they play. */
+export const GAS_POUR_STAGES = Object.freeze([
+  Object.freeze({ id: 'lift', at: 0.00 }),
+  Object.freeze({ id: 'stream', at: 0.20 }),
+  Object.freeze({ id: 'second-body', at: 0.55 }),
+  Object.freeze({ id: 'right', at: 0.86 }),
+  Object.freeze({ id: 'set-down', at: 0.97 }),
+]);
+/** Mouth-down. The spout is authored on the can's +X at +0.58, so this is the
+ * turn that puts its tip below the body of the can rather than above it. */
+const GAS_POUR_TILT = -1.95;
+/** The spout's tip in can-local space: its centre plus half its own length
+ * along its authored -0.72 rad lean. */
+const GAS_SPOUT_TIP = Object.freeze([0.3157, 0.6778, 0]);
+
 const PHASES = new Set(CLEANUP_BODY_PHASES);
 const clamp01 = (value) => Math.max(0, Math.min(1, Number(value) || 0));
 
@@ -286,6 +321,8 @@ function materialList(root) {
     emissive: material.emissive?.clone?.() ?? null,
     emissiveIntensity: Number(material.emissiveIntensity) || 0,
     opacity: Number.isFinite(material.opacity) ? material.opacity : 1,
+    // Captured so a soaked wrap can go slick and then char from the same base.
+    roughness: Number.isFinite(material.roughness) ? material.roughness : null,
   }));
 }
 
@@ -571,6 +608,45 @@ function buildBurnFx(firepit, y) {
   return { root, flames, glow, smoke };
 }
 
+/**
+ * The stream itself, plus what it does when it lands.
+ *
+ * A tapered column from the spout to the pyre, a crown where it hits, and four
+ * droplets cycling down it so the column reads as moving liquid rather than a
+ * cone. All of it lives in the cleanup root's frame and is repositioned every
+ * frame of the pour from the can's live spout tip.
+ */
+function buildGasStream() {
+  const root = group('cabin-cleanup.gas-stream');
+  const fuel = new THREE.MeshStandardMaterial({
+    color: 0xb9a66a,
+    roughness: 0.16,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.72,
+  });
+  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.038, 1, 8, 1, true), fuel);
+  column.name = 'cabin-cleanup.gas-stream.column';
+  column.material.side = THREE.DoubleSide;
+  column.castShadow = false;
+  root.add(column);
+  const crown = new THREE.Mesh(new THREE.CircleGeometry(0.19, 14), fuel.clone());
+  crown.name = 'cabin-cleanup.gas-stream.crown';
+  crown.rotation.x = -Math.PI / 2;
+  crown.castShadow = false;
+  root.add(crown);
+  const droplets = [];
+  for (let i = 0; i < 4; i++) {
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.030, 6, 5), fuel.clone());
+    drop.name = `cabin-cleanup.gas-droplet.${i}`;
+    drop.castShadow = false;
+    droplets.push(drop);
+    root.add(drop);
+  }
+  root.visible = false;
+  return { root, column, crown, droplets };
+}
+
 function buildGasSheen(firepit, y) {
   const root = group('cabin-cleanup.gas-sheen');
   root.position.set(firepit.x, y + 0.025, firepit.z);
@@ -705,6 +781,8 @@ export function buildCabinBodyCleanup({
       burnMaterials,
       phase: 'awaiting-wrap',
       pyreIndex: index,
+      // 0 dry, 1 fully soaked. Set by the fuel pass as the stream reaches it.
+      wet: 0,
     });
   }
 
@@ -721,6 +799,8 @@ export function buildCabinBodyCleanup({
   root.add(burnFx.root);
   const gasSheen = buildGasSheen(layout.firepit, firepitY);
   root.add(gasSheen);
+  const gasStream = buildGasStream();
+  root.add(gasStream.root);
 
   const fireTarget = invisibleTarget(
     'cabin-cleanup.firepit-placement-target',
@@ -745,12 +825,19 @@ export function buildCabinBodyCleanup({
     elapsed: 0,
     carryingId: null,
     gasPoured: false,
+    /* Seconds into the fuel pass. It runs to GAS_POUR_SECONDS and stops; a
+     * restored save starts there, so a reload never replays the pour. */
+    pourTime: 0,
+    pourStage: -1,
     ignited: false,
     burnProgress: 0,
   };
   const carryPosition = new THREE.Vector3(...BODY_CARRY_POSITION);
   const carryQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, BODY_CARRY_YAW, 0));
   const charColour = new THREE.Color(0x171310);
+  const fuelColour = new THREE.Color(0x2b2418);
+  const _spout = new THREE.Vector3();
+  const _land = new THREE.Vector3();
 
   function emit(type, fields = {}) {
     const event = Object.freeze({ type, ...fields, snapshot: snapshot() });
@@ -772,10 +859,17 @@ export function buildCabinBodyCleanup({
     record.group.quaternion.setFromEuler(new THREE.Euler(0, at.rotationY, 0));
   }
 
-  function applyBurn(record, progress) {
+  function applyBurn(record, progress, wet = record.wet ?? 0) {
     const p = clamp01(progress);
+    const w = clamp01(wet);
     for (const entry of record.burnMaterials) {
-      if (entry.color && entry.material.color) entry.material.color.copy(entry.color).lerp(charColour, p * 0.92);
+      if (entry.color && entry.material.color) {
+        // Fuel first, char second: a soaked wrap darkens, and then the same
+        // base burns from there. Doing it in one pass keeps the two effects
+        // from overwriting each other frame to frame.
+        entry.material.color.copy(entry.color).lerp(fuelColour, w * 0.46).lerp(charColour, p * 0.92);
+      }
+      if (entry.roughness !== null) entry.material.roughness = entry.roughness * (1 - w * 0.58);
       if (entry.emissive && entry.material.emissive) {
         entry.material.emissive.copy(entry.emissive).lerp(new THREE.Color(0x4b1105), Math.sin(p * Math.PI) * 0.55);
         entry.material.emissiveIntensity = entry.emissiveIntensity + Math.sin(p * Math.PI) * 0.75;
@@ -811,10 +905,91 @@ export function buildCabinBodyCleanup({
     applyBurn(record, ['burning', 'burned'].includes(record.phase) ? state.burnProgress : 0);
   }
 
+  /**
+   * Where the can is, how far over it is tipped, and what is coming out of it.
+   *
+   * `p` is 0 before the pour and 1 once it is done, so a reloaded save that
+   * already poured lands on the finished frame with no motion at all.
+   */
+  function poseGasCan(p) {
+    const pyre = layout.firepit;
+    const home = { x: gasAt.x, y: gasY, z: gasAt.z, rotY: gasAt.rotationY };
+    if (p <= 0) {
+      gasCan.position.set(home.x, home.y, home.z);
+      gasCan.rotation.set(0, home.rotY, 0);
+      gasStream.root.visible = false;
+      return 0;
+    }
+    // Carried across on the way in, walked back on the way out. The two
+    // travel legs are short so most of the pass is spent over the bodies.
+    const carryIn = clamp01(p / 0.18);
+    const carryOut = clamp01((p - 0.90) / 0.10);
+    // Across the pyre while the stream is on: the first bundle sits at
+    // firepit.x - 0.26, the second at +0.28, so the mouth walks -0.55 -> +0.55.
+    const walk = clamp01((p - 0.20) / 0.66);
+    const overX = pyre.x - 0.55 + walk * 1.10;
+    const workY = firepitY + 1.58;
+    const travel = carryIn * (1 - carryOut);
+    gasCan.position.set(
+      home.x + (overX - home.x) * travel,
+      home.y + (workY - home.y) * travel,
+      home.z + (pyre.z - 0.18 - home.z) * travel,
+    );
+    // Tilt in over `lift`, hold through the stream, right it again at `right`.
+    const tiltIn = clamp01((p - 0.10) / 0.12);
+    const tiltOut = clamp01((p - 0.86) / 0.09);
+    gasCan.rotation.set(0, home.rotY + (0.32 - home.rotY) * travel, GAS_POUR_TILT * tiltIn * (1 - tiltOut));
+
+    const streaming = p > 0.18 && p < 0.90 ? 1 : 0;
+    gasStream.root.visible = streaming > 0;
+    if (!streaming) return p;
+
+    gasCan.updateWorldMatrix(true, false);
+    _spout.set(...GAS_SPOUT_TIP);
+    gasCan.localToWorld(_spout);
+    root.worldToLocal(_spout);
+    // It lands on the upper bundle: the stacked rest is +0.67 over the pyre
+    // ground, and the wrapped body is about 0.28 m through the shoulder.
+    _land.set(_spout.x, firepitY + 0.95, _spout.z + 0.06);
+    const drop = Math.max(0.10, _spout.y - _land.y);
+    gasStream.column.position.set(
+      (_spout.x + _land.x) / 2,
+      (_spout.y + _land.y) / 2,
+      (_spout.z + _land.z) / 2,
+    );
+    gasStream.column.scale.set(1, drop, 1);
+    // A steady stream flutters rather than pulses; keep it small.
+    const flutter = 0.94 + Math.sin(state.elapsed * 21.7) * 0.06;
+    gasStream.column.scale.x = flutter;
+    gasStream.column.scale.z = flutter;
+    gasStream.crown.position.set(_land.x, _land.y + 0.012, _land.z);
+    const splash = 0.72 + Math.sin(state.elapsed * 15.3) * 0.18;
+    gasStream.crown.scale.set(splash, 1, splash);
+    gasStream.crown.material.opacity = 0.34 + Math.sin(state.elapsed * 15.3) * 0.10;
+    for (let i = 0; i < gasStream.droplets.length; i++) {
+      const drip = gasStream.droplets[i];
+      const phase = (state.elapsed * 2.6 + i / gasStream.droplets.length) % 1;
+      drip.position.set(
+        _spout.x + (_land.x - _spout.x) * phase,
+        _spout.y - drop * phase,
+        _spout.z + (_land.z - _spout.z) * phase,
+      );
+      drip.scale.setScalar(0.7 + phase * 0.6);
+      drip.material.opacity = 0.66 * (1 - phase * 0.4);
+    }
+    return p;
+  }
+
   function applyFx() {
+    const pourP = state.gasPoured
+      ? clamp01(state.pourTime / Math.max(0.1, GAS_POUR_SECONDS))
+      : 0;
+    poseGasCan(pourP);
     gasSheen.visible = state.gasPoured && !state.ignited;
-    gasCan.rotation.z = state.gasPoured ? 1.25 : 0;
-    gasCan.position.y = gasY + (state.gasPoured ? 0.18 : 0);
+    // The ground coat arrives with the stream instead of all at once.
+    for (const spill of gasSheen.children) {
+      if (spill.material) spill.material.opacity = 0.48 * clamp01((pourP - 0.20) / 0.55);
+    }
     burnFx.root.visible = state.ignited;
     const life = state.ignited ? Math.max(0.24, 1 - state.burnProgress * 0.72) : 0;
     burnFx.glow.intensity = state.ignited
@@ -887,12 +1062,44 @@ export function buildCabinBodyCleanup({
     return true;
   }
 
+  /**
+   * Soak each bundle as the stream reaches it, in the order the mouth walks.
+   *
+   * `pyreIndex` 0 sits at firepit.x - 0.26 and 1 at +0.28, and `poseGasCan`
+   * walks the mouth from -0.55 to +0.55 between p = 0.20 and p = 0.86, so the
+   * first bundle takes its coat over 0.20..0.55 and the second over 0.55..0.86.
+   */
+  function applyPourWetness(p) {
+    for (const record of records.values()) {
+      const from = record.pyreIndex === 0 ? 0.20 : 0.55;
+      const to = record.pyreIndex === 0 ? 0.55 : 0.86;
+      record.wet = clamp01((p - from) / (to - from));
+      if (['at-fire', 'burning', 'burned'].includes(record.phase)) {
+        applyBurn(record, ['burning', 'burned'].includes(record.phase) ? state.burnProgress : 0, record.wet);
+      }
+    }
+  }
+
+  /** Announce each authored stage once, so the scene can hang a cue on it. */
+  function runPourStages(p) {
+    while (
+      state.pourStage + 1 < GAS_POUR_STAGES.length
+      && p >= GAS_POUR_STAGES[state.pourStage + 1].at
+    ) {
+      state.pourStage += 1;
+      emit('pour-stage', { stage: GAS_POUR_STAGES[state.pourStage].id, progress: p });
+    }
+  }
+
   function pourGas() {
     if (state.gasPoured) return false;
     if ([...records.values()].some((record) => record.phase !== 'at-fire')) return false;
     state.gasPoured = true;
+    state.pourTime = 0;
+    state.pourStage = -1;
     applyFx();
     emit('pour-gas');
+    runPourStages(0);
     return true;
   }
 
@@ -901,7 +1108,12 @@ export function buildCabinBodyCleanup({
     if ([...records.values()].some((record) => record.phase !== 'at-fire')) return false;
     state.ignited = true;
     state.burnProgress = 0;
+    /* A match beats the rest of the pour. Finish the pass on the spot so the
+     * can and the stream are not left hanging over a lit pyre. */
+    state.pourTime = GAS_POUR_SECONDS;
+    state.pourStage = GAS_POUR_STAGES.length - 1;
     for (const record of records.values()) {
+      record.wet = 1;
       record.phase = 'burning';
       present(record);
     }
@@ -913,6 +1125,13 @@ export function buildCabinBodyCleanup({
   function update(dt) {
     const step = Math.max(0, Math.min(0.25, Number(dt) || 0));
     state.elapsed += step;
+    if (state.gasPoured && state.pourTime < GAS_POUR_SECONDS) {
+      state.pourTime = Math.min(GAS_POUR_SECONDS, state.pourTime + step);
+      const p = clamp01(state.pourTime / GAS_POUR_SECONDS);
+      runPourStages(p);
+      applyPourWetness(p);
+      if (state.pourTime >= GAS_POUR_SECONDS) emit('pour-complete');
+    }
     if (state.carryingId) {
       const record = records.get(state.carryingId);
       if (record?.group.parent === camera) {
@@ -939,6 +1158,8 @@ export function buildCabinBodyCleanup({
       elapsed: state.elapsed,
       carryingId: state.carryingId,
       gasPoured: state.gasPoured,
+      pourProgress: state.gasPoured ? clamp01(state.pourTime / GAS_POUR_SECONDS) : 0,
+      pouring: state.gasPoured && state.pourTime < GAS_POUR_SECONDS,
       ignited: state.ignited,
       burnProgress: state.burnProgress,
       complete: state.burnProgress >= 1,
@@ -972,6 +1193,14 @@ export function buildCabinBodyCleanup({
       state.gasPoured = true;
       state.ignited = true;
     }
+    /* A restored pour is a finished pour: nothing replays the can, the stream
+     * or the stage cues, and the fuel is simply already on them. This runs
+     * AFTER the burning-body inference above, which can turn `gasPoured` on
+     * for a save that never carried the flag -- setting the clock before it
+     * would leave such a save at progress 0 and pour all over again. */
+    state.pourTime = state.gasPoured ? GAS_POUR_SECONDS : 0;
+    state.pourStage = state.gasPoured ? GAS_POUR_STAGES.length - 1 : -1;
+    for (const record of records.values()) record.wet = state.gasPoured ? 1 : 0;
     for (const record of records.values()) present(record);
     applyFx();
     return snapshot();

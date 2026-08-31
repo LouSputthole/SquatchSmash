@@ -83,7 +83,10 @@ import {
   createCabinChapterRuntime,
 } from './chapter-runtime.js';
 import { createCabinDialogueDirector } from './dialogue-director.js';
-import { createCabinExecutionChoice } from './execution-choice.js';
+import {
+  createCabinExecutionChoice,
+  createCabinGratinExecutionStaging,
+} from './execution-choice.js';
 import { createCabinTortureToolPresentation } from './torture-tool-presentation.js';
 import { createLagHintDirector, LAG_VOICE_PREFIX, speakLagLine } from './lag.js';
 import {
@@ -218,6 +221,8 @@ const state = {
   pcOn: false,
   tvOn: false,
   radioOn: false,
+  // Which cabinet the scene's single receiver is speaking out of.
+  radioSource: 'cabin',
   fridgeOpen: false,
   showered: false,
   dressed: false,
@@ -252,6 +257,7 @@ let armory = null;
 let rifleRackArmory = null;
 let wallRack = null;
 let gratinPistol = null;
+let gratinExecution = null;
 let bloodImpacts = null;
 let deathPools = null;
 let bonfireCast = null;
@@ -455,6 +461,9 @@ function hidePosture() {
   input?.refresh('stand');
 }
 
+/** Where standing up from the fire bench the player chose puts him back. */
+let benchExit = null;
+
 function sitAt(kind, pose) {
   if (!player || player.mode !== 'walk' || !pose) return;
   if (kind === 'bed') discoverCabin('bedroom');
@@ -474,12 +483,34 @@ function sitAt(kind, pose) {
   });
 }
 
+/**
+ * SIT DOWN AT THE FIRE.
+ *
+ * Owner, cabin playtest: *"it'd be nice if you could actually sit in the
+ * scene."*
+ *
+ * Nothing new: the bench hands over the same `{ position, yaw, pitch }` pose
+ * the couch and the bed edge already use, so it inherits the seated view cone
+ * and Q to stand. The only thing the bench had to supply that an indoor seat
+ * did not is its own exit, because the fire circle is on terrain rather than
+ * on a floor at y = 0.
+ */
+function sitOnFireBench(seat) {
+  if (!seat?.pose || !player || player.mode !== 'walk') return false;
+  discoverCabin('firepit');
+  benchExit = seat.exit ?? null;
+  sitAt('bench', seat.pose);
+  return true;
+}
+
 function standUp() {
   if (!state.posture || !player) return;
   const exit = state.posture === 'desk' ? cabin.deskExit
-    : state.posture === 'couch' ? cabin.couchExit : cabin.bedSitExit;
+    : state.posture === 'couch' ? cabin.couchExit
+      : state.posture === 'bench' ? benchExit : cabin.bedSitExit;
   hidePosture();
   player.standFrom(exit ?? new THREE.Vector3(player.position.x, 0, player.position.z + 0.8));
+  benchExit = null;
 }
 
 function restAtCabin() {
@@ -725,19 +756,67 @@ function nextTelevision() {
   hud.toast(`Television · ${tv.channel.name}`);
 }
 
-function toggleRadio() {
-  discoverCabin('entertainment');
+/**
+ * ONE RECEIVER, TWO CABINETS.
+ *
+ * Owner, cabin playtest: *"Maybe we have another radio that's out here by the
+ * fire that you guys are listening to, and we need to make sure when you're
+ * listening to that radio that the other radio isn't playing."*
+ *
+ * The guarantee is structural rather than a mute flag: the scene owns exactly
+ * one `Radio`, which owns exactly one PannerNode, and `setPosition` is the
+ * only thing that decides where in the world the station is coming from. Two
+ * sets cannot both play because there is only one thing playing. Switching
+ * sets is a move, not a second stream -- the song does not restart.
+ */
+function radioPositionFor(source) {
+  return (source === 'firepit' ? cabin.firepitRadioPos : cabin.radioPos)
+    ?? cabin.radioPos
+    ?? new THREE.Vector3();
+}
+
+function setRadioSource(source) {
+  const next = source === 'firepit' ? 'firepit' : 'cabin';
+  state.radioSource = next;
+  if (cabin?.state) cabin.state.radioSource = next;
+  cabin?.setFirepitRadioLive?.(next === 'firepit' && radio.on);
+  radioWorldPosition.copy(radioPositionFor(next));
+  radio.setPosition(radioWorldPosition);
+  return next;
+}
+
+function radioPlayingAt(source) {
+  return Boolean(radio.on) && state.radioSource === (source === 'firepit' ? 'firepit' : 'cabin');
+}
+
+function toggleRadio(source = 'cabin') {
+  const next = source === 'firepit' ? 'firepit' : 'cabin';
+  if (next !== 'firepit') discoverCabin('entertainment');
+  // Pressing the OTHER set while the station is playing hands the receiver
+  // over rather than stopping it: the set you walked away from goes quiet in
+  // the same frame, because it never had its own voice.
+  if (radio.on && state.radioSource !== next) {
+    setRadioSource(next);
+    hud.toast(next === 'firepit' ? '97.8 THE SQUATCH · out at the fire' : '97.8 THE SQUATCH · inside');
+    return;
+  }
+  setRadioSource(next);
   radio.toggle();
   state.radioOn = radio.on;
-  cabin.state.radioOn = state.radioOn;
+  if (cabin?.state) cabin.state.radioOn = state.radioOn;
+  cabin?.setFirepitRadioLive?.(next === 'firepit' && radio.on);
   hud.toast(state.radioOn ? '97.8 THE SQUATCH' : 'Radio off');
 }
 
-function tuneRadio() {
-  discoverCabin('entertainment');
+function tuneRadio(source = 'cabin') {
+  const next = source === 'firepit' ? 'firepit' : 'cabin';
+  if (next !== 'firepit') discoverCabin('entertainment');
+  setRadioSource(next);
   if (!radio.on) radio.turnOn();
   radio.tune();
   state.radioOn = radio.on;
+  if (cabin?.state) cabin.state.radioOn = state.radioOn;
+  cabin?.setFirepitRadioLive?.(next === 'firepit' && radio.on);
 }
 
 function toggleFrontDoor() {
@@ -816,6 +895,34 @@ function dungeonActorFor(id) {
   return null;
 }
 
+/**
+ * Where Gratin points: the captive's head, in world space.
+ *
+ * It has to be sampled live rather than read off an authored constant, because
+ * the restraint poses run every frame and move both heads a long way from
+ * their spawn coordinates. The baiter is inverted on the beam rig: his spawn
+ * origin becomes his ankles and his head anchor ends up at y -4.18 -- 0.549 m
+ * BELOW Gratin's shoulder -- while the A-Team man folded onto the rack reads
+ * -3.98, another 0.351 m down. Sampled without the pose applied, the same
+ * anchors answer y -1.02, which is through the dungeon ceiling.
+ */
+function gratinAimPoint(id) {
+  const actor = dungeonActorFor(id);
+  const anchor = actor?.headAnchor ?? actor?.bodyAnchor;
+  return anchor?.getWorldPosition?.(new THREE.Vector3()) ?? null;
+}
+
+/** The mounted pistol's muzzle, or his chest if the model has not loaded. */
+function gratinMuzzleWorld() {
+  const gratin = cabin?.basement?.dungeon?.actors?.gratin;
+  const local = gratinPistol?.userData?.muzzle;
+  if (gratinPistol && local) {
+    gratinPistol.updateWorldMatrix(true, false);
+    return gratinPistol.localToWorld(local.clone());
+  }
+  return gratin?.group?.getWorldPosition?.(new THREE.Vector3()) ?? new THREE.Vector3();
+}
+
 function storyHostageForCleanup(id) {
   return CLEANUP_TO_STORY_HOSTAGE[id] ?? null;
 }
@@ -834,6 +941,47 @@ function canCleanupCarry(id) {
 
 function canCleanupStage(id) {
   return canCleanupCarry(id) && cabin?.bodyCleanup?.snapshot?.().carryingId === id;
+}
+
+/**
+ * The fuel pass, heard.
+ *
+ * `body-cleanup` announces five authored stages as the can crosses the pyre;
+ * this hangs an already-recorded cue on each of them. `gasoline.pour` is the
+ * jerry-can take the manifest asks for -- until its mp3 is rendered the engine
+ * would fall back to a synth tick for it, so it is only played when the sample
+ * is genuinely decoded and the bar-stream take, which this scene already
+ * loads, stands in at a heavier rate meanwhile. Nothing here invents a name.
+ */
+function playGasPourStage(stage) {
+  const at = cabin?.bodyCleanup?.geometry?.firepit;
+  if (!at) return false;
+  if (stage === 'lift') {
+    audio.play('whiskey.cap', { volume: 0.42, position: at });
+    return true;
+  }
+  if (stage === 'stream') {
+    if (audio.hasSample?.('gasoline.pour')) {
+      audio.play('gasoline.pour', { volume: 0.62, position: at });
+    } else if (audio.hasSample?.('pour')) {
+      // A bigger vessel than the tumbler it was recorded over.
+      audio.play('pour', { volume: 0.58, rate: 0.72, position: at });
+    }
+    return true;
+  }
+  if (stage === 'second-body') {
+    audio.play('water.splash', { volume: 0.30, rate: 1.18, position: at });
+    return true;
+  }
+  if (stage === 'right') {
+    audio.play('silent.gas.hiss', { volume: 0.38, position: at });
+    return true;
+  }
+  if (stage === 'set-down' || stage === 'done') {
+    if (stage === 'set-down') audio.play('can.set', { volume: 0.5, rate: 0.78, position: at });
+    return true;
+  }
+  return false;
 }
 
 function canUseOrdinaryFirepit() {
@@ -1199,6 +1347,17 @@ try {
     onWoodpile: useWoodpile,
     onFirepit: useFirepit,
     canUseOrdinaryFirepit,
+    onFirepitBench: sitOnFireBench,
+    /* A bench is furniture, not a beat. It refuses only while the player is
+     * already committed to something else -- a body on his shoulder, another
+     * seat, a rest, or the choice panel holding the pointer. */
+    canSitAtFire: () => state.phase === 'active'
+      && !state.posture
+      && !state.resting
+      && !state.carryingBody
+      && !executionChoice?.active
+      && player?.mode === 'walk',
+    isRadioPlayingAt: radioPlayingAt,
     onLag: talkToLag,
     canTalkToLag: () => lagHints.canTalk(state.elapsed),
     onPorch: () => hud.say('No traffic. Just the creek below the trees.', 3000),
@@ -1226,6 +1385,10 @@ try {
     },
     onCleanupPlaceAtFire: (id) => chapter?.placeBodyAtFire?.(id),
     onCleanupPourGas: () => chapter?.pourGas?.(),
+    onCleanupEvent: (event) => {
+      if (event?.type === 'pour-stage') playGasPourStage(event.stage);
+      else if (event?.type === 'pour-complete') playGasPourStage('done');
+    },
     onCleanupIgnite: () => chapter?.igniteBonfire?.(),
   });
   bathroomMirror = createCabinPlanarMirror(scene, cabin.mirrorMesh, {
@@ -1254,8 +1417,7 @@ player = new Player(camera, world);
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 interaction.setOccluders(cabin.occluders ?? []);
-radioWorldPosition.copy(cabin.radioPos);
-radio.setPosition(radioWorldPosition);
+setRadioSource(state.radioSource);
 try {
   reflectionBody = new FirstPersonBody(scene, {
     factory: makeCabinPlayerFigure,
@@ -1382,6 +1544,10 @@ mountCharacterWeapon(dungeon.actors.gratin.parts, WEAPON_IDS.PISTOL9, gratinPist
   name: 'cabin-dungeon-gratin-pistol',
 });
 gratinPistol.visible = false;
+gratinExecution = createCabinGratinExecutionStaging({
+  actor: dungeon.actors.gratin,
+  gun: gratinPistol,
+});
 
 dialogue = createCabinDialogueDirector({
   audio,
@@ -1461,21 +1627,36 @@ chapter = createCabinChapterRuntime({
     onGratinExecutionStart: () => {
       gratinPistol.visible = true;
       weapons.stow({ silent: true });
+      // The heading he squares back up on once both are down.
+      gratinExecution?.markHome(dungeon.actors.gratin.group.rotation.y);
+    },
+    /* He turns first. The clock leads every shot by GRATIN_AIM_SECONDS so the
+     * pistol is genuinely pointed at the man before the round leaves it. */
+    onGratinAim: (id) => {
+      const point = gratinAimPoint(id);
+      if (point) gratinExecution?.aimAt(point);
     },
     onGratinShot: (id) => {
       const actor = dungeonActorFor(id);
       const point = actor?.headAnchor?.getWorldPosition?.(new THREE.Vector3());
+      gratinExecution?.fire();
+      /* The report comes off the MUZZLE, not off Gratin's boots. With the gun
+       * mounted on his forearm that is now a different place in the room for
+       * each of the two shots, which is the point. */
+      const muzzle = gratinMuzzleWorld();
       playWeaponCue(audio, WEAPON_IDS.PISTOL9, 'fire', {
-        position: dungeon.actors.gratin.group.getWorldPosition(new THREE.Vector3()),
+        position: muzzle,
         volume: 0.9,
       });
       woundCaptive(id, {
         point,
-        normal: new THREE.Vector3(0, 0, -1),
-        origin: dungeon.actors.gratin.group.getWorldPosition(new THREE.Vector3()),
+        // The wound faces the man who fired it.
+        normal: point ? muzzle.clone().sub(point).normalize() : new THREE.Vector3(0, 0, -1),
+        origin: muzzle,
         object: actor?.headTarget,
       });
     },
+    onGratinExecutionEnd: () => gratinExecution?.release(),
     onWeaponHit: (id, hostage, impact) => {
       woundCaptive(id, impact);
       void hostage;
@@ -1517,9 +1698,7 @@ chapter = createCabinChapterRuntime({
     },
     onPourGas: ({ restored = false } = {}) => {
       if (restored) return true;
-      const poured = cabin.bodyCleanup.pourGas();
-      if (poured) audio.play('silent.gas.hiss', { volume: 0.46, position: cabin.bodyCleanup.geometry.firepit });
-      return poured;
+      return cabin.bodyCleanup.pourGas();
     },
     onIgniteBonfire: ({ restored = false } = {}) => {
       if (restored) {
@@ -1586,7 +1765,7 @@ const tvTexture = new THREE.CanvasTexture(tv.canvas);
 tvTexture.colorSpace = THREE.SRGBColorSpace;
 if (cabin.tv?.screen) cabin.tv.screen.material = new THREE.MeshBasicMaterial({ map: tvTexture, toneMapped: false });
 tv.position = cabin.tv?.screenPos ?? new THREE.Vector3();
-radio.setPosition(cabin.radioPos ?? new THREE.Vector3());
+setRadioSource(state.radioSource);
 
 const heldPhone = makePhone(makeMaterials(), { x: 0, y: 0, z: 0, w: 0.072 });
 heldPhone.group.position.set(0.07, -0.10, -0.32);
@@ -1914,6 +2093,10 @@ startButton.addEventListener('click', async () => {
       'pizza.take', 'egg.eat', 'tv.click', 'gun.drop.wood',
       'punch.light', 'punch.heavy', 'swing.whiff', 'stunprod.arc', 'silent.arc',
       'cloth.snap', 'boat.bag.zip', 'boat.body.drag',
+      // The pyre's fuel pass. `gasoline.pour` is the recorded jerry-can glug;
+      // until its mp3 lands the pour falls back to the bar-stream take, which
+      // this scene already loads, rather than to the engine's synth tick.
+      'gasoline.pour', 'pour', 'can.set',
       'silent.gas.hiss', 'heist.bullet.impact',
       ...weaponCueNames(),
       ...cabinScriptCues().map(({ name }) => name),
@@ -1942,6 +2125,7 @@ startButton.addEventListener('click', async () => {
     maxDist: 10,
     fade: 0.6,
   });
+  setRadioSource('cabin');
   radio.turnOn({ tuneIn: true, remember: false });
   state.radioOn = true;
   cabin.state.radioOn = true;
@@ -2067,6 +2251,9 @@ function frame(now) {
         cabinPosition: { x: 0, z: 0 },
       });
       tortureTools?.update?.(dt);
+      /* After `cabin.update` (which runs the Npc rig) so the execution turn
+       * owns Gratin's heading for the frame it is running. */
+      gratinExecution?.update?.(dt);
       weapons.enabled = !state.resting && !executionChoice?.active && !state.carryingBody;
       weapons.update(dt, {
         speed: Math.hypot(player.velocity?.x || 0, player.velocity?.z || 0),
@@ -2155,6 +2342,7 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   wallRack,
   dungeon,
   tortureTools,
+  gratinExecution,
   range: cabin.shootingRange,
   cleanup: cabin.bodyCleanup,
   talkToLag,
@@ -2186,6 +2374,11 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   pourGas: () => chapter.pourGas(),
   ignitePyre: () => chapter.igniteBonfire(),
   consumeForFire: (item) => chapter.consume(item),
+  firepitSeats: cabin.firepitSeats,
+  sitOnFireBench: (index = 0) => sitOnFireBench(cabin.firepitSeats?.[index]),
+  standUp,
+  setRadioSource,
+  radioPlayingAt,
   teleport(id, mode = 'observe') {
     const viewpoint = mode === 'interact'
       ? cabin.interactionViewpoints?.[id]

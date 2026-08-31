@@ -6,7 +6,7 @@
     {
       "state": "property",
       "overlap": 1079,
-      "checkSupport": 2560,
+      "checkSupport": 2580,
       "sources": [
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-body-cleanup#0/name=cabin-cleanup.fire-dressing#0/name=cabin-cleanup.beer-cans#0",
@@ -403,6 +403,12 @@
           "scope": "inherited",
           "overlap": 0,
           "checkSupport": 6
+        },
+        {
+          "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-firepit#0/name=cabin-firepit-radio-stand#0",
+          "scope": "inherited",
+          "overlap": 0,
+          "checkSupport": 20
         },
         {
           "sourceId": "root:countryside-cabin-property/name=cabin-landscape#0/name=cabin-forest-chunk-0-0#0/name=cabin-tree-trunks#0",
