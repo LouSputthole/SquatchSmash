@@ -8197,6 +8197,12 @@
       "prompt": "single footstep landing in a shallow standing puddle, sharp water splash and slop with the sole lifting out wet, outdoors on pavement, no voice, no music"
     },
     {
+      "_comment": "Golf bunkers emit surface 'sand' and had no recording -- every bunker step fell through to the synth's default 800 Hz tick. src/golf/audio.js plays a pitched-down gravel stand-in until this lands; swap the mapping back to footstep.sand the day it is generated.",
+      "name": "footstep.sand",
+      "duration": 0.6,
+      "prompt": "one footstep sinking into soft dry bunker sand on a golf course, muffled granular crunch and a fine grain shift as the sole settles, no voice, no music"
+    },
+    {
       "name": "slot.pull",
       "duration": 1,
       "prompt": "the arm of a mechanical slot machine pulled down and released, heavy spring-loaded lever travel with a solid metal clunk at the bottom, close, no voice, no music"
@@ -13581,6 +13587,13 @@
       "name": "vo.cabin.dungeon.gasoline.gratin.2",
       "voice": "gratin",
       "say": "I contain multitudes. Hold the can lower."
+    },
+    {
+      "_comment": "CABIN II pyre. Owner, 2026-08-31: 'We put a little more work into the pouring the gasoline on the bodies, at the burning them scene.' The dungeon has the gasoline VO exchange but no pour itself.",
+      "name": "gasoline.pour",
+      "duration": 3.2,
+      "promptInfluence": 0.5,
+      "prompt": "gasoline glugging from a tilted metal jerry can onto heavy fabric and the ground outdoors at night, uneven sloshing stream with hollow can resonance and a wet spatter tail, no voice, no music"
     },
     {
       "_comment": "IGNITION — Light the pyre",
