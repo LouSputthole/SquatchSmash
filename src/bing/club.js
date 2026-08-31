@@ -119,6 +119,13 @@ export function buildClub(scene, { renderer } = {}) {
 
   const colliders = [];
   const floorZones = [];
+  /* Held back and pushed LAST, just before the return. `Player.surfaceAt`
+   * takes the FIRST matching zone (src/core/player.js), and this 260x260
+   * exterior box covers the whole building -- pushed in construction order it
+   * shadowed every interior floor() zone, so the barroom rug and the
+   * back-of-house tile never played: every step anywhere in the club was the
+   * exterior's hard surface. */
+  let exteriorFloorZone = null;
   const doors = {};
   const anchors = {};
   const neon = [];      // things that flicker: { mesh, light, next, on, kind }
@@ -363,10 +370,10 @@ export function buildClub(scene, { renderer } = {}) {
     g.receiveShadow = true;
     markStructural(g, 'exterior-asphalt');
     add(g);
-    floorZones.push({
+    exteriorFloorZone = {
       box: new THREE.Box3(new THREE.Vector3(-130, -1, -118), new THREE.Vector3(130, 1, 142)),
       surface: 'tile',
-    });
+    };
   }
 
   // Roadside grass, the elevated highway, and the warehouses behind it
@@ -2875,6 +2882,10 @@ export function buildClub(scene, { renderer } = {}) {
   const artReady = resolveGear(artSlots.map((a) => a.slot))
     .then((gear) => dressArtSlots(gear))
     .catch(() => []);
+
+  /* The exterior catch-all goes in only now that every interior floor() has
+   * claimed its own zone -- see the note at the declaration. */
+  if (exteriorFloorZone) floorZones.push(exteriorFloorZone);
 
   return {
     root, colliders, navBlockers, floorZones, doors, anchors, neon, office, storeroom, slot, bj,
