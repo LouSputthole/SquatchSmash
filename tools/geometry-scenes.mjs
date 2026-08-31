@@ -369,8 +369,11 @@ async function buildApartment(descriptor, THREE, collaborators) {
   apartment.root.traverse((object) => { if (object.isMesh) totalMeshCount += 1; });
   const dressingProducerCount = apartment.dressing?.size ?? 0;
   const margoProducerCount = apartment.root.children.filter(({ name }) => name === 'margo').length;
-  if (totalMeshCount !== 1729) {
-    throw new Error(`Apartment Adapter expected 1729 procedural meshes; found ${totalMeshCount}`);
+  /* 1729 -> 1731 on 2026-08-31: Margo's shared head builder grew two eyelid
+   * meshes (`margo.face.eyelid.*`, src/silver/margo.js) for the owner's
+   * "actually closing her eyes" sleep note, and this build mounts her once. */
+  if (totalMeshCount !== 1731) {
+    throw new Error(`Apartment Adapter expected 1731 procedural meshes; found ${totalMeshCount}`);
   }
   const whiteLine = apartment.whiteLine;
   if (whiteLine?.group?.name !== 'apartment-counter-powder'
@@ -3335,7 +3338,15 @@ async function buildInitiation(descriptor, THREE) {
  * under the clearing floor in the first place.
  */
 function annotateSpecialMeetingCast(cast, descriptor, { carAssemblyId = null } = {}) {
-  const bodies = cast.all.filter((npc) => npc.group.visible);
+  /* PLACED, not VISIBLE. The two were the same flag until the owner's
+   * 2026-08-31 boot ruling ("she's invisible in the trunk") split them:
+   * Kittenboss rides the trunk anchor with the lid down, placed by
+   * `rideInTheBoot` and hidden by the lid's own state. She stays mounted in
+   * the scene, so the staging gate still DISCOVERS her (includeHidden) and
+   * files her under visibilityFilteredActorIds — the rendered-only evidence
+   * shape the debt ratchet accepts. A body no staging call ever positioned
+   * is still the bug this throw exists for. */
+  const bodies = cast.all.filter((npc) => npc.placed === true);
   if (bodies.length !== cast.all.length) {
     throw new Error(
       `Special Meeting Adapter left ${cast.all.length - bodies.length} of the cast unplaced in ${descriptor.id}`,
@@ -3459,7 +3470,7 @@ async function buildSpecialMeetingKerb(descriptor, THREE) {
       blocks: 1, sedans: 1, cast: castCount, colliders: runtime.colliders.length,
     },
     seating: cast.seatedAs(),
-    sedan: { ...objectPose(sedan.group), trunkOpen: blockState === 'arrived' },
+    sedan: { ...objectPose(sedan.group), trunkOpen: false },
     anchorIds: Object.keys(block.anchors ?? {}).toSorted(),
   });
 }

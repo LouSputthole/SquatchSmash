@@ -273,7 +273,9 @@ test('Apartment geometry remains complete and clean across every public campaign
     const built = await buildGeometrySceneState(descriptor.id);
     const root = built.roots[0].root;
     assert.deepEqual(built.metadata.producerCounts, {
-      proceduralMeshes: 1729,
+      /* 1729 -> 1731 on 2026-08-31: Margo's shared head grew two eyelid
+       * meshes for the sleep note (src/silver/margo.js). */
+      proceduralMeshes: 1731,
       colliders: 29,
       dressing: 29,
       margo: 1,

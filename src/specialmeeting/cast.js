@@ -400,6 +400,13 @@ export function buildSpecialMeetingCast(scene, {
     npc.group.userData.npc.characterId = spec.characterId;
     npc.group.name = `special-meeting ${spec.name}`;
     npc.group.visible = false;
+    /* Placement and visibility used to be one flag: everybody spawns hidden
+     * and the first `place`/`sit` showed them, so "visible" doubled as "some
+     * staging call put this body somewhere". The boot broke that pact — a
+     * concealed rider is PLACED (the trunk anchor owns her transform) while
+     * the closed lid keeps her invisible — so the adapter's unplaced-cast
+     * tripwire reads this flag instead of the lid's opinion. */
+    npc.placed = false;
     markWithRealProportions(npc);
     people[key] = npc;
   }
@@ -465,6 +472,7 @@ export function buildSpecialMeetingCast(scene, {
   function place(key, x, y, z, yaw) {
     const npc = people[key];
     npc.group.visible = true;
+    npc.placed = true;
     npc.group.position.set(x, y, z);
     /* A rider released from the sedan keeps the seat anchor's world
      * quaternion.  For the rear-right seat Three decomposes that quaternion
@@ -532,6 +540,7 @@ export function buildSpecialMeetingCast(scene, {
     });
     /* She is riding too, and more thoroughly inside the car than anybody. */
     setActorPosture(kb.group, 'ride');
+    kb.placed = true;
     /* Owner, 2026-08-31: "kitten boss is poking out through the trunk. Her
      * head is sticking out. ... we have to make sure that she's invisible in
      * the trunk." A closed boot shows nothing, whatever the rig's seated
@@ -547,6 +556,7 @@ export function buildSpecialMeetingCast(scene, {
     const npc = people[key];
     if (!npc || !sedan) return null;
     npc.group.visible = true;
+    npc.placed = true;
     npc.sit();
     /* `yaw: false` on purpose. The sedan's own ride-along copies the car's
      * rotation straight onto the rider, and a `makePerson` rig at that yaw is

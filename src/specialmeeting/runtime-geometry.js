@@ -12,9 +12,9 @@
  *                This is the state the player spends the first ten seconds in
  *                and the one the pavement, the doorway and the alley are
  *                actually read from.
- *   `arrived`  — the car is at the kerb, headlights on, boot open. The boot
- *                lid is the one moving part in the scene that ends up
- *                overhanging other geometry, so it is worth a state of its own.
+ *   `arrived`  — the car is at the kerb, headlights on, boot SHUT: the live
+ *                script keeps the lid down until SM-410's reveal, with the
+ *                concealed rider hidden under it the whole hub.
  *
  * NOT REGISTERED YET, on purpose: `tools/geometry-scenes.mjs` is the registry
  * and `tests/geometry-scene-registry.test.mjs` pins the adapter list, and both
@@ -51,8 +51,12 @@ export function buildSpecialMeetingRuntimeGeometry(scene, {
     sedan.placeAt(SEDAN_STOP.x, SEDAN_STOP.z, SEDAN_STOP.heading);
     sedan.setHeadlights(true);
     sedan.setBrake(0.35);
-    sedan.setTrunk(1);
-    sedan.trunk.setOpen(1);
+    /* The boot stays SHUT at the kerb. The live script only pops it at
+     * SM-410's reveal beat (script.js, `opensTrunk`), long after the hub
+     * this state audits — and the owner's 2026-08-31 ruling ties the
+     * concealed rider's visibility to that lid, so an open boot here would
+     * stage a Kittenboss the player never sees at arrival. This state used
+     * to open it, from before the reveal was pushed to SM-410. */
     sedan.setCabinLight(true);
   } else {
     sedan.placeAt(SEDAN_STAGING.x, SEDAN_STAGING.z, SEDAN_STAGING.heading);

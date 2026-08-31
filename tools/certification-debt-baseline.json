@@ -9551,7 +9551,7 @@
             "findings": 0,
             "findingsScanned": true,
             "spatialCoverageStatus": "PASS",
-            "typed": 66,
+            "typed": 107,
             "unmarkedRigs": 0,
             "untyped": 0,
             "visibilityFilteredActorIds": [
@@ -12359,14 +12359,13 @@
               "reason": "specialmeeting:kerb-arrived must expose its visible staged cast."
             },
             "actorObservedIds": [
-              "Kittenboss",
               "Lag",
               "Numbskull",
               "Seff"
             ],
             "actorVisibilityPolicy": "rendered_only",
             "actorsDiscovered": 4,
-            "actorsObserved": 4,
+            "actorsObserved": 3,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -12374,8 +12373,10 @@
             "typed": 10,
             "unmarkedRigs": 0,
             "untyped": 41,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "Kittenboss"
+            ],
+            "visibilityFilteredActors": 1
           }
         },
         {
@@ -12394,14 +12395,13 @@
               "reason": "specialmeeting:kerb-waiting must expose its visible staged cast."
             },
             "actorObservedIds": [
-              "Kittenboss",
               "Lag",
               "Numbskull",
               "Seff"
             ],
             "actorVisibilityPolicy": "rendered_only",
             "actorsDiscovered": 4,
-            "actorsObserved": 4,
+            "actorsObserved": 3,
             "built": true,
             "findings": 0,
             "findingsScanned": true,
@@ -12409,8 +12409,10 @@
             "typed": 10,
             "unmarkedRigs": 0,
             "untyped": 41,
-            "visibilityFilteredActorIds": [],
-            "visibilityFilteredActors": 0
+            "visibilityFilteredActorIds": [
+              "Kittenboss"
+            ],
+            "visibilityFilteredActors": 1
           }
         },
         {

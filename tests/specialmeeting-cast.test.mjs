@@ -55,7 +55,13 @@ function carBearing(sedan) {
 
 function actorsOf(scene) {
   scene.updateMatrixWorld(true);
-  return new Map(collectActors(scene, THREE).map((actor) => [actor.id, actor]));
+  /* includeHidden, because the cast is no longer all rendered: Kittenboss
+   * rides the boot with the lid down (owner, 2026-08-31: "she's invisible in
+   * the trunk"), and these tests measure PLACEMENT facts — yaw, marking,
+   * posture — that hold whether or not the lid is hiding her. The rendered
+   * -only split is the staging gate's own business and is pinned below. */
+  return new Map(collectActors(scene, THREE, { includeHidden: true })
+    .map((actor) => [actor.id, actor]));
 }
 
 test('everybody in the car faces the way the car is going', () => {
@@ -124,6 +130,25 @@ test('they stand on the ground the scene says is there, and stay on it', () => {
       `${id} fell ${(FLOOR_Y - actor.position[1]).toFixed(2)} m on the first idle frame`,
     );
   }
+});
+
+test('the boot conceals its rider until the lid says otherwise', () => {
+  const { scene, cast } = stage({ ground: () => FLOOR_Y });
+  cast.boardForArrival();
+  /* Lid down (no update frames have run the trunk toward any target), so she
+   * is PLACED but not RENDERED: the exact split the adapter's unplaced-cast
+   * tripwire and the staging gate's rendered-only evidence both rely on. */
+  assert.equal(cast.kittenboss.placed, true);
+  assert.equal(cast.kittenboss.group.visible, false);
+  const rendered = new Set(collectActors(scene, THREE).map((actor) => actor.id));
+  assert.ok(!rendered.has('Kittenboss'), 'a closed boot shows nothing');
+  assert.deepEqual(
+    [...rendered].sort(), ['Lag', 'Numbskull', 'Seff'],
+    'the three in seats stay rendered',
+  );
+  cast.getOut();
+  cast.kittenbossOut();
+  assert.equal(cast.kittenboss.group.visible, true, 'out of the boot she is unconditionally visible');
 });
 
 test('every one of them is marked for the staging gate', () => {
