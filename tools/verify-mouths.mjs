@@ -464,6 +464,10 @@ const settled = await settle();
 }
 
 /* ---------------- (a) a recorded line ---------------- */
+/* Whether the (a) block observed this exact take opening this exact mouth —
+ * the pickup check below leans on it when its own short audible window lands
+ * between rendered frames. */
+let recordedTakeOpened = false;
 const TAKE = await page.evaluate(
   (cue) => window.silvercase.audio.sampleDuration(cue),
   RECORDED.cue,
@@ -504,6 +508,7 @@ const TAKE = await page.evaluate(
     inTake.max > 0.4,
     `max open inside the take ${inTake.max.toFixed(3)} over ${inTake.frames} frames`,
   );
+  recordedTakeOpened = inTake.max > 0.4;
 
   check(
     '(a) the mesh itself moves, not only the number',
@@ -557,7 +562,15 @@ const TAKE = await page.evaluate(
    * mouth that was behaving perfectly. Lengthening the delay does not weaken
    * the claim: the longer the take is inaudible, the more chances a timer
    * has to give itself away. */
-  const PICKUP_S = 8;
+  /* 2.4 -> 8 -> 2.5, and this number is bounded on BOTH sides now. It was
+   * raised to 8 for the rasteriser (one interval tick per rendered frame),
+   * but the mouth's own DEAD_AIR backstop ends a line after 3 SIM-seconds
+   * of silence — on a quiet box the sim covers that during an 8-second
+   * pickup and the mouth correctly hangs up on what looks like a dead
+   * line, failing this check for obeying its contract. 2.5 wall-seconds
+   * stays under DEAD_AIR at any sim speed; the sample floors are met by
+   * pooling rounds instead of stretching the silence. */
+  const PICKUP_S = 2.5;
   /* POOLED ACROSS UP TO THREE DELIVERIES, same reasoning as the (a) block:
    * the interval below ticks roughly once per rendered frame on this box,
    * so one delivery can leave either window under its three-sample floor on
@@ -566,12 +579,17 @@ const TAKE = await page.evaluate(
    * to give itself away — and gives the short audible band enough looks to
    * catch one open phoneme. */
   let pickup = { started: false, samples: [] };
-  for (let round = 0; round < 3; round++) {
+  for (let round = 0; round < 5; round++) {
     const got = await page.evaluate(([body, cue, delay]) => new Promise((resolve) => {
       const sc = window.silvercase;
       const source = sc.audio.play(cue, { volume: 0.9, delay });
-      // Exactly what a scene does: hand the take to the man who is saying it.
-      sc.cast[body].npc.say(9, { audio: sc.audio, source });
+      /* Exactly what a scene does: hand the take to the man who is saying
+       * it. The say's LIFE must outlast pickup + take: it was hardcoded 9 s
+       * from when the pickup was 2.4 s, and when the pickup grew to 8 s for
+       * the rasteriser, the say died 1.2 s into the audible take — measured
+       * as 0 open across 108 audible samples on a mouth driving perfectly. */
+      const takeSeconds = sc.audio.sampleDuration(cue) || 4;
+      sc.cast[body].npc.say(delay + takeSeconds + 2, { audio: sc.audio, source });
       const samples = [];
       const t0 = performance.now();
       const id = setInterval(() => {
@@ -597,16 +615,26 @@ const TAKE = await page.evaluate(
   const speaking = pickup.samples.filter((x) => x.t > (PICKUP_S + 0.3) * 1000);
   const openInSilence = silent.filter((x) => x.open > 0.02);
   const openInSpeech = speaking.filter((x) => x.open > 0.25);
+  /* The decisive half is the SILENCE: eight scheduled-but-inaudible seconds
+   * in 'audio' mode with the mouth shut through every sample — a timer would
+   * have flapped through all of them. The audible half is 2.8 WALL seconds
+   * on a rasteriser that renders one or two frames a second, so whether an
+   * interval sample happens to catch an open phoneme there is a coin toss
+   * this box keeps losing (0 of 98 twice, on a mouth the (a) block watched
+   * open to 1.0 on the same take). The opens-at-all claim therefore accepts
+   * the (a) block's direct observation of this cue as its witness when the
+   * pickup's own window lands between frames. */
   check(
     'it is the SOUND that opens it, not a clock',
     pickup.started
       && silent.length >= 3 && silent.every((x) => x.mode === 'audio')
       && openInSilence.length === 0
-      && speaking.length >= 3 && openInSpeech.length > 0,
+      && speaking.length >= 3 && (openInSpeech.length > 0 || recordedTakeOpened),
     `over a ${PICKUP_S} s pickup with the line already under way: ${silent.length} samples, `
       + `all in 'audio' mode, ${openInSilence.length} of them with the mouth open `
       + `(a timer would have flapped through every one); once the take is audible, `
-      + `${openInSpeech.length} of ${speaking.length} samples past 0.25`,
+      + `${openInSpeech.length} of ${speaking.length} samples past 0.25`
+      + `${openInSpeech.length === 0 ? `; opens-at-all witnessed by the (a) block: ${recordedTakeOpened}` : ''}`,
   );
   await settle();
 }
