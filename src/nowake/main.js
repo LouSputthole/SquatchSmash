@@ -240,7 +240,11 @@ const state = {
 let inputCaptureAllowed = false;
 
 const radioClock = new AuthoredClock(12.75);
-radioClock.setTime(3, 12 * 60 + 45);
+/* Day 7 on the current spine -- NO WAKE follows the stayover morning, not
+ * the old Day 3 slot this literal survived from. Read the save so a station
+ * show keyed to the day cannot land four days early; the 12:45 hour is
+ * right (Gate C, quarter to one) and stays authored. */
+radioClock.setTime(Math.max(1, campaign.state.story.day || 7), 12 * 60 + 45);
 const radioPosition = new THREE.Vector3();
 const radio = new Radio(audio, hud, radioClock, {
   venue: 'apartment',

@@ -158,8 +158,12 @@ class BankHeistStory {
           active.disciplinedFire = facts.disciplinedFire;
         }
         if (BANK_HEIST_OUTCOMES.includes(facts.outcome)) active.outcome = facts.outcome;
+        /* The fieldwork clock is spent below, outside this update -- the six
+         * hours from the lobby to the safehouse must be on the books before
+         * the debrief phone rings, or Lou counts the take at 12:45. */
       }
     });
+    if (name === 'safehouse_debrief') this.#spendFieldworkClock();
     return true;
   }
 
@@ -177,6 +181,12 @@ class BankHeistStory {
       return 'ringing';
     }
     return 'unavailable';
+  }
+
+  #spendFieldworkClock() {
+    /* Exact-once by id: a reload at the safehouse cannot re-spend it, and
+     * COMPLETE_BANK_HEIST's identical anchor absorbs on top of it. */
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_HEIST_FIELDWORK);
   }
 
   answerDebriefCall() {

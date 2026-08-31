@@ -378,6 +378,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   DEPART_SILVER_PINES: 'travel.silver_pines',
   COMPLETE_SILVER_PINES: 'mission.silver_pines',
   DEPART_BANK_HEIST: 'travel.bank_heist',
+  COMPLETE_HEIST_FIELDWORK: 'mission.bank_heist.fieldwork',
   COMPLETE_BANK_HEIST: 'mission.bank_heist',
   /* The post-heist drive north. The exploration markers deliberately reuse
    * the exact-once clock ledger instead of adding a parallel cabin save. */
@@ -605,10 +606,13 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER]: Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 3 * 60 }),
   }),
-  // "Whispering Pines Municipal, ten past nine." The drive out to the field.
-  [TIME_EVENT_IDS.DEPART_AIRSTRIP]: Object.freeze({
-    atLeast: Object.freeze({ day: 2, timeMinutes: 9 * 60 + 10 }),
-  }),
+  /* The drive out to Whispering Pines Municipal. A DURATION, not an anchor:
+   * the cabin's morning (rest to 09:20, Lou, the four walks, Margo, Booski)
+   * reaches this departure just before eleven, so the old 09:10 anchor was
+   * the overshot-anchor trap verbatim -- Math.max absorbed it and the beat
+   * had silently lost its hour, while a comment below swore it had not.
+   * Measured route: departs Day 2 11:21, lands under the 20:30 anchor. */
+  [TIME_EVENT_IDS.DEPART_AIRSTRIP]: Object.freeze({ minutes: 25 }),
   // The return leg is flown at dusk; the mission ends after dark.
   [TIME_EVENT_IDS.COMPLETE_AIRSTRIP]: Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 20 * 60 + 30 }),
@@ -628,10 +632,11 @@ const TIME_EVENTS = Object.freeze({
    * hours themselves are untouched -- 23:00 is still 23:00 -- because it was
    * never the hours that were wrong, only which day they fell on.
    *
-   * The Beef Run is the exception that proves it: DEPART_AIRSTRIP (Day 2
-   * 09:10) and COMPLETE_AIRSTRIP (Day 2 20:30) did NOT move, because the
-   * bible already puts the flight on Day 2 and back by night. They were right
-   * before the route reached them and they are right now. */
+   * COMPLETE_AIRSTRIP (Day 2 20:30) did not move: the bible already puts the
+   * flight on Day 2 and back by night. DEPART_AIRSTRIP is no longer its
+   * sibling -- its 09:10 anchor WAS overshot once the cabin owned the
+   * morning, so it became the drive's duration above and the departure now
+   * reads the hour the route actually reaches. */
   [TIME_EVENT_IDS.DEPART_BADA_BING_TWO]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 23 * 60 }),
   }),
@@ -719,6 +724,14 @@ const TIME_EVENTS = Object.freeze({
    * the first thing that happens on Day 6. */
   [TIME_EVENT_IDS.DEPART_BANK_HEIST]: Object.freeze({
     atLeast: Object.freeze({ day: 5, timeMinutes: 12 * 60 + 45 }),
+  }),
+  /* The fieldwork -- lobby to vault to Mercer to the swap -- is over when the
+   * crew reaches the safehouse, and the clock must say so BEFORE Lou rings
+   * to count the money: the whole six-hour job used to cost zero minutes at
+   * the moment of the debrief call, and the handset painted 12:45 under a
+   * count-up about an evening. Spent at the safehouse_debrief checkpoint. */
+  [TIME_EVENT_IDS.COMPLETE_HEIST_FIELDWORK]: Object.freeze({
+    atLeast: Object.freeze({ day: 5, timeMinutes: 18 * 60 + 50 }),
   }),
   [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
     atLeast: Object.freeze({ day: 5, timeMinutes: 18 * 60 + 50 }),

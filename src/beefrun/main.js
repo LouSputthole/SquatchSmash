@@ -163,8 +163,15 @@ scene.add(aircraft.group);
  * the apartment, boat and golf cart, not a mission-local loop.  Its physical
  * output is quieter because it is at arm's length under a headset, and the
  * meeting bulletin is long behind the crew by this flight. */
-const radioClock = new AuthoredClock(9 + 10 / 60);
-radioClock.setTime(Math.max(1, campaign.state.story.day), 9 * 60 + 10);
+/* The campaign clock, not the retired 09:10: the cabin owns the morning now
+ * and the drive out lands the departure just before half eleven, so a
+ * hard-coded hour picked the wrong station show for the whole flight. The
+ * fallback covers direct entry, where the story clock is still at wake. */
+const beefRunDepartureMinutes = campaign.state.story.timeMinutes > 9 * 60
+  ? campaign.state.story.timeMinutes
+  : 11 * 60 + 21;
+const radioClock = new AuthoredClock(beefRunDepartureMinutes / 60);
+radioClock.setTime(Math.max(1, campaign.state.story.day), beefRunDepartureMinutes);
 const radioPosition = new THREE.Vector3();
 const radio = new Radio(audio, hud, radioClock, {
   venue: 'beefrun',

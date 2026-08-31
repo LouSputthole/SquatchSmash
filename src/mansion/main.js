@@ -842,7 +842,13 @@ const radioSets = [
  * which is what makes an exact preload set possible at all. Read twice below,
  * from here, so the set the station plays and the set the bank decodes cannot
  * drift apart. */
-const HOUSE_RADIO_HOUR = 21;
+/* The save's own evening, not a fixed nine o'clock: the guest-room stay
+ * reaches the house at 20:10 and the repaired visit at 18:30, and 21:00 fit
+ * neither. Clamped to the evening band because both visits are authored
+ * evenings and the preload bank (read below, twice, from this one constant)
+ * must stay exact. */
+const HOUSE_RADIO_HOUR = Math.min(23, Math.max(18,
+  Math.floor((mansionRecoveryCampaign?.state?.story?.timeMinutes ?? 21 * 60) / 60)));
 const houseRadio = new Radio(audio, {
   setRadio: () => {},
   toast: () => {},

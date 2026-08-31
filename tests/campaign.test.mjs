@@ -288,7 +288,9 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
   const campaign = createCampaign({ storage: new MemoryStorage() });
 
   const beats = [
-    [TIME_EVENT_IDS.DEPART_AIRSTRIP, 2, 9 * 60 + 10],
+    /* DEPART_AIRSTRIP is a duration now, not an anchor -- the cabin owns the
+     * morning and the old 09:10 was the overshot-anchor trap verbatim, absorbed
+     * by Math.max while a comment swore otherwise. Its own proof is below. */
     [TIME_EVENT_IDS.COMPLETE_AIRSTRIP, 2, 20 * 60 + 30],
     /* The Beef Run's two hours did not move: the bible already flies it on
      * Day 2 and has him back by night. Everything after it gained the two
@@ -341,6 +343,22 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
   assert.deepEqual(replay, {
     applied: false, day: 13, timeMinutes: 19 * 60, minutesAdvanced: 0,
   });
+});
+
+test('the drive out to Whispering Pines is a duration the route reaches, not an anchor it overshoots', () => {
+  /* The cabin's morning delivers the departure at 10:56 (rest to 09:20, Lou,
+   * the four walks, Margo, Booski); the drive costs 25 minutes on top of
+   * whatever the clock says, wherever it says it. */
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.story.day = 2;
+    state.story.timeMinutes = 10 * 60 + 56;
+  });
+  const departed = campaign.advanceTime(TIME_EVENT_IDS.DEPART_AIRSTRIP);
+  assert.equal(departed.applied, true);
+  assert.equal(departed.day, 2);
+  assert.equal(departed.timeMinutes, 11 * 60 + 21);
+  assert.equal(departed.minutesAdvanced, 25);
 });
 
 test('Lou’s parcel persists as concealed inventory across a reload', () => {

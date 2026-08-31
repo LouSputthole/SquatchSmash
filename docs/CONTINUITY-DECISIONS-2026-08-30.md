@@ -212,6 +212,37 @@ The reuse ratchet counts files-that-import rather than cards-that-exist
 
 ---
 
+## THE CALLS-AND-RADIO AUDIT (owner items) — measured against the bible calendar
+
+The full phone ledger and radio map were audited; every bible-implied call
+exists and rings, four clock/staging defects were found (three fixed
+mechanically the same hour: the Beef Run departure anchor, the heist
+fieldwork clock, three receivers' stale day/hour). What remains needs your
+voice or your ruling:
+
+- **Beat 27's nineteen quiet hours.** Booski's Special-Meeting call rings at
+  Day 12 23:00 saying "tonight… they'll be there soon" and the pickup is Day
+  13 17:55, with no travel anchor and no sleep available between. Either the
+  Palace→home leg gains an anchor plus an overnight beat, or SM-030 is
+  re-pitched to the same night. SM-030 is your verbatim dialogue — the fix
+  belongs in the anchor unless you say otherwise.
+- **Seven of nine Special-Meeting Act One beats are recorded and
+  unreachable** (SM-010/040/050/060/070/080/090): the staging lives only in
+  the retired starter flat. Porting it to the luxury flat is structural, and
+  which beats survive (no wardrobe or mirror there) is a copy decision.
+- **The golf-morning bulletin airs the pre-heist traffic report the morning
+  after the robbery** — needs new lines (casualty of THE TAKE moving to Day 5).
+- **The day-two news and machine tape say "last night"/"yesterday" about a
+  Day 1 killing now heard on Day 5** — needs re-dating and re-recording.
+- **Nine recorded pieces have no surface**: the lake, scientists, estate,
+  detonation and compound wire segments, plus the war-night bulletin and
+  three machine tapes — all blocked on the luxury flat having a wire (the
+  standing follow-up below; wiring `news:` on its receiver rescues five of
+  them with zero new copy once the clock fix lands).
+- **SM-200's "two seconds of announcer"** is a stage direction with no cue.
+- **Which vehicle radios carry the wire at all** (golf cart, Beef Run
+  cockpit, Bing dash, mansion tuner) — the radio audit's standing P2.
+
 ## FOLLOW-UPS SURFACED BY THE DECIDED WORK
 
 - **The luxury flat needs a wire.** The war week's canonical evenings happen
