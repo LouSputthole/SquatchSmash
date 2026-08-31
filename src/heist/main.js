@@ -192,6 +192,15 @@ const HEIST_EVIDENCE_GEOMETRY = (() => {
 const player = new Player(camera, level.world);
 player.mode = 'walk';
 player.position.set(0, 1.66, 4);
+/* THE TAKE walked silent: the level authors concrete/metal/marble/asphalt
+ * floorZones for every phase and nothing ever consumed them — this seam was
+ * simply never assigned, so the whole bank job played without a footstep.
+ * Marble maps to the tile take exactly as the combat cadence does
+ * (src/core/combat/audio.js): there is no footstep.marble recording, and an
+ * unknown cue falls through to the synth's default tick. */
+player.onFootstep = (surface, intensity) => audio.footstep(
+  surface === 'marble' ? 'tile' : surface, intensity,
+);
 const interaction = new InteractionSystem(camera, hud);
 const factionMatrix = new FactionMatrix();
 const playerActor = new CombatActor({
@@ -4779,6 +4788,14 @@ async function begin() {
   await audio.loadManifest({
     names: [
       ...HEIST_VOICE_CUES, ...weaponCueNames(), 'phone.ring', 'phone.hangup',
+      /* The walking surfaces the level's floorZones can actually emit --
+       * concrete (safehouse, garage, lobby annex), metal (the vault), asphalt
+       * (street and city roads), tile (standing in for the lobby marble) --
+       * plus the board pair for the engine's out-of-zone default. Enumerated
+       * rather than swept by prefix so the delivery gates never see an
+       * undelivered footstep charged to this scene. */
+      'footstep.concrete', 'footstep.metal', 'footstep.asphalt',
+      'footstep.tile', 'footstep.wood.a', 'footstep.wood.b',
     ],
     prefixes: ['heist.'],
   });

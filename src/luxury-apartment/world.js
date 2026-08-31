@@ -683,7 +683,14 @@ export async function buildLuxuryApartment(ctx = {}) {
     doors.elevator.update(safeDt);
     doors.bathroom.update(safeDt);
     state.fridgeT = THREE.MathUtils.damp(state.fridgeT, state.fridgeOpen ? 1 : 0, 9, safeDt);
-    domestic.fridge.doorPivot.rotation.y = state.fridgeT * -Math.PI * 0.56;
+    /* Owner, 2026-08-31: "the fridge door in the luxury apartment opens the
+     * wrong way, opens into the fridge instead of out." The receipt: the
+     * builder's door slab runs along local -z from the south-edge pivot, so
+     * rotation about +Y by a NEGATIVE angle moves the free end toward +x --
+     * into the cabinet body (front face west at x0, box behind it). The
+     * starter flat swings the same builder POSITIVE (src/world/apartment.js)
+     * and its door opens into the room; this one now does the same. */
+    domestic.fridge.doorPivot.rotation.y = state.fridgeT * Math.PI * 0.56;
     domestic.fridge.light.intensity = state.fridgeT * 0.85;
     domestic.tvGlow.intensity = state.tvOn ? 0.72 : 0;
     state.shadesT = THREE.MathUtils.damp(state.shadesT, state.shadesClosed ? 1 : 0, 5.5, safeDt);
@@ -1852,11 +1859,42 @@ function buildStairAndLoft({ root, M, colliders, floorZones }) {
       rail.add(own(cap, 'luxury-stair-rail'));
     }
     g.add(rail);
+    /* Owner, 2026-08-31: "trying to walk under the stairs. It's still rough,
+     * and that's where the bathroom is... you can't walk under the stairs at
+     * all." The old collider was one floor-to-loft slab over the whole
+     * flight on each side -- an invisible wall through the under-stair
+     * passage. The glass actually sits ON the treads, so collision now
+     * follows the diagonal per step: where the flight is still too low to
+     * duck under (tread top below 1.95 m) the column stays solid to the
+     * floor; where a person fits, only the glass band above the tread
+     * collides and the passage underneath is open. */
+    for (let i = 0; i < STAIR_STEPS; i++) {
+      const y = i * LUXURY_STAIR_RISE;
+      const zTo = stair.z1 - i * LUXURY_STAIR_RUN;
+      const zFrom = zTo - LUXURY_STAIR_RUN - 0.006;
+      const bottom = y < 1.95 ? 0 : y - 0.06;
+      addBounds(colliders,
+        [[sideX - 0.055, bottom, zFrom], [sideX + 0.055, y + 1.0, zTo]],
+        `luxury-stair-rail-${side}-collider-${String(i).padStart(2, '0')}`,
+        0,
+        'luxury-stair-rail-collision',
+        'world');
+    }
+  }
+
+  /* The underside of the open section, so a head under the flight bumps the
+   * soffit instead of clipping up through the treads. Only the steps a person
+   * can actually walk beneath need one. */
+  for (let i = 0; i < STAIR_STEPS; i++) {
+    const y = i * LUXURY_STAIR_RISE;
+    if (y < 1.95) continue;
+    const zTo = stair.z1 - i * LUXURY_STAIR_RUN;
+    const zFrom = zTo - LUXURY_STAIR_RUN - 0.006;
     addBounds(colliders,
-      [[sideX - 0.055, 0, stair.z0], [sideX + 0.055, LOFT_Y + 1.05, stair.z1]],
-      `luxury-stair-rail-${side}-collider`,
+      [[stair.x0, y - 0.34, zFrom], [stair.x1, y - 0.10, zTo]],
+      `luxury-stair-soffit-collider-${String(i).padStart(2, '0')}`,
       0,
-      'luxury-stair-rail-collision',
+      'luxury-stair-soffit-collision',
       'world');
   }
 

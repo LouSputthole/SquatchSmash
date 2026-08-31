@@ -387,16 +387,25 @@ function buildStreetlights(group, materials, lights) {
     mast.castShadow = false;
     post.add(mast);
 
+    /* Owner, 2026-08-31: "driving out to the meeting, all the street lights
+     * are facing the wrong direction ... rotated a hundred eighty degrees in
+     * that first part of it." The receipt: the post stands at
+     * road + (rx,rz)·side·(halfWidth+1), and after rotation.y = yaw the
+     * post's local +X is (cos yaw, −sin yaw) = −(rx,rz) — i.e. local
+     * +X·side points back AT the road. The arm was hung on −side·X, which
+     * is the verge, so every head lit the forest and turned its back on the
+     * tarmac. Positive side offsets swing the whole head assembly the 180°
+     * the owner asked for. */
     const bracket = new THREE.Mesh(arm, columnMat);
-    bracket.position.set(-lamp.side * 0.75, 7.3, 0);
+    bracket.position.set(lamp.side * 0.75, 7.3, 0);
     post.add(bracket);
 
     const lantern = new THREE.Mesh(head, headMat);
-    lantern.position.set(-lamp.side * 1.45, 7.18, 0);
+    lantern.position.set(lamp.side * 1.45, 7.18, 0);
     post.add(lantern);
 
     const glow = new THREE.Mesh(halo, haloMat);
-    glow.position.set(-lamp.side * 1.45, 6.9, 0);
+    glow.position.set(lamp.side * 1.45, 6.9, 0);
     glow.rotation.x = -Math.PI / 2;
     post.add(glow);
 
@@ -411,7 +420,8 @@ function buildStreetlights(group, materials, lights) {
        * brightness dial rather than as the top of a curve — the lamp is lit and
        * the road under it is not. */
       const light = new THREE.PointLight(0xffb765, 55, 26, 2.1);
-      light.position.set(-lamp.side * 1.45, 7.0, 0);
+      /* Under the lantern, which now hangs over the road — see above. */
+      light.position.set(lamp.side * 1.45, 7.0, 0);
       light.castShadow = false;
       post.add(light);
       lights.push(light);

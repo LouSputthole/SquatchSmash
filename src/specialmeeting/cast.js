@@ -532,6 +532,15 @@ export function buildSpecialMeetingCast(scene, {
     });
     /* She is riding too, and more thoroughly inside the car than anybody. */
     setActorPosture(kb.group, 'ride');
+    /* Owner, 2026-08-31: "kitten boss is poking out through the trunk. Her
+     * head is sticking out. ... we have to make sure that she's invisible in
+     * the trunk." A closed boot shows nothing, whatever the rig's seated
+     * head height does against the lid — so her visibility IS the lid:
+     * hidden while it is down, revealed the moment SM-410's clunk starts it
+     * rising, in time for "the little bulb inside comes on". The street
+     * sedan keeps the boot's clock even after the forest owns the drive
+     * (see sedan.js advanceTrunk), so trunkOpen is live throughout. */
+    kb.group.visible = (sedan.trunkOpen ?? 0) > 0.04;
   }
 
   function sit(key, seatId) {
@@ -597,7 +606,7 @@ export function buildSpecialMeetingCast(scene, {
       sit('numbskull', 'rear_right');
       if (sedan) {
         const kb = people.kittenboss;
-        kb.group.visible = true;
+        /* Visibility belongs to the boot lid now -- rideInTheBoot() sets it. */
         kb.sit();
         rideInTheBoot();
         bootRider = true;
@@ -695,6 +704,9 @@ export function buildSpecialMeetingCast(scene, {
       if (!sedan) return this;
       bootRider = false;
       standUp('kittenboss');
+      /* Out of the boot she is unconditionally visible, whatever the lid's
+       * interpolation was doing on the frame the beat landed. */
+      people.kittenboss.group.visible = true;
       const trunk = sedan.doorWorld('trunk');
       const passengerDoor = sedan.doorWorld('front_passenger');
       const centre = sedan.group.getWorldPosition(new THREE.Vector3());
@@ -768,6 +780,9 @@ export function buildSpecialMeetingCast(scene, {
       for (const key of seated.values()) faceRider(key);
       if (sedan && bootRider && people.kittenboss.seated) {
         people.kittenboss.group.rotation.y = Math.PI / 2 + BOOT_YAW_OFFSET;
+        /* The lid owns her visibility every frame she is stowed — see
+         * rideInTheBoot(). */
+        people.kittenboss.group.visible = (sedan.trunkOpen ?? 0) > 0.04;
       }
       return this;
     },

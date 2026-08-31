@@ -182,9 +182,26 @@ export function restyleMargoHead(parts, o = {}) {
       m.receiveShadow = false;
     }
   });
+  /* ---- eyelids, for sleep ----
+   * Owner, 2026-08-31: *"when she goes to sleep, let's have her actually
+   * closing her eyes."* Two skin-toned lids just proud of the pupils
+   * (pupil front z 0.1165; lids at 0.119), hidden until a sleeping scene
+   * asks. Showing them covers white, iris and pupil in one move without
+   * touching the meshes the behaviour class animates. */
+  const eyeLids = [];
+  for (const sx of [-1, 1]) {
+    const lid = put({
+      name: `margo.face.eyelid.${sx < 0 ? 'right' : 'left'}`,
+      size: [0.044, 0.03, 0.006], pos: [sx * 0.043, 0.182, 0.119], mat: skinMat,
+    });
+    lid.visible = false;
+    eyeLids.push(lid);
+  }
+
   parts.mouth = mouth;
   mouth.userData.base = mouth.scale.clone();
   parts.eyes = eyes;
+  parts.eyeLids = eyeLids;
   parts.skull = skull;
   parts.jaw = jaw;
   return parts;

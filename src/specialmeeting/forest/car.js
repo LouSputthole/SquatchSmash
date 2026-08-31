@@ -562,8 +562,12 @@ export function buildNightSedan(parent, { colour = 0x14161c, shadows = true } = 
 
     /** Roll the wheels by a distance travelled, in metres. */
     rollWheels(distance) {
+      /* Same fix as the sedan's spin (see src/specialmeeting/sedan.js): the
+       * axle is baked onto local +Z, rotation.y was the sideways coin-spin
+       * the owner flagged, and forward distance is negative rotation about
+       * the axle with the nose on +X. */
       const spin = distance / shape.wheelR;
-      for (const wheel of wheels) wheel.rotation.y += spin;
+      for (const wheel of wheels) wheel.rotation.z -= spin;
       return api;
     },
 

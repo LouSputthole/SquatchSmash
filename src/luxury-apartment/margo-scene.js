@@ -177,12 +177,17 @@ export function createLuxuryMargoScene({
       try { snoreSource.stop(); } catch { /* the one-shot already ended */ }
     }
     snoreSource = null;
+    actor.setEyesClosed?.(false);
   };
 
   const startSnoring = () => {
     if (snoring) return;
     snoring = true;
     snoreIn = SNORE_FIRST_DELAY;
+    /* Owner, 2026-08-31: "when she goes to sleep, let's have her actually
+     * closing her eyes and it's snoring sound effect." The breaths were
+     * already here; the lids close with them now. */
+    actor.setEyesClosed?.(true);
   };
 
   const updateSnoring = (dt) => {
