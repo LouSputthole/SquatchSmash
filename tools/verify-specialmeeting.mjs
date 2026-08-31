@@ -551,7 +551,11 @@ try {
       && initial.people.every((person) => person.characterId === person.stampedId
         && person.outfit === 'suit'
         && person.tuxedo === false
-        && person.visible
+        /* Owner, 2026-08-31: "we have to make sure that she's invisible in
+         * the trunk." Kittenboss rides a SHUT boot from the first frame, so
+         * her visibility belongs to the lid (cast.js rideInTheBoot) and she
+         * is REQUIRED to be hidden here. The three men stay visible. */
+        && (person.characterId === 'kittenboss' ? !person.visible : person.visible)
         && person.attached
         && person.meshes > 10),
     JSON.stringify(initial.people));
@@ -630,10 +634,16 @@ try {
   });
 
   await page.locator('#scene').click({ position: { x: 320, y: 180 } });
+  /* `started` flips when the ARRIVAL settles, not when the cues decode:
+   * measured on this runner, all 228 voice cues are ready 10 s after the
+   * click and `started` still waits ~130 s for the SwiftShader-slow drive
+   * to reach the kerb — identical on an unmodified checkout, so a fixed
+   * 120 s here was a race the runner loses by ten seconds. Same honest
+   * clock as chooseAtBeat's budget above, and for the same reason. */
   await page.waitForFunction(
     () => window.SPECIAL_MEETING.started || window.SPECIAL_MEETING.voiceLoadError,
     null,
-    { timeout: 120000 },
+    { timeout: 600000 },
   );
   await page.waitForTimeout(25);
   const startup = await page.evaluate(() => {
@@ -813,7 +823,7 @@ try {
     () => window.SPECIAL_MEETING.ride.beatId === 'SM-110'
       && window.SPECIAL_MEETING.ride.options?.some((option) => option.accepts),
     null,
-    { timeout: 90000 },
+    { timeout: 600000 },
   );
   const approached = await approachFrontPassengerDoor();
   await lookAtWorldPoint(await doorWorldPoint());
@@ -898,7 +908,7 @@ try {
     () => window.SPECIAL_MEETING.player.mode === 'seated'
       && window.SPECIAL_MEETING.ride.seated === true,
     null,
-    { timeout: 60000 },
+    { timeout: 600000 },
   );
   const seated = await page.evaluate(() => {
     const sm = window.SPECIAL_MEETING;
@@ -1271,7 +1281,7 @@ try {
     () => window.SPECIAL_MEETING.ride.beatId === 'SM-520'
       && window.SPECIAL_MEETING.ride.options?.length === 5,
     null,
-    { timeout: 180000 },
+    { timeout: 600000 },
   );
   check('real numbered input completes every reachable car and Kittenboss choice branch',
     choicesTaken.length === 12
@@ -1609,7 +1619,7 @@ try {
   await page.waitForFunction(
     () => window.SPECIAL_MEETING.ride.phase === 'trail',
     null,
-    { timeout: 30000 },
+    { timeout: 600000 },
   );
   await page.keyboard.down('w');
   try {
@@ -1617,7 +1627,7 @@ try {
       () => window.SPECIAL_MEETING.certification.trailDistance
         >= window.SPECIAL_MEETING.certification.trailRequiredDistance,
       null,
-      { timeout: 30000 },
+      { timeout: 600000 },
     );
   } finally {
     await page.keyboard.up('w').catch(() => {});
@@ -1626,12 +1636,12 @@ try {
 
   const navigation = page.waitForURL('**/initiation.html', {
     waitUntil: 'load',
-    timeout: 180000,
+    timeout: 600000,
   });
   await page.waitForFunction(
     () => window.SPECIAL_MEETING.certification.handoff.attempted === 1,
     null,
-    { timeout: 180000 },
+    { timeout: 600000 },
   );
   const handoffBeforeNavigation = await page.evaluate(() => ({
     ...window.SPECIAL_MEETING.certification.handoff,

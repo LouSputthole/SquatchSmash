@@ -835,7 +835,13 @@ if (requestedSpawn === 'spur') {
   beginTheDrive({ restoreNode: 'arrival' });
   setObjective('Wait by the car.');
 } else {
-  setObjective('Wait outside for the car.');
+  /* Owner, 2026-08-31: "the objective when you come out of your luxury
+   * apartment after you go through the elevator should be wait for the car
+   * to arrive or something." The card said this from the scene's first
+   * frame but the twelve-second auto-collapse took it down before most
+   * players reached the kerb; with the panel persistent it now holds until
+   * SM-100 replaces it. Copy aligned with the ask. */
+  setObjective('Wait for the car to arrive.');
 }
 
 function startTheWalk() {

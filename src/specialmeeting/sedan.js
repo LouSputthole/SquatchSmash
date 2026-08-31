@@ -420,8 +420,15 @@ export function buildMeetingSedan({ colour = 0x0b0d12 } = {}) {
       });
       sedan.syncMesh();
 
+      /* Owner, 2026-08-31: "the tires on the car when they come to pick you
+       * up ... are spinning around sideways instead of rolling like a tire
+       * should." makeCar bakes each wheel cylinder's axle onto the mesh's
+       * local +Z (geometry rotateX(PI/2) in src/bing/vehicles.js), so
+       * rotation.y spun the disc in its own plane -- a coin on a table. The
+       * axle is Z; forward travel (+X nose) rolls the top of the tyre toward
+       * the nose, which is NEGATIVE rotation about +Z. */
       wheelSpin += (vehicle.speed / Math.max(0.05, shape.wheelR)) * dt;
-      for (const wheel of wheels) wheel.rotation.y = wheelSpin;
+      for (const wheel of wheels) wheel.rotation.z = -wheelSpin;
 
       advanceTrunk(dt);
 
