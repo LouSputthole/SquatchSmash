@@ -239,6 +239,11 @@ voice or your ruling:
   three machine tapes — all blocked on the luxury flat having a wire (the
   standing follow-up below; wiring `news:` on its receiver rescues five of
   them with zero new copy once the clock fix lands).
+- **The come-home door wants its own spoken refusal.** While Margo is still
+  on the stairs the door speaks the stayover's line about her being asleep.
+  `DEPARTURE_REFUSALS` keys are recorded cue names, so the truthful fourth
+  key is a new line and a booth take. (Found by the new flow gate, which
+  documents it in place; the panel row already tells the truth.)
 - **SM-200's "two seconds of announcer"** is a stage direction with no cue.
 - **Which vehicle radios carry the wire at all** (golf cart, Beef Run
   cockpit, Bing dash, mansion tuner) — the radio audit's standing P2.
