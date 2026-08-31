@@ -770,11 +770,27 @@ export function buildCabinDungeon({
     }));
   }
 
-  /* Amputation saw, flat on the table: toothed edge toward the aisle, spine
-   * along the back, closed bow grip at -X. */
+  /* Amputation saw: toothed edge toward the aisle, spine along the back,
+   * closed bow grip at -X.
+   *
+   * IT RESTS ON ITS OWN BOW, which is both what a bow-handled saw does on a
+   * flat table and the only thing that makes it readable here. Laid dead flat
+   * its 0.011 m blade is a line, and it sat 0.12 m in front of the folded
+   * towels at almost exactly their height, so a 0.70 m white slab was its
+   * backdrop from the authored inspection stance. The 0.046 m grip ring lifts
+   * the handle end, which tilts the blade 8.5 degrees into the overhead lamp,
+   * and the whole tool moved 0.12 m forward to z 10.14 so it is clear of the
+   * towels rather than pressed against them.
+   *
+   * The tilt is not chosen, it is measured: the grip ring's underside sits
+   * 0.0405 m below the toe of the blade, and over the 0.54 m between them
+   * that is atan(0.0405 / 0.54) = 0.075 rad. At that angle both the bow and
+   * the toe touch the table at local y -0.0175, which is where the group is
+   * set. */
   {
-    const saw = toolAnchor('saw', -5.95, tableTop + 0.006, 10.26, 0.18);
-    saw.add(box({ name: 'cabin-dungeon-medical-saw', size: [0.42, 0.011, 0.056], pos: [0.03, 0.006, 0], mat: materials.steel, cast: false }));
+    const saw = toolAnchor('saw', -5.95, tableTop + 0.0175, 10.14, 0.18);
+    saw.rotation.z = -0.075;
+    saw.add(box({ name: 'cabin-dungeon-medical-saw', size: [0.42, 0.016, 0.056], pos: [0.03, 0.008, 0], mat: materials.steel, cast: false }));
     saw.add(box({ name: 'cabin-dungeon-medical-saw-spine', size: [0.45, 0.021, 0.020], pos: [0.025, 0.011, -0.036], mat: materials.blackSteel }));
     for (let i = 0; i < 8; i++) {
       saw.add(box({
@@ -811,7 +827,7 @@ export function buildCabinDungeon({
     toolAimProxies.saw = invisibleTarget(
       'cabin-dungeon-medical-saw-target',
       [0.80, 0.16, 0.30],
-      [-5.95, tableTop + 0.10, 10.26],
+      [-5.95, tableTop + 0.10, 10.14],
     );
   }
 
