@@ -116,6 +116,7 @@
     "record:sheet": "node tools/record-sheet.mjs",
     "dialogue:sheet": "node tools/dialogue-sheet.mjs && python3 tools/dialogue-xlsx.py",
     "dialogue:csv": "node tools/dialogue-sheet.mjs",
+    "dialogue:pass": "node tools/dialogue-pass.mjs",
     "audio:todo:check": "node tools/audio-todo.mjs --check",
     "audio:legacy": "node tools/sound-queue.mjs",
     "audio:legacy:check": "node tools/sound-queue.mjs --check",
