@@ -110,8 +110,15 @@ export const FAMILY = [
     id: CHARACTER_IDS.OLD_STOVE, name: 'Old Stove', slug: 'stove', photo: 'stove.png',
     // The short booth by the slot alcove, complaining about the ice in it.
     spot: { x: 4.55, z: 5.65, yaw: -Math.PI / 2 + 0.1, job: 'drink', seat: 'bing-booth:east:4' },
+    /* Owner, 2026-08-31: "We left Stove wearing the same outfit that he
+     * wears from the beef run the rest of the game too." Beef Run dresses
+     * him itself (grey-blue tee, khakis -- src/beefrun/npc.js makeOldStove),
+     * and this dark shirt read as the same working clothes. Off the airfield
+     * the old-timer dresses like one: a brown suit, cream shirt, a proper
+     * tie and the gold watch a man his age has earned. */
     model: {
-      height: 1.72, build: 1.1, dress: 'shirt', shirt: 0x24303a,
+      height: 1.72, build: 1.1, dress: 'suit', jacketColour: 0x3a2c24,
+      shirt: 0xd9d2c2, tie: true, tieColour: 0x5a2a20, watch: 'gold',
       hair: 'receding', hairColour: 0x9a9a9a, beard: true, skin: 0xc08a5e,
       belt: 'leather',
     },
@@ -122,9 +129,17 @@ export const FAMILY = [
      * Moved south with the bench: the run used to stand at z 11.0, which is
      * inside the front wall, and the two of them sat in the brick with it. */
     spot: { x: -8.35, z: 10.25, yaw: Math.PI + 0.15, job: 'sit', seat: 'bing-booth:north:3' },
+    /* Owner, 2026-08-31: "let's give Lag's outfit a little more detail as
+     * well. He's an Alabama country boy." So the tracksuit retires for the
+     * shirt the man would actually wear: a busy two-tone camp shirt (the
+     * pattern grid reads as plaid at conversation distance), denim-blue
+     * trousers and a leather belt. The glasses and the crop stay -- he is
+     * still the one watching the lights flicker like packet loss. */
     model: {
-      height: 1.74, build: 0.9, dress: 'tracksuit', shirt: 0x1f3a2a,
-      hair: 'crop', hairColour: 0x2a1c14, glasses: true, skin: 0xe8c39c,
+      height: 1.74, build: 0.9, dress: 'camp', pattern: true,
+      shirt: 0x7a3a28, shirtAccent: 0xd8c9a2, trouserColour: 0x35486a,
+      belt: 'leather', hair: 'crop', hairColour: 0x2a1c14,
+      glasses: true, skin: 0xe8c39c,
     },
   },
   {
