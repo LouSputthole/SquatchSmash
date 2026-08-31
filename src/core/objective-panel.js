@@ -32,20 +32,29 @@
 
 const STYLE_ID = 'objective-panel-style';
 
-/** Normal objective changes get one readable window, then leave the playfield. */
+/** The opt-in fade window, for a scene that asks for one. Nobody does today. */
 export const OBJECTIVE_DISPLAY_MS = 12_000;
 
 /**
  * Shared visibility clock for both the stand-alone panel and the apartment Hud.
  * Frame-loop callers can submit the same objective forever without extending
  * its life; only a changed signature calls `changed()`.
+ *
+ * THE CARD STAYS UP. Owner, 2026-08-31: *"all the objectives displ;ay then
+ * basically dissapear. We should keep them displayed no need to hide them so
+ * often."* The twelve-second fade this controller was built around read well
+ * in isolation and played as a vanishing act, so `autoCollapse` now defaults
+ * OFF everywhere: a card leaves the screen when the plan is empty (`clear()`)
+ * and for no other reason. The timer machinery stays for a scene that
+ * explicitly opts back in — a cutscene that must own the whole frame — but
+ * opting in is the exception now, not the default.
  */
 export function createObjectiveDisplayController({
   show = () => {},
   collapse = () => {},
   durationMs = OBJECTIVE_DISPLAY_MS,
   scheduler = globalThis,
-  autoCollapse = true,
+  autoCollapse = false,
 } = {}) {
   let timer = null;
   const cancel = () => {
@@ -271,7 +280,9 @@ export function createObjectivePanel({
   parent = null,
   doc = null,
   displayDurationMs = OBJECTIVE_DISPLAY_MS,
-  autoCollapse = true,
+  /* Default OFF — see createObjectiveDisplayController. The panel hides when
+   * the plan empties, not on a clock. */
+  autoCollapse = false,
   scheduler = undefined,
 } = {}) {
   const document_ = doc ?? globalThis.document ?? null;

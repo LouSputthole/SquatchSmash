@@ -3748,6 +3748,20 @@ export class Npc {
       this.parts.armL.rotation.x = -0.58;
       this.parts.foreL.rotation.x = -1.22;
       this.parts.armL.rotation.z = -0.18;
+    } else if (this.filming) {
+      /* Eric's camcorder at the party. Owner, 2026-08-31: "Eric's camera is,
+       * like, through his body. So we can refine the camera and make sure
+       * he's holding it properly and is facing the right way." Same contract
+       * as the bartender's two flags above: a held prop needs hands that
+       * match it every frame, or the idle sway walks the arms away from the
+       * thing they are supposedly holding. Right hand up to the viewfinder
+       * at the face, left forearm bracing under the body of the camera. */
+      this.parts.armR.rotation.x = -1.15;
+      this.parts.foreR.rotation.x = -1.35;
+      this.parts.armR.rotation.z = 0.10;
+      this.parts.armL.rotation.x = -0.98;
+      this.parts.foreL.rotation.x = -1.5;
+      this.parts.armL.rotation.z = -0.14;
     }
 
     /* Talking: the mouth works, the head nods, one hand does the explaining.
@@ -3770,8 +3784,9 @@ export class Npc {
       if (this.voiceMouth.photo) this.parts.head.rotation.x -= talk * 0.085;
       /* During Booski's delivery the bartender talks while his two hands are
        * committed to the tray. Keep the lips and head alive but do not let a
-       * generic talking gesture pull his hand through the glass. */
-      if (!this.pouringShot && !this.carryingShot) {
+       * generic talking gesture pull his hand through the glass — or through
+       * Eric's camcorder. */
+      if (!this.pouringShot && !this.carryingShot && !this.filming) {
         this.parts.armR.rotation.x = -0.35 + Math.sin(t * 4.5) * 0.14;
         this.parts.armR.rotation.z = 0.16;
         this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;

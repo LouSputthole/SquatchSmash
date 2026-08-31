@@ -521,11 +521,19 @@ export const GRATIN = Object.freeze({
   belt: 'leather',
 });
 
+/* Owner, 2026-08-31: "We can also give Irish a slightly more detailed
+ * outfit." Slightly: the same green shirt, now with a tailored trim line, a
+ * cream collar accent, and the flat cap the man was always going to own.
+ * NO WAKE keeps its own weather rig below and explicitly zeroes the cap. */
 export const IRISH = Object.freeze({
   height: 1.78,
   build: 1.15,
   dress: 'shirt',
   shirt: 0x1f2b22,
+  shirtAccent: 0xcfd6c8,
+  trim: true,
+  hat: 'flatcap',
+  hatColour: 0x4a4438,
   hair: 'short',
   hairColour: 0x8a5a2a,
   beard: true,

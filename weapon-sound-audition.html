@@ -78,6 +78,29 @@
   button.favorite { margin-left: auto; }
   .candidate.favorite button.favorite { color: #171106; background: var(--gold-hot); }
   footer { padding: 22px; text-align: center; color: var(--muted); }
+  .section-head {
+    margin: 46px 0 4px; font-size: clamp(24px, 4vw, 40px);
+    border-top: 1px solid var(--line); padding-top: 34px;
+  }
+  .section-note { margin: 0 0 22px; color: var(--muted); max-width: 90ch; }
+  .candidate .where { margin: 0; padding-left: 16px; color: var(--muted); font-size: 12px; }
+  .candidate .where li { margin: 2px 0; }
+  .candidate .where-title { color: var(--gold); font-size: 10px; font-weight: 900; letter-spacing: .18em; }
+  .candidate.shelf { opacity: .72; }
+  .candidate .shelf-badge { color: var(--red); font-size: 11px; font-weight: 900; letter-spacing: .14em; }
+  .record {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    padding: 12px 16px; margin: 0 0 10px; border: 1px solid rgba(255, 255, 255, .09);
+    border-radius: 11px; background: rgba(255, 255, 255, .025);
+  }
+  .record.picked { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(232, 194, 104, .2); }
+  .record .r-title { font-weight: 900; min-width: 200px; }
+  .record .r-artist { color: var(--muted); }
+  .record .r-scope { flex: 1; min-width: 180px; color: var(--muted); font-size: 12px; }
+  .record .r-scope.airs { color: #aebf9a; }
+  .record .r-scope.cue-scope { color: #ef9a86; }
+  .record.picked button.pick { color: #171106; background: var(--gold-hot); }
+  #song-picks-summary strong { color: var(--gold-hot); user-select: all; }
   @media (max-width: 720px) {
     header, .weapon-head { align-items: stretch; flex-direction: column; }
     .candidate-grid { grid-template-columns: 1fr; }
@@ -88,8 +111,8 @@
   <header>
     <div>
       <div class="kicker">SQUATCHSMASH · AUDIO LAB</div>
-      <h1>Weapon report audition</h1>
-      <p>Current production reports beside five intentionally different drop-in directions. One normalized preview level; favorites stay in this browser.</p>
+      <h1>Sound audition</h1>
+      <p>Weapon reports beside their five drop-in directions, every footstep by material and scene, and the record pool. One normalized preview level; favorites stay in this browser.</p>
     </div>
     <div class="master">
       <label for="masterVolume"><span>Preview level</span><output id="masterReadout">68%</output></label>
@@ -103,6 +126,24 @@
       Audition masters live under <code>assets/audio/auditions/</code>, outside the production SFX index. Missing files are marked only when played, so the page stays quiet in normal QA. Approved favorites are review data—not production routing—until deliberately promoted.
     </div>
     <div id="weapons"></div>
+
+    <h2 class="section-head" id="footsteps-head">Footsteps</h2>
+    <p class="section-note">
+      Every walking recording on disk, grouped by the material it represents; each card names
+      the scenes that actually play it, traced through the real runtime paths. <b>Step</b> is one
+      footfall, <b>Walk</b> is eight strides at a relaxed pace (a/b pairs alternate, like the
+      engine does). Favorites are review picks, not production routing.
+    </p>
+    <div id="footsteps"></div>
+
+    <h2 class="section-head" id="records-head">The record pool</h2>
+    <p class="section-note">
+      What 97.8 THE SQUATCH can spin, and where. A record airs at the cabin when it is not a
+      scripted cue and carries no venue of its own. Star the records you want in the cabin
+      rotation — the picks read out below so you can just say the list.
+    </p>
+    <div class="notice" id="song-picks-summary">No cabin picks yet — star the records you want on at the cabin fire.</div>
+    <div id="records"></div>
   </main>
   <footer>POWERFUL + FUN · fair level · no scene profile changes from this page</footer>
 <script type="module">
@@ -223,6 +264,167 @@
   });
   document.getElementById('stopAll').addEventListener('click', stopAll);
   window.addEventListener('pagehide', stopAll);
+</script>
+<script type="module">
+  import {
+    FOOTSTEP_AUDITION_GROUPS,
+    FOOTSTEP_AUDITION_STORAGE_KEY,
+    MUSIC_MANIFEST_URL,
+    SONG_PICK_STORAGE_KEY,
+    footstepAuditionFavorite,
+    footstepWalkOffsets,
+    songAuditionRows,
+    songPicks,
+  } from './src/core/sfx-audition.js';
+
+  const volume = document.getElementById('masterVolume');
+  const previewLevel = () => Number(volume.value) / 100;
+  const active = new Set();
+  const timers = new Set();
+  function stopSection() {
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
+    for (const sound of active) { sound.pause(); sound.currentTime = 0; }
+    active.clear();
+  }
+  document.getElementById('stopAll').addEventListener('click', stopSection);
+  window.addEventListener('pagehide', stopSection);
+  volume.addEventListener('input', () => { for (const sound of active) sound.volume = previewLevel(); });
+
+  const statusFor = (card, text, missing = false) => {
+    card.classList.toggle('missing', missing);
+    card.querySelector('.status').textContent = text;
+  };
+  function fireFile(url, card, { rate = 1 } = {}) {
+    const sound = new Audio(url);
+    sound.preload = 'auto';
+    sound.volume = previewLevel();
+    if (rate !== 1) { sound.playbackRate = rate; sound.preservesPitch = false; }
+    active.add(sound);
+    sound.addEventListener('ended', () => active.delete(sound), { once: true });
+    sound.addEventListener('error', () => {
+      active.delete(sound);
+      statusFor(card, `Missing file: ${url.split('/').pop()}`, true);
+    }, { once: true });
+    sound.play().then(() => statusFor(card, 'Playing', false)).catch(() => {
+      statusFor(card, `Could not play: ${url.split('/').pop()}`, true);
+    });
+  }
+
+  /* ------------------------------ footsteps ------------------------------ */
+  let stepFavorites = {};
+  try { stepFavorites = JSON.parse(localStorage.getItem(FOOTSTEP_AUDITION_STORAGE_KEY) || '{}'); } catch { stepFavorites = {}; }
+  const footRoot = document.getElementById('footsteps');
+
+  /* One footfall, or eight strides. Pairs alternate a/b like the engine's
+   * board pair; a light ±6% rate wobble keeps the walk from drumming. */
+  function playSteps(candidate, card, mode) {
+    stopSection();
+    statusFor(card, mode === 'walk' ? 'Walking…' : 'One step', false);
+    const offsets = mode === 'walk' ? footstepWalkOffsets() : [0];
+    offsets.forEach((offset, index) => {
+      const url = candidate.files[index % candidate.files.length];
+      const rate = mode === 'walk' ? 0.94 + Math.random() * 0.12 : 1;
+      const timer = setTimeout(() => { timers.delete(timer); fireFile(url, card, { rate }); },
+        Math.round(offset * 1000));
+      timers.add(timer);
+    });
+  }
+  function persistStepFavorite(groupId, candidateId) {
+    stepFavorites = { ...stepFavorites, [groupId]: candidateId };
+    try { localStorage.setItem(FOOTSTEP_AUDITION_STORAGE_KEY, JSON.stringify(stepFavorites)); } catch { /* private storage */ }
+    document.querySelectorAll(`[data-step-group="${groupId}"] .candidate`).forEach((card) => {
+      const selected = card.dataset.candidate === candidateId;
+      card.classList.toggle('favorite', selected);
+      card.querySelector('button.favorite').textContent = selected ? '★ Favorite' : '☆ Favorite';
+    });
+  }
+  for (const group of FOOTSTEP_AUDITION_GROUPS) {
+    const section = document.createElement('section');
+    section.className = 'weapon';
+    section.dataset.stepGroup = group.id;
+    section.innerHTML = `
+      <div class="weapon-head">
+        <div><h2>${group.name}</h2><p class="weapon-note">${group.note ?? ''}</p></div>
+      </div>
+      <div class="candidate-grid"></div>`;
+    const grid = section.querySelector('.candidate-grid');
+    const favorite = footstepAuditionFavorite(stepFavorites, group.id);
+    for (const candidate of group.candidates) {
+      const card = document.createElement('article');
+      card.className = `candidate${candidate.id === favorite ? ' favorite' : ''}${candidate.shelf ? ' shelf' : ''}`;
+      card.dataset.candidate = candidate.id;
+      card.innerHTML = `
+        <h3>${candidate.name}</h3>
+        ${candidate.shelf ? '<div class="shelf-badge">ON THE SHELF</div>' : ''}
+        <div class="filename">${candidate.filenames.join('<br>')}</div>
+        <div class="description">${candidate.description}</div>
+        <div class="where-title">WHERE IT PLAYS</div>
+        <ul class="where">${candidate.where.map((line) => `<li>${line}</li>`).join('')}</ul>
+        <div class="status"></div>
+        <div class="controls">
+          <button class="primary step" type="button">Step</button>
+          <button class="walk" type="button">Walk</button>
+          <button class="stop" type="button">Stop</button>
+          <button class="favorite" type="button">${candidate.id === favorite ? '★ Favorite' : '☆ Favorite'}</button>
+        </div>`;
+      card.querySelector('.step').addEventListener('click', () => playSteps(candidate, card, 'step'));
+      card.querySelector('.walk').addEventListener('click', () => playSteps(candidate, card, 'walk'));
+      card.querySelector('.stop').addEventListener('click', stopSection);
+      card.querySelector('button.favorite').addEventListener('click', () => persistStepFavorite(group.id, candidate.id));
+      grid.append(card);
+    }
+    footRoot.append(section);
+  }
+
+  /* ------------------------------- records ------------------------------- */
+  let picks = {};
+  try { picks = JSON.parse(localStorage.getItem(SONG_PICK_STORAGE_KEY) || '{}'); } catch { picks = {}; }
+  const recordRoot = document.getElementById('records');
+  const summary = document.getElementById('song-picks-summary');
+
+  function renderSummary(rows) {
+    const chosen = songPicks(picks, rows);
+    if (!chosen.length) {
+      summary.textContent = 'No cabin picks yet — star the records you want on at the cabin fire.';
+      return;
+    }
+    const titles = rows.filter((row) => chosen.includes(row.file)).map((row) => row.title);
+    summary.innerHTML = `CABIN PICKS (${titles.length}): <strong>${titles.join(' · ')}</strong>`;
+  }
+  try {
+    const manifest = await fetch(MUSIC_MANIFEST_URL).then((response) => response.json());
+    const rows = songAuditionRows(manifest);
+    renderSummary(rows);
+    for (const row of rows) {
+      const card = document.createElement('article');
+      card.className = `record${picks[row.file] === true ? ' picked' : ''}`;
+      card.innerHTML = `
+        <span class="r-title">${row.title}</span>
+        <span class="r-artist">${row.artist || ''}</span>
+        <span class="r-scope ${row.cue ? 'cue-scope' : row.airsHere ? 'airs' : ''}">${row.scopeLabel}</span>
+        <span class="filename">${row.file}</span>
+        <span class="status"></span>
+        <button class="primary play" type="button">Play</button>
+        <button class="stop" type="button">Stop</button>
+        <button class="pick" type="button">${picks[row.file] === true ? '★ Cabin pick' : '☆ Cabin pick'}</button>`;
+      card.querySelector('.play').addEventListener('click', () => {
+        stopSection();
+        fireFile(row.url, card);
+      });
+      card.querySelector('.stop').addEventListener('click', stopSection);
+      card.querySelector('.pick').addEventListener('click', () => {
+        picks = { ...picks, [row.file]: picks[row.file] !== true };
+        try { localStorage.setItem(SONG_PICK_STORAGE_KEY, JSON.stringify(picks)); } catch { /* private storage */ }
+        card.classList.toggle('picked', picks[row.file]);
+        card.querySelector('.pick').textContent = picks[row.file] ? '★ Cabin pick' : '☆ Cabin pick';
+        renderSummary(rows);
+      });
+      recordRoot.append(card);
+    }
+  } catch {
+    summary.textContent = 'Could not load assets/music/manifest.json — serve the repo statically and reload.';
+  }
 </script>
 </body>
 </html>

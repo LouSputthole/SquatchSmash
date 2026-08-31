@@ -665,9 +665,17 @@ export async function buildHotDogParty(scene, club) {
   );
   const eric = byId[CHARACTER_IDS.ERIC];
   if (eric) {
-    camera.position.set(0.24, 1.14, 0.14);
-    camera.rotation.y = Math.PI / 2;
+    /* Owner, 2026-08-31: "Eric's camera is, like, through his body." It was:
+     * parked at belly height (y 1.14) on z 0.14 with a quarter-turn, half the
+     * 0.34 m case sat inside a torso whose front face is z 0.13, lens aimed
+     * across his own stomach. Now it is a viewfinder hold: eye height, clear
+     * of the chest (case spans z 0.13..0.47), lens on the body's forward +Z
+     * where the man is looking -- rotation.y = PI because the lens is built
+     * on the prop's -Z. The matching arms are `filming` in cast.js. */
+    camera.position.set(0.16, 1.58, 0.30);
+    camera.rotation.y = Math.PI;
     eric.parts.body.add(camera);
+    eric.filming = true;
   }
 
   // The unrelated visit-one storage corpse cannot remain under the cleanup

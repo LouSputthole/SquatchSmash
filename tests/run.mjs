@@ -98,6 +98,7 @@ const TEST_MODULES = [
   './audio-following-sources.test.mjs',
   './weapon-audio-mix.test.mjs',
   './weapon-sound-audition.test.mjs',
+  './sfx-audition.test.mjs',
   './final-arc-loadout.test.mjs',
   './ground-vehicle.test.mjs',
   './vehicle-presentation.test.mjs',
