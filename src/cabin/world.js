@@ -3141,7 +3141,13 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
     const foot = instanceFootprint(_footEuler, 0.63, 0.35, 1.28);
     footprints.push({ x: skid.x, z: skid.z, hx: foot.hx, hz: foot.hz });
   }
-  const footprintClear = (x, z, hx, hz, margin = 0.06) => !footprints.some((f) => (
+  /* 0.06 -> 0.16 on 2026-08-31, and the number is the gate's, not taste:
+   * the trunk COLLIDER stands radius+0.08 with collider()'s 0.02 pad on
+   * top, and the scatter's own boxes carry the same 0.02 — up to 0.12 m of
+   * inflation this list cannot see. The denser replant cashed that cheque:
+   * deadfall log 88 cleared the footprint test and still audited 0.122 m
+   * inside tree-trunk 139. The margin now covers the whole inflated pair. */
+  const footprintClear = (x, z, hx, hz, margin = 0.16) => !footprints.some((f) => (
     Math.abs(f.x - x) < f.hx + hx + margin && Math.abs(f.z - z) < f.hz + hz + margin
   ));
 
@@ -3250,7 +3256,10 @@ function buildGroundScatter(root, M, colliders, disposables, plantedTrees = []) 
     for (let gz = PROPERTY.minZ + 10; gz < PROPERTY.maxZ - 10; gz += 13.2) {
       const x = gx + (hashAt(gx, gz, 171) - 0.5) * 9;
       const z = gz + (hashAt(gx, gz, 172) - 0.5) * 9;
-      if (!canPlantTree(x, z, 1.0) || hashAt(x, z, 173) > 0.325) continue;
+      /* 0.325 -> 0.365 on 2026-08-31: the denser replant plus the honest
+       * 0.16 clearance margin culled deadfall to 43 against the 45 floor;
+       * a slightly wider acceptance restores the fallen-timber budget. */
+      if (!canPlantTree(x, z, 1.0) || hashAt(x, z, 173) > 0.365) continue;
       const length = 2.2 + hashAt(x, z, 174) * 3.2;
       const radius = 0.16 + hashAt(x, z, 175) * 0.16;
       const yaw = hashAt(x, z, 176) * Math.PI * 2;

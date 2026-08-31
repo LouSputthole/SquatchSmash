@@ -223,6 +223,10 @@ test('the forest floor is dressed out of the meshes already being drawn', () => 
     'cabin-deadfall',
     'cabin-fern-undergrowth',
     'cabin-field-rocks',
+    /* One deliberate addition, 2026-08-31: the perimeter treeline that hides
+     * the terrain's table edge (the owner's "mat edge") — one InstancedMesh,
+     * one draw call, backdrop policy, outside every forest chunk. */
+    'cabin-horizon-treeline',
     'cabin-tree-crowns-far',
     'cabin-tree-crowns-near',
     'cabin-tree-trunks',

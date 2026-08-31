@@ -2701,27 +2701,33 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
    * gilt-framed lit mirror. It keeps the `luxury-main-bath-sink` prop id so
    * every collider name and wall-clearance pin survives the upgrade. */
   const VAN_TOP = 0.94;
+  /* The GROUP stands at the fixture's station like every other domestic
+   * prop, with children in vanity-local coordinates. Its first build put
+   * the meshes at world positions inside a group at the origin, which reads
+   * fine on screen and lies to everything that asks the group where the
+   * sink IS — the room-completeness check read (0, 0, 0). */
   const vanityGroup = group('luxury-marble-vanity');
+  vanityGroup.position.set(-7.36, 0, -2.07);
   vanityGroup.add(
-    box({ name: 'luxury-vanity-slab', size: [0.50, 0.06, 1.10], pos: [-7.352, VAN_TOP - 0.03, -2.07], mat: M.marble }),
-    box({ name: 'luxury-vanity-apron', size: [0.035, 0.09, 1.10], pos: [-7.585, VAN_TOP - 0.105, -2.07], mat: M.marbleDark }),
-    box({ name: 'luxury-vanity-leg-north', size: [0.44, 0.88, 0.05], pos: [-7.33, 0.44, -2.585], mat: M.marbleDark }),
-    box({ name: 'luxury-vanity-leg-south', size: [0.44, 0.88, 0.05], pos: [-7.33, 0.44, -1.555], mat: M.marbleDark }),
-    box({ name: 'luxury-vanity-shelf', size: [0.40, 0.03, 0.98], pos: [-7.31, 0.24, -2.07], mat: M.marble }),
-    cylinder({ name: 'luxury-vanity-shelf-towel-a', r: 0.055, h: 0.34, pos: [-7.33, 0.32, -2.28], rotX: Math.PI / 2, mat: M_TOWEL }),
-    cylinder({ name: 'luxury-vanity-shelf-towel-b', r: 0.055, h: 0.34, pos: [-7.33, 0.32, -1.86], rotX: Math.PI / 2, mat: M_TOWEL }),
-    cylinder({ name: 'luxury-vanity-bowl-outer', rTop: 0.165, rBottom: 0.075, h: 0.15, pos: [-7.36, VAN_TOP + 0.075, -2.07], mat: M_PORCELAIN }),
-    cylinder({ name: 'luxury-vanity-bowl-base', r: 0.075, h: 0.012, pos: [-7.36, VAN_TOP + 0.006, -2.07], mat: M_PORCELAIN }),
-    cylinder({ name: 'luxury-vanity-drain', r: 0.02, h: 0.008, pos: [-7.36, VAN_TOP + 0.02, -2.07], mat: M.chrome, cast: false }),
-    cylinder({ name: 'luxury-vanity-mixer-riser', r: 0.016, h: 0.24, pos: [-7.17, VAN_TOP + 0.12, -2.07], mat: M.chrome }),
-    cylinder({ name: 'luxury-vanity-mixer-spout', r: 0.013, h: 0.15, pos: [-7.245, VAN_TOP + 0.235, -2.07], rotZ: Math.PI / 2, mat: M.chrome }),
-    box({ name: 'luxury-vanity-mixer-handle', size: [0.012, 0.05, 0.03], pos: [-7.17, VAN_TOP + 0.27, -2.07], mat: M.chrome, rotX: -0.3 }),
-    box({ name: 'luxury-vanity-soap-tray', size: [0.14, 0.02, 0.09], pos: [-7.33, VAN_TOP + 0.01, -1.71], mat: M.marbleDark }),
-    cylinder({ name: 'luxury-vanity-lotion-a', rTop: 0.028, rBottom: 0.032, h: 0.16, pos: [-7.30, VAN_TOP + 0.08, -2.42], mat: mat({ color: 0x3a4a52, roughness: 0.4 }) }),
-    cylinder({ name: 'luxury-vanity-lotion-b', rTop: 0.022, rBottom: 0.026, h: 0.11, pos: [-7.38, VAN_TOP + 0.055, -2.45], mat: M_GOLD_BATH }),
+    box({ name: 'luxury-vanity-slab', size: [0.50, 0.06, 1.10], pos: [0.008, VAN_TOP - 0.03, 0], mat: M.marble }),
+    box({ name: 'luxury-vanity-apron', size: [0.035, 0.09, 1.10], pos: [-0.225, VAN_TOP - 0.105, 0], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-leg-north', size: [0.44, 0.88, 0.05], pos: [0.03, 0.44, -0.515], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-leg-south', size: [0.44, 0.88, 0.05], pos: [0.03, 0.44, 0.515], mat: M.marbleDark }),
+    box({ name: 'luxury-vanity-shelf', size: [0.40, 0.03, 0.98], pos: [0.05, 0.24, 0], mat: M.marble }),
+    cylinder({ name: 'luxury-vanity-shelf-towel-a', r: 0.055, h: 0.34, pos: [0.03, 0.32, -0.21], rotX: Math.PI / 2, mat: M_TOWEL }),
+    cylinder({ name: 'luxury-vanity-shelf-towel-b', r: 0.055, h: 0.34, pos: [0.03, 0.32, 0.21], rotX: Math.PI / 2, mat: M_TOWEL }),
+    cylinder({ name: 'luxury-vanity-bowl-outer', rTop: 0.165, rBottom: 0.075, h: 0.15, pos: [0, VAN_TOP + 0.075, 0], mat: M_PORCELAIN }),
+    cylinder({ name: 'luxury-vanity-bowl-base', r: 0.075, h: 0.012, pos: [0, VAN_TOP + 0.006, 0], mat: M_PORCELAIN }),
+    cylinder({ name: 'luxury-vanity-drain', r: 0.02, h: 0.008, pos: [0, VAN_TOP + 0.02, 0], mat: M.chrome, cast: false }),
+    cylinder({ name: 'luxury-vanity-mixer-riser', r: 0.016, h: 0.24, pos: [0.19, VAN_TOP + 0.12, 0], mat: M.chrome }),
+    cylinder({ name: 'luxury-vanity-mixer-spout', r: 0.013, h: 0.15, pos: [0.115, VAN_TOP + 0.235, 0], rotZ: Math.PI / 2, mat: M.chrome }),
+    box({ name: 'luxury-vanity-mixer-handle', size: [0.012, 0.05, 0.03], pos: [0.19, VAN_TOP + 0.27, 0], mat: M.chrome, rotX: -0.3 }),
+    box({ name: 'luxury-vanity-soap-tray', size: [0.14, 0.02, 0.09], pos: [0.03, VAN_TOP + 0.01, 0.36], mat: M.marbleDark }),
+    cylinder({ name: 'luxury-vanity-lotion-a', rTop: 0.028, rBottom: 0.032, h: 0.16, pos: [0.06, VAN_TOP + 0.08, -0.35], mat: mat({ color: 0x3a4a52, roughness: 0.4 }) }),
+    cylinder({ name: 'luxury-vanity-lotion-b', rTop: 0.022, rBottom: 0.026, h: 0.11, pos: [-0.02, VAN_TOP + 0.055, -0.38], mat: M_GOLD_BATH }),
     // The lit mirror, gilt-framed, mounted on the east lining.
-    box({ name: 'luxury-vanity-mirror-frame', size: [0.026, 0.92, 0.80], pos: [-7.114, 1.54, -2.07], mat: M_GOLD_BATH }),
-    box({ name: 'luxury-vanity-mirror-light', size: [0.05, 0.045, 0.62], pos: [-7.14, 2.16, -2.07], mat: mat({ color: 0xf4efdd, roughness: 0.55, emissive: 0x87795a, emissiveIntensity: 0.55 }), cast: false }),
+    box({ name: 'luxury-vanity-mirror-frame', size: [0.026, 0.92, 0.80], pos: [0.246, 1.54, 0], mat: M_GOLD_BATH }),
+    box({ name: 'luxury-vanity-mirror-light', size: [0.05, 0.045, 0.62], pos: [0.22, 2.16, 0], mat: mat({ color: 0xf4efdd, roughness: 0.55, emissive: 0x87795a, emissiveIntensity: 0.55 }), cast: false }),
   );
   const vanityMirror = new THREE.Mesh(
     new THREE.PlaneGeometry(0.72, 0.84),
@@ -2729,7 +2735,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   );
   vanityMirror.name = 'luxury-vanity.mirror.surface';
   vanityMirror.rotation.y = -Math.PI / 2;
-  vanityMirror.position.set(-7.128, 1.54, -2.07);
+  vanityMirror.position.set(0.232, 1.54, 0);
   vanityMirror.userData.planarMirrorSurface = true;
   vanityGroup.add(vanityMirror);
   const sink = {

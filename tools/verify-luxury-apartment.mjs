@@ -35,7 +35,7 @@ const AUXILIARY_VIEWPORT = Object.freeze({
  * Beat 27 call). The 13-turn Booski drain is ~25 sim-seconds — roughly 300
  * wall-seconds — so the old 180 s timeout failed a call that was draining
  * perfectly. Waits that pass fast still pass fast; this is only headroom. */
-const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: 600000 });
+const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: AUXILIARY_WAIT.timeout0 });
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -404,7 +404,17 @@ try {
     };
     const bathroomZone = home.floorZones.find(({ name }) => name === 'luxury-bath-tile-zone');
     const bathroomThresholdZone = home.floorZones.find(({ name }) => name === 'luxury-bathroom-threshold-zone');
-    const bathroomWestRail = home.colliders.find(({ name }) => name === 'luxury-stair-rail-west-collider');
+    /* The west rail stopped being one slab on 2026-08-31: it is 18 per-step
+     * boxes (`luxury-stair-rail-west-collider-NN`) so the player can walk
+     * beneath the open flight. The clearance question is unchanged — does
+     * ANY piece of that rail intrude past the bathroom door opening — so
+     * take the westernmost face across the whole set. */
+    const westRailSteps = home.colliders.filter(({ name }) => (
+      typeof name === 'string' && name.startsWith('luxury-stair-rail-west-collider')
+    ));
+    const bathroomWestRail = westRailSteps.length
+      ? { min: { x: Math.min(...westRailSteps.map((step) => step.min.x)) } }
+      : null;
     const bathroomLight = home.lights.bathroom;
     const bathroomCeiling = home.bathroom.ceiling;
     bathroomCeiling.geometry.computeBoundingBox();
@@ -1779,7 +1789,7 @@ try {
       const player = window.LUXURY_APARTMENT.player;
       return player.position.z <= topZ && player.ground >= loftY - 0.22;
     }, { topZ: liveStairStart.stair.z0 - 0.14, loftY: liveStairStart.stair.loftY }, {
-      timeout: 60000,
+      timeout: AUXILIARY_WAIT.timeout,
       polling: 50,
     });
   } catch {
@@ -1803,7 +1813,7 @@ try {
       const player = window.LUXURY_APARTMENT.player;
       return player.position.z >= bottomZ && player.ground <= 0.22;
     }, { bottomZ: liveStairStart.stair.z1 + 0.16 }, {
-      timeout: 60000,
+      timeout: AUXILIARY_WAIT.timeout,
       polling: 50,
     });
   } catch {
@@ -2597,17 +2607,17 @@ try {
       inputMode: os.inputMode,
     };
   });
-  await page.waitForFunction(() => document.pointerLockElement === null, undefined, { timeout: 60000 });
+  await page.waitForFunction(() => document.pointerLockElement === null, undefined, { timeout: AUXILIARY_WAIT.timeout });
   await page.waitForFunction(() => {
     const app = window.LUXURY_APARTMENT.pcArcade.app;
     const frame = app?.overlay?.el;
     return app?.id === 'smash' && frame?.contentDocument?.readyState === 'complete';
-  }, undefined, { timeout: 60000 });
+  }, undefined, { timeout: AUXILIARY_WAIT.timeout });
   await page.evaluate(() => window.LUXURY_APARTMENT.pcArcade.app.overlay.focusFrame());
   await page.waitForFunction(() => {
     const frame = window.LUXURY_APARTMENT.pcArcade.app?.overlay?.el;
     return Boolean(frame) && document.activeElement === frame;
-  }, undefined, { timeout: 60000 });
+  }, undefined, { timeout: AUXILIARY_WAIT.timeout });
   const releasedForDom = await page.evaluate(() => document.pointerLockElement === null);
   /* The embedded game correctly owns keyboard focus. Use the player-facing
    * parent exit control to reclaim it before holding Tab; sending Tab to an
@@ -2622,7 +2632,7 @@ try {
   await page.waitForFunction(() => {
     const frame = window.LUXURY_APARTMENT.pcArcade.app?.overlay?.el;
     return Boolean(frame) && document.activeElement === frame;
-  }, undefined, { timeout: 60000 });
+  }, undefined, { timeout: AUXILIARY_WAIT.timeout });
   // `hover()` is not an instruction to emit pointerenter when the mouse is
   // already over the element. Leave the control first, then enter it exactly
   // as a player would. Without this move the verifier intermittently waited
@@ -2631,7 +2641,7 @@ try {
   await framedExit.hover();
   await page.waitForFunction(() => (
     document.activeElement?.getAttribute?.('aria-label') === 'Exit to the SquatchOS desktop'
-  ), undefined, { timeout: 60000 });
+  ), undefined, { timeout: AUXILIARY_WAIT.timeout });
   await page.keyboard.down('Tab');
   await page.waitForTimeout(720);
   await page.keyboard.up('Tab');
@@ -2640,7 +2650,7 @@ try {
     return runtime.pcArcade.mode === 'desktop'
       && runtime.pcArcade.inputMode === 'relative'
       && document.pointerLockElement === document.getElementById('scene');
-  }, undefined, { timeout: 60000 });
+  }, undefined, { timeout: AUXILIARY_WAIT.timeout });
   const desktopRecovered = await page.evaluate(() => ({
     mode: window.LUXURY_APARTMENT.pcArcade.mode,
     inputMode: window.LUXURY_APARTMENT.pcArcade.inputMode,
@@ -2921,7 +2931,7 @@ try {
   await page.waitForFunction(() => (
     window.LUXURY_APARTMENT.state.posture === 'darts'
       && window.LUXURY_APARTMENT.darts.active
-  ), null, { timeout: 60000 });
+  ), null, { timeout: AUXILIARY_WAIT.timeout });
   const dartImpacts = [];
   const dartCharges = [];
   for (const targetCharge of [0.20, 0.55]) {
@@ -2930,7 +2940,7 @@ try {
     await page.waitForFunction((minimum) => (
       window.LUXURY_APARTMENT.darts.charge.active
         && window.LUXURY_APARTMENT.darts.charge.amount >= minimum
-    ), targetCharge, { timeout: 60000, polling: 100 });
+    ), targetCharge, { timeout: AUXILIARY_WAIT.timeout, polling: 100 });
     dartCharges.push(await page.evaluate(() => ({
       active: window.LUXURY_APARTMENT.darts.charge.active,
       amount: window.LUXURY_APARTMENT.darts.charge.amount,
@@ -2939,7 +2949,7 @@ try {
     await page.waitForFunction((prior) => {
       const darts = window.LUXURY_APARTMENT.darts;
       return darts.throws > prior && !darts.inFlight && Boolean(darts.lastImpact);
-    }, beforeThrows, { timeout: 60000, polling: 100 });
+    }, beforeThrows, { timeout: AUXILIARY_WAIT.timeout, polling: 100 });
     dartImpacts.push(await page.evaluate(() => {
       const impact = window.LUXURY_APARTMENT.darts.lastImpact;
       return {
