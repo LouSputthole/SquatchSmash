@@ -1951,6 +1951,12 @@ export function makeMorningGuest(M) {
     setPose: null,
     setDressHelpProgress: null,
     setDressGlue: null,
+    /* Sleep closes her eyes — the lids in restyleMargoHead cover white, iris
+     * and pupil while true. The scene that puts her to bed owns the toggle. */
+    setEyesClosed(closed) {
+      for (const lid of faceParts.eyeLids ?? []) lid.visible = closed === true;
+      for (const eye of faceParts.eyes ?? []) eye.visible = closed !== true;
+    },
     /* Seconds left on the line she is currently saying, for anything that
      * stages her around a line (facing the man she is talking to, above all).
      * The mouth itself does not read this — it runs on the take. */

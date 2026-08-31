@@ -171,8 +171,13 @@ test('luxury world builds a validated two-floor hub with screens, zones and pari
   assert.equal(world.metrics.extraArtSlots, LUXURY_EXTRA_ART_SLOTS.length);
   assert.equal(world.metrics.minigameCount, 5);
   assert.ok(world.colliders.length >= 35);
-  assert.equal(world.colliders.filter(({ name }) => name === 'luxury-stair-rail-west-collider').length, 1);
-  assert.equal(world.colliders.filter(({ name }) => name === 'luxury-stair-rail-east-collider').length, 1);
+  /* Owner, 2026-08-31: "you can't walk under the stairs at all." The rails
+   * collide per step now, following the flight's diagonal, so the under-
+   * stair passage to the bathroom is real; the soffit boxes keep a head from
+   * clipping up through the treads on the open section. */
+  assert.equal(world.colliders.filter(({ name }) => /^luxury-stair-rail-west-collider-\d\d$/.test(name)).length, 18);
+  assert.equal(world.colliders.filter(({ name }) => /^luxury-stair-rail-east-collider-\d\d$/.test(name)).length, 18);
+  assert.equal(world.colliders.filter(({ name }) => /^luxury-stair-soffit-collider-\d\d$/.test(name)).length, 7);
   assert.equal(world.root.getObjectByName('luxury-stair-rail-west')?.isObject3D, true);
   assert.equal(world.root.getObjectByName('luxury-stair-rail-east')?.isObject3D, true);
   assert.ok(world.floorZones.length >= 20, 'each real stair tread and both floors remain described');
@@ -310,7 +315,10 @@ test('the stair-top Sasquatch is a lit luxury focal piece outside Margo’s rout
 test('every Luxury collider declares stable authored spatial meaning', async () => {
   const { world } = await build();
   const records = world.colliders.map((collider) => readSpatialPrimitive(collider));
-  assert.equal(records.length, 66, 'the complete live Luxury collision inventory changed');
+  /* 66 -> 107 on 2026-08-31: the two monolithic stair-rail slabs became 36
+   * per-step rail boxes plus 7 under-flight soffits so the player can walk
+   * beneath the open section to the bathroom. Nothing else moved. */
+  assert.equal(records.length, 107, 'the complete live Luxury collision inventory changed');
   assert.ok(records.every(Boolean), 'an addBounds call bypassed the spatial contract');
   assert.equal(new Set(records.map(({ id }) => id)).size, records.length,
     'Luxury collider spatial ids are not unique');
@@ -318,7 +326,7 @@ test('every Luxury collider declares stable authored spatial meaning', async () 
     Object.fromEntries([...records.reduce((counts, { kind }) => (
       counts.set(kind, (counts.get(kind) ?? 0) + 1)
     ), new Map())].sort(([left], [right]) => left.localeCompare(right))),
-    { door: 3, prop: 22, seat: 9, world: 32 },
+    { door: 3, prop: 22, seat: 9, world: 73 },
   );
   world.dispose();
 });
