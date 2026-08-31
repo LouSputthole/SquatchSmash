@@ -1114,6 +1114,7 @@ function buildProperty({
   const forest = buildForest(root, M, colliders, disposables);
   const groundScatter = buildGroundScatter(root, M, colliders, disposables, forest.trees);
   buildPropertyBoundary(root, M, colliders);
+  buildHorizonSkirt(root, disposables);
 
   const storyLandmarkIds = new Set(['creek', 'overlook', 'shed']);
   const registerLandmark = (id, target, label, dedicated = null, extra = {}) => {
@@ -2376,43 +2377,88 @@ function makeUndergrowthGeometry() {
  * the mix is deterministic and a species can be re-weighted without moving
  * every other tree on the property.
  */
+/* Eight species, 2026-08-31, from the owner's daytime playtest: *"make like
+ * 7 to 8 different trees and add more forest density."* Three defects fixed
+ * with the same table, all three measured in a D2 09:20 probe shot before a
+ * line changed:
+ *
+ *  - CROWNS WERE ~3x TOO NARROW. `broad` multiplies TRUNK radius into crown
+ *    radius, and 2.9–4.7 on a 0.14–0.28 m trunk is a 0.4–0.9 m crown on a
+ *    9–17 m tree — from the overlook the whole treeline read as telephone
+ *    poles with flags. A real conifer's crown radius is nearer a fifth of
+ *    its height; `broad` now lands crowns at 1.1–3.2 m.
+ *  - WHITE TRUNKS. The birch bark at 0xb9b3a4 under the 1.1 warm sun and
+ *    1.16 exposure saturated to plain white poles. Broadleaf bark keeps its
+ *    paleness but starts a third darker and warmer, so daylight lifts it to
+ *    pale — not to blown-out.
+ *  - THE WEIRD GREEN. The 0x51702c/0x718e36 lime range read arcade-bright
+ *    against the muted cabin; every crown green is deepened toward the
+ *    conifer band and the two broadleafs sit only a step warmer.
+ *
+ * `trunkTop` is the trunk-through-crown fix: the DRAWN trunk stops at that
+ * fraction of the tree's height, inside the top whorl, instead of running
+ * the full height and poking 1–1.6 m of bare pole out of a pine's tip. The
+ * collider keeps the full height — the gate audits standing room, not bark. */
 const TREE_SPECIES = Object.freeze([
   {
-    id: 'fir', share: 0.30, shape: 'spire',
-    height: [8.6, 15.4], radius: [0.14, 0.26], broad: 3.4,
-    tiers: 3, crownBase: 0.50, tierRise: 0.17, tierHeight: 0.33, tierTaper: 0.025,
-    lean: 0.035, trunk: [0x3b281a, 0x2d2015], crown: [0x16301f, 0x1e3c27],
+    id: 'fir', share: 0.19, shape: 'spire',
+    height: [8.6, 15.4], radius: [0.14, 0.26], broad: 8.6,
+    tiers: 3, crownBase: 0.44, tierRise: 0.19, tierHeight: 0.38, tierTaper: 0.030,
+    lean: 0.035, trunk: [0x46301e, 0x322217], crown: [0x1b3823, 0x25462c], trunkTop: 0.90,
   },
   {
     // Lodgepole: tall, bare to two thirds, a thin crown right at the top.
-    id: 'pine', share: 0.22, shape: 'spire',
-    height: [9.8, 17.2], radius: [0.15, 0.28], broad: 2.9,
-    tiers: 2, crownBase: 0.62, tierRise: 0.16, tierHeight: 0.27, tierTaper: 0.02,
-    lean: 0.030, trunk: [0x5a3a20, 0x6e4527], crown: [0x27492a, 0x315a34],
+    id: 'pine', share: 0.14, shape: 'spire',
+    height: [9.8, 17.2], radius: [0.15, 0.28], broad: 6.4,
+    tiers: 2, crownBase: 0.60, tierRise: 0.17, tierHeight: 0.32, tierTaper: 0.02,
+    lean: 0.030, trunk: [0x64411f, 0x775026], crown: [0x28482b, 0x335634], trunkTop: 0.86,
   },
   {
     // Hemlock: short, and much wider than it is tall.
-    id: 'hemlock', share: 0.20, shape: 'spire',
-    height: [6.2, 11.0], radius: [0.16, 0.31], broad: 4.7,
-    tiers: 3, crownBase: 0.38, tierRise: 0.20, tierHeight: 0.36, tierTaper: 0.030,
-    lean: 0.045, trunk: [0x33241a, 0x241a12], crown: [0x1d3f28, 0x2a5233],
+    id: 'hemlock', share: 0.14, shape: 'spire',
+    height: [6.2, 11.0], radius: [0.16, 0.31], broad: 10.4,
+    tiers: 3, crownBase: 0.34, tierRise: 0.20, tierHeight: 0.36, tierTaper: 0.030,
+    lean: 0.045, trunk: [0x33241a, 0x241a12], crown: [0x1c3d26, 0x284f31], trunkTop: 0.88,
   },
   {
-    // The only broadleaf, and the reason the treeline stops repeating: pale
-    // trunk, yellow-green crown, and a ROUND silhouette among the spires.
-    id: 'birch', share: 0.21, shape: 'round',
-    height: [5.6, 9.9], radius: [0.10, 0.19], broad: 3.9,
+    // Western red cedar: the biggest silhouette on the property — a broad
+    // skirt low to the ground, russet bark, and a blunter top than the firs.
+    id: 'cedar', share: 0.13, shape: 'spire',
+    height: [10.4, 16.8], radius: [0.18, 0.34], broad: 9.2,
+    tiers: 3, crownBase: 0.26, tierRise: 0.23, tierHeight: 0.42, tierTaper: 0.045,
+    lean: 0.025, trunk: [0x5e3b24, 0x49301e], crown: [0x223f27, 0x2c4c2e], trunkTop: 0.84,
+  },
+  {
+    // Sitka spruce: narrow, blue-cast needles, the cool note in the mix.
+    id: 'spruce', share: 0.12, shape: 'spire',
+    height: [9.0, 15.8], radius: [0.14, 0.25], broad: 6.8,
+    tiers: 3, crownBase: 0.40, tierRise: 0.185, tierHeight: 0.34, tierTaper: 0.025,
+    lean: 0.030, trunk: [0x3c2b1e, 0x2e2117], crown: [0x24443a, 0x2e5344], trunkTop: 0.90,
+  },
+  {
+    // Paper birch: pale-WARM bark and a round crown among the spires. The
+    // old 0xb9b3a4 is what the owner meant by "completely white trunks".
+    id: 'birch', share: 0.11, shape: 'round',
+    height: [5.6, 9.9], radius: [0.10, 0.19], broad: 9.8,
     tiers: 3, crownBase: 0.52, tierRise: 0, tierHeight: 0, tierTaper: 0,
-    lean: 0.075, trunk: [0xb9b3a4, 0x8b8676], crown: [0x51702c, 0x718e36],
+    lean: 0.075, trunk: [0x98917c, 0x776f5e], crown: [0x3c5a28, 0x4c6e31], trunkTop: 0.80,
+  },
+  {
+    // Quaking aspen: the second broadleaf — smaller and rounder than the
+    // birch, greenish-grey bark, the one bright(er) green kept honest.
+    id: 'aspen', share: 0.11, shape: 'round',
+    height: [4.8, 8.6], radius: [0.09, 0.16], broad: 9.0,
+    tiers: 3, crownBase: 0.48, tierRise: 0, tierHeight: 0, tierTaper: 0,
+    lean: 0.060, trunk: [0x8a8a74, 0x6c6c58], crown: [0x44662a, 0x577a33], trunkTop: 0.78,
   },
   {
     // Dead standing. Trunk only — its crown tiers are the gate's documented
     // all-axes-zero visibility sentinel, so nothing is drawn and nothing is
-    // audited above the snapped top.
-    id: 'snag', share: 0.07, shape: 'bare',
+    // audited above the snapped top. Full trunkTop: the bare pole IS the tree.
+    id: 'snag', share: 0.06, shape: 'bare',
     height: [4.2, 9.4], radius: [0.13, 0.24], broad: 0,
     tiers: 0, crownBase: 0, tierRise: 0, tierHeight: 0, tierTaper: 0,
-    lean: 0.16, trunk: [0x6d6459, 0x4b453c], crown: null,
+    lean: 0.16, trunk: [0x615a4f, 0x453f37], crown: null, trunkTop: 1,
   },
 ]);
 
@@ -2439,6 +2485,126 @@ function speciesColour(range, t, dim = 1) {
   return _speciesColour;
 }
 
+/**
+ * The horizon, so the property stops ending in mid-air.
+ *
+ * Owner, daytime playtest: the terrain edge is visible against the sky —
+ * from the overlook the heightfield's cut at +/-112 sits ~120 m away, where
+ * the FogExp2 at 0.0072 has only reached ~0.5, and the world reads as a
+ * table edge. Two pieces hide it honestly instead of pretending it is not
+ * there:
+ *
+ *  - AN APRON: one vertex-coloured ring from the property line out to 205 m,
+ *    tucked 0.15 under the heightfield edge and falling 5 m by its rim. At
+ *    its far edge the same fog is past 0.9 and the camera far plane (220)
+ *    does the last of the work.
+ *  - A TREELINE: one InstancedMesh of far-LOD cones banded 8..55 m outside
+ *    the line, so what the fog is eating looks like more forest rather than
+ *    green felt. Backdrop policy end to end: no colliders, no support, and
+ *    the gate treats it exactly like the sky it stands against.
+ */
+function buildHorizonSkirt(root, disposables) {
+  const inner = 112;
+  const outer = 205;
+  const edgeHeight = (x, z) => heightAt(
+    Math.max(-111, Math.min(111, x)),
+    Math.max(-111, Math.min(111, z)),
+  );
+  const positions = [];
+  const colours = [];
+  const indices = [];
+  const nearColour = new THREE.Color(0x28402a);
+  const farColour = new THREE.Color(0x6f8479);
+  const ringSteps = 96;
+  for (let i = 0; i <= ringSteps; i++) {
+    const angle = (i / ringSteps) * Math.PI * 2;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    /* Project the angle onto the SQUARE property line, then push straight
+     * out for the rim, so the apron's inner edge hugs the boundary instead
+     * of a circle that dips inside the corners. */
+    const m = Math.max(Math.abs(c), Math.abs(s));
+    const ix = (c / m) * inner;
+    const iz = (s / m) * inner;
+    const y0 = edgeHeight(ix, iz) - 0.15;
+    const ox = (c / m) * outer;
+    const oz = (s / m) * outer;
+    positions.push(ix, y0, iz, ox, y0 - 5, oz);
+    colours.push(nearColour.r, nearColour.g, nearColour.b, farColour.r, farColour.g, farColour.b);
+    if (i < ringSteps) {
+      const a = i * 2;
+      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  }
+  const apronGeometry = new THREE.BufferGeometry();
+  apronGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  apronGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
+  apronGeometry.setIndex(indices);
+  apronGeometry.computeVertexNormals();
+  apronGeometry.computeBoundingSphere();
+  const apronMaterial = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 1, metalness: 0, side: THREE.DoubleSide,
+  });
+  const apron = new THREE.Mesh(apronGeometry, apronMaterial);
+  apron.name = 'cabin-horizon-apron';
+  apron.receiveShadow = false;
+  apron.castShadow = false;
+  apron.userData.geometryGate = { overlap: false, checkSupport: false, checkWallEmbed: false };
+  root.add(apron);
+  disposables.push(apronGeometry, apronMaterial);
+
+  const coneGeometry = new THREE.ConeGeometry(1, 1, 6);
+  const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+  const band = [];
+  const bandStep = 5.2;
+  for (let gx = -168; gx <= 168; gx += bandStep) {
+    for (let gz = -168; gz <= 168; gz += bandStep) {
+      const reach = Math.max(Math.abs(gx), Math.abs(gz));
+      if (reach < inner + 8 || reach > inner + 55) continue;
+      const x = gx + (hashAt(gx, gz, 141) - 0.5) * 4.2;
+      const z = gz + (hashAt(gx, gz, 142) - 0.5) * 4.2;
+      if (hashAt(gx, gz, 143) > 0.62) continue;
+      band.push({
+        x,
+        z,
+        height: 9.5 + hashAt(gx, gz, 144) * 8,
+        spread: 2.1 + hashAt(gx, gz, 145) * 1.5,
+        tone: hashAt(gx, gz, 146),
+      });
+    }
+  }
+  const treeline = new THREE.InstancedMesh(coneGeometry, coneMaterial, band.length);
+  treeline.name = 'cabin-horizon-treeline';
+  const treelineColours = [[0x1b3823, 0x25462c], [0x28482b, 0x335634], [0x24443a, 0x2e5344]];
+  const place = new THREE.Object3D();
+  for (let i = 0; i < band.length; i++) {
+    const tree = band[i];
+    /* The apron slopes down at 5 m over (outer - inner); the treeline stands
+     * on the same slope so nothing floats over the fall-away. */
+    const reach = Math.max(Math.abs(tree.x), Math.abs(tree.z));
+    const slope = ((reach - inner) / (outer - inner)) * -5;
+    const footY = edgeHeight(tree.x, tree.z) - 0.15 + slope;
+    place.position.set(tree.x, footY + tree.height / 2, tree.z);
+    place.rotation.set(0, tree.tone * Math.PI * 2, 0);
+    place.scale.set(tree.spread, tree.height, tree.spread);
+    place.updateMatrix();
+    treeline.setMatrixAt(i, place.matrix);
+    treeline.setColorAt(i, speciesColour(
+      treelineColours[Math.floor(tree.tone * treelineColours.length) % treelineColours.length],
+      tree.tone,
+      0.82,
+    ));
+  }
+  treeline.instanceMatrix.needsUpdate = true;
+  if (treeline.instanceColor) treeline.instanceColor.needsUpdate = true;
+  treeline.castShadow = false;
+  treeline.receiveShadow = false;
+  treeline.userData.geometryGate = { overlap: false, checkSupport: false, checkWallEmbed: false };
+  root.add(treeline);
+  disposables.push(coneGeometry, coneMaterial);
+  return { apron, treeline, treelineCount: band.length };
+}
+
 function buildForest(root, M, colliders, disposables) {
   const chunks = new Map();
   const plantedTrees = [];
@@ -2463,7 +2629,9 @@ function buildForest(root, M, colliders, disposables) {
 
   // A jittered grid keeps trunks separated while density still grows and
   // thins naturally. Every random-looking choice is a salted field hash.
-  const spacing = 5.35;
+  // 5.35 -> 4.70 on 2026-08-31 — the owner's "add more forest density";
+  // ~30% more stems for zero extra draw calls, all instance data.
+  const spacing = 4.70;
   for (let gx = PROPERTY.minX + 3; gx <= PROPERTY.maxX - 3; gx += spacing) {
     for (let gz = PROPERTY.minZ + 3; gz <= PROPERTY.maxZ - 3; gz += spacing) {
       const x = gx + (hashAt(gx, gz, 101) - 0.5) * spacing * 0.68;
@@ -2542,7 +2710,9 @@ function buildForest(root, M, colliders, disposables) {
     // share, xz, y, colour range: a fern is wider than it is tall.
     { id: 'fern', share: 0.42, spread: 1.12, rise: 0.82, tint: [0x2c4a28, 0x3d6033] },
     { id: 'salal', share: 0.33, spread: 0.74, rise: 1.24, tint: [0x22401e, 0x2f5028] },
-    { id: 'grass', share: 0.25, spread: 0.54, rise: 1.90, tint: [0x5a6b30, 0x7d8a44] },
+    // Less yellow than the 0x5a6b30/0x7d8a44 it launched with: under the
+    // daylight rig that range was half of the owner's "weird green".
+    { id: 'grass', share: 0.25, spread: 0.54, rise: 1.90, tint: [0x4c5e2d, 0x687a3c] },
   ]);
   const brushFormAt = (pick) => {
     let run = 0;
@@ -2696,9 +2866,14 @@ function buildForest(root, M, colliders, disposables) {
       for (let i = 0; i < chunk.trees.length; i++) {
         const tree = chunk.trees[i];
         const species = tree.species;
-        dummy.position.set(tree.x, tree.y + tree.height / 2, tree.z);
+        /* The DRAWN trunk stops inside the top whorl (`trunkTop`), because a
+         * full-height pole pokes past the tip of the last cone — measured
+         * 1.6 m of bare pole above a 17 m pine's crown in the D2 probe. The
+         * collider added at planting keeps the full height. */
+        const drawnHeight = tree.height * (species.trunkTop ?? 1);
+        dummy.position.set(tree.x, tree.y + drawnHeight / 2, tree.z);
         dummy.rotation.set(tree.lean, tree.yaw, 0);
-        dummy.scale.set(tree.radius, tree.height, tree.radius);
+        dummy.scale.set(tree.radius, drawnHeight, tree.radius);
         dummy.updateMatrix();
         trunks.setMatrixAt(i, dummy.matrix);
 

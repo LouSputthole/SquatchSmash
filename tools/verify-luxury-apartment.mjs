@@ -28,7 +28,14 @@ const AUXILIARY_VIEWPORT = Object.freeze({
   deviceScaleFactor: 0.5,
   mobile: false,
 });
-const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: 180000 });
+/* 600 s, the sim-gated-wait convention verify-specialmeeting.mjs set, not a
+ * guess: measured 2026-08-31 on an otherwise idle box, the SwiftShader page
+ * renders this scene at ~2 fps and the frame dt clamp then advances the sim
+ * at ~8.5% of wall time (17.8 sim-seconds in 209 wall-seconds, probed at the
+ * Beat 27 call). The 13-turn Booski drain is ~25 sim-seconds — roughly 300
+ * wall-seconds — so the old 180 s timeout failed a call that was draining
+ * perfectly. Waits that pass fast still pass fast; this is only headroom. */
+const AUXILIARY_WAIT = Object.freeze({ polling: 200, timeout: 600000 });
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -1040,7 +1047,7 @@ try {
   await ringingReloadPage.waitForFunction(() => {
     const runtime = window.SPECIAL_MEETING;
     return runtime.voiceReady || runtime.voiceLoadError;
-  }, null, { polling: 200, timeout: 120000 });
+  }, null, AUXILIARY_WAIT);
   const beat27Voice = await ringingReloadPage.evaluate(() => {
     const runtime = window.SPECIAL_MEETING;
     return {
@@ -1053,11 +1060,15 @@ try {
     };
   });
   console.log(`  ...   Beat 27 destination voice bank ready: ${beat27Voice.decoded}/${beat27Voice.expected}`);
+  /* The street arrival settling took ~130 s on an otherwise IDLE box in
+   * verify-specialmeeting.mjs's own measurement — its whole file runs on a
+   * 600 s convention for sim-gated waits. The 90 s this wait launched with
+   * was never enough wall clock for SwiftShader to land the car. */
   await ringingReloadPage.waitForFunction(() => {
     const runtime = window.SPECIAL_MEETING;
     return runtime.stage.arrival?.settled
       && runtime.ride.beatId === 'SM-100';
-  }, null, { polling: 200, timeout: 90000 });
+  }, null, AUXILIARY_WAIT);
   const beat27Landing = await ringingReloadPage.evaluate(() => {
     const runtime = window.SPECIAL_MEETING;
     const saved = JSON.parse(localStorage.getItem('squatchlife.campaign'));

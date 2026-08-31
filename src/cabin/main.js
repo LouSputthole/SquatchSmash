@@ -1984,8 +1984,16 @@ input = createFirstPersonInput({
       if (state.posture === 'desk' && arcade.onKey(event.code, true)) return true;
       if (!event.repeat && executionChoice?.handleKey?.(event.code)) return true;
       if (controls.code === 'KeyE' && !event.repeat && cabin.inventory.held === 'phone') {
-        if (!chapter?.startMargoCall?.()) phone.press();
-        return true;
+        if (chapter?.startMargoCall?.()) return true;
+        if (phone.ringing || phone.inCall) { phone.press(); return true; }
+        /* A held phone with nothing to answer must NOT eat the world's E.
+         * This branch used to return true unconditionally, so walking the
+         * ridge trail with the phone out — exactly how the scene leaves you
+         * after the Margo beat — turned the overlook prompt into a dead key
+         * that silently flipped phone screens instead ("the lookout STILL
+         * dead in real play"). Screen-flipping keeps E only when nothing
+         * interactable is under the crosshair. */
+        if (!interaction.current) { phone.press(); return true; }
       }
       if (controls.code === 'KeyQ' && !event.repeat) {
         if (chapter?.skipOptionalAction?.()) {

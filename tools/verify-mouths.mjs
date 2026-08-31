@@ -50,19 +50,30 @@ const TYPES = {
   '.webp': 'image/webp',
 };
 
-/** A cue that IS recorded, and the man who says it. */
+/** A cue that IS recorded, and the man who says it.
+ *
+ * Re-pointed 2026-08-31: the Silver Case script rewrite retired
+ * `lou.chester.notpersonal` (and the Ape `prayer.onemoment` below) from the
+ * manifest and the disk, so `hasSample()` was false forever and this gate
+ * spent its whole 120 s decode wait on a cue that no longer exists — red on
+ * every scheduled run. Both replacements are recorded takes on disk today. */
 const RECORDED = {
-  speaker: 'CHESTER',
-  body: 'chester',
-  cue: 'vo.silvercase.lou.chester.notpersonal',
-  text: 'Look, man, it wasn’t personal, we just — we needed the money…',
+  /* The longest recorded take from a body whose mouth is DRAWN. Ape has the
+   * longer lines but his face is the photograph, whose whole contract below
+   * is that the mouth mesh never moves — so he cannot carry the mesh-moves
+   * assertion. Deke's is ~2.8 s; the (a) block replays it until enough
+   * in-take frames accumulate on this rasteriser. */
+  speaker: 'DEKE',
+  body: 'deke',
+  cue: 'vo.silvercase.control.deke.justus',
+  text: 'Nah, man, it’s just — it’s just us hanging out.',
 };
 /** The photographed face, saying a line of his own. */
 const PHOTO = {
   speaker: 'APE',
   body: 'ape',
-  cue: 'vo.silvercase.prayer.ape.onemoment',
-  text: 'Lou believes every man should get one moment to understand why this is happening.',
+  cue: 'vo.silvercase.prayer.ape.sharepassage',
+  text: 'I’m gonna share a little passage with you.',
 };
 /**
  * A cue with no recording behind it.
@@ -458,10 +469,23 @@ const TAKE = await page.evaluate(
   RECORDED.cue,
 );
 {
-  await speak({ ...RECORDED, hold: 0.5 });
-  const samples = await trace(Math.round(TAKE * 1000) + 1500);
+  /* REPLAYED UNTIL THE FRAMES EXIST. One delivery of a 2.8 s take on this
+   * rasteriser once yielded TWO rendered frames, and every in-take
+   * assertion starved — the wall window measures the box, not the mouth. A
+   * take is deterministic against its own audio, so re-delivering the same
+   * line and pooling the in-take frames across plays measures the same
+   * claim with enough samples to mean something. Capped at four plays so a
+   * genuinely broken mouth still fails fast. */
+  let samples = [];
+  for (let round = 0; round < 4; round++) {
+    await speak({ ...RECORDED, hold: 0.5 });
+    samples = samples.concat(await trace(Math.round(TAKE * 1000) + 1500, { minFrames: 8 }));
+    const inTakeFrames = samples.filter((x) => x.t < TAKE * 1000 * 0.8).length;
+    await settle();
+    if (inTakeFrames >= 10) break;
+  }
   const s = stats(samples, RECORDED.body);
-  const others = ['ape', 'deke', 'winston', 'pruitt']
+  const others = ['ape', 'chester', 'winston', 'pruitt']
     .filter((b) => stats(samples, b).max > 0.001);
   /* The first half of the trace is inside the take by construction; the last
    * tenth is past its end. Splitting it is what turns "the mouth moved" into
@@ -534,22 +558,38 @@ const TAKE = await page.evaluate(
    * the claim: the longer the take is inaudible, the more chances a timer
    * has to give itself away. */
   const PICKUP_S = 8;
-  const pickup = await page.evaluate(([body, cue, delay]) => new Promise((resolve) => {
-    const sc = window.silvercase;
-    const source = sc.audio.play(cue, { volume: 0.9, delay });
-    // Exactly what a scene does: hand the take to the man who is saying it.
-    sc.cast[body].npc.say(9, { audio: sc.audio, source });
-    const samples = [];
-    const t0 = performance.now();
-    const id = setInterval(() => {
-      const t = performance.now() - t0;
-      samples.push({ t: +t.toFixed(0), ...sc.mouths()[body] });
-      /* Six seconds of AUDIBLE take, not 2.4: the speaking window needs its
-       * own three samples, and at one interval tick per rendered frame that
-       * is six seconds of wall clock on this box. */
-      if (t > delay * 1000 + 6000) { clearInterval(id); resolve({ started: Boolean(source), samples }); }
-    }, 40);
-  }), [RECORDED.body, RECORDED.cue, PICKUP_S]);
+  /* POOLED ACROSS UP TO THREE DELIVERIES, same reasoning as the (a) block:
+   * the interval below ticks roughly once per rendered frame on this box,
+   * so one delivery can leave either window under its three-sample floor on
+   * a mouth that is behaving perfectly. Pooling makes the timer-detection
+   * half STRONGER — every extra silent sample is another chance for a clock
+   * to give itself away — and gives the short audible band enough looks to
+   * catch one open phoneme. */
+  let pickup = { started: false, samples: [] };
+  for (let round = 0; round < 3; round++) {
+    const got = await page.evaluate(([body, cue, delay]) => new Promise((resolve) => {
+      const sc = window.silvercase;
+      const source = sc.audio.play(cue, { volume: 0.9, delay });
+      // Exactly what a scene does: hand the take to the man who is saying it.
+      sc.cast[body].npc.say(9, { audio: sc.audio, source });
+      const samples = [];
+      const t0 = performance.now();
+      const id = setInterval(() => {
+        const t = performance.now() - t0;
+        samples.push({ t: +t.toFixed(0), ...sc.mouths()[body] });
+        if (t > delay * 1000 + 6000) { clearInterval(id); resolve({ started: Boolean(source), samples }); }
+      }, 40);
+    }), [RECORDED.body, RECORDED.cue, PICKUP_S]);
+    pickup = {
+      started: pickup.started || got.started,
+      samples: pickup.samples.concat(got.samples),
+    };
+    await settle();
+    const silentSoFar = pickup.samples.filter((x) => x.t < (PICKUP_S - 0.2) * 1000);
+    const speakingSoFar = pickup.samples.filter((x) => x.t > (PICKUP_S + 0.3) * 1000);
+    if (silentSoFar.length >= 3 && speakingSoFar.length >= 3
+      && speakingSoFar.some((x) => x.open > 0.25)) break;
+  }
 
   /* Both windows stand clear of the moment the take becomes audible, so a
    * sample that straddles it belongs to neither. */

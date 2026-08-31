@@ -98,7 +98,12 @@ test('the runtime cabin property keeps a dense explorable landscape and complete
 
   const landscape = built.metadata.landscape;
   assert.ok(landscape.trees >= 500, 'the surrounding woods must remain dense');
-  assert.deepEqual(Object.keys(landscape.treeSpecies).sort(), ['birch', 'fir', 'hemlock', 'pine', 'snag']);
+  /* Five species -> eight on 2026-08-31: the owner's "make like 7 to 8
+   * different trees" adds cedar, spruce and aspen to the mix. */
+  assert.deepEqual(
+    Object.keys(landscape.treeSpecies).sort(),
+    ['aspen', 'birch', 'cedar', 'fir', 'hemlock', 'pine', 'snag', 'spruce'],
+  );
   assert.equal(Object.values(landscape.treeSpecies).reduce((sum, count) => sum + count, 0), landscape.trees);
   assert.ok(Object.values(landscape.treeSpecies).every((count) => count >= 30),
     'each authored tree silhouette needs a meaningful stand, not one token specimen');
