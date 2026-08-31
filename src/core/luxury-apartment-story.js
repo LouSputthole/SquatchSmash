@@ -376,6 +376,7 @@ class LuxuryApartmentStory {
    * eventually disagree with the door, and the player believes the panel.
    */
   objectives() {
+    const phase = this.phase();
     const door = this.tryLeave();
     const items = [];
     const call = this.pendingCall();
@@ -390,7 +391,24 @@ class LuxuryApartmentStory {
     if (door.kind === 'activity') {
       items.push({ id: door.id, label: door.label, done: false, required: true });
     } else if (door.kind === 'stay') {
-      items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+      /* THREE SHUT DOORS, AND ONLY ONE OF THEM IS A BED.
+       *
+       * `stay` drew itself as "Sleep" for all of them, which was wrong twice
+       * over. In `come_home` she is on the stairs and `sleep()` refuses with
+       * `margo_still_arriving`, so the panel was naming the one action the
+       * story would not accept -- a man told to go to bed by a bed that says
+       * no. In `morning` it is ten past seven and she is collecting her
+       * things, and the door's own line says so: "She is still getting her
+       * things together. I am not walking out before she does."
+       *
+       * The refusal keys are cue names and stay exactly as they are; this is
+       * the panel learning to read them. */
+      items.push({
+        id: door.id,
+        label: LUXURY_STAY_LABELS[phase] ?? 'Sleep',
+        done: false,
+        required: true,
+      });
     } else if (door.kind === 'go') {
       items.push({
         id: `depart.${door.destination}`,
@@ -399,9 +417,26 @@ class LuxuryApartmentStory {
         required: true,
       });
     }
-    return { phase: this.phase(), day: this.campaign.state.story.day, items };
+    return { phase, day: this.campaign.state.story.day, items };
   }
 }
+
+/**
+ * What a shut door is asking for, by the visit it is shutting.
+ *
+ * Beat 16 arrives with her and beat 17 ends with her leaving; neither is a
+ * nap, and the night between them is the only one of the three that is.
+ *
+ * The two words are the staged scene's own -- `luxury-apartment/margo-scene.js`
+ * puts "Follow Margo upstairs" and "See Margo out" on the objective line while
+ * she is actually walking -- so the door and the scene cannot be found calling
+ * the same beat two different things.
+ */
+const LUXURY_STAY_LABELS = Object.freeze({
+  come_home: 'Follow Margo upstairs',
+  stayover: 'Sleep',
+  morning: 'See Margo out',
+});
 
 /** Somewhere to go, in words a person would use for it. */
 const LUXURY_SCENE_LABELS = Object.freeze({

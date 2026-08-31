@@ -1317,13 +1317,20 @@ export class CountrysideCabinStory {
       return plan('cabin.help_gratin', 'Help Gratin get answers', 'Listen to Gratin');
     }
     if (phase === 'execution') {
-      return plan(
-        'cabin.finish_job',
-        'Finish the job',
-        this.executionChoice() === 'player'
-          ? 'Use Gratin’s pistol on both prisoners'
-          : 'Give Gratin room',
-      );
+      /* COUNTED, like every other two-man beat in this cellar.
+       *
+       * The interrogation counts to two, the wrapping counts to two and the
+       * carry counts to two; this one did not, so a man who had just shot the
+       * first prisoner was shown the same seven words he was shown before he
+       * fired, with nothing anywhere saying the pistol had done anything. The
+       * gratin branch counts as well: he is watching two executions, and how
+       * far through them he is is the only thing happening. */
+      const down = Object.values(CABIN_HOSTAGE_IDS)
+        .filter((id) => this.hostageDead(id)).length;
+      const step = this.executionChoice() === 'player'
+        ? 'Use Gratin’s pistol on both prisoners'
+        : 'Give Gratin room';
+      return plan('cabin.finish_job', 'Finish the job', `${step} · ${down}/2`);
     }
     if (phase === 'nightfall') {
       return plan('cabin.finish_job', 'Finish the job', 'Listen to Gratin');

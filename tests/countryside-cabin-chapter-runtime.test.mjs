@@ -18,75 +18,15 @@ import {
   DUNGEON_TO_STORY_HOSTAGE,
   STORY_TO_CLEANUP_BODY,
 } from '../src/cabin/chapter-runtime.js';
-import { CabinDialogueDirector } from '../src/cabin/dialogue-director.js';
-import { CabinExecutionChoice } from '../src/cabin/execution-choice.js';
 import { CABIN_PHONE_CALLS, MARGO_CALL_READY } from '../src/cabin/script.js';
+/* The phone double, the audio double and the wiring that puts a runtime on a
+ * campaign are shared with tests/campaign-flow-consistency.test.mjs. */
+import { cabinRuntimeHarness as runtimeHarness } from './helpers/cabin-runtime-harness.mjs';
 
 class MemoryStorage {
   constructor() { this.values = new Map(); }
   getItem(key) { return this.values.get(key) ?? null; }
   setItem(key, value) { this.values.set(key, String(value)); }
-}
-
-class PhoneDouble {
-  constructor() {
-    this.call = null;
-    this.rings = [];
-    this.outgoing = [];
-    this.onCallState = null;
-    this.onAnswered = null;
-  }
-
-  ring(definition) {
-    if (this.call) return false;
-    this.call = { def: definition, state: 'ringing' };
-    this.rings.push(definition.id);
-    return true;
-  }
-
-  startOutgoing(definition) {
-    if (this.call) return false;
-    this.call = { def: definition, state: 'talking', direction: 'outgoing' };
-    this.outgoing.push(definition.id);
-    this.onCallState?.(true, definition);
-    this.onAnswered?.(definition);
-    return true;
-  }
-
-  answer() {
-    if (this.call?.state !== 'ringing') return false;
-    this.call.state = 'talking';
-    this.onCallState?.(true, this.call.def);
-    this.onAnswered?.(this.call.def);
-    return true;
-  }
-
-  finish() {
-    if (this.call?.state !== 'talking') return false;
-    const definition = this.call.def;
-    this.call = null;
-    this.onCallState?.(false, definition);
-    return true;
-  }
-
-  hangUp({ force = false } = {}) {
-    if (!this.call) return false;
-    const { def, state } = this.call;
-    if (state === 'talking' && def.allowHangup === false && !force) return false;
-    this.call = null;
-    if (state === 'talking') this.onCallState?.(false, def);
-    return true;
-  }
-}
-
-function audioDouble() {
-  return {
-    manifest: { sfx: [] },
-    sampleDuration() { return 0.01; },
-    hasSample() { return false; },
-    play() { return null; },
-    hold() {},
-  };
 }
 
 /**
@@ -116,15 +56,6 @@ function seedWokenCabin(storage = new MemoryStorage()) {
   const seeded = seedCabinCampaign(storage);
   createCountrysideCabinStory({ campaign: seeded.campaign }).completeArrivalRest();
   return seeded;
-}
-
-function runtimeHarness(campaign, { callbacks = {}, hud = null } = {}) {
-  const story = createCountrysideCabinStory({ campaign });
-  const phone = new PhoneDouble();
-  const dialogue = new CabinDialogueDirector({ audio: audioDouble() });
-  const choice = new CabinExecutionChoice();
-  const runtime = new CabinChapterRuntime({ story, phone, dialogue, choice, callbacks, hud });
-  return { campaign, story, phone, dialogue, choice, runtime };
 }
 
 function reloadHarness(storage, options = {}) {
