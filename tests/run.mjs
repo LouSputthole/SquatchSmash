@@ -16,6 +16,7 @@ const TEST_MODULES = [
   './campaign-stats.test.mjs',
   './campaign-finale-wiring.test.mjs',
   './campaign-marathon.test.mjs',
+  './campaign-flow-consistency.test.mjs',
   './campaign-spine.test.mjs',
   './campaign-dialogue-continuity.test.mjs',
   './claude-md-spine-lock.test.mjs',

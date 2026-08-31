@@ -1713,7 +1713,36 @@ class ApartmentStory {
      * `routineRequired` calls worse than having no panel at all. Undone, still
      * listed, no longer holding the door: which is exactly what they are. */
     const pastimesStillGate = !(isSpecialMeetingNight(state) && activities.carOutside === true);
-    for (const item of pastimesFor(state.story.chapter)) {
+    /* AND ONLY WHILE IT IS STILL AHEAD OF HIM.
+     *
+     * `#pastimeGate` is called at four sites rather than once at the top of
+     * `tryLeave`, and its own note says why: a pastime stands between him and
+     * the FIRST job of its chapter and nothing else, because coming home from
+     * the Jerky Motel at half six in the morning "the door stopped saying go
+     * to bed and started asking him to watch the news, twenty-two hours after
+     * the morning that asked for it."
+     *
+     * The door was fixed. This list was not, and a chapter is a long time: the
+     * flat's own homecoming at the end of `day_two` -- Motel behind him, Beef
+     * Run behind him, nothing left but bed -- drew "Put the news on for half a
+     * minute", required, over a door that was refusing for an entirely
+     * different reason. So the panel asks the same question the door does,
+     * which is whether the door is still anywhere near these:
+     *
+     *   - it is demanding one of them right now, or
+     *   - it is on the chapter's own telephone, which is what comes first, or
+     *   - the car is at the kerb, the deliberate exception above, where they
+     *     stay listed precisely so a man can still choose to have one.
+     *
+     * A finished pastime stays on the list and retires there, the way every
+     * other done row does. */
+    const chapterPastimeList = pastimesFor(state.story.chapter);
+    const pastimeStillAhead = (door.kind === 'activity'
+        && chapterPastimeList.some((item) => item.id === door.id))
+      || (door.kind === 'call' && door.id === plan.event)
+      || !pastimesStillGate;
+    for (const item of chapterPastimeList) {
+      if (activities[item.id] !== true && !pastimeStillAhead) continue;
       items.push({
         id: item.id,
         label: pastimeLabel(item, activities),
@@ -1735,6 +1764,17 @@ class ApartmentStory {
         });
       }
     }
+    /* BEAT 12'S LIST IS THE CLEANUP AND NOTHING ELSE.
+     *
+     * A fourth row stood here -- "Read Lou's lay-low instructions", required,
+     * against TIME_EVENT_IDS.PHONE_READ_CABIN -- and it went out with the
+     * route rather than with this file. `tryLeave`'s own note above says the
+     * post-heist lay-low "is gone with the route": nothing drives north after
+     * the bank any more, so the door never asks for that message and no door
+     * ever will. The thread it belongs to is not even in the flat --
+     * `phoneThreadsForCampaign` builds the `cabin` thread only while
+     * `state.scene.id` IS the cabin -- so the row was a required objective
+     * that could not be ticked in the room it was displayed in. */
     if (state.story.chapter === 'post_heist') {
       for (const item of HEIST_CLEANUP_ITEMS) {
         items.push({
@@ -1743,12 +1783,6 @@ class ApartmentStory {
           required: true,
         });
       }
-      items.push({
-        id: TIME_EVENT_IDS.PHONE_READ_CABIN,
-        label: 'Read Lou’s lay-low instructions',
-        done: state.story.timeEvents.includes(TIME_EVENT_IDS.PHONE_READ_CABIN),
-        required: true,
-      });
     }
 
     /* The first morning's optional half. Only the first morning: by Day Two

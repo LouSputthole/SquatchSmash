@@ -304,7 +304,7 @@ test('the HUD projection exposes one parent objective and only its current soft 
   story.learnAteamIntel();
   expectPlan('Help Gratin get answers', 'Listen to Gratin');
   story.chooseExecution('player');
-  expectPlan('Finish the job', 'Use Gratin’s pistol on both prisoners');
+  expectPlan('Finish the job', 'Use Gratin’s pistol on both prisoners · 0/2');
 
   for (const id of Object.values(CABIN_HOSTAGE_IDS)) {
     const hostage = story.hostageState(id);
