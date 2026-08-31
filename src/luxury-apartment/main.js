@@ -968,6 +968,10 @@ function sleepAtHome() {
         state.resting = false;
         interaction.setPaused(false);
         syncInput('wake');
+        /* The one urgency this flat keeps -- owner, 2026-08-31: "Maybe just
+         * in the mornings, you have the urgency and you gotta take a leak."
+         * A night in the bed fills the tank; the meter stands until he goes. */
+        toilet?.setBladder(1);
         hud.toast(`Day ${routed ? campaign.state.story.day : time.day} · rested`, 'good');
         hud.say('Morning over the skyline. <em>The place is still yours.</em>', 4400);
         if (routed) startLuxuryStoryBeat();
@@ -1201,6 +1205,18 @@ toilet = new LuxuryToiletRuntime({
   requestPointerLock: requestGamePointerLock,
   isPointerLocked: inputCaptured,
 });
+/* Owner, 2026-08-31: "I have a full urgency bar at the apartment, the luxury
+ * apartment... we kinda don't need that. Maybe just in the mornings, you
+ * have the urgency and you gotta take a leak... You should always be able
+ * to take a leak and use the toilet if you want, but we don't need the
+ * urgency bar." The runtime constructs at bladder 1 / bowel 1, which stood
+ * an urgent meter on screen from the first frame of every visit. This flat
+ * keeps enough in the tank that the toilet always answers a voluntary use
+ * (the "Nothing left in the tank" refusal starts at 0.01) while sitting
+ * under the HUD meter's 0.35 display threshold, and it owes nothing else.
+ * The wake-up seam in sleepAtHome() seeds the one real morning need. */
+toilet.setBladder(0.32);
+toilet.setBowel(0);
 crookedArt = new LuxuryCrookedArtRuntime({
   art: home.crookedArt,
   interaction,
