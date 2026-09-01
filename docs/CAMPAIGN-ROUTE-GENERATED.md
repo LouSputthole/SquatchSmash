@@ -66,3 +66,4 @@ Beats: **31** · Chapters: **6** · Pending: **0**
 | 27 | `special_meeting_call` | Luxury Apartment: Special Meeting | `luxury_apartment` | `main` | `luxury` | wired | Booski: special one. Seff, Lag and Numbskull are coming to get you. He will not say why. |
 | 28 | `pickup_ride` | Pickup / Ride | `special_meeting` | `kerb` | `transit` | wired | Forty-two minutes, and something moving in the trunk. |
 | 29 | `initiation` | Initiation Cabin | `initiation` | `gathering` | `initiation_cabin` | wired | Made. Credits roll. |
+
