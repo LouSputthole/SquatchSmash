@@ -55,7 +55,8 @@ jobs:
              graveyard.html nowake.html silver.html golf.html heist.html initiation.html \
              silvercase.html mansion.html mansion-siege.html enolasquatch.html \
              cartel-palace.html specialmeeting.html preview.html roster.html \
-             wardrobe.html combatlab.html weapon-sound-audition.html trophyroom.html _site/
+             wardrobe.html combatlab.html weapon-sound-audition.html trophyroom.html \
+             radioroom.html _site/
           cp -r src vendor assets game lib _site/
           # Every check below says what it wanted before it runs.
           #
@@ -74,6 +75,9 @@ jobs:
             if grep -q "$1" "$2"; then echo "  ok       $2 -> $1"
             else echo "  NO REF   $2 does not reference $1"; fail=1; fi
           }
+
+          echo "Audio room:"
+          need_file "_site/radioroom.html"
 
           echo "Scene pages:"
           for page in nowake graveyard heist golf cabin luxury-apartment silvercase \
