@@ -626,7 +626,9 @@ try {
       && boot.dimensions.feet >= 41 && boot.dimensions.feet <= 44
       && boot.dimensions.beam >= 4.9 && boot.dimensions.beam <= 5.4
       && boot.dimensions.hullLength >= 11.4
-      && boot.detailMeshes >= 300 && boot.buoyCount >= 10,
+      /* Owner, 2026-09-01: fourteen drums became three red/green gate
+       * pairs; six is the whole authored set now. */
+      && boot.detailMeshes >= 300 && boot.buoyCount === 6,
     JSON.stringify({ boat: boot.boatName, dimensions: boot.dimensions, details: boot.detailMeshes }));
   check('the period fittings the spec names are all modeled',
     boot.period.smokedWindshield >= 2 && boot.period.analogGauges >= 12
@@ -1622,7 +1624,8 @@ try {
       && atInlet.atHelm && atInlet.realForwardInput && atInlet.throttle >= .95
       && atInlet.driveSeconds >= 90 && atInlet.driveSeconds < 92
       && atInlet.physicsTime >= 90 && atInlet.physicsTime < 93
-      && atInlet.distance >= 400 && atInlet.distance < 445
+      /* The 20 kn hull covers ~927 m in the same authored 92 s. */
+      && atInlet.distance >= 860 && atInlet.distance < 960
       && atInlet.speedGauge > .70 && atInlet.speedGauge < .95
       && atInlet.checkpoint === 'open_water'
       && Math.abs(atInlet.boat[2] - atInlet.inlet.z) < 9

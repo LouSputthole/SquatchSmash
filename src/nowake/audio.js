@@ -68,12 +68,20 @@ export function isNoWakeAudioPreloadCue(cue, radioCueNames = []) {
 
 /**
  * Keep the radio's bounded, read-only preload plan intact while adding only
- * sounds owned by this scene. Fresh arrays make the request safe to mutate.
+ * sounds owned by this scene.
+ *
+ * The selection goes through `isNoWakeAudioPreloadCue` -- the same predicate
+ * the release gate applies -- rather than handing the engine raw prefixes.
+ * The raw `footstep.` prefix swept the ledgered `footstep.sand` into the
+ * runtime plan (selected 246) while the gate's filter excluded it (245),
+ * and the residency check has disagreed with itself by exactly that one
+ * undelivered cue ever since the exclusion was authored. One predicate,
+ * both sides.
  */
 export function noWakeAudioLoadOptions(radioCueNames = []) {
+  const radio = [...radioCueNames];
   return {
-    names: [...new Set([...radioCueNames, ...NO_WAKE_AUDIO_CUE_NAMES])],
-    prefixes: [...NO_WAKE_AUDIO_PREFIXES],
+    filter: (cue) => isNoWakeAudioPreloadCue(cue, radio),
   };
 }
 

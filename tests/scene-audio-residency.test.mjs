@@ -104,10 +104,19 @@ test('NO WAKE preload covers its whole script, static sounds, and exact persiste
   const radioCueNames = radio.preloadCueNames({ hours: [12.75, 15, 17] });
   const options = noWakeAudioLoadOptions(radioCueNames);
 
-  assert.deepEqual(options, {
-    names: [...new Set([...radioCueNames, ...NO_WAKE_AUDIO_CUE_NAMES])],
-    prefixes: [...NO_WAKE_AUDIO_PREFIXES],
-  });
+  /* One predicate on both sides: the runtime plan selects through the same
+   * filter the release gate applies, so a ledgered cue like `footstep.sand`
+   * can never be planned by the page and excluded by the gate again. */
+  assert.deepEqual(Object.keys(options), ['filter']);
+  assert.equal(typeof options.filter, 'function');
+  for (const name of [...radioCueNames, ...NO_WAKE_AUDIO_CUE_NAMES]) {
+    assert.equal(options.filter({ name }), true, name);
+  }
+  for (const prefix of NO_WAKE_AUDIO_PREFIXES) {
+    assert.equal(options.filter({ name: `${prefix}anything` }), true, prefix);
+  }
+  assert.equal(options.filter({ name: 'footstep.sand' }), false,
+    'the ledgered bunker grain stays out of the plan until it is recorded');
   for (const cue of radioCueNames) {
     assert.equal(isNoWakeAudioPreloadCue(cue, radioCueNames), true, cue);
   }
