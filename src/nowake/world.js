@@ -86,11 +86,21 @@ function excludesBoatLocalWater(point) {
 }
 
 /** Where the inlet is, in world metres from Gate C. */
-export const INLET = Object.freeze({ x: 0, z: -430 });
+/* The 90-second full-throttle landing at the 11.2 m/s target, measured at
+ * -914.65; -920 keeps that inside the route test's +/-7 window AND restores
+ * the 40 m swept-bow margin before the headland. The whole channel
+ * stretched with the faster boat (owner, 2026-09-01: "Let me go at least
+ * 20 ... Lets open it up"), so the ride keeps its authored ninety seconds. */
+export const INLET = Object.freeze({ x: 0, z: -920 });
+/* The pocket deepened with the hull: neutral coasts the 20 kn cruiser down
+ * with a 3.4 s thrust response, which is ~35 m of carried way after the
+ * inlet window against the old pocket's 41. The back wall now stands 110 m
+ * past the window centre, keeping the natural coast-down clear of head
+ * land with the same margin the 10 kn build had. */
 export const INLET_HEADLAND = Object.freeze({
-  centerZ: INLET.z - 64,
+  centerZ: INLET.z - 110,
   depth: 46,
-  nearZ: INLET.z - 64 + 46 / 2,
+  nearZ: INLET.z - 110 + 46 / 2,
 });
 
 function buildWater(scene) {
@@ -500,18 +510,24 @@ function buildChannel(scene) {
   signPost.position.set(13.5, 0, -62);
   channel.add(signPost);
 
-  /* Continuous banks on both sides make these shore houses read as a coast,
-   * not as sixteen floating houseboats. The inner edges stay 65 m off the
-   * channel centreline, leaving the full navigable corridor open all the way
-   * to the inlet; the top remains the 1.9 m datum the houses were authored on. */
-  channel.add(box('west channel shoreline', [160, 3.4, 560], mat(0x26382c), -145, .2, -250));
-  channel.add(box('east channel shoreline', [160, 3.4, 560], mat(0x26382c), 145, .2, -250));
+  /* Continuous banks on both sides make the shore read as a coast. Owner,
+   * 2026-09-01: "It should feel more like an ocean ... Lets open it up" --
+   * the inner edges moved from 65 m to 110 m off the centreline and the
+   * banks run the whole stretched channel, so the water is twice as wide
+   * and three times as long as the build he called a third world country. */
+  channel.add(box('west channel shoreline', [160, 3.4, 1020], mat(0x26382c), -190, .2, -480));
+  channel.add(box('east channel shoreline', [160, 3.4, 1020], mat(0x26382c), 190, .2, -480));
 
-  /* Houses along the shore, thinning out as the marina falls away. */
-  for (let i = 0; i < 16; i++) {
-    const z = -30 - i * 17 - (i * i) * .9;
-    const side = i % 2 ? 1 : -1;
-    const x = side * (86 + (i % 3) * 22 + i * 3.5);
+  /* Owner, 2026-09-01: "we dont need these huge wood piers with houses on
+   * them. At least the one on the right." Sixteen waterline boxes read as
+   * stilt shanties from the helm. What remains is five roofs among the
+   * trees of the WEST shore only, set well back on the bank; the east
+   * shore -- his right, running out -- is forest and nothing else. */
+  for (let i = 0; i < 5; i++) {
+    const z = -70 - i * 150;
+    /* Deep enough into the bank that the shore tree line (x up to -164)
+     * never reaches a roofline: nearest house face stays ~6 m clear. */
+    const x = -(168 + (i % 3) * 16);
     const house = new THREE.Group();
     house.name = `shoreline house ${i + 1}`;
     house.add(box(`shoreline house walls ${i + 1}`, [9, 5, 7], stucco, 0, 2.48, 0));
@@ -519,23 +535,42 @@ function buildChannel(scene) {
     const roof = mesh(`shoreline house roof ${i + 1}`, new THREE.ConeGeometry(7.4, 3.1, 4), mat(0x33291f), 0, 6.5, 0);
     roof.rotation.y = Math.PI / 4;
     house.add(roof);
-    /* One lit window each, dimmer the further out they get, and the last few
-     * dark: this is the shore going away. */
-    if (i < 9) {
-      const glow = new THREE.PointLight(0xffc887, 3.4 - i * .3, 26, 2);
+    /* The nearest three keep a lit window; the far pair are dark. */
+    if (i < 3) {
+      const glow = new THREE.PointLight(0xffc887, 3.2 - i * .5, 26, 2);
       glow.name = `shoreline house window light ${i + 1}`;
-      glow.position.set(side * -4.6, 2.6, 1.2);
+      glow.position.set(4.6, 2.6, 1.2);
       house.add(glow);
-      const pane = box(`shoreline house window ${i + 1}`, [.2, 1.2, 1.6], mat(0xffd8a2, .5), side * -4.55, 2.6, 1.2);
+      const pane = box(`shoreline house window ${i + 1}`, [.2, 1.2, 1.6], mat(0xffd8a2, .5), 4.55, 2.6, 1.2);
       pane.material.emissive = new THREE.Color(0xd79a4a);
-      pane.material.emissiveIntensity = 1.5 - i * .12;
+      pane.material.emissiveIntensity = 1.4 - i * .2;
       house.add(pane);
     }
     /* Both continuous banks top out at 1.9 m, so the house sits on land rather
      * than a metre inside it. */
     house.position.set(x, 1.9, z);
-    house.rotation.y = side > 0 ? -.3 : .3;
+    house.rotation.y = .3;
     channel.add(house);
+  }
+
+  /* The tree lines are what make the banks read as land instead of decking:
+   * a broken forest edge down both shores, bedded 2 cm into the 1.9 m bank
+   * top like every stacked pair in this scene. */
+  const CHANNEL_BANK_TOP = 1.9;
+  for (let i = 0; i < 46; i++) {
+    const side = i % 2 ? 1 : -1;
+    const z = -36 - i * 19 - (i % 5) * 7;
+    const x = side * (120 + ((i * 13) % 44));
+    const height = 4.6 + (i % 4) * .9;
+    const trunk = cylinder(`channel shore tree trunk ${i + 1}`, .2 + (i % 3) * .04, height,
+      timber, x, CHANNEL_BANK_TOP - .02 + height / 2, z, 7);
+    const crownHeight = 6.4 + (i % 3) * 1.1;
+    // Crown beds 2 cm into the trunk top, the same stacked-pair rule as
+    // every other tree in this scene.
+    const crown = mesh(`channel shore tree crown ${i + 1}`,
+      new THREE.ConeGeometry(2.0 + (i % 4) * .35, crownHeight, 8), foliage,
+      x, CHANNEL_BANK_TOP - .02 + height + crownHeight / 2 - .02, z);
+    channel.add(trunk, crown);
   }
 
   /* The wooded point to port, and the quarry face to starboard. Together they
@@ -556,6 +591,13 @@ function buildChannel(scene) {
   const quarry = new THREE.Group();
   quarry.name = 'quarry wall';
   quarry.add(box('quarry wall face', [70, 26, 40], rock, 0, 10, 0));
+  /* The face read as one flat grey monolith from half a kilometre out.
+   * Three proud strata bands and a talus apron break it into worked rock
+   * without moving a single bench. */
+  for (const [i, [y, h, tint]] of [[6, 2.6, rockPale], [13.5, 1.8, mat(0x3f3c35, .98)], [20, 2.2, rockPale]].entries()) {
+    quarry.add(box(`quarry stratum ${i + 1}`, [70.6, h, 40.4], tint, 0, y, 0));
+  }
+  quarry.add(box('quarry talus apron', [58, 3.2, 8], rockPale, -4, 1.0, 20.5));
   for (let i = 0; i < 9; i++) {
     /* 2.18 of rise for 2.2 of bench: each terrace beds into the one below it
      * rather than balancing exactly on its top face. */
@@ -565,13 +607,46 @@ function buildChannel(scene) {
   quarry.position.set(56, 0, INLET.z + 10);
   channel.add(quarry);
 
+  /* Owner, 2026-09-01: "We have the island in the distance thats fine and
+   * we head right towards it. It should be a better island tho." A real
+   * landmass now rises behind the inlet, dead on the run-out heading: rock
+   * shore, two forested hills, and a tree ring on the strand. It holds the
+   * horizon from the marina and stands clear over the 12 m headland all the
+   * way in; the mission pocket in front of it is untouched. */
+  const island = new THREE.Group();
+  island.name = 'destination island';
+  const shore = mesh('island shore rock', new THREE.CylinderGeometry(118, 150, 9, 24), mat(0x3d453f, .98), 0, 3.5, 0);
+  island.add(shore);
+  /* Two forested hills carry the whole read at this range -- a kilometre
+   * out, individual trees are a pixel of noise, and the geometry audit
+   * measures cones by their bounding boxes, so nothing else stands on the
+   * slopes on purpose. */
+  island.add(mesh('island hill main', new THREE.ConeGeometry(102, 62, 14), mat(0x22301f, .97), -16, 7.98 + 31, 8));
+  island.add(mesh('island hill shoulder', new THREE.ConeGeometry(66, 38, 12), mat(0x263626, .97), 54, 7.98 + 19, -16));
+  /* The two hills interlock into one ridgeline on purpose, and their
+   * bounding boxes overlap by tens of metres doing it. A kilometre of open
+   * water away, this is backdrop, and it carries the same audit exemption
+   * as every other authored horizon mass. */
+  for (const part of island.children) {
+    part.userData.geometryGate = {
+      ...(part.userData.geometryGate ?? {}),
+      overlap: false,
+      checkSupport: false,
+      checkWallEmbed: false,
+    };
+  }
+  island.position.set(-10, 0, INLET.z - 320);
+  channel.add(island);
+
   /* A back wall so the inlet is a pocket and not a corridor. */
   channel.add(box('inlet head land', [180, 12, INLET_HEADLAND.depth], mat(0x1a231e),
     0, 2.6, INLET_HEADLAND.centerZ));
   const HEAD_TOP = 2.6 + 6;
   for (let i = 0; i < 18; i++) {
     const tx = -78 + i * 9;
-    const tz = INLET.z - 52 + (i % 3) * 5;
+    /* The tree row rides ON the headland, which moved back with the deeper
+     * pocket -- left at -52 they would stand on open water. */
+    const tz = INLET.z - 98 + (i % 3) * 5;
     channel.add(cylinder(`inlet head tree trunk ${i + 1}`, .24, 5.6, timber, tx, HEAD_TOP + 2.78, tz, 7));
     channel.add(mesh(`inlet head tree crown ${i + 1}`, new THREE.ConeGeometry(2.4, 8.2, 8), foliage, tx, HEAD_TOP + 5.56 + 4.1, tz));
   }
@@ -1587,16 +1662,25 @@ function buildBoat(scene, marina) {
 }
 
 function buildBuoys(scene) {
+  /* Owner, 2026-09-01: "Im also not sure what all this shit is in the
+   * water. It should feel more like an ocean." Fourteen alternating drums
+   * peppered the whole channel; what remains is two proper gate pairs at
+   * the no-wake zone and one last pair marking the inlet approach. Red to
+   * starboard (+x) the whole way out, exactly as the objective teaches. */
   const buoys = [];
-  for (let i = 0; i < 14; i++) {
-    const b = new THREE.Group();
-    b.name = `channel buoy ${i + 1}`;
-    b.add(cylinder(`channel buoy body ${i + 1}`, .24, .8, mat(i % 2 ? 0xa8362a : 0xb59a28), 0, .05, 0, 12));
-    b.add(mesh(`channel buoy top ${i + 1}`, new THREE.ConeGeometry(.27, .42, 10), mat(0xbdb9ae), 0, .65, 0));
-    const side = i % 2 ? 1 : -1;
-    b.position.set(side * (9 + (i % 3) * 3), 0, -30 - i * 29);
-    scene.add(b);
-    buoys.push(b);
+  const stations = [[-38, 11], [-112, 12], [-840, 14]];
+  for (const [i, [z, lateral]] of stations.entries()) {
+    for (const side of [-1, 1]) {
+      const b = new THREE.Group();
+      b.name = `channel buoy ${buoys.length + 1}`;
+      b.add(cylinder(`channel buoy body ${buoys.length + 1}`, .28, .92,
+        mat(side > 0 ? 0xa8362a : 0x2f6e46), 0, .08, 0, 12));
+      b.add(mesh(`channel buoy top ${buoys.length + 1}`,
+        new THREE.ConeGeometry(.31, .48, 10), mat(0xbdb9ae), 0, .78, 0));
+      b.position.set(side * (lateral + i), 0, z);
+      scene.add(b);
+      buoys.push(b);
+    }
   }
   return buoys;
 }
@@ -1772,7 +1856,11 @@ export function buildNoWakeWorld(scene) {
    * agrees with it, keeping the rails, shoreline and water readable while the
    * cabin retains its own practical lighting below deck. */
   scene.background = new THREE.Color(0x91b3c2);
-  scene.fog = new THREE.FogExp2(0x91b3c2, .0026);
+  /* .0026 hid everything past ~400 m, which was the whole channel when the
+   * channel was 430 m. At the stretched 920 m run the destination island
+   * has to hold the horizon from the marina, so the haze opens up with the
+   * water (owner: "It should feel more like an ocean"). */
+  scene.fog = new THREE.FogExp2(0x91b3c2, .0016);
   const hemi = new THREE.HemisphereLight(0xdcecf3, 0x405044, 1.65);
   hemi.name = 'daylight hemisphere light';
   const sun = new THREE.DirectionalLight(0xfff0ce, 2.15);

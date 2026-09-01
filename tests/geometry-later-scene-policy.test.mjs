@@ -400,9 +400,12 @@ test('NO WAKE policy pins exact fitted joints and only direct support provenance
   );
   for (const policy of allowlist.suppressionPolicy) {
     const dock = policy.state === 'dock';
-    assert.equal(policy.overlap, dock ? 10 : 9);
-    assert.equal(policy.checkSupport, 24);
-    assert.equal(policy.sources.length, dock ? 33 : 32);
+    /* 2026-09-01 ocean pass receipts: the island's three backdrop parts add
+     * +3 overlap exemptions (9->12); eight retired buoys minus those same
+     * three island parts move checkSupport 24->19; sources 32->27. */
+    assert.equal(policy.overlap, dock ? 13 : 12);
+    assert.equal(policy.checkSupport, 19);
+    assert.equal(policy.sources.length, dock ? 28 : 27);
     assert.equal(policy.sources.reduce((sum, source) => sum + source.overlap, 0), policy.overlap);
     assert.equal(
       policy.sources.reduce((sum, source) => sum + source.checkSupport, 0),

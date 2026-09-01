@@ -2,7 +2,14 @@ import * as THREE from 'three';
 
 const FIXED_STEP = 1 / 120;
 const MAX_STEPS = 10;
-export const BOAT_FORWARD_TARGET_SPEED = 5.2;
+/* Owner, 2026-09-01: "the boat is very slow. Let me go at least 20." The
+ * helm readout multiplies by 1.944, so 10.8 m/s shows 21 kn wide open. The
+ * channel stretched with her (INLET moved to the measured 90-second landing
+ * in world.js), so the authored run keeps its ninety seconds and its four
+ * lines of cruise dialogue at the same clock. Drag settles her ~7% under
+ * target, so 11.2 is what actually shows 20 on the dial: measured steady
+ * 10.41 m/s = 20.2 kn wide open. */
+export const BOAT_FORWARD_TARGET_SPEED = 11.2;
 export const BOAT_REVERSE_TARGET_SPEED = 2.9;
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));

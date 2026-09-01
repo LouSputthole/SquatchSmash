@@ -812,11 +812,19 @@ try {
     };
     let signs = 0;
     let houses = 0;
+    const houseSides = [];
+    let shoreTrees = 0;
+    let islandParts = 0;
     const shorelines = [];
     let isolatedBanks = 0;
     game.world.channel.root.traverse((o) => {
       if (/NO WAKE sign/.test(o.name || '')) signs++;
-      if (/shoreline house walls/.test(o.name || '')) houses++;
+      if (/shoreline house walls/.test(o.name || '')) {
+        houses++;
+        houseSides.push(o.getWorldPosition(o.position.clone()).x);
+      }
+      if (/channel shore tree trunk/.test(o.name || '')) shoreTrees++;
+      if (/island (shore rock|hill)/.test(o.name || '')) islandParts++;
       if (/channel shoreline/.test(o.name || '')) {
         const p = o.geometry?.parameters ?? {};
         shorelines.push({
@@ -835,6 +843,9 @@ try {
       cruiserExterior: exteriorFaces(game.boat.root.getObjectByName('cream fiberglass hull')),
       signs,
       houses,
+      houseSides,
+      shoreTrees,
+      islandParts,
       signLocal: game.world.channel.sign.position.toArray(),
       inlet: game.world.inlet,
       pointName: game.world.channel.point.name,
@@ -863,13 +874,22 @@ try {
       && !/ring/i.test(child.name)),
     JSON.stringify(marina.bodyMarkerChildren));
   /* "The NO WAKE sign passes to starboard, marina lights fall away, houses thin
-   * out." The boat runs out along -Z, so starboard is +X. */
-  check('the NO WAKE board passes to starboard on the way out, past thinning houses, into a closed inlet',
+   * out." The boat runs out along -Z, so starboard is +X. Owner, 2026-09-01:
+   * the sixteen waterline shanties are gone -- a few roofs survive among the
+   * WEST shore's trees, the east shore is forest only, and a real island
+   * holds the horizon past the inlet. */
+  check('the run out passes the board to starboard, a treed west shore, and heads for the island',
     marina.signs >= 2 && marina.signLocal[0] > 5 && marina.signLocal[2] < 0
-      && marina.houses >= 12
+      && marina.houses >= 4 && marina.houses <= 8
+      && marina.houseSides.every((x) => x < -100)
+      && marina.shoreTrees >= 30
+      && marina.islandParts >= 3
       && /wooded point/.test(marina.pointName) && /quarry/.test(marina.quarryName)
       && marina.inlet.z < -300,
-    JSON.stringify({ sign: marina.signLocal, houses: marina.houses, inlet: marina.inlet }));
+    JSON.stringify({
+      sign: marina.signLocal, houses: marina.houses, houseSides: marina.houseSides,
+      shoreTrees: marina.shoreTrees, islandParts: marina.islandParts, inlet: marina.inlet,
+    }));
 
   const dockRoute = await page.evaluate(() => {
     const game = window.NO_WAKE;
@@ -1518,7 +1538,10 @@ try {
     outAndBack.phase === 'drive' && outAndBack.checkpoint === 'underway'
       && outAndBack.realReverseInput && outAndBack.driveSeconds >= 90
       && outAndBack.distance >= 360 && outAndBack.speed < -1.2
-      && outAndBack.position[1] > -300 && outAndBack.reverseExtraMs <= 250,
+      /* 65 s out at the 20 kn hull reaches ~-640; the inlet window now
+       * starts past -900, so anything shy of -700 proves the false-green
+       * stayed false without being anywhere near the pocket. */
+      && outAndBack.position[1] > -700 && outAndBack.reverseExtraMs <= 250,
     JSON.stringify(outAndBack));
   await page.evaluate(() => window.__resetNoWakeRoute());
   await page.keyboard.down('w');

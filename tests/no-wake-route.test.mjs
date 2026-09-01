@@ -119,7 +119,9 @@ test('reverse out-and-back and a circle cannot bank the open-water checkpoint', 
   assert.equal(reached, false, 'out-and-back odometer progress reached the inlet policy');
   assert.ok(outAndBack.distance >= 360 && driveSeconds >= AUTHORED_RUN_SECONDS,
     'out-and-back regression never accumulated the old gate inputs');
-  assert.ok(outAndBack.position.y > -300 && outAndBack.speed < 0,
+  /* 65 s out at the 20 kn hull reaches ~-640; the inlet window now starts
+   * past -900, so shy of -700 proves the odometer alone earned nothing. */
+  assert.ok(outAndBack.position.y > -700 && outAndBack.speed < 0,
     `out-and-back test accidentally reached the inlet at ${outAndBack.position.toArray()}`);
 
   const circling = new BoatPhysics();

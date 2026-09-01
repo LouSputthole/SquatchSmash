@@ -2049,7 +2049,7 @@ const runtime = {
   skipDrive() {
     if (state.phase !== 'drive') return false;
     state.driveSeconds = DRIVE_SECONDS;
-    physics.distance = 380;
+    physics.distance = 900;
     physics.position.set(world.inlet.x, world.inlet.z);
     boat.root.position.set(world.inlet.x, boat.floatY, world.inlet.z);
     reachInlet();

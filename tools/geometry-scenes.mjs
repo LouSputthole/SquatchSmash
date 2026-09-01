@@ -2019,14 +2019,16 @@ function annotateNoWakeGeometry(scene) {
     });
   }
 
+  /* Owner, 2026-09-01: the sixteen waterline shanties became five roofs
+   * among the WEST shore's trees; the east shore is forest only. */
   const houses = matchingSceneObjects(
     scene,
     (object) => /^shoreline house \d+$/.test(object?.name ?? ''),
     'NO WAKE shoreline houses',
-    16,
+    5,
   );
-  if (houses.length !== 16) {
-    throw new Error(`NO WAKE Adapter expected sixteen shoreline houses; found ${houses.length}`);
+  if (houses.length !== 5) {
+    throw new Error(`NO WAKE Adapter expected five west-shore houses; found ${houses.length}`);
   }
   for (const [index, house] of houses.entries()) {
     setGeometryGateMetadata(house, {
@@ -2061,10 +2063,11 @@ function annotateNoWakeGeometry(scene) {
     scene,
     (object) => /^channel buoy \d+$/.test(object?.name ?? ''),
     'NO WAKE channel buoys',
-    14,
+    6,
   );
-  if (buoys.length !== 14) {
-    throw new Error(`NO WAKE Adapter expected fourteen channel buoys; found ${buoys.length}`);
+  /* Owner, 2026-09-01: fourteen drums became three red/green gate pairs. */
+  if (buoys.length !== 6) {
+    throw new Error(`NO WAKE Adapter expected six channel buoys; found ${buoys.length}`);
   }
   for (const [index, buoy] of buoys.entries()) {
     setGeometryGateMetadata(buoy, { assemblyId: `no-wake-channel-buoy:${index + 1}` });
@@ -2079,8 +2082,8 @@ function annotateNoWakeGeometry(scene) {
     (object) => /^(?:channel buoy \d+|detailed neighboring marina boat \d+)$/.test(object?.name ?? ''),
     'NO WAKE waterborne scenery',
   );
-  if (waterborne.length !== 16) {
-    throw new Error(`NO WAKE Adapter expected sixteen waterborne scenic roots; found ${waterborne.length}`);
+  if (waterborne.length !== 8) {
+    throw new Error(`NO WAKE Adapter expected eight waterborne scenic roots; found ${waterborne.length}`);
   }
 }
 
