@@ -371,10 +371,11 @@ export class CabinChapterRuntime {
       if (!this._ring(CABIN_PHONE_CALLS.LOU_ARRIVAL)) this.callRetry = 2;
       return;
     }
-    /* The walks concede on the same principle. Margo's number is the way
-     * forward and it hides behind all four landmarks; five minutes of the
-     * player not finding one of them is the property telling us the tour is
-     * over, not the player telling us they want to keep touring. */
+    /* The walks concede on the same principle. Margo's number opens at two
+     * landmarks now (owner, 2026-09-01), but a player who cannot find a
+     * SECOND one is just as stuck; five minutes of no progress is the
+     * property telling us the tour is over, not the player telling us they
+     * want to keep touring. Ringing her early stops the clock below. */
     if (!this.story.propertyWalked() && !this.story.margoCallComplete() && !this.exploreConceded) {
       this.exploreSeconds += dt;
       if (this.exploreSeconds >= EXPLORE_WALK_FALLBACK_S) {

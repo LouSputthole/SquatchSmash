@@ -45,7 +45,7 @@ const CABIN_ITEMS = Object.freeze({
 const isCabinWeapon = (id) => Boolean(id && weaponDef(id));
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { Phone } from '../core/phone.js';
+import { Phone, loadAsRecordedCaptions } from '../core/phone.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
@@ -210,6 +210,10 @@ const phone = new Phone({
     syncCampaignPresentation();
   },
 });
+/* Caption queued-for-re-record cues with the words their takes actually say
+ * (owner, 2026-09-01: "Some of the phone lines at the cabin scene are
+ * different from the lines spoken"). Resolves before any call can ring. */
+loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions));
 const arcade = createArcade({ audio });
 
 const state = {

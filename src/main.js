@@ -38,7 +38,7 @@ import { Spooky } from './core/spooky.js';
 import { PostFX } from './core/postfx.js';
 import { BulletHoles } from './world/bullets.js';
 import { Tv } from './core/tv.js';
-import { Phone } from './core/phone.js';
+import { Phone, loadAsRecordedCaptions } from './core/phone.js';
 import { phoneThreadsForCampaign } from './core/phone-content.js';
 import { ITEMS } from './core/inventory.js';
 import {
@@ -562,6 +562,8 @@ const phone = new Phone({
     if (thread.readEventId) campaign.advanceTime(thread.readEventId);
   },
 });
+// Queued re-record cues caption with the words their takes actually say.
+loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions));
 let phoneContentRevision = campaign.state.revision;
 function syncPhoneThreads() {
   const state = campaign.state;

@@ -204,13 +204,20 @@ test('the four walks lead to Margo and Booski, and Gratin waits for the second n
   story.visit('creek');
   assert.equal(story.explorationCount(), 1, 'a repeat walk cannot unlock anything');
 
-  /* THE BIBLE COUNTS FOUR WALKS, SO THE CALL COUNTS FOUR WALKS. */
+  /* The bible counts four walks; the owner's 2026-09-01 ruling prices the
+   * call at two of them: "you should only have to do two of the objectives
+   * to be able to call Margo." One walk is still too few. */
+  assert.equal(story.margoCallReady(), false);
   assert.deepEqual(story.completeMargoCall(), { ok: false, reason: 'explore_first' });
-  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
-  assert.equal(story.propertyWalked(), true);
+  story.visit('overlook');
+  assert.equal(story.margoCallReady(), true, 'two walks put the number in play');
+  assert.equal(story.phase(), 'explore', 'the tour stays the objective until she is rung');
+  assert.match(story.objectivePlan().step, /Margo/, 'and the objective says the number is ready');
   assert.deepEqual(story.completeBooskiSasoleCall(), {
     ok: false, reason: 'margo_call_incomplete',
   });
+  for (const { id } of COUNTRYSIDE_CABIN_LANDMARKS) story.visit(id);
+  assert.equal(story.propertyWalked(), true);
   assert.equal(story.completeMargoCall().firstTime, true);
   assert.equal(campaign.state.events[EVENT_IDS.CABIN_MARGO_CALL].status, 'answered');
   assert.equal(campaign.state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered',
@@ -248,6 +255,27 @@ test('the four walks lead to Margo and Booski, and Gratin waits for the second n
     false,
     'unfinished exploration sites should not remain as HUD objectives',
   );
+});
+
+test('ringing Margo at two walks retires the tour and moves the story on', () => {
+  const { campaign } = cabinCampaign();
+  const story = afterArrivalRest(campaign);
+  story.completeOpeningCall();
+  story.visit('creek');
+  story.visit('range');
+
+  assert.equal(story.margoCallReady(), true);
+  assert.equal(story.completeMargoCall().firstTime, true);
+  assert.equal(story.propertyWalked(), false, 'two walks stay two walks');
+  assert.equal(story.phase(), 'booski_call',
+    'the half-toured property does not re-open the explore objective after her call');
+  assert.equal(
+    story.objectives().some(({ step }) => /visited/.test(step ?? '')),
+    false,
+    'the tour leaves the HUD with the remaining landmarks unvisited',
+  );
+  assert.equal(story.completeBooskiSasoleCall().firstTime, true,
+    'Booski needs her call, not the full tour');
 });
 
 test('the HUD projection exposes one parent objective and only its current soft step', () => {

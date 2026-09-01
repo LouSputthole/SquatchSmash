@@ -39,6 +39,28 @@ export const W = 300;
 export const H = 620;
 
 /**
+ * The re-record queue, read as captions.
+ *
+ * `assets/sfx/rerecord.json` lists every cue whose script moved on from the
+ * take still on disk, with `retiredText` -- the words that take actually
+ * says. Until the re-record lands, a call must caption the voice with those
+ * words, not the future ones. The queue empties as takes are re-rendered, so
+ * this map shrinks to nothing on its own.
+ */
+export async function loadAsRecordedCaptions(url = 'assets/sfx/rerecord.json') {
+  const captions = new Map();
+  try {
+    const queue = await fetch(url).then((r) => (r.ok ? r.json() : null));
+    for (const entry of queue?.lines ?? []) {
+      if (typeof entry?.cue === 'string' && typeof entry?.retiredText === 'string' && entry.retiredText) {
+        captions.set(entry.cue, entry.retiredText);
+      }
+    }
+  } catch { /* No queue reachable is the same as an empty queue. */ }
+  return captions;
+}
+
+/**
  * Rings for this long before they give up.
  *
  * The ring cue is four seconds, so this is four and a half of them. It was
@@ -157,21 +179,34 @@ export const THREADS = [
  * @param {object} def a call definition
  * @returns {{who: 'them'|'me', text: string, cue: string}[]}
  */
-export function callScript(def, { outgoing = def?.outgoing === true } = {}) {
+export function callScript(def, {
+  outgoing = def?.outgoing === true,
+  captions = null,
+} = {}) {
   const turns = [];
   const lines = def?.lines ?? [];
+  /* `captions` transcribes what the CURRENT take actually says when it
+   * differs from the script (a cue -> spoken-text map, fed from the
+   * re-record queue's retiredText). The script keeps the words the next
+   * recording will say; the screen must never caption a voice with words it
+   * is not speaking. Owner, 2026-09-01: "Some of the phone lines at the
+   * cabin scene are different from the lines spoken." */
+  const caption = (cue, text) => captions?.get?.(cue) ?? text;
   /* An outgoing call the other person answers starts with THEM answering:
    * `pickup` is that first word into the phone ("…Hello?"), on
    * `vo.<bank>.pickup`, before the reversed pairs begin. Only outgoing calls
    * read it — an incoming call's pickup is the player's own [E]. */
   if (outgoing && def?.pickup) {
-    turns.push({ who: 'them', text: def.pickup, cue: `vo.${def.vo}.pickup` });
+    const cue = `vo.${def.vo}.pickup`;
+    turns.push({ who: 'them', text: caption(cue, def.pickup), cue });
   }
   for (let i = 0; i < lines.length; i++) {
     const reply = def.replies?.[i];
-    const theirs = { who: 'them', text: lines[i], cue: `vo.${def.vo}.${i + 1}` };
+    const theirCue = `vo.${def.vo}.${i + 1}`;
+    const myCue = `vo.${def.vo}.tony.${i + 1}`;
+    const theirs = { who: 'them', text: caption(theirCue, lines[i]), cue: theirCue };
     const mine = reply
-      ? { who: 'me', text: reply, cue: `vo.${def.vo}.tony.${i + 1}` }
+      ? { who: 'me', text: caption(myCue, reply), cue: myCue }
       : null;
     if (outgoing) {
       if (mine) turns.push(mine);
@@ -281,13 +316,22 @@ export class Phone {
   /* Calls                                                             */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * Caption cues by what their take on disk actually says, until the
+   * re-record lands. Pass the map once at boot; an empty or absent map means
+   * every caption is the script.
+   */
+  setAsRecordedCaptions(captions = null) {
+    this.asRecordedCaptions = captions instanceof Map && captions.size ? captions : null;
+  }
+
   /** Start one now, whatever the clock says. */
   ring(def) {
     if (this.call) return false;
     this.call = {
       def, state: 'ringing', t: 0, line: -1, hold: 0, source: null,
       direction: 'incoming', connected: false,
-      turns: callScript(def),
+      turns: callScript(def, { captions: this.asRecordedCaptions }),
     };
     this.audio?.startLoop?.('phone.ring', { volume: 0.5 });
     return true;
@@ -307,7 +351,7 @@ export class Phone {
     this.call = {
       def, state: 'calling', t: 0, line: -1, hold: 0, source: null,
       direction: 'outgoing', connected: false,
-      turns: callScript(def, { outgoing: true }),
+      turns: callScript(def, { outgoing: true, captions: this.asRecordedCaptions }),
     };
     /* The ring in his ear. `phone.ringback` is the authored tone (on the
      * generation ledger until recorded); the incoming ring cue stands in

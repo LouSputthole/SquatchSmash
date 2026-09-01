@@ -12,7 +12,7 @@ import {
   createCampaign, navigateCampaign,
 } from '../core/campaign.js';
 import { createBankHeistStory } from '../core/bank-heist-story.js';
-import { Phone } from '../core/phone.js';
+import { Phone, loadAsRecordedCaptions } from '../core/phone.js';
 import { InteractionSystem } from '../core/interaction.js';
 import {
   SPEECH_GAIN, speak, speechDuration,
@@ -124,6 +124,8 @@ const heistPhoneTime = {
  * it in the weapon hotbar or render a second handset; the shared Phone owns
  * only the incoming-call lifecycle when the safehouse debrief reaches it. */
 const phone = new Phone({ time: heistPhoneTime, audio, calls: [], threads: [] });
+// Queued re-record cues caption with the words their takes actually say.
+loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions));
 const SAFEHOUSE_LOU_CALL = Object.freeze({
   id: 'heist_safehouse_lou_debrief',
   from: 'Big Uncle Lou',

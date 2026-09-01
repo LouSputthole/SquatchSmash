@@ -343,3 +343,63 @@ test('both halves of a call are played, and an unrecorded one holds a beat', () 
   ]);
   assert.equal(phone.call, null);
 });
+
+test('a queued re-record captions with the words its take actually says', () => {
+  /* Owner, 2026-09-01: "Some of the phone lines at the cabin scene are
+   * different from the lines spoken." The script keeps the words the NEXT
+   * take will say; the screen captions the one that plays today, straight
+   * from the re-record queue's retiredText. */
+  const definition = {
+    vo: 'call.margo.cabin_date',
+    outgoing: true,
+    pickup: '…Hello?',
+    lines: ['New her-line one.', 'New her-line two.'],
+    replies: ['New Tony line.', null],
+  };
+  const captions = new Map([
+    ['vo.call.margo.cabin_date.1', 'Old her-line one, as recorded.'],
+    ['vo.call.margo.cabin_date.tony.1', 'Old Tony line, as recorded.'],
+  ]);
+
+  const turns = callScript(definition, { outgoing: true, captions });
+  assert.deepEqual(turns.map(({ text }) => text), [
+    '…Hello?',
+    'Old Tony line, as recorded.',
+    'Old her-line one, as recorded.',
+    'New her-line two.',
+  ], 'queued cues read as recorded; unqueued cues read as scripted');
+  assert.deepEqual(
+    callScript(definition, { outgoing: true }).map(({ text }) => text),
+    ['…Hello?', 'New Tony line.', 'New her-line one.', 'New her-line two.'],
+    'with no queue the script is the caption',
+  );
+
+  const phone = new Phone({ time: { hour: 9 }, calls: [], threads: [] });
+  phone.setAsRecordedCaptions(captions);
+  assert.equal(phone.startOutgoing(definition), true);
+  assert.equal(phone.call.turns[1].text, 'Old Tony line, as recorded.');
+  phone.hangUp({ force: true });
+  phone.setAsRecordedCaptions(new Map());
+  assert.equal(phone.startOutgoing(definition), true);
+  assert.equal(phone.call.turns[1].text, 'New Tony line.',
+    'an emptied queue (the re-records landed) restores the script everywhere');
+});
+
+test('every queued cabin cue actually lands on a turn of its call', async () => {
+  /* The caption map keys are take cues; a queue entry that no call turn ever
+   * names is a caption that silently never applies. Hold the live queue
+   * against the live cabin script so a renamed cue cannot strand its
+   * retiredText. */
+  const fs = await import('node:fs');
+  const { CABIN_PHONE_CALLS } = await import('../src/cabin/script.js');
+  const queue = JSON.parse(fs.readFileSync(new URL('../assets/sfx/rerecord.json', import.meta.url), 'utf8'));
+  const turnCues = new Set(Object.values(CABIN_PHONE_CALLS)
+    .flatMap((definition) => callScript(definition).map(({ cue }) => cue)));
+  for (const entry of queue.lines ?? []) {
+    if (!entry.cue.includes('.cabin_')) continue;
+    assert.ok(turnCues.has(entry.cue),
+      `queued ${entry.cue} must match a live cabin call turn`);
+    assert.equal(typeof entry.retiredText, 'string');
+    assert.ok(entry.retiredText.length > 0, `${entry.cue} carries the spoken words`);
+  }
+});

@@ -15,7 +15,7 @@ import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
 import { Person } from '../core/person.js';
-import { Phone, callScript } from '../core/phone.js';
+import { Phone, callScript, loadAsRecordedCaptions } from '../core/phone.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { Player } from '../core/player.js';
@@ -348,6 +348,8 @@ const phone = new Phone({
     if (routed && state.phase === 'active') refreshObjective();
   },
 });
+// Queued re-record cues caption with the words their takes actually say.
+loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions));
 
 /** Rebuild the held inbox from the same durable campaign truth as every hub. */
 function syncPhoneThreads() {

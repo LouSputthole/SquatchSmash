@@ -21,7 +21,7 @@ import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
 import { TimingBar } from '../core/timingbar.js';
-import { Phone } from '../core/phone.js';
+import { Phone, loadAsRecordedCaptions } from '../core/phone.js';
 import { Radio } from '../core/radio.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { createApartmentStory } from '../core/apartment-story.js';
@@ -1229,6 +1229,8 @@ const phone = new Phone({
     if (thread.readEventId) campaign.advanceTime(thread.readEventId);
   },
 });
+// Queued re-record cues caption with the words their takes actually say.
+loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions));
 
 /**
  * The club has three program sources: the DJ record and its synth bed, Lou's

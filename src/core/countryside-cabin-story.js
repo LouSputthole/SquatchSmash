@@ -110,6 +110,11 @@ export const COUNTRYSIDE_CABIN_LANDMARKS = Object.freeze([
 
 const LANDMARK_BY_ID = new Map(COUNTRYSIDE_CABIN_LANDMARKS.map((entry) => [entry.id, entry]));
 
+/* Owner, 2026-09-01: "you should only have to do two of the objectives to be
+ * able to call Margo." The tour still lists all four walks; two of them put
+ * her number in play. */
+export const MARGO_CALL_MIN_EXPLORATIONS = 2;
+
 function canonicalHostageId(id) {
   return typeof id === 'string' ? HOSTAGE_ALIASES.get(id.toLowerCase()) ?? null : null;
 }
@@ -229,8 +234,11 @@ export class CountrysideCabinStory {
    *
    * She wrote it down at the Bing in beat 2 and he has been carrying it since.
    * This is the outgoing call and it is the only one at this cabin he makes
-   * rather than answers -- which is the point of putting it after the walks,
-   * with the property quiet and nobody to perform for.
+   * rather than answers. The full tour used to gate it; owner, 2026-09-01:
+   * "you should only have to do two of the objectives to be able to call
+   * Margo" -- so two walks unlock the number, the remaining walks stay on the
+   * objective for anyone still touring, and ringing her early moves the story
+   * on without them.
    */
   margoCallComplete() {
     return this.has(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
@@ -238,14 +246,14 @@ export class CountrysideCabinStory {
 
   margoCallReady() {
     return this.openingCallComplete()
-      && this.propertyWalked()
+      && this.explorationCount() >= MARGO_CALL_MIN_EXPLORATIONS
       && !this.margoCallComplete();
   }
 
   completeMargoCall() {
     if (this.margoCallComplete()) return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL);
     if (!this.openingCallComplete()) return this.blocked('opening_call_incomplete');
-    if (!this.propertyWalked()) return this.blocked('explore_first');
+    if (this.explorationCount() < MARGO_CALL_MIN_EXPLORATIONS) return this.blocked('explore_first');
     return this.mark(TIME_EVENT_IDS.CABIN_LAY_LOW_MARGO_CALL, (state) => {
       state.events[EVENT_IDS.CABIN_MARGO_CALL].status = 'answered';
       /* `MARGO_DATE_CALL` is the legacy save key for "the date is scheduled."
@@ -882,7 +890,9 @@ export class CountrysideCabinStory {
     if (!this.arrivalRestComplete() && !this.openingCallComplete()) return 'arrival_rest';
     if (!this.openingCallComplete()) return 'opening_call';
     if (!this.gratinCallComplete()) {
-      if (!this.propertyWalked()) return 'explore';
+      /* Ringing Margo at two walks retires the tour; the remaining
+       * landmarks were hers to justify. */
+      if (!this.propertyWalked() && !this.margoCallComplete()) return 'explore';
       if (!this.margoCallComplete()) return 'margo_call';
       if (!this.booskiSasoleCallComplete()) return 'booski_call';
       /* Beat 6 happens somewhere else. Until the aeroplane is down and he has
@@ -1274,6 +1284,7 @@ export class CountrysideCabinStory {
         'Explore the property',
         `${Math.min(this.explorationCount(), COUNTRYSIDE_CABIN_LANDMARKS.length)}/${COUNTRYSIDE_CABIN_LANDMARKS.length} visited`
         + (remaining.length ? ` · ${remaining.join(', ')}` : '')
+        + (this.margoCallReady() ? ' · Margo’s number is ready — press E with the phone' : '')
         + ' · the rifles hang inside the cabin',
       );
     }
