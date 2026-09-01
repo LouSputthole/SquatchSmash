@@ -13,7 +13,11 @@ export default defineConfig({
   outputDir: 'artifacts/visual-regression/test-results',
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  /* One clean retry on CI only: the scheduled runner has lost a staging
+   * click to a 30 s locator timeout while every shot compares deterministic
+   * (scheduled run 33488181465). A retry re-stages the whole test; the
+   * pixel comparison itself stays byte-exact and unforgiving. */
+  retries: process.env.CI ? 1 : 0,
   timeout: 240_000,
   expect: {
     timeout: 30_000,

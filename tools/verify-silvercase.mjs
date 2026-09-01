@@ -1615,22 +1615,30 @@ try {
     couchMouseDownBefore,
     { timeout: 3000 },
   );
+  /* Capture the subtitle receipt IN-PAGE, on the frame Chester owns the
+   * card. The old flow waited for his cue in the voiceLog and then read the
+   * card from the harness -- but "What the hell, man?!" is a short take, and
+   * by the time that second round trip landed the card could legitimately
+   * belong to Ape's follow-up (observed live: ape.moreseating 1.5 s in at
+   * sample time, on the scheduled runner and on a loaded local box alike).
+   * The rAF-polled predicate sees every frame, so a Chester card that never
+   * shows still times out and fails honestly. */
   await page.waitForFunction(() => {
     const sc = window.silvercase;
-    return !sc.cast.deke.alive
-      && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell');
-  }, null, { timeout: 5000 });
-  // Capture the subtitle while Chester owns it. The physical root takes a few
-  // frames to clear the displacement threshold below; a short recorded take
-  // can legitimately finish during that wait and hand the subtitle to Ape.
-  const chesterSubtitleReceipt = await page.evaluate(() => {
     const subs = document.getElementById('subs');
-    return {
-      shown: subs?.classList.contains('show') ?? false,
-      who: document.getElementById('subsWho')?.textContent ?? '',
-      text: document.getElementById('subsLine')?.textContent ?? '',
-    };
-  });
+    const who = document.getElementById('subsWho')?.textContent ?? '';
+    if (subs?.classList.contains('show') && who === 'Chester' && !window.__chesterSubtitleReceipt) {
+      window.__chesterSubtitleReceipt = {
+        shown: true,
+        who,
+        text: document.getElementById('subsLine')?.textContent ?? '',
+      };
+    }
+    return !sc.cast.deke.alive
+      && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell')
+      && Boolean(window.__chesterSubtitleReceipt);
+  }, null, { timeout: 5000 });
+  const chesterSubtitleReceipt = await page.evaluate(() => window.__chesterSubtitleReceipt);
   /* A wall-clock sleep is not a game-frame guarantee under SwiftShader. The
    * old 120 ms pause could contain no rendered update, then sample Chester at
    * the first few milliseconds of a valid flinch: his limbs had visibly
@@ -1761,8 +1769,9 @@ try {
   // only for the actor's authored 0.75 s collapse to finish. Capturing the
   // first box mid-slump and comparing it to the final corpse minutes later
   // reports ordinary death animation as corpse drift.
+  // Sim-clock wait: funded for the slow box, finishes early on a fast one.
   await page.waitForFunction(() => window.silvercase.cast.deke.downT >= 0.75,
-    null, { timeout: 2000 });
+    null, { timeout: 120000 });
   const COUCH_BOX = { x0: 6.9, x1: 9.1, z0: 1.7, z1: 2.7 };
   const dekeSettled = await actorBounds('deke');
   const dekeSettledAt = (await page.evaluate(() => window.silvercase.state())).actors.deke;
@@ -1908,8 +1917,14 @@ try {
   }));
   // Do not confuse a slow SwiftShader frame cadence with a partial corpse.
   // This waits on the live animation clock rather than calling sc.tick().
+  /* downT is a SIM clock: SwiftShader renders at well under a tenth of wall
+   * speed on a loaded box (17.8 sim-seconds in 209 wall-seconds, measured in
+   * the luxury verifier), so 0.75 sim-seconds can honestly need over a
+   * minute of wall time. 12 s timed out on the scheduled runner and on a
+   * loaded local box; the wait now funds the slow box and finishes early on
+   * a fast one. */
   await page.waitForFunction(() => window.silvercase.cast.chester.downT >= 0.75,
-    null, { timeout: 12000 });
+    null, { timeout: 120000 });
   const chairShot = {
     ...chairAim,
     immediately: chairImmediately.state,
@@ -2156,8 +2171,9 @@ try {
   // pre-checkpoint startle position; revive() deliberately rebuilt the replay
   // at its checkpoint pose, and Ape then killed him alone. Use this second
   // settled fall as the stability baseline for the remainder of this branch.
+  // Sim-clock wait: funded for the slow box, finishes early on a fast one.
   await page.waitForFunction(() => window.silvercase.cast.chester.downT >= 0.75,
-    null, { timeout: 12000 });
+    null, { timeout: 120000 });
   const chesterReplaySettled = await actorBounds('chester');
 
   // ---- The owner's bug, in the beat it actually happened in. -------------
