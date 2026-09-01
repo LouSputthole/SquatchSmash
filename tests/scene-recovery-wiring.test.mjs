@@ -70,6 +70,11 @@ const NON_CAMPAIGN_ROOT_HTML = Object.freeze([
   'combatlab.html',
   'luxury-apartment.html',
   'preview.html',
+  /* The audio listening room (tools/radio-room.mjs writes it): an audit
+   * page, not a scene. It shipped without joining this ledger and turned
+   * the Pages deploy red on main — a new root page lands here or in
+   * CAMPAIGN_PAGES in the same commit. */
+  'radioroom.html',
   'roster.html',
   'trophyroom.html',
   'wardrobe.html',
