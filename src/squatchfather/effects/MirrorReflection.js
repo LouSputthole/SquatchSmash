@@ -5,9 +5,9 @@ import { PlanarMirror } from '../../core/planar-mirror.js';
 // render layer 1 — invisible to the first-person camera, visible to this one —
 // so the only place the player ever sees himself is here.
 //
-// Not a physically exact planar reflection: the virtual camera is aimed at the
-// mirror's centre rather than using an oblique frustum. On a small mirror the
-// player stands square to, the difference doesn't read.
+// The shared PlanarMirror now fits an off-axis frustum through the glass
+// corners, so this is a physically exact planar reflection; the cracks and
+// grime overlay remain this scene's whole contribution.
 
 export class MirrorReflection extends PlanarMirror {
   constructor(scene, mirrorMesh, { width = 0.85, height = 1.05 } = {}) {

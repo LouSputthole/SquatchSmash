@@ -862,10 +862,10 @@ async function boot() {
       hud.toast(`Radio volume ${Math.round(volume * 100)}%`);
     },
   });
+  /* Glass size comes from the mounted PlaneGeometry now; the resolution
+   * covers the cabinet glass filling most of the frame at arm's length. */
   bathroomMirror = new PlanarMirror(scene, apartment.mirrorMesh, {
-    width: 0.54,
-    height: 0.66,
-    resolution: [384, 468],
+    resolution: [512, 624],
     maxDistance: 9,
     enabled: true,
   });

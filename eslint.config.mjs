@@ -149,6 +149,7 @@ export default [
       'docs/',
       '_site/',
       'dist/',
+      'artifacts/',        // Playwright visual-regression output; its HTML report bundles minified JS
     ],
   },
   {

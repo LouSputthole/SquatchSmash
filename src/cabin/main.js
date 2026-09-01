@@ -1391,10 +1391,9 @@ try {
     },
     onCleanupIgnite: () => chapter?.igniteBonfire?.(),
   });
+  /* Glass size comes from the mounted PlaneGeometry now. */
   bathroomMirror = createCabinPlanarMirror(scene, cabin.mirrorMesh, {
-    width: 0.54,
-    height: 0.66,
-    resolution: [384, 468],
+    resolution: [512, 624],
     maxDistance: 9,
     enabled: true,
   }, {

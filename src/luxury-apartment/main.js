@@ -1114,10 +1114,11 @@ try {
     onCityView: () => hud.say('The whole city below. The original apartment is still down there somewhere.', 4200),
     onMinigame: enterStation,
   }));
+  /* Glass size comes from the mounted PlaneGeometry now — the old explicit
+   * 0.54x0.66 belonged to the pedestal basin and stretched the vanity's
+   * 0.72x0.84 glass. */
   bathroomMirror = new PlanarMirror(scene, home.mirrorMesh, {
-    width: 0.54,
-    height: 0.66,
-    resolution: [384, 468],
+    resolution: [512, 624],
     maxDistance: 9,
     enabled: true,
   });
