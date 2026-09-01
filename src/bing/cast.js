@@ -2565,7 +2565,15 @@ export function makePerson(o = {}) {
       size: [0.15, 0.075, 0.16], pos: [0, 0.105, 0.04], mat: hairMat,
     }));
   }
-  if (glasses) {
+  /* `&& !face` for the same reason as the hair above and the beard just now:
+   * a photograph brings its own eyewear, or its own lack of it. Lag is the
+   * only member on the roster with `glasses: true` and the man in lag.png is
+   * not wearing any, so without this he got a pair of black plastic frames
+   * hovering in front of a photo of his bare eyes. This is the guard the
+   * comment on the photo-skull already claimed was here -- "none of the
+   * procedural features get built on top of it" -- and glasses were the one
+   * facial feature that never got it. */
+  if (glasses && !face) {
     for (const sx of [-1, 1]) {
       head.add(box({
         name: `person.glasses.lens.${sx < 0 ? 'left' : 'right'}`,

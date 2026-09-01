@@ -646,9 +646,11 @@ function buildGallery(scene, marks, faces = new Set()) {
     if (!member) continue;                       // a roster rename, not a crash
     /* Only wear a photo that exists. `assets/faces/index.json` is the club's
      * own answer to this and exists precisely so nothing probes for a PNG that
-     * has not landed — Numbskull has no photograph yet, and asking for one is
-     * a 404 in every console and a failed no-console-errors gate. Without it
-     * he gets the authored head in the shared style, same as at the Bing. */
+     * has not landed. Numbskull was the standing example until his photograph
+     * arrived; Seff, Willy and Sauce are still waiting, and asking for one of
+     * those is a 404 in every console and a failed no-console-errors gate.
+     * Without it they get the authored head in the shared style, same as at
+     * the Bing. */
     const photo = faces.has(member.photo) ? `assets/faces/${member.photo}` : null;
     const npc = new Npc(scene, {
       name: member.name,
