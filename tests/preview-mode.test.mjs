@@ -476,7 +476,7 @@ test('every authored apartment iteration receives a coherent isolated campaign c
   const canonicalStorage = new WatchStorage(sentinel);
   const cases = [
     {
-      variant: 'day-one-wake', spawn: 'wake', chapter: 'day_one', day: 1, time: 6 * 60 + 4,
+      variant: 'day-one-wake', spawn: 'wake', chapter: 'day_one', day: 1, time: 17 * 60 + 4,
       verify(state) {
         assert.equal(state.missions[MISSION_IDS.BADA_BING_ONE].status, 'locked');
         assert.equal(state.events[EVENT_IDS.LOU_FIRST_CALL].status, 'pending');

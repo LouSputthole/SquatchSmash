@@ -3,6 +3,7 @@ import { writeGameplayPromptKey } from './gameplay-key-adapter.js';
 import {
   conciseObjectiveItems,
   createObjectiveDisplayController,
+  ensureObjectivePanelStyle,
 } from './objective-panel.js';
 import { SubtitlePriorityLane } from './subtitle-priority.js';
 
@@ -238,6 +239,13 @@ export class Hud {
       this.objectivesTitle = this.objectives?.querySelector('.otitle');
       this.objectivesList = this.objectives?.querySelector('.olist');
       if (this.objectives) {
+        /* The apartment's list joins the shared panel — upper left, gold
+         * rule, the same furniture every mission scene uses. Its old
+         * top-right clock idiom is retired; owner, 2026-09-01: "it's, like,
+         * in the top right ... use the top left, like, our objective system
+         * that we have." */
+        this.objectives.classList.add('op-panel');
+        ensureObjectivePanelStyle(document);
         this._objectiveVisibility = createObjectiveDisplayController({
           show: () => this.objectives.classList.remove('hidden'),
           collapse: () => this.objectives.classList.add('hidden'),

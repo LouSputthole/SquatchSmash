@@ -7294,6 +7294,12 @@
       "voice": "margo",
       "voiceId": "XlDdozLmuTofIxK4BjPD"
     },
+    "vo.call.margo.cabin_date.pickup": {
+      "text": "e488608fe752",
+      "source": "rendered",
+      "voice": "margo",
+      "voiceId": "XlDdozLmuTofIxK4BjPD"
+    },
     "vo.call.margo.cabin_date.tony.1": {
       "text": "634951f6d02f",
       "source": "rendered",
@@ -17960,10 +17966,6 @@
       "text": "042f2878bc16",
       "source": "assumed"
     },
-    "vo.wake.5": {
-      "text": "1776c6bb1a71",
-      "source": "assumed"
-    },
     "vo.wake.6": {
       "text": "d03b88fc95c2",
       "source": "assumed"
@@ -18019,12 +18021,6 @@
     "vo.zyn.5": {
       "text": "8158ea6aa3a4",
       "source": "assumed"
-    },
-    "vo.call.margo.cabin_date.pickup": {
-      "text": "e488608fe752",
-      "source": "rendered",
-      "voice": "margo",
-      "voiceId": "XlDdozLmuTofIxK4BjPD"
     }
   }
 }

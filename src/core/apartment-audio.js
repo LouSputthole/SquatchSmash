@@ -56,6 +56,15 @@ const APARTMENT_STARTUP_CUE_PREFIXES = Object.freeze([
   'vo.wake.',
   'vo.getup.',
   'heist.apartment.',
+  /* The bathroom bank. The morning's first errand is the toilet, and the
+   * player is sat on it pushing well before the background fill reaches
+   * these files — so every push fell through play()'s bank check into the
+   * sawtooth synth. Owner, 2026-09-01: "What happened to my real fart
+   * sounds? Terrible fart sounds when you're pooping now." Thirteen short
+   * mp3s; they belong with the opening seconds. */
+  'fart.',
+  'poop.',
+  'toilet.',
 ]);
 
 /**

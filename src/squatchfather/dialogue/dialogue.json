@@ -15,7 +15,7 @@
     { "speaker": "SAL", "text": "The Sasquatches are making business difficult.", "dur": 3.0 },
     { "speaker": "PROSPECT", "text": "You put four in my uncle outside a fruit stand six years ago and now you want to talk about routes.", "dur": 3.2 },
     { "speaker": "SAL", "text": "Business disagreement.", "dur": 2.3, "gesture": "shrug" },
-    { "speaker": "PROSPECT", "text": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.", "dur": 4.0 },
+    { "speaker": "PROSPECT", "text": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.", "dur": 4.0 },
     { "speaker": "SAL", "text": "Booski rejected my offer.", "dur": 2.8, "gesture": "drink" },
     { "speaker": "MCCLAWSKY", "text": "Your people ought to settle down some. I'm saying that as a friend, more or less. It's not a threat. But it's not not a threat, either.", "dur": 3.0, "gesture": "eat" },
     { "beat": 0.9, "look": "MCCLAWSKY", "stage": "Prospect looks at McClawsky." },

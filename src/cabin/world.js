@@ -4235,7 +4235,11 @@ function buildDomesticHub({
   let shownMinute = -1;
   const update = (dt, elapsed) => {
     state.fridgeT += ((state.fridgeOpen ? 1 : 0) - state.fridgeT) * Math.min(1, dt * 7);
-    fridge.doorPivot.rotation.y = -state.fridgeT * 1.42;
+    /* Positive, like the apartment's (world/apartment.js): the leaf runs
+     * along local -z from its south-edge pivot, so a negative yaw swept it
+     * east through the fridge's own body. Owner, 2026-09-01: "the fridge in
+     * the cabin opens the wrong way, opens into the fridge." */
+    fridge.doorPivot.rotation.y = state.fridgeT * 1.42;
     fridge.light.intensity = state.fridgeT * 0.82;
 
     state.bathDoorT += (bathDoorWant - state.bathDoorT) * Math.min(1, dt * 7);

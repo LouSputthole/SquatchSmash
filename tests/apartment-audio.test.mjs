@@ -180,6 +180,14 @@ test('Apartment startup predicate keeps calls, wake scene, cleanup, and requeste
     'vo.getup.1', 'vo.call.lou.heist.1', 'vo.news.radio.day_two.1',
     'vo.margo.wake.1', 'heist.apartment.washed', 'radio.vo.lou.hour',
   ]) assert.equal(isApartmentStartupCue(cue, opening), true, cue);
+  /* The bathroom bank rides in the startup slice. The toilet is the
+   * morning's first errand and the player is pushing before the background
+   * fill reaches these files; without them decoded, every push fell through
+   * to the sawtooth synth (owner: "terrible fart sounds when you're
+   * pooping"). */
+  for (const cue of ['fart.1', 'fart.7', 'poop.1', 'toilet.plop', 'toilet.flush']) {
+    assert.equal(isApartmentStartupCue(cue, opening), true, cue);
+  }
   assert.equal(isApartmentStartupCue('ambience.city.rain', opening), false);
   assert.equal(isApartmentStartupCue('vo.call.booski.other.1', opening), false);
   assert.equal(isApartmentStartupCue('vo.beer.good.1', opening), false);

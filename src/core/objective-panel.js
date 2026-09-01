@@ -164,6 +164,18 @@ const STYLE = `
 #objectives.op-panel .ohint.hidden { display: none; }
 `;
 
+/**
+ * Adopt the shared panel look on a page that already owns an `#objectives`
+ * element. The starter apartment uses this: its element predates the shared
+ * panel, and the owner moved it onto the house style (2026-09-01: "use the
+ * top left, like, our objective system that we have") — so the Hud stamps
+ * `op-panel` on its element and injects this stylesheet instead of keeping
+ * the old clock-idiom block in src/style.css.
+ */
+export function ensureObjectivePanelStyle(doc = globalThis.document) {
+  if (doc?.head) ensureStyle(doc);
+}
+
 function ensureStyle(doc) {
   if (doc.getElementById(STYLE_ID)) return;
   const style = doc.createElement('style');

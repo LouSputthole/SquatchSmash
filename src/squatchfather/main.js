@@ -30,6 +30,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createSquatchfatherStory } from '../core/squatchfather-story.js';
+import { loadAsRecordedCaptions } from '../core/phone.js';
 import { prewarmScene } from '../core/prewarm.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
@@ -1081,7 +1082,39 @@ async function loadVoiceCues() {
 }
 
 function voiceCueFor(voCues, line) {
-  return voCues.get(`${SPEAKER_VOICE[line.speaker]}|${normLine(line.text)}`) || null;
+  /* A line rewritten while its old take still ships carries its cue directly
+   * -- see applyAsRecordedLines, which swaps the subtitle back to the words
+   * the recording actually speaks and thereby breaks the text match. */
+  return line.cue
+    || voCues.get(`${SPEAKER_VOICE[line.speaker]}|${normLine(line.text)}`) || null;
+}
+
+/**
+ * The subtitle must not promise words the take does not say.
+ *
+ * Same discipline as the phone captions (core/phone.js, owner on the cabin:
+ * "Some of the phone lines are different from the lines spoken"): while a
+ * rewritten line's cue is queued in assets/sfx/rerecord.json, the shipped
+ * recording still speaks the OLD words. Show those words, and pin the cue on
+ * the line first -- the audio lookup matches by authored text, which the
+ * caption swap would otherwise break. When the new take lands the queue entry
+ * is removed and both text and match fall back to the authored line.
+ */
+function applyAsRecordedLines(data, voCues, captions) {
+  if (!captions?.size) return data;
+  for (const [sequence, entries] of Object.entries(data)) {
+    if (sequence === 'speakers' || !Array.isArray(entries)) continue;
+    for (const line of entries) {
+      if (!line?.speaker || !line?.text) continue;
+      const cue = voiceCueFor(voCues, line);
+      const asRecorded = cue && captions.get(cue);
+      if (asRecorded) {
+        line.cue = cue;
+        line.text = asRecorded;
+      }
+    }
+  }
+  return data;
 }
 
 // The bathroom-door muffle: the ambience beds and the voices at the table go
@@ -1378,8 +1411,12 @@ $('againBtn').addEventListener('click', leaveTheRestaurant);
 audio.init();
 bindAudioVolume(audio);
 
-Promise.all([loadDialogue(), loadVoiceCues()]).then(([data, voCues]) => {
-  wire(data, voCues);
+Promise.all([
+  loadDialogue(),
+  loadVoiceCues(),
+  loadAsRecordedCaptions(),
+]).then(([data, voCues, captions]) => {
+  wire(applyAsRecordedLines(data, voCues, captions), voCues);
   frame();
   /* One frame later — so the first real render has already put the room on
    * the GPU — buy the shooting beats their shader programs and their decoded

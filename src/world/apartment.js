@@ -2529,7 +2529,7 @@ export async function buildApartment(ctx) {
   let skyPhaseA = null;
   let skyPhaseB = null;
   let seconds = 0;
-  let minutes = 6 * 60 + 4;
+  let minutes = 17 * 60 + 4;   // Day One's five-PM start (core/campaign.js)
 
   ticks.push((dt, elapsed) => {
     /* fridge door swing */

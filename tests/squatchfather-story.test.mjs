@@ -108,7 +108,7 @@ test('Squatchfather exposes the cabin handoff only after scene completion', () =
   assert.doesNotMatch(verifier, /Squatchfather returns to the apartment.s front door/i);
 });
 
-test('Squatchfather treats the Booski shooting as older history with fresh cue ids', () => {
+test('Squatchfather keeps the Booski history frame and the owner’s accepted bag line', () => {
   const dialogue = JSON.parse(readFileSync(
     new URL('../src/squatchfather/dialogue/dialogue.json', import.meta.url),
     'utf8',
@@ -122,9 +122,14 @@ test('Squatchfather treats the Booski shooting as older history with fresh cue i
     .map((beat) => beat.text);
   const history = prospectLines.slice(0, 2).join(' ');
 
+  /* The shooting stays framed as old history (the uncle line carries the
+   * date), but the Booski line itself is the punch-up pick the owner
+   * accepted in 54b01f45 and asked for again on 2026-09-01: "it's supposed
+   * to be the one about the colostomy bag." The campaign-reconcile pass had
+   * swapped in a "healed mean" rewrite nobody approved. */
   assert.match(history, /six years ago/i);
-  assert.match(history, /healed mean/i);
-  assert.doesNotMatch(history, /shits in a bag|ostomy|still recovering/i);
+  assert.match(history, /shits in a bag/i);
+  assert.doesNotMatch(history, /healed mean|still recovering/i);
 
   const byName = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
   assert.equal(byName.get('vo.sf.opening.history.2')?.say, prospectLines[0]);

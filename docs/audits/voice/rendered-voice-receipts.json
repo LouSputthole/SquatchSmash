@@ -2,15 +2,18 @@
   "schema": "squatchsmash.rendered-voice-receipts.v2",
   "coverage": {
     "authoredPlayable": 4102,
-    "currentDelivered": 4101,
-    "outstanding": 1,
+    "currentDelivered": 4099,
+    "outstanding": 3,
     "missing": [
-      "vo.door.refusal.campaign_complete.1"
+      "vo.door.refusal.campaign_complete.1",
+      "vo.wake.5"
     ],
-    "rerecord": [],
+    "rerecord": [
+      "vo.sf.opening.history.4"
+    ],
     "recast": [],
-    "renderedExact": 544,
-    "assumedCurrent": 3557
+    "renderedExact": 543,
+    "assumedCurrent": 3556
   },
   "receipts": [
     {
@@ -5847,19 +5850,6 @@
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
       "durationSeconds": 4.83,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.sf.opening.history.4",
-      "file": "vo.sf.opening.history.4.mp3",
-      "sha256": "d4d3d43c4a6f76aa65e41d42df404dd080b61f4fb7985446b54725fda3769d31",
-      "bytes": 115400,
-      "indexVersion": "87258fe429",
-      "textHash": "3aaefc4280b9",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 7.152,
       "sampleRate": 44100,
       "channels": 1
     },

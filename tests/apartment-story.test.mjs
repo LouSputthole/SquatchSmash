@@ -110,7 +110,7 @@ test('answering Lou’s first call unlocks Bada Bing and prevents a replay', () 
   const saved = createCampaign({ storage }).state;
   assert.equal(saved.events[EVENT_IDS.LOU_FIRST_CALL].status, 'answered');
   assert.equal(saved.missions[MISSION_IDS.BADA_BING_ONE].status, 'available');
-  assert.equal(saved.story.timeMinutes, 6 * 60 + 7);
+  assert.equal(saved.story.timeMinutes, 17 * 60 + 7);
   assert.deepEqual(saved.story.timeEvents, [TIME_EVENT_IDS.LOU_FIRST_CALL]);
 
   const afterReloadCalls = [];
@@ -181,12 +181,13 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
     // Two bathroom errands, not one: they are separate tanks and separate jobs.
     'eaten', 'showered', 'peed', 'pooped', 'changedClothes', EVENT_IDS.LOU_FIRST_CALL,
     // The tutorial's optional half, which the door never checks, and the one
-    // line that says what a seventeen-hour day with nothing in it is for.
-    'emailChecked', 'pcUsed', 'playedGame', 'killtime',
+    // line that says what a long empty day is for. No 'emailChecked': the
+    // inbox still works, but the owner pulled it off the panel (2026-09-01).
+    'pcUsed', 'playedGame', 'killtime',
   ]);
   assert.ok(listed.items.every((i) => !i.done));
   assert.deepEqual(listed.items.filter((i) => !i.required).map((i) => i.id),
-    ['emailChecked', 'pcUsed', 'playedGame', 'killtime']);
+    ['pcUsed', 'playedGame', 'killtime']);
 
   // Ticks follow the real flags, not a copy of them.
   dayOne.callAnswered(DAY_ONE_LOU_CALL);

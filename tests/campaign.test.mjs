@@ -268,19 +268,19 @@ test('authored task time advances once and survives a reload', () => {
   assert.deepEqual(campaign.advanceTime(TIME_EVENT_IDS.EAT), {
     applied: true,
     day: 1,
-    timeMinutes: 6 * 60 + 24,
+    timeMinutes: 17 * 60 + 24,
     minutesAdvanced: 20,
   });
   assert.deepEqual(campaign.advanceTime(TIME_EVENT_IDS.EAT), {
     applied: false,
     day: 1,
-    timeMinutes: 6 * 60 + 24,
+    timeMinutes: 17 * 60 + 24,
     minutesAdvanced: 0,
   });
 
   const restored = createCampaign({ storage }).state;
   assert.equal(restored.story.day, 1);
-  assert.equal(restored.story.timeMinutes, 6 * 60 + 24);
+  assert.equal(restored.story.timeMinutes, 17 * 60 + 24);
   assert.deepEqual(restored.story.timeEvents, [TIME_EVENT_IDS.EAT]);
 });
 
@@ -294,7 +294,7 @@ test('a completed task and its authored time are committed as one campaign beat'
 
   const restored = createCampaign({ storage }).state;
   assert.equal(restored.activities.showered, true);
-  assert.equal(restored.story.timeMinutes, 6 * 60 + 19);
+  assert.equal(restored.story.timeMinutes, 17 * 60 + 19);
   assert.deepEqual(restored.story.timeEvents, [TIME_EVENT_IDS.SHOWER]);
 });
 
@@ -310,14 +310,14 @@ test('morning tasks consume authored time and departure lands at the Bing openin
   ]) {
     campaign.advanceTime(eventId);
   }
-  assert.equal(campaign.state.story.timeMinutes, 6 * 60 + 57);
+  assert.equal(campaign.state.story.timeMinutes, 17 * 60 + 57);
 
   const departure = campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
   assert.deepEqual(departure, {
     applied: true,
     day: 1,
     timeMinutes: 23 * 60 + 41,
-    minutesAdvanced: 16 * 60 + 44,
+    minutesAdvanced: 5 * 60 + 44,
   });
 });
 

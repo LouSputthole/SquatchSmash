@@ -542,6 +542,42 @@
       "caption": "The final Family portrait before Lou's office."
     },
     {
+      "slot": "bing.vestibule.star0",
+      "file": "silver-sasquatches-5-years.jpg",
+      "title": "Five years of stacks",
+      "caption": "The anniversary shield, first thing past the front door."
+    },
+    {
+      "slot": "bing.vestibule.star1",
+      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
+      "title": "House rules",
+      "caption": "Same print as the mansion LAN hangs. The Family prints multiples."
+    },
+    {
+      "slot": "bing.vestibule.star2",
+      "file": "silver-sasquatches-denver-2026.jpg",
+      "title": "Denver 2026",
+      "caption": "The roundel from the Denver trip, framed by the coat check."
+    },
+    {
+      "slot": "bing.vestibule.star3",
+      "file": "silver-sasquatches/silver-sasquatches-omerta.webp",
+      "title": "Omertà",
+      "caption": "The code, hung where every guest walks past it."
+    },
+    {
+      "slot": "bing.club.crest",
+      "file": "silver-sasquatches/silver-sasquatches-emblem.webp",
+      "title": "The crest",
+      "caption": "The emblem itself, left of the club doors as you turn around."
+    },
+    {
+      "slot": "bing.club.family_place",
+      "file": "silver-sasquatches-austin.jpg",
+      "title": "A family place",
+      "caption": "The Austin banner, right of the club doors as you turn around."
+    },
+    {
       "slot": "squatchfather.portrait.sauce",
       "file": "family-portrait-sauce.webp",
       "title": "Sauce",

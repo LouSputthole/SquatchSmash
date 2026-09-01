@@ -238,17 +238,20 @@ const ROUTINE_LABELS = Object.freeze({
  * The rest of the first morning, none of which the door checks.
  *
  * Day One is the tutorial and it is deliberately NOT a rush: he is up at four
- * minutes past six and Lou's table is not until a quarter to midnight, so
- * everything here is a thing to do with a day, not a thing standing between
- * him and the door. They were missing from the panel entirely -- the four
- * chores and the call were the whole list -- so a player with seventeen hours
- * to fill was given nothing to fill them with and no hint that filling them
- * was optional.
+ * minutes past five in the afternoon (owner, 2026-09-01: "no reason to be
+ * waking up at six AM ... let's just have it be five PM") and Lou's table is
+ * not until a quarter to midnight, so everything here is a thing to do with
+ * an evening, not a thing standing between him and the door. They were
+ * missing from the panel entirely -- the four chores and the call were the
+ * whole list -- so a player with hours to fill was given nothing to fill
+ * them with and no hint that filling them was optional.
  *
  * Marked `required: false`, which the panel draws differently on purpose.
  */
 const DAY_ONE_OPTIONAL = Object.freeze([
-  { id: 'emailChecked', label: 'Check your email' },
+  /* No 'emailChecked' here. The inbox still exists and replying to HR still
+   * counts as an activity, but the owner pulled it off the panel
+   * (2026-09-01: "Let's also remove check email from the objectives"). */
   { id: 'pcUsed', label: 'Have a look at the computer' },
   { id: 'playedGame', label: 'Get a game of Squatch Smash in' },
 ]);
@@ -288,8 +291,8 @@ export const SMASH_PLAY_SECONDS = 45;
  * play Counter strike in computer another is play squatch smash and take the
  * mushrooms, etc"*
  *
- * The flat had a shape on Day One — five chores, a call, and seventeen hours
- * to fill — and no shape at all on any morning after it. Every later return
+ * The flat had a shape on Day One — five chores, a call, and an evening to
+ * fill — and no shape at all on any morning after it. Every later return
  * was the same room with the same short list: answer the phone, walk to the
  * door. Which is how a place somebody lives turns into a corridor between
  * missions that happens to have a bed in it.

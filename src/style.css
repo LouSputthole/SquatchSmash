@@ -346,61 +346,13 @@ kbd.key, .controls kbd {
 }
 
 /* ---- the morning's list ----
-   Under the clock, in the clock's own idiom: a small caps label over a short
-   column of quiet type. It is a reminder, not a quest log, so nothing in here
-   is allowed to be brighter than the room. */
-#objectives {
-  position: absolute;
-  right: 22px;
-  top: 92px;
-  text-align: right;
-  max-width: 240px;
-  pointer-events: none;
-}
-#objectives.hidden { display: none; }
-#objectives .otitle {
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: #8d846f;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-#objectives .olist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-#objectives li {
-  font-size: 12px;
-  line-height: 1.3;
-  color: #b9b099;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, .85);
-}
-/* Done is struck through and faded rather than removed: a list that deletes
-   what you have achieved gives you no credit for the morning. */
-#objectives li.done {
-  color: #6b6455;
-  text-decoration: line-through;
-}
-/* The ones the door will actually refuse on. */
-#objectives li.required:not(.done) { color: var(--paper); }
-/* And the ones it will not. Day One is a tutorial with seventeen hours in it,
-   so most of that morning is things worth doing rather than things you have to
-   do -- and a list that draws both the same way is a list that lies about
-   which is which. Optional reads as an aside: dimmer, italic, hollow bullet. */
-#objectives li:not(.required):not(.done) {
-  color: #9a9280;
-  font-style: italic;
-}
-#objectives li::before {
-  content: '·  ';
-  color: #6b6455;
-}
-#objectives li:not(.required)::before { content: '◦  '; }
-#objectives li.done::before { content: '✓  '; }
+   Styled by the SHARED objective panel now (src/core/objective-panel.js):
+   the Hud stamps `op-panel` on this page's #objectives and injects the house
+   stylesheet — upper left, gold rule, the same furniture every mission scene
+   uses. The old top-right "clock idiom" block that lived here was retired on
+   the owner's call (2026-09-01: "use the top left, like, our objective
+   system that we have"); resurrecting a bare #objectives rule would fight
+   the shared panel on source order, so don't. */
 
 /* bladder meter */
 #bladder {

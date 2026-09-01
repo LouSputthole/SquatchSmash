@@ -466,7 +466,7 @@ test('preview-memory reset discards final-arc clock markers without touching dur
 
   const reset = preview.reset();
   assert.equal(reset.story.day, 1);
-  assert.equal(reset.story.timeMinutes, 6 * 60 + 4);
+  assert.equal(reset.story.timeMinutes, 17 * 60 + 4);
   assert.deepEqual(reset.story.timeEvents, []);
   assert.equal(durable.getItem(CAMPAIGN_STORAGE_KEY), 'real-campaign-sentinel');
 });

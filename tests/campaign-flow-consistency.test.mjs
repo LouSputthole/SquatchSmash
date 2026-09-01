@@ -472,7 +472,7 @@ test('every hub state on the fresh-save route agrees with its own front door', (
   const flow = createFlowGate(() => campaign);
 
   /* ============================================================== *
-   * BEAT 1. The starter flat, six minutes past six on Day One.
+   * BEAT 1. The starter flat, four minutes past five PM on Day One.
    * ============================================================== */
   let apartment = createApartmentStory({ campaign, ring: () => true });
   const flat = (extra = {}) => {

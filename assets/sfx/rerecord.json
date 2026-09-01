@@ -28,8 +28,18 @@
     "Remove a line from `lines` once its replacement take is indexed."
   ],
   "lines": [
+    {
+      "cue": "vo.sf.opening.history.4",
+      "retiredText": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
+      "reason": "Owner, 2026-09-01: the accepted punch-up pick is the colostomy-bag line; the campaign-reconcile pass replaced it and the take on disk speaks the rewrite."
+    }
   ],
   "retired": [
+    {
+      "cue": "vo.wake.5",
+      "retiredText": "Six. It is six. Why is it six.",
+      "reason": "Day One wakes at five PM now (owner, 2026-09-01). The recorded take names six o'clock, and an hour-wrong bark is worse than a missing one, so the file was deleted; the reworded line surfaces in VOICE-LINES-NEEDED on its own."
+    },
     {
       "cue": "vo.bing.full.bartender.open.tony.1mgwzff",
       "replacedBy": "vo.bing.full.bartender.open.tony.1d6a7tv",

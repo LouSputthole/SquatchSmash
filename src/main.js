@@ -2782,9 +2782,13 @@ function fart({ voluntary = true } = {}) {
 
   // Sitting muffles it; beer makes it worse.
   const gassy = 1 + apartment.state.beersDrunk * 0.08;
+  /* The wide rate throw (0.86–1.16) predates the recordings: it was how one
+   * synth patch faked variety. On the real ElevenLabs takes it reads as tape
+   * warble — variety now comes from there being seven takes, so the rate
+   * stays close to unity. */
   audio.play(FART_CUES[i], {
     volume: (game.seated ? 0.55 : 0.8) * gassy,
-    rate: 0.86 + Math.random() * 0.3,
+    rate: 0.96 + Math.random() * 0.08,
   });
   audio.hold(1.1);
   audio.say('fart', { chance: voluntary ? 0.25 : 0.45, delay: 1.0 });
@@ -4014,24 +4018,28 @@ function tryPush(code) {
   /* Every push makes a noise, and which noise is the whole point. Weighted so
    * the main event is commonest, farts are frequent, and a grunt sometimes
    * rides on top of either. */
+  /* Rates hug unity on every recorded cue here. The old throws (0.8–1.2 on
+   * the farts) were synth-era variety; on real takes they read as a tape
+   * running fast or slow, which is the owner's "terrible fart sounds when
+   * you're pooping". `poop.grunt` stays wide — it IS the synth's. */
   const roll = Math.random();
   if (roll < 0.40) {
     audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
-      volume: 0.75, rate: 0.9 + Math.random() * 0.25,
+      volume: 0.75, rate: 0.95 + Math.random() * 0.1,
     });
     if (Math.random() < 0.5) audio.play('toilet.plop', { volume: 0.55, delay: 0.30 });
   } else if (roll < 0.78) {
     let i = (Math.random() * FART_CUES.length) | 0;
     if (i === _lastFart) i = (i + 1) % FART_CUES.length;
     _lastFart = i;
-    audio.play(FART_CUES[i], { volume: 0.78, rate: 0.8 + Math.random() * 0.4 });
+    audio.play(FART_CUES[i], { volume: 0.78, rate: 0.96 + Math.random() * 0.08 });
     if (Math.random() < 0.35) {
       audio.play('toilet.plop', { volume: 0.5, delay: 0.42 + Math.random() * 0.3 });
     }
   } else {
     audio.play('poop.grunt', { volume: 0.62, rate: 0.92 + Math.random() * 0.2 });
     audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
-      volume: 0.6, rate: 0.9 + Math.random() * 0.2, delay: 0.35,
+      volume: 0.6, rate: 0.95 + Math.random() * 0.1, delay: 0.35,
     });
   }
   return true;
@@ -5603,10 +5611,10 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
       time.setTime(storySleep.day, storySleep.timeMinutes);
     } else if (voluntary && killingTimeOnDayOne()) {
       /* Day One is explicitly a day with nothing in it. He wakes at four
-       * minutes past six and Lou's table is not until a quarter to midnight,
-       * so a deliberate nap is how a man spends that -- toward the evening,
-       * never past it, and never into tomorrow, because tomorrow is on the
-       * other side of the Bing. */
+       * minutes past five in the afternoon and Lou's table is not until a
+       * quarter to midnight, so a deliberate nap is how a man spends that --
+       * toward the late evening, never past it, and never into tomorrow,
+       * because tomorrow is on the other side of the Bing. */
       const h = time.hour;
       time.skipHours(h < 19 ? 19 - h : Math.max(0, 23 - h));
     } else if (voluntary) {

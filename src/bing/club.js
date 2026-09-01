@@ -842,8 +842,19 @@ export function buildClub(scene, { renderer } = {}) {
     /* The wall of stars. The frames hang off the west skin's inner face
      * (x -3.71): the old x put the whole frame, art and all, inside the
      * shell's brick, which read from the room as pictures adrift in a wall. */
+    /* Real prints, not lettered plates. Owner, 2026-09-01: "There's four
+     * placeholder pictures in the room where you come in ... that I thought
+     * we would have replaced." Each frame keeps its drawn plate as the
+     * fallback and takes a real file through the art system — slots in
+     * assets/art/manifest.json, same rule as the office wall. Declared as a
+     * `*SLOTS` array so tools/check.mjs can see slots the loop passes as a
+     * variable — the same trap the office wall already documents. */
+    const VESTIBULE_STAR_SLOTS = [
+      'bing.vestibule.star0', 'bing.vestibule.star1',
+      'bing.vestibule.star2', 'bing.vestibule.star3',
+    ];
     for (let i = 0; i < 4; i++) {
-      add(makeFrame(M, {
+      const star = makeFrame(M, {
         x: -3.674, y: 2.15, z: 11.75 + i * 0.72, rotY: Math.PI / 2, w: 0.42, h: 0.54,
         /* The wall of stars, and the star is the house's own mark rather
        * than a typographic asterisk: the same drawSquatchSilhouette every
@@ -852,7 +863,9 @@ export function buildClub(scene, { renderer } = {}) {
         title: [['THE', 'BING'], ['HOUSE', 'RULES'], ['TUESDAY', 'NIGHTS'], ['THE', 'FAMILY']][i],
         ink: '#c8a2d8', bg: '#2a1a24', w: 256, h: 320,
       }),
-      }));
+      });
+      artSticker(star.art, VESTIBULE_STAR_SLOTS[i], 0.42);
+      add(star);
     }
     add(cylinder({ r: 0.17, h: 0.5, pos: [3.5, 0.25, 12.5], mat: M_STEEL }));
     add(makePlant(M, { x: -3.4, z: 14.7, scale: 0.9 }));
@@ -1493,18 +1506,25 @@ export function buildClub(scene, { renderer } = {}) {
     const crestTex = squatchArt('crest', {
       title: ['THE SILVER', 'SASQUATCHES'], footer: 'EST. 1979',
     });
-    add(makeFrame(M, {
+    /* Both marks take real prints through the art system (owner, 2026-09-01:
+     * the pair you face turning round just inside the club doors read as
+     * placeholders). Drawn versions stay as the fallback. */
+    const crestFrame = makeFrame(M, {
       x: -2.9, y: 1.95, z: 10.7645, rotY: Math.PI, w: 0.72, h: 0.9,
       texture: crestTex, tint: 0x6a4e1c,
-    }));
-    add(makeFrame(M, {
+    });
+    artSticker(crestFrame.art, 'bing.club.crest', 0.62);
+    add(crestFrame);
+    const familyFrame = makeFrame(M, {
       x: 2.9, y: 1.9, z: 10.7645, rotY: Math.PI, w: 0.66, h: 0.5,
       texture: squatchArt('logo-bing-family', {
         title: ['BADA BING'], footer: 'A FAMILY PLACE',
         ink: '#ff5aa0', bg: '#241018', w: 512, h: 384,
       }),
       tint: 0x6a4e1c,
-    }));
+    });
+    artSticker(familyFrame.art, 'bing.club.family_place', 0.6);
+    add(familyFrame);
     add(makeFrame(M, {
       x: 7.6745, y: 1.85, z: -2.3, rotY: -Math.PI / 2, w: 0.5, h: 0.62,
       texture: printed('logo-club-mark', ['SS', 'MC', 'RIDE SILVER'], {

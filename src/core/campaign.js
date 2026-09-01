@@ -1854,7 +1854,12 @@ function initialState() {
     story: {
       chapter: 'day_one',
       day: 1,
-      timeMinutes: 6 * 60 + 4,
+      /* Five in the afternoon, not dawn. Owner, 2026-09-01: "There's no
+       * reason to be waking up at six AM and playing Squatch Smash at six
+       * AM. So let's just have it be five PM." The only Day One anchor is
+       * the 23:41 Bing departure, which a 17:04 start still clears with the
+       * whole chore list and every pastime done. */
+      timeMinutes: 17 * 60 + 4,
       meetingKnown: false,
       meetingLearnedFrom: null,
       timeEvents: [],
@@ -4178,7 +4183,7 @@ function boundedNumber(value, min, max, fallback, integer = false) {
 
 const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
   'day-one-wake': Object.freeze({
-    progress: 0, spawn: 'wake', chapter: 'day_one', day: 1, timeMinutes: 6 * 60 + 4,
+    progress: 0, spawn: 'wake', chapter: 'day_one', day: 1, timeMinutes: 17 * 60 + 4,
   }),
   'after-bing-one': Object.freeze({
     progress: 1, spawn: 'front_door', chapter: 'day_one', day: 1,
@@ -4783,13 +4788,13 @@ function seedCampaignHubPreview(state, beatId) {
   if (beatId === 'squatch_smash_intro') {
     state.story.chapter = 'day_one';
     state.story.day = 1;
-    state.story.timeMinutes = 6 * 60 + 4;
+    state.story.timeMinutes = 17 * 60 + 4;
     return 'wake';
   }
   if (beatId === 'first_apartment') {
     state.story.chapter = 'day_one';
     state.story.day = 1;
-    state.story.timeMinutes = 6 * 60 + 4;
+    state.story.timeMinutes = 17 * 60 + 4;
     return 'wake';
   }
   if (['cabin_lay_low', 'booski_sasole_call', 'cabin_two'].includes(beatId)) {

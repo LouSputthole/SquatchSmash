@@ -1571,7 +1571,7 @@
     {
       "name": "vo.wake.5",
       "voice": "player",
-      "say": "Six. It is six. Why is it six."
+      "say": "Five in the afternoon. Perfectly normal time to be up."
     },
     {
       "name": "vo.wake.6",
@@ -7240,7 +7240,9 @@
     {
       "name": "vo.sf.opening.history.4",
       "voice": "player",
-      "say": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so."
+      "say": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-01: the accepted punch-up pick is the colostomy-bag line; the campaign-reconcile pass replaced it and the take on disk speaks the rewrite."
     },
     {
       "name": "vo.sf.opening.5",
