@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
+import { createCampaignArrivalScore } from '../core/campaign-arrival-score.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -100,6 +101,7 @@ player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
+const arrivalScore = createCampaignArrivalScore(audio, 'squatch_graveyard');
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
 if (postfx.bloom) {
@@ -301,6 +303,7 @@ function pickUpHotDog() {
     return false;
   }
   input.clear('body-pickup');
+  arrivalScore.stop('body-picked-up');
   audio.play('cloth.suit.movement', { volume: 0.75, position: player.position });
   repaintObjectives();
   hud.toast('Billy HotDog · carrying', 'good');
@@ -530,6 +533,7 @@ const runtime = {
   pickupBody: pickUpHotDog,
   placeBody: placeHotDog,
   bodyPresentation: () => graveyard.bodyPresentation(),
+  arrivalScore: () => arrivalScore.snapshot(),
   get previewCheckpoint() { return previewCheckpoint; },
   bury: completeBurial,
 };
@@ -609,6 +613,7 @@ startButton.addEventListener('click', async () => {
   await audio.loadManifest(graveyardAudioLoadOptions());
   audio.startLoop('graveyard.wind', { name: 'ambience.rain', volume: 0.065, ambience: true, fade: 1.5 });
   audio.startLoop('car.engine.idle', { volume: 0.12, ambience: true, fade: 1.2 });
+  if (!previewCheckpoint || previewCheckpoint === 'arrival') arrivalScore.start();
   state.phase = 'active';
   startButton.disabled = false;
   document.body.classList.add('playing');

@@ -23,6 +23,7 @@ import { createObjectivePanel } from '../core/objective-panel.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
+import { createCampaignArrivalScore } from '../core/campaign-arrival-score.js';
 import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
@@ -340,6 +341,7 @@ player.mode = 'walk';
 
 const interactions = new InteractionSystem(camera, tinyHud);
 const audio = new AudioEngine();
+const arrivalScore = createCampaignArrivalScore(audio, 'silver_case');
 const campaignAudioFeedback = createCampaignAudioFeedback(audio);
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 // 3.2s, not 2.2. The owner's note: "lets give another second to get the
@@ -1275,6 +1277,7 @@ function buildStates() {
         audio.startLoop('silvercase-car-ride', {
           name: 'car.engine.idle', volume: 0.28, fade: 0.8, ambience: true,
         });
+        arrivalScore.start();
         audio.play('car.engine.rev', { volume: 0.34, rate: 0.9 });
         dialogue.play(SEQUENCES.carRide, { onDone: () => fsm.go(S.ARRIVE_HALLWAY) });
       },
@@ -1282,6 +1285,7 @@ function buildStates() {
 
     [S.ARRIVE_HALLWAY]: {
       enter() {
+        arrivalScore.stop('hallway-arrival');
         audio.stopLoop('silvercase-car-ride', 0.45);
         audio.play('car.door.close.heavy', { volume: 0.52, rate: 0.95 });
         car.root.visible = false;
@@ -2233,6 +2237,7 @@ window.silvercase = {
   input,
   interactions,
   audio,
+  arrivalScore: () => arrivalScore.snapshot(),
   reactionWindow,
   viewModel,
   carriedCase,

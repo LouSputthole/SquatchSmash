@@ -16,6 +16,7 @@ import {
   normalizeCampaignStatistics,
   synchronizeCampaignStatistics,
 } from './campaign-stats.js';
+import { campaignRadioContext } from './radio-program.js';
 
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
@@ -957,7 +958,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 26;
+export const CAMPAIGN_VERSION = 27;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1888,6 +1889,12 @@ function initialState() {
       cursor: 0,
       cycle: 0,
       selections: {},
+      /* Stable next-song ids are per filtered playlist. A cart receiver can
+       * no longer reinterpret an apartment-only numeric cursor as its own. */
+      songCursors: {},
+      /* Ordered entry packets resume at the first block that did not finish
+       * audibly. The small completed-id list is evidence, not a second queue. */
+      programProgress: {},
       songReactionCursor: 0,
       adReactionCursor: 0,
       heardBulletins: [],
@@ -3090,6 +3097,20 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  26(saved) {
+    /* Schema 27 gives the shared station durable, locality-preserving
+     * programme state. Legacy numeric `cursor` remains as a one-time fallback
+     * until each physical playlist writes its stable next-song id. */
+    return {
+      ...saved,
+      version: 27,
+      radio: {
+        ...(saved.radio && typeof saved.radio === 'object' ? saved.radio : {}),
+        songCursors: {},
+        programProgress: {},
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -3278,6 +3299,32 @@ function normalize(saved) {
         && value >= 0)
       .map(([key, value]) => [key, Math.min(value, 1_000_000)]),
   );
+  const radioSongCursors = Object.fromEntries(
+    Object.entries(radio.songCursors && typeof radio.songCursors === 'object'
+      ? radio.songCursors : {})
+      .filter(([key, value]) => typeof key === 'string'
+        && key.length <= 120
+        && typeof value === 'string'
+        && value.length > 0
+        && value.length <= 120),
+  );
+  const radioProgramProgress = Object.fromEntries(
+    Object.entries(radio.programProgress && typeof radio.programProgress === 'object'
+      ? radio.programProgress : {})
+      .filter(([key, value]) => typeof key === 'string'
+        && key.length <= 120
+        && value
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && Number.isSafeInteger(value.nextBlock)
+        && value.nextBlock >= 0)
+      .map(([key, value]) => [key, {
+        nextBlock: Math.min(value.nextBlock, 10_000),
+        completedBlockIds: uniqueStrings(value.completedBlockIds)
+          .filter((id) => id.length > 0 && id.length <= 120)
+          .slice(-256),
+      }]),
+  );
   const radioReceivers = Object.fromEntries(
     Object.entries(radio.receivers && typeof radio.receivers === 'object'
       ? radio.receivers : {})
@@ -3316,6 +3363,8 @@ function normalize(saved) {
       cursor: boundedNumber(radio.cursor, 0, 1_000_000, 0, true),
       cycle: boundedNumber(radio.cycle, 0, 1_000_000, 0, true),
       selections: radioSelections,
+      songCursors: radioSongCursors,
+      programProgress: radioProgramProgress,
       songReactionCursor: boundedNumber(radio.songReactionCursor, 0, 1_000_000, 0, true),
       adReactionCursor: boundedNumber(radio.adReactionCursor, 0, 1_000_000, 0, true),
       heardBulletins: uniqueStrings(radio.heardBulletins).slice(-64),
@@ -5577,6 +5626,13 @@ export function createCampaignRadioAdapter(
       return {
         ...radio,
         selections: { ...radio.selections },
+        songCursors: { ...radio.songCursors },
+        programProgress: Object.fromEntries(
+          Object.entries(radio.programProgress).map(([id, progress]) => [id, {
+            nextBlock: progress.nextBlock,
+            completedBlockIds: [...progress.completedBlockIds],
+          }]),
+        ),
         heardBulletins: [...radio.heardBulletins],
         power: typeof radio.receivers[receiverId] === 'boolean'
           ? radio.receivers[receiverId] : defaultPower,
@@ -5590,12 +5646,28 @@ export function createCampaignRadioAdapter(
         radio.cursor = snapshot.cursor;
         radio.cycle = snapshot.cycle;
         radio.selections = { ...snapshot.selections };
+        radio.songCursors = { ...(snapshot.songCursors ?? {}) };
+        radio.programProgress = Object.fromEntries(
+          Object.entries(snapshot.programProgress ?? {}).map(([id, progress]) => [id, {
+            nextBlock: progress.nextBlock,
+            completedBlockIds: [...(progress.completedBlockIds ?? [])],
+          }]),
+        );
         radio.songReactionCursor = snapshot.songReactionCursor;
         radio.adReactionCursor = snapshot.adReactionCursor;
         if (typeof snapshot.power === 'boolean') {
           radio.receivers[receiverId] = snapshot.power;
         }
       });
+    },
+
+    context() {
+      return campaignRadioContext(campaign.state, receiverId);
+    },
+
+    /** Read-only input to the canonical NEWS_SEGMENTS eligibility rules. */
+    campaignState() {
+      return campaign.state;
     },
 
     hasHeardBulletin(id) {

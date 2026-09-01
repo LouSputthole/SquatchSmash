@@ -21,6 +21,8 @@ import { DIALOGUE_ACCEPTANCE, speakVariant } from './dialogue.js';
 
 /** Scratch for readWorldPosition, which runs per follower per frame. */
 const _follow = new THREE.Vector3();
+const _receiptForward = new THREE.Vector3();
+const _receiptQuaternion = new THREE.Quaternion();
 
 /**
  * The world position of whatever a caller handed us: an Object3D (a character,
@@ -128,6 +130,87 @@ function receiptPosition(target) {
      * because a deferred scene object cannot be resolved yet. */
     return null;
   }
+}
+
+const receiptNumber = (value) => {
+  if (!Number.isFinite(value)) return null;
+  const rounded = Math.round(value * 1_000_000) / 1_000_000;
+  return Object.is(rounded, -0) ? 0 : rounded;
+};
+
+function receiptVector(value) {
+  if (!value) return null;
+  const x = receiptNumber(value.x);
+  const y = receiptNumber(value.y);
+  const z = receiptNumber(value.z);
+  return x == null || y == null || z == null ? null : Object.freeze({ x, y, z });
+}
+
+/** Factual body orientation only; judging whether it is authored correctly is a scene contract. */
+function receiptForward(target) {
+  if (!target || typeof target === 'function') return null;
+  try {
+    if (typeof target.getWorldQuaternion === 'function') {
+      target.getWorldQuaternion(_receiptQuaternion);
+    } else if (target.quaternion && Number.isFinite(target.quaternion.w)) {
+      _receiptQuaternion.copy(target.quaternion);
+    } else {
+      return null;
+    }
+    return receiptVector(_receiptForward.set(0, 0, 1).applyQuaternion(_receiptQuaternion).normalize());
+  } catch {
+    return null;
+  }
+}
+
+function receiptVisible(target) {
+  if (!target || typeof target === 'function') return null;
+  if (!('visible' in target)) return null;
+  let node = target;
+  while (node) {
+    if (node.visible === false) return false;
+    node = node.parent ?? null;
+  }
+  return true;
+}
+
+function receiptDistance(a, b) {
+  if (!a || !b) return null;
+  return receiptNumber(Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z));
+}
+
+function receiptFacingDot(position, forward, listenerPosition) {
+  if (!position || !forward || !listenerPosition) return null;
+  const dx = listenerPosition.x - position.x;
+  const dy = listenerPosition.y - position.y;
+  const dz = listenerPosition.z - position.z;
+  const length = Math.hypot(dx, dy, dz);
+  if (!(length > 0)) return null;
+  return receiptNumber((forward.x * dx + forward.y * dy + forward.z * dz) / length);
+}
+
+function receiptSpeech(opts, positional, listenerPose) {
+  if (opts.speechMode == null) return null;
+  const mode = String(opts.speechMode);
+  const body = opts.speakerBody ?? null;
+  const bodyPosition = positional.position;
+  const bodyForward = receiptForward(body);
+  const listenerPosition = listenerPose?.position ?? null;
+  const listenerForward = listenerPose?.forward ?? null;
+  return Object.freeze({
+    mode,
+    bodyRequired: mode === 'world',
+    bodyId: opts.speakerId ?? null,
+    bodyPresent: body !== null,
+    bodyResolved: body !== null && bodyPosition !== null,
+    bodyVisible: receiptVisible(body),
+    bodyPosition,
+    bodyForward,
+    listenerPosition,
+    listenerForward,
+    distance: receiptDistance(bodyPosition, listenerPosition),
+    facingListenerDot: receiptFacingDot(bodyPosition, bodyForward, listenerPosition),
+  });
 }
 
 function receiptPositioning(opts = {}, facts = {}) {
@@ -248,6 +331,8 @@ export class AudioEngine {
     /** Every request, including fallback and silence, in call order. */
     this.playbackReceipts = [];
     this._playbackReceiptId = 0;
+    /** Last camera pose supplied by updateListener(), used only as QA evidence. */
+    this.listenerReceiptPose = null;
     /** Strict-QA failures remain inspectable even when the caller catches. */
     this.qaViolations = [];
     this.strictQa = strictQa === true;
@@ -287,6 +372,8 @@ export class AudioEngine {
     const voice = isVoiceCue(name, opts);
     const receiptSource = opts.receiptSource === AUDIO_PLAYBACK_SOURCE.STAND_IN
       ? AUDIO_PLAYBACK_SOURCE.STAND_IN : facts.source;
+    const positional = receiptPositioning(opts, facts);
+    const speech = voice ? receiptSpeech(opts, positional, this.listenerReceiptPose) : null;
     const receipt = Object.freeze({
       id: ++this._playbackReceiptId,
       requested,
@@ -310,7 +397,8 @@ export class AudioEngine {
        * not gain a meaningless null field on every sound in the game. */
       ...(opts.subtitle == null ? {} : { subtitle: String(opts.subtitle) }),
       ambient: opts.ambientVoice === true,
-      positional: receiptPositioning(opts, facts),
+      positional,
+      ...(speech ? { speech } : {}),
     });
     this.playbackReceipts.push(receipt);
     if (this.playbackReceipts.length > 256) this.playbackReceipts.shift();
@@ -729,6 +817,7 @@ export class AudioEngine {
       if (panner) this.playbackPanners.set(src, panner);
       if (panner && follow) this._follow(src, panner, follow);
       const playback = {
+        receiptId: null,
         name,
         source: 'buffer',
         decodedDuration: src.buffer.duration,
@@ -795,10 +884,11 @@ export class AudioEngine {
         playback.naturalEnd = endedAt >= when + expected - 0.06;
       };
       src.start(when);
-      this._recordPlaybackReceipt(name, opts, {
+      const receipt = this._recordPlaybackReceipt(name, opts, {
         actual: name, source: 'buffer', started: true, scheduledAt: when,
         positionalSeed: seed,
       });
+      playback.receiptId = receipt.id;
       return src;
     }
     synth(this, name, out, when, rate);
@@ -1698,6 +1788,11 @@ export class AudioEngine {
     const q = camera.getWorldQuaternion(_q1);
     const fwd = _v2.set(0, 0, -1).applyQuaternion(q);
     const up = _v3.set(0, 1, 0).applyQuaternion(q);
+    this.listenerReceiptPose = Object.freeze({
+      position: receiptVector(p),
+      forward: receiptVector(fwd),
+      up: receiptVector(up),
+    });
     if (L.positionX) {
       const t = this.ctx.currentTime;
       L.positionX.setTargetAtTime(p.x, t, 0.02);

@@ -1120,6 +1120,27 @@ try {
 
   const choicesTaken = [];
   choicesTaken.push(await chooseAtBeat('SM-210', 'No. Thanks.'));
+  const radioGagLifecycle = await page.evaluate(() => (
+    window.SPECIAL_MEETING.radioGagReceipts.at(-1) ?? null
+  ));
+  check('SM-200 plays the delivered announcer recording and Seff cuts it at exactly two seconds',
+    radioGagLifecycle?.started === true
+      && radioGagLifecycle.receipt?.requested === 'radio.vo.announcer.0177le3'
+      && radioGagLifecycle.receipt?.actual === 'radio.vo.announcer.0177le3'
+      && radioGagLifecycle.receipt?.source === 'buffer'
+      && radioGagLifecycle.receipt?.started === true
+      && radioGagLifecycle.naturalSeconds > radioGagLifecycle.seconds
+      && radioGagLifecycle.cutScheduled === true
+      && Math.abs(
+        radioGagLifecycle.stopAt
+          - radioGagLifecycle.startedAt
+          - radioGagLifecycle.seconds,
+      ) < 1e-6
+      && radioGagLifecycle.seconds === 2
+      && radioGagLifecycle.ended === true
+      && radioGagLifecycle.endedReason === 'cut'
+      && radioGagLifecycle.lifecycle === 'cut',
+    JSON.stringify(radioGagLifecycle));
   choicesTaken.push(await chooseAtBeat('SM-250', 'Say nothing. Sit in it.'));
   choicesTaken.push(await chooseAtBeat('SM-260', '[Say nothing.]'));
   choicesTaken.push(await chooseAtBeat('SM-280', '[Say nothing.]'));

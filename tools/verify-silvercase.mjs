@@ -1219,6 +1219,15 @@ try {
       && Math.abs(arrivePose.x - 0.8) < 0.01 && Math.abs(arrivePose.z) < 0.01
       && Math.abs(arrivePose.y - 1.66) < 0.01 && arrivePose.mode === 'walk',
     JSON.stringify({ arrive, arrivePose }));
+  const arrivalScore = await page.evaluate(() => window.silvercase.arrivalScore());
+  check('the Silver Case pickup score starts once and fades at hallway arrival',
+    arrivalScore.key === 'music.arrival.silver-case'
+      && arrivalScore.startCount === 1
+      && arrivalScore.stopCount === 1
+      && arrivalScore.stopReason === 'hallway-arrival'
+      && arrivalScore.active === false
+      && arrivalScore.duckedByCanonicalVoiceBus === true,
+    JSON.stringify(arrivalScore));
 
   // ---- "Ape is not in the hallway - he should be in the hallway with you
   // when you spawn in." The hallway runs x 0…6; the flat starts at x 6. He

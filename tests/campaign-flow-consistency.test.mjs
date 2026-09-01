@@ -866,9 +866,9 @@ test('every hub state on the fresh-save route agrees with its own front door', (
    * ============================================================== */
   campaign = reload(storage);
   let luxury = createLuxuryApartmentStory({ campaign });
-  const upstairs = () => ({
-    door: luxury.tryLeave(),
-    items: luxury.objectives().items,
+  const upstairs = (leaveContext) => ({
+    door: luxury.tryLeave(leaveContext),
+    items: luxury.objectives(leaveContext).items,
     canRing: (eventId) => luxury.pendingCall()?.eventId === eventId,
   });
 
@@ -1070,7 +1070,7 @@ test('every hub state on the fresh-save route agrees with its own front door', (
   assert.equal(luxury.phase(), 'special_meeting');
   assert.equal(homeFromThePalace.door.id, EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL);
   assert.equal(luxury.callAnswered(SPECIAL_MEETING_BOOSKI_CALL), true);
-  const carDownstairs = flow.stop('a special one, he said', upstairs());
+  const carDownstairs = flow.stop('a special one, he said', upstairs({ carOutside: true }));
   flow.advanced(homeFromThePalace, carDownstairs);
   assert.deepEqual(carDownstairs.door, { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING });
   /* And nothing on this panel names what he is going to. */

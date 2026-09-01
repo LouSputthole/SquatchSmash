@@ -490,7 +490,12 @@ async function executeBrowserAction(page, step) {
         `the Special Meeting call did not gate the lift: ${JSON.stringify(owed)}`);
         ensure(luxury.callAnswered(apartmentModule.SPECIAL_MEETING_BOOSKI_CALL) === true,
           'Special Meeting call was not accepted');
-        leaveFor(S.SPECIAL_MEETING);
+        const waiting = luxury.tryLeave();
+        ensure(waiting?.kind === 'wait' && waiting.id === 'special_meeting_car',
+          `Luxury apartment did not wait for the pickup: ${JSON.stringify(waiting)}`);
+        const departure = luxury.tryLeave({ carOutside: true });
+        ensure(departure?.kind === 'go' && departure.destination === S.SPECIAL_MEETING,
+          `Luxury apartment refused the arrived pickup: ${JSON.stringify(departure)}`);
         ensure(campaign.advanceTime(T.DEPART_SPECIAL_MEETING).applied === true,
           'Special Meeting departure was not recorded');
       } else {

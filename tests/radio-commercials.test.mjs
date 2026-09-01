@@ -43,6 +43,17 @@ test('the station carries several ad breaks, each a named list of segments', () 
   assert.ok(SQUATCH.commercials.some((ad) => ad.live), 'no ad break is on air at all');
 });
 
+test('the old 131-second station promo is two bounded authored breaks', () => {
+  const stationPromos = SQUATCH.commercials.filter((ad) => ad.id.startsWith('station'));
+  assert.deepEqual(stationPromos.map((ad) => ad.id), ['station.morning', 'station.evening']);
+  assert.equal(SQUATCH.commercials.some((ad) => ad.id === 'station'), false);
+  for (const promo of stationPromos) {
+    assert.equal(promo.live, true);
+    assert.ok(promo.segments.length >= 6 && promo.segments.length <= 9,
+      `${promo.id} has ${promo.segments.length} beats instead of one bounded break`);
+  }
+});
+
 test('every ad break is indexed, so an unrecorded one still reaches the booth', () => {
   const generated = new Set(voiceCues().map((cue) => cue.say));
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));

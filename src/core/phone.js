@@ -47,10 +47,15 @@ export const H = 620;
  * words, not the future ones. The queue empties as takes are re-rendered, so
  * this map shrinks to nothing on its own.
  */
+import { loadJson } from './assets.js';
+
 export async function loadAsRecordedCaptions(url = 'assets/sfx/rerecord.json') {
   const captions = new Map();
   try {
-    const queue = await fetch(url).then((r) => (r.ok ? r.json() : null));
+    const split = String(url).lastIndexOf('/');
+    const dir = split >= 0 ? String(url).slice(0, split + 1) : '';
+    const name = split >= 0 ? String(url).slice(split + 1) : String(url);
+    const queue = await loadJson(dir, name);
     for (const entry of queue?.lines ?? []) {
       if (typeof entry?.cue === 'string' && typeof entry?.retiredText === 'string' && entry.retiredText) {
         captions.set(entry.cue, entry.retiredText);

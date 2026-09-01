@@ -12,6 +12,7 @@ import { ApartmentAudioEngine, closedNightCuePrefixes } from './core/apartment-a
 import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
+import { applyHubContinuity } from './core/hub-continuity.js';
 import { createFirstPersonInput } from './core/first-person-input.js';
 import { Player } from './core/player.js';
 import { shakeScale } from './core/settings.js';
@@ -70,13 +71,17 @@ import {
   HEIST_PREPARATION_ITEMS,
   SHOOT_TARGET_SCORE,
   SMASH_PLAY_SECONDS,
-  SPECIAL_MEETING_ACT_ONE,
   TV_WATCH_SECONDS,
   apartmentHostsChapter,
   createApartmentStory,
   isSpecialMeetingNight,
   pastimeActivityEvents,
 } from './core/apartment-story.js';
+import {
+  SPECIAL_MEETING_ACT_ONE,
+  SPECIAL_MEETING_HOME_TIMING,
+  createSpecialMeetingHomePrelude,
+} from './core/special-meeting-home-prelude.js';
 import {
   apartmentRecoveryBeatId,
   createApartmentRecoverySkipAdapter,
@@ -633,6 +638,30 @@ const _aimPoint = new THREE.Vector3();
 let apartment = null;
 let bathroomMirror = null;
 let playerBody = null;
+let apartmentContinuity = null;
+
+/** Bind the cross-campaign contract to the dressing pieces this room already
+ * owns. The dressing builder remains the geometry authority; this adapter
+ * proves the chapter's promised traces are actual mounted Object3Ds. */
+function syncApartmentContinuity(chapter = campaign.state.story.chapter) {
+  if (!apartment) return null;
+  const piece = (id) => apartment.dressing.get(id)?.group ?? null;
+  apartmentContinuity = applyHubContinuity({
+    hub: 'apartment',
+    phase: chapter,
+    props: new Map([
+      ['apartment.lanyard', piece('lanyard')],
+      ['apartment.willy-photo', piece('willyPhoto')],
+      ['apartment.willy-gap', piece('willyGap')],
+      ['apartment.bing-matches', piece('bingMatches')],
+      ['apartment.motel-key', piece('motelKey')],
+      ['apartment.suit-bag', piece('suitBag')],
+      ['apartment.heist-kit', piece('heistDuffel')],
+      ['apartment.heist-cleanup', piece('heistWash')],
+    ]),
+  });
+  return apartmentContinuity;
+}
 
 const game = {
   started: false,
@@ -820,6 +849,7 @@ async function boot() {
       hud.toast(`Radio volume ${Math.round(volume * 100)}%`);
     },
   });
+  syncApartmentContinuity();
   /* Glass size comes from the mounted PlaneGeometry now; the resolution
    * covers the cabinet glass filling most of the frame at arm's length. */
   bathroomMirror = new PlanarMirror(scene, apartment.mirrorMesh, {
@@ -956,7 +986,9 @@ async function boot() {
      * is as up and about as one getting out of bed. This used to be wired only
      * to standing up, so a call scheduled against a RETURN -- Lou ringing to
      * say well done about the Squatchfather -- could never have landed. */
-    apartmentStory.beginMorning({ delay: specialMeetingNight ? ACT_ONE_RING_DELAY : undefined });
+    apartmentStory.beginMorning({
+      delay: specialMeetingNight ? SPECIAL_MEETING_HOME_TIMING.ringDelay : undefined,
+    });
     /* The Palace goes first, because it is the newest thing that sends him
      * home and the card says nothing about what tonight is. Nobody has told
      * him. That is the beat. */
@@ -1002,6 +1034,7 @@ async function boot() {
     get input() { return browserInput; },
     get inputOwner() { return apartmentInputPolicy.owner(); },
     apartmentStory, apartmentReturnSource: returnSource,
+    get continuity() { return apartmentContinuity; },
     drunk, highs, focusRush, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
@@ -1393,10 +1426,6 @@ startBtn.addEventListener('click', async () => {
      * quickly instead of serving the whole wait again. */
     if (specialMeetingNight) {
       narrator.enabled = false;
-      if (specialMeetingCallTaken()) {
-        actOne.hungUp = true;
-        actOne.carIn = ACT_ONE_CAR_WAIT_RESUMED;
-      }
     }
     if (returningToApartment) {
       if (returningFromPalace) {
@@ -2160,6 +2189,7 @@ function sleepInBed() {
   // Reapplying it on wake remains idempotent and the blackout hides the swap.
   if (storySleep.ok) {
     apartment.applyChapterDressing(storySleep.chapter);
+    syncApartmentContinuity(storySleep.chapter);
     /* The chapter turn is also the eviction point for decoded one-shot beat
      * banks. The exact-once ledger is the authority: a bank is dropped only
      * once its time event proves the beat can never fire again, and
@@ -4323,6 +4353,7 @@ function startNewMorning() {
    * read back off the campaign rather than passed in, so a morning reached by
    * sleeping and the same morning reached by reloading are the same room. */
   apartment.applyChapterDressing(campaign.state.story.chapter);
+  syncApartmentContinuity();
   updateObjectives();
 }
 
@@ -4485,7 +4516,7 @@ function playNews(station, { onStart = null } = {}) {
  * The order of the evening, and what drives each part:
  *
  *   SM-010  idle, before the call        `updateActOne`, on the still timer
- *   SM-020  the phone rings              `ApartmentStory`, after ACT_ONE_RING_DELAY
+ *   SM-020  the phone rings              `ApartmentStory`, after shared ringDelay
  *   SM-030  THE CALL                     core/phone.js, off SPECIAL_MEETING_BOOSKI_CALL
  *   SM-040  the dead line                `actOneCallEnded`, off the phone's own hang-up
  *   SM-050  ringing him back             `ringBooskiBack`, [R] with the phone in hand
@@ -4523,49 +4554,13 @@ function playNews(station, { onStart = null } = {}) {
  * chapter -- and a player who does not sit still hears fewer of them, which is
  * how an idle bank is supposed to work.
  */
-const ACT_ONE_RING_DELAY = 74;
-/**
- * And how long after the call before headlights land on the ceiling.
- *
- * "They'll be there soon" is all he is given, so the wait is real and he
- * spends it doing the two things the big night asks of him. The short version
- * is for a reload: the car does not un-arrive because somebody refreshed the
- * page, and making him serve the full sentence twice would be the flat
- * punishing him for it. Neither number is a save field -- see `carOutside` in
- * `#specialMeetingDoor`.
- */
-const ACT_ONE_CAR_WAIT = 170;
-const ACT_ONE_CAR_WAIT_RESUMED = 16;
-/** Stand still this long and he says one. Then this long again. */
-const ACT_ONE_IDLE_AFTER = 19;
-const ACT_ONE_IDLE_GAP = 31;
-/** How long the earpiece rings, unanswered, before he takes it off his ear. */
-const ACT_ONE_RINGBACK_SECONDS = 11;
 /** The headlights, swinging across the ceiling and stopping. */
 const ACT_ONE_SWEEP_SECONDS = 2.4;
 /** What the beam settles at, and how much brighter it is mid-swing. */
 const ACT_ONE_BEAM_RESTING = 8.5;
 const ACT_ONE_BEAM_SWELL = 5.0;
 
-const actOne = {
-  /** Cues already spoken this session, so no line lands twice. */
-  said: new Set(),
-  /** Seconds he has been still, and how long is left before the next line. */
-  still: 0,
-  cooldown: 14,
-  /** True once Booskibro has hung up. SM-040 and SM-050 both wait for it. */
-  hungUp: false,
-  /** Seconds until the car, or null while nothing has been set moving. */
-  carIn: null,
-  /** Outside, engine running. `activityContext` hands this to the door. */
-  carOutside: false,
-  /** Which of SM-050's three lines the next ring-back ends on. */
-  rungBack: 0,
-  /** Seconds of unanswered ringing left, or 0 when he is not on the phone. */
-  ringingOut: 0,
-  /** Which of SM-070's mirror lines the drawer gets next. */
-  dressed: 0,
-  /** The headlight rig, built the first time it is needed, and its sweep. */
+const actOneVisual = {
   beam: null,
   sweep: 0,
 };
@@ -4581,156 +4576,60 @@ function specialMeetingCallTaken() {
   return campaign.state.events[EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]?.status === 'answered';
 }
 
-/**
- * The bank the idle timer draws from. Same flat, different man.
- *
- * SM-060 REPLACES SM-010 rather than joining it -- the script is explicit --
- * so a line he never got round to hearing before the phone rang is one he
- * never hears. He has stopped having those thoughts.
- */
-function actOneIdleBank() {
-  return specialMeetingCallTaken()
-    ? SPECIAL_MEETING_ACT_ONE.idleAfter
-    : SPECIAL_MEETING_ACT_ONE.idleBefore;
+const specialMeetingPrelude = createSpecialMeetingHomePrelude({
+  isActive: () => specialMeetingNight && !game.left,
+  isCallTaken: specialMeetingCallTaken,
+  isSpeechBusy: () => hud.saying,
+  say: (take, options = {}) => speakLine(take.cue, take.text, options),
+  onCallbackAvailable: () => {
+    if (!game.left) hud.toast('Phone in hand · [R] rings the last caller back', '', 9000);
+  },
+  onRingbackStart: () => {
+    audio.startLoop('specialmeeting.ringback', { name: 'phone.ring', volume: 0.22 });
+    audio.setLoopCutoff('specialmeeting.ringback', 1400, 0.1);
+    hud.say('<em>Calling Booskibro.</em>', 4000);
+  },
+  onRingbackEnd: () => {
+    audio.stopLoop('specialmeeting.ringback', 0.12);
+    audio.play('phone.hangup', { volume: 0.5 });
+  },
+  onCarArrives: () => stageActOneCarPresence(),
+  onChanged: () => updateObjectives(),
+});
+
+/** Legacy console shape: live values, now read from the one shared owner. */
+const actOne = new Proxy(actOneVisual, {
+  get(target, key) {
+    if (key in target) return target[key];
+    const value = specialMeetingPrelude.snapshot()[key];
+    return key === 'said' ? new Set(value ?? []) : value;
+  },
+});
+
+function updateActOne(dt, context = {}) {
+  specialMeetingPrelude.update(dt, context);
+  if (actOneVisual.sweep > 0) updateActOneHeadlights(dt);
 }
 
-/** Say one authored take, and never say it again this session. */
-function sayActOne(take, opts = {}) {
-  if (!take) return 0;
-  actOne.said.add(take.cue);
-  return speakLine(take.cue, take.text, opts);
-}
+function actOneCallEnded() { return specialMeetingPrelude.callEnded(); }
 
-/** The first line in a bank he has not used yet, or null once it is empty. */
-function nextActOne(bank) {
-  return bank.find((take) => !actOne.said.has(take.cue)) ?? null;
-}
-
-/**
- * Tony, alone in his own front room, saying things to nobody.
- *
- * Deliberately the same shape as the narrator's idle rule and deliberately
- * quieter about it: he waits for the room to be silent (`hud.saying` is the
- * subtitle bar, which the radio, the telly and the phone all take), he waits
- * for the player to stop moving, and he never repeats himself. Eight lines
- * before the call and eight after, and running out is a real outcome -- a man
- * who has said everything he has to say goes quiet, which is worse.
- */
-function updateActOne(dt, { busy = false, moving = false } = {}) {
-  if (!specialMeetingNight || game.left) return;
-  actOne.cooldown -= dt;
-  actOne.still = busy || moving ? 0 : actOne.still + dt;
-
-  /* The earpiece, ringing out at Booskibro's end. Counted here rather than on
-   * a timeout so pausing the game pauses the call, like everything else. */
-  if (actOne.ringingOut > 0) {
-    actOne.ringingOut -= dt;
-    if (actOne.ringingOut <= 0) endRingBooskiBack();
-  }
-
-  if (actOne.carIn !== null) {
-    actOne.carIn -= dt;
-    if (actOne.carIn <= 0) actOneCarArrives();
-  }
-  if (actOne.sweep > 0) updateActOneHeadlights(dt);
-
-  if (busy || actOne.cooldown > 0 || hud.saying) return;
-  if (actOne.still < ACT_ONE_IDLE_AFTER) return;
-  const take = nextActOne(actOneIdleBank());
-  if (!take) return;
-  sayActOne(take);
-  actOne.still = 0;
-  actOne.cooldown = ACT_ONE_IDLE_GAP;
-}
-
-/**
- * SM-040. Booskibro hangs up first, mid-air, and Tony stands there holding it.
- *
- * Wired to the phone's own call-state callback rather than to a timer, so it
- * lands on the real end of the real conversation however long the takes turn
- * out to be once they are recorded. The button prompt comes AFTER his line and
- * not on the same frame as it: `docs/TONE-AND-PARODY.md` -- the character
- * speaks, and then the screen clarifies.
- */
-function actOneCallEnded() {
-  if (!specialMeetingNight || actOne.hungUp) return;
-  actOne.hungUp = true;
-  /* And the car is now on its way, whatever he does with the next few
-   * minutes. Set here rather than at the door so a player who never touches
-   * the handle still gets his headlights. */
-  actOne.carIn = ACT_ONE_CAR_WAIT;
-  const hold = sayActOne(SPECIAL_MEETING_ACT_ONE.deadLine[0]);
-  setTimeout(() => {
-    if (game.left) return;
-    hud.toast('Phone in hand · [R] rings the last caller back', '', 9000);
-  }, Math.round(hold * 1000) + 400);
-  updateObjectives();
-}
-
-/** Whether [R] currently means anything, which is: has Booskibro rung off. */
 function canRingBooskiBack() {
-  return specialMeetingNight
-    && actOne.hungUp
-    && !phone.call
-    && apartment?.state?.heldItem === 'phone';
-}
-
-/**
- * SM-050. He rings Booskibro back, and it goes nowhere.
- *
- * The first thing in this scene that is actually WRONG, and it is wrong by
- * doing nothing: it does not go to voicemail, it does not get answered, it is
- * not engaged. It rings. The player is allowed to do this as many times as he
- * likes and gets a different line about it three times.
- *
- * The sound is `phone.ring` held quiet and lowpassed, which is the handset's
- * own ring standing in for a ringback tone in an earpiece -- there is no
- * ringback cue in the manifest and minting one belongs to the pass that owns
- * `assets/sfx/manifest.json`. What the player hears is a telephone ringing
- * somewhere it is not being picked up, which is the whole content of the beat.
- */
-function ringBooskiBack() {
-  if (!canRingBooskiBack() || actOne.ringingOut > 0) return false;
-  actOne.ringingOut = ACT_ONE_RINGBACK_SECONDS;
-  audio.startLoop('specialmeeting.ringback', {
-    name: 'phone.ring',
-    volume: 0.22,
+  return specialMeetingPrelude.canRingBack({
+    phoneBusy: Boolean(phone.call),
+    phoneHeld: apartment?.state?.heldItem === 'phone',
   });
-  audio.setLoopCutoff('specialmeeting.ringback', 1400, 0.1);
-  hud.say('<em>Calling Booskibro.</em>', 4000);
-  return true;
 }
 
-/** The player hangs up, or gives up waiting. Either way, nobody answered. */
-function endRingBooskiBack() {
-  if (actOne.ringingOut <= 0 && !audio.loops?.has?.('specialmeeting.ringback')) return;
-  actOne.ringingOut = 0;
-  audio.stopLoop('specialmeeting.ringback', 0.12);
-  audio.play('phone.hangup', { volume: 0.5 });
-  const bank = SPECIAL_MEETING_ACT_ONE.callBack;
-  const take = bank[Math.min(actOne.rungBack, bank.length - 1)];
-  actOne.rungBack += 1;
-  setTimeout(() => { if (!game.left) sayActOne(take); }, 500);
+function ringBooskiBack() {
+  return specialMeetingPrelude.ringBack({
+    phoneBusy: Boolean(phone.call),
+    phoneHeld: apartment?.state?.heldItem === 'phone',
+  });
 }
 
-/**
- * SM-070. Getting dressed for something nobody has described to him.
- *
- * Both the closet rail and the legacy nightstand route feed this one callback,
- * so the same getting-ready beat survives whichever clean shirt the player
- * actually reaches first. The bathroom mirror now reflects the persisted
- * choice; the line still belongs to dressing, not to entering that room.
- *
- * Called from `onDressed` AFTER the ordinary toast, because the ordinary toast
- * is the flat behaving normally and that is the joke he is standing inside.
- */
-function actOneDressed() {
-  if (!specialMeetingNight) return;
-  const bank = SPECIAL_MEETING_ACT_ONE.gettingReady;
-  const take = bank[Math.min(actOne.dressed, bank.length - 1)];
-  actOne.dressed += 1;
-  setTimeout(() => { if (!game.left) sayActOne(take); }, 1600);
-}
+function endRingBooskiBack() { return specialMeetingPrelude.endRingBack(); }
+
+function actOneDressed() { return specialMeetingPrelude.dressed(); }
 
 /**
  * The headlights, and the engine that never switches off.
@@ -4798,10 +4697,7 @@ function updateActOneHeadlights(dt) {
  * downstairs; the door does that itself the next time he touches it, and the
  * objective panel picks up "Leave for the car downstairs" on its own second.
  */
-function actOneCarArrives() {
-  if (actOne.carOutside) return;
-  actOne.carIn = null;
-  actOne.carOutside = true;
+function stageActOneCarPresence() {
   actOneHeadlightRig();
   actOne.sweep = ACT_ONE_SWEEP_SECONDS;
   audio.startLoop('specialmeeting.car', {
@@ -4812,11 +4708,10 @@ function actOneCarArrives() {
   });
   // Through a closed window, from a floor below. It is a presence, not a sound.
   audio.setLoopCutoff('specialmeeting.car', 520, 0.4);
-  const bank = SPECIAL_MEETING_ACT_ONE.headlights;
-  const take = nextActOne(bank) ?? bank[0];
-  setTimeout(() => { if (!game.left) sayActOne(take); }, 1500);
   updateObjectives();
 }
+
+function actOneCarArrives() { return specialMeetingPrelude.carArrives(); }
 
 /* ------------------------------------------------------------------ */
 /* The fourth morning                                                  */

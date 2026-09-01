@@ -317,13 +317,25 @@ test('beat 27 rings in the luxury apartment and leaves for the existing pickup',
   assert.equal(campaign.state.story.timeEvents.filter(
     (id) => id === TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
   ).length, 1);
-  assert.deepEqual(story.tryLeave(), {
+  const waiting = story.tryLeave();
+  assert.equal(waiting.kind, 'wait');
+  assert.equal(waiting.id, 'special_meeting_car');
+  assert.equal(waiting.label, 'Wait in for Seff, Lag and Numbskull');
+  assert.equal(waiting.takes.length, 3);
+  assert.deepEqual(story.objectives().items[0], {
+    id: 'special_meeting_car',
+    label: 'Wait in for Seff, Lag and Numbskull',
+    done: false,
+    required: true,
+  });
+  assert.deepEqual(story.tryLeave({ carOutside: true }), {
     kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,
   });
 
   const reloaded = createLuxuryApartmentStory({ campaign: createCampaign({ storage }) });
   assert.equal(reloaded.pendingCall(), null, 'reload replayed the answered call');
-  assert.deepEqual(reloaded.tryLeave(), {
+  assert.equal(reloaded.tryLeave().kind, 'wait', 'reload skipped the resumed car-arrival beat');
+  assert.deepEqual(reloaded.tryLeave({ carOutside: true }), {
     kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,
   });
 });

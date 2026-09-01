@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import * as THREE from '../vendor/three.module.min.js';
+import { CAMPAIGN_SPINE } from '../src/core/campaign-spine.js';
 
 import {
   ALLOWLIST_SCHEMA,
@@ -39,7 +40,9 @@ import {
   analyseTrees,
   aliasExports,
   applyReachabilityAllowlist,
+  buildCampaignBeatReachability,
   dispatchTemplatePrefixes,
+  executableSource,
   memberReferences,
   portableSourcePath,
   reachableTreeNodes,
@@ -84,6 +87,20 @@ test('a beat id counts as dispatched wherever the string appears, not only at a 
   const found = stringLiterals(text);
   assert.ok(found.has('approach.high2'));
   assert.ok(found.has('caib.sweep'));
+});
+
+test('comments are never accepted as dispatch evidence', () => {
+  const text = [
+    "// dialogue.play('dead.line')",
+    "/* the retired id was 'also.dead' */",
+    "dialogue.play('live.line')",
+    "const url = 'https://example.test/not-a-comment';",
+  ].join('\n');
+  const found = stringLiterals(executableSource(text));
+  assert.ok(found.has('live.line'));
+  assert.ok(found.has('https://example.test/not-a-comment'));
+  assert.ok(!found.has('dead.line'));
+  assert.ok(!found.has('also.dead'));
 });
 
 test('template prefixes come from dispatch calls only', () => {
@@ -155,7 +172,7 @@ test('a keyed map reports the key nothing names, and only that key', () => {
   assert.equal(findings[0].say, 'do that again');
 });
 
-test('a beat built by a template is declared undecided, never dead', () => {
+test('a beat built by an unresolved template is UNKNOWN, never silently reachable', () => {
   /* `dialogue.play(`nav.${lm.kind}`)` cannot be resolved statically. Reporting
    * the four nav beats as unreachable would be four confident lies, and the
    * report says out loud which template declined to judge them instead. */
@@ -171,6 +188,25 @@ test('a beat built by a template is declared undecided, never dead', () => {
   assert.deepEqual(findings.map((finding) => finding.beat), ["BEATS['load.strap']"]);
   assert.deepEqual(undecided.map((entry) => entry.beat), ["BEATS['nav.river']"]);
   assert.equal(undecided[0].template.prefix, 'nav.');
+});
+
+test('a dynamic dispatch is proven only by an explicit finite domain', () => {
+  const map = {
+    'nav.river': [{ text: 'river' }],
+    'nav.tower': [{ text: 'tower' }],
+    'nav.unmapped': [{ text: 'never selected' }],
+  };
+  const { findings, undecided } = analyseBeatIds({
+    scene: 'fixture',
+    map,
+    mapName: 'BEATS',
+    runtime: runtimeIndex({ templates: ['nav.'] }),
+    source: 'fixture.js',
+    countLines: countArray,
+    resolvedTemplateIds: new Set(['nav.river', 'nav.tower']),
+  });
+  assert.deepEqual(findings.map((finding) => finding.beat), []);
+  assert.deepEqual(undecided.map((entry) => entry.beat), ["BEATS['nav.unmapped']"]);
 });
 
 test('a tree node reached only through a state-conditional option is not dead', () => {
@@ -290,7 +326,59 @@ test('every authored line in the covered scenes is dispatched or allowlisted, an
     );
     assert.deepEqual(unusedEntries(entries, used, scenes), [],
       'an allowlist entry excused nothing — go and check the line is really dispatched now');
+    assert.deepEqual(
+      resolved.flatMap((report) => report.undecided.map(({ beat }) => `${report.scene} ${beat}`)),
+      [],
+      'a dynamic cue template has no finite data-domain proof and must remain UNKNOWN',
+    );
   }
+});
+
+test('scene-native reachability adapters cover the major dialogue graph shapes beyond the original five', async () => {
+  const resolved = await analysed();
+  const scenes = new Set(resolved.map(({ scene }) => scene));
+  for (const scene of [
+    'squatchfather', 'cabin', 'nowake', 'silvercase', 'golf', 'siege', 'specialmeeting',
+  ]) {
+    assert.ok(scenes.has(scene), `${scene} still has no reachability adapter`);
+  }
+});
+
+test('every playable campaign beat has an honest dialogue-reachability disposition', async () => {
+  const dialogueRows = JSON.parse(fs.readFileSync(
+    path.join(ROOT, 'docs/dialogue/DIALOGUE-PASS.json'), 'utf8',
+  ));
+  const doc = JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8'));
+  const rows = buildCampaignBeatReachability({
+    spine: CAMPAIGN_SPINE,
+    dialogueRows,
+    reports: await analysed(),
+    allowlistEntries: doc.entries,
+  });
+  assert.equal(rows.length, CAMPAIGN_SPINE.length);
+  assert.deepEqual(rows.map(({ beatId }) => beatId), CAMPAIGN_SPINE.map(({ id }) => id));
+  assert.ok(rows.every(({ status }) => [
+    'PASS', 'ALLOWLISTED_DEBT', 'INTENTIONAL_NA', 'FAIL', 'UNKNOWN',
+  ].includes(status)));
+  assert.ok(rows.filter(({ authoredLines }) => authoredLines === 0)
+    .every(({ status }) => status === 'INTENTIONAL_NA'));
+  assert.ok(rows.filter(({ status }) => status === 'UNKNOWN')
+    .every(({ evidence }) => /not proved/i.test(evidence)),
+  'UNKNOWN beat was rendered as green prose');
+  const proved = new Map(rows.map(({ beatId, status }) => [beatId, status]));
+  for (const beatId of [
+    'squatchfather',
+    'cabin_lay_low', 'booski_sasole_call', 'cabin_two',
+    'beef_run', 'silver_pines', 'no_wake',
+    'silver_case_setup', 'silver_case_mansion',
+    'silent_squatch', 'mansion_siege', 'enola_squatch', 'mansion_return',
+    'special_meeting_call', 'pickup_ride',
+  ]) {
+    assert.notEqual(proved.get(beatId), 'UNKNOWN', `${beatId} lost its native graph proof`);
+    assert.notEqual(proved.get(beatId), 'FAIL', `${beatId} has a newly unreachable authored path`);
+  }
+  assert.ok(rows.filter(({ status }) => status === 'UNKNOWN').length <= 12,
+    'the campaign proof ratchet regressed; UNKNOWN may shrink but may not spread');
 });
 
 test('the three lines this pass wired up are dispatched, not allowlisted', async () => {

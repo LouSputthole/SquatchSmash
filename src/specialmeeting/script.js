@@ -490,7 +490,10 @@ const RAW_BEATS = [
       + 'turns the radio on. Two seconds of a station announcer mid-sentence. '
       + 'Seff reaches over and turns it off. Neither of them says anything '
       + 'about it. Lag does not try again.',
-    lines: [sd('Radio on. Two seconds of announcer. Radio off. Nobody comments.')],
+    lines: [sd('Radio on. Two seconds of announcer. Radio off. Nobody comments.', {
+      radioGag: true,
+      holdSeconds: 2,
+    })],
     next: 'SM-220',
   },
   {

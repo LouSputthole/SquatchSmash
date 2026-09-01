@@ -251,7 +251,11 @@ export function speak(audio, cue, options = {}) {
      * jaw moves on the amplitude that is really reaching the speakers. */
     analyse: true,
     requiredRecorded,
+    /* Runtime certification needs to distinguish a person in the world from
+     * a phone/radio line before it can judge whether a missing body is a bug. */
+    speechMode: mix?.ref != null ? 'world' : 'close',
   };
+  if (speaker) opts.speakerBody = speaker;
   if (muffle) opts.muffle = muffle;
   if (subtitle != null) opts.subtitle = subtitle;
   if (mix?.ref != null) {

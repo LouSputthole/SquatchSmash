@@ -1,5 +1,17 @@
 {
-  "schema": "squatchsmash.rendered-voice-receipts.v1",
+  "schema": "squatchsmash.rendered-voice-receipts.v2",
+  "coverage": {
+    "authoredPlayable": 4102,
+    "currentDelivered": 4101,
+    "outstanding": 1,
+    "missing": [
+      "vo.door.refusal.campaign_complete.1"
+    ],
+    "rerecord": [],
+    "recast": [],
+    "renderedExact": 544,
+    "assumedCurrent": 3557
+  },
   "receipts": [
     {
       "cue": "heist.civilian_please",
@@ -3213,6 +3225,32 @@
       "channels": 1
     },
     {
+      "cue": "vo.call.margo.cabin_date.1",
+      "file": "vo.call.margo.cabin_date.1.mp3",
+      "sha256": "8049535f84d5c49d2c29ed5aa75f79ad21ce16c9224b4805f83d28a4268df20b",
+      "bytes": 77784,
+      "indexVersion": "6ddb3e586c",
+      "textHash": "4734d65e33b1",
+      "voice": "margo",
+      "voiceId": "XlDdozLmuTofIxK4BjPD",
+      "durationSeconds": 4.783,
+      "sampleRate": 44100,
+      "channels": 1
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.2",
+      "file": "vo.call.margo.cabin_date.2.mp3",
+      "sha256": "6b9da4b22fe35dd283a98058bfafa667002d52db38a7546ff83fff7d99b5526b",
+      "bytes": 91577,
+      "indexVersion": "43d89c2d92",
+      "textHash": "fb86f5ae2096",
+      "voice": "margo",
+      "voiceId": "XlDdozLmuTofIxK4BjPD",
+      "durationSeconds": 5.666,
+      "sampleRate": 44100,
+      "channels": 1
+    },
+    {
       "cue": "vo.call.margo.cabin_date.3",
       "file": "vo.call.margo.cabin_date.3.mp3",
       "sha256": "f2419cffffafb5cf270732f3f19a1967deda282a972f9f228004d31932bcd097",
@@ -3222,6 +3260,58 @@
       "voice": "margo",
       "voiceId": "XlDdozLmuTofIxK4BjPD",
       "durationSeconds": 5.759,
+      "sampleRate": 44100,
+      "channels": 1
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.pickup",
+      "file": "vo.call.margo.cabin_date.pickup.mp3",
+      "sha256": "a831e39e97830b5e721b7f05339eb91430142e4407cd2ada729681a430bdbc21",
+      "bytes": 15090,
+      "indexVersion": "7171d6640d",
+      "textHash": "e488608fe752",
+      "voice": "margo",
+      "voiceId": "XlDdozLmuTofIxK4BjPD",
+      "durationSeconds": 0.882,
+      "sampleRate": 44100,
+      "channels": 1
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.tony.1",
+      "file": "vo.call.margo.cabin_date.tony.1.mp3",
+      "sha256": "05e4f1733e445ff6269a3b3ad09c8b3a0d28c884b1ac3a88a1b81bbeb4e27bbf",
+      "bytes": 32226,
+      "indexVersion": "2187b414f9",
+      "textHash": "634951f6d02f",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B",
+      "durationSeconds": 1.95,
+      "sampleRate": 44100,
+      "channels": 1
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.tony.2",
+      "file": "vo.call.margo.cabin_date.tony.2.mp3",
+      "sha256": "64e1f1fa1ea2f6e86ed4c3465873834809f20ef57df67440e640699b3bd1c3ac",
+      "bytes": 109549,
+      "indexVersion": "abeed86da0",
+      "textHash": "20f85fc2a947",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B",
+      "durationSeconds": 6.78,
+      "sampleRate": 44100,
+      "channels": 1
+    },
+    {
+      "cue": "vo.call.margo.cabin_date.tony.3",
+      "file": "vo.call.margo.cabin_date.tony.3.mp3",
+      "sha256": "bd4b8877195e3bff4549f85fbec80e23c6bed96666610b7455fb7dec109877f3",
+      "bytes": 18852,
+      "indexVersion": "4931af3e46",
+      "textHash": "870580806114",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B",
+      "durationSeconds": 1.115,
       "sampleRate": 44100,
       "channels": 1
     },

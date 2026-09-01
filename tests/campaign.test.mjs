@@ -62,6 +62,13 @@ test('radio running order, receiver power and bulletin history persist across sc
     cursor: 3,
     cycle: 17,
     selections: { 'squatch:show:Lou & Lou': 4 },
+    songCursors: {
+      'squatch:apartment': 'cosmic-drift',
+      'squatch:mansion': 'daydream-diner-2',
+    },
+    programProgress: {
+      'H-APT-01': { nextBlock: 4, completedBlockIds: ['ident', 'show-intro', 'talk-01', 'talk-02'] },
+    },
     songReactionCursor: 2,
     adReactionCursor: 1,
     power: false,
@@ -70,9 +77,10 @@ test('radio running order, receiver power and bulletin history persist across sc
   assert.equal(apartment.markBulletinHeard('news.radio.day_two'), false);
 
   const reloaded = createCampaign({ storage });
-  const savedApartment = createCampaignRadioAdapter(reloaded, {
+  const savedApartmentAdapter = createCampaignRadioAdapter(reloaded, {
     receiverId: 'apartment', defaultPower: true,
-  }).load();
+  });
+  const savedApartment = savedApartmentAdapter.load();
   const car = createCampaignRadioAdapter(reloaded, {
     receiverId: 'bing_car', defaultPower: true,
   }).load();
@@ -81,6 +89,16 @@ test('radio running order, receiver power and bulletin history persist across sc
   assert.equal(savedApartment.cursor, 3);
   assert.equal(savedApartment.cycle, 17);
   assert.equal(savedApartment.selections['squatch:show:Lou & Lou'], 4);
+  assert.deepEqual(savedApartment.songCursors, {
+    'squatch:apartment': 'cosmic-drift',
+    'squatch:mansion': 'daydream-diner-2',
+  });
+  assert.deepEqual(savedApartment.programProgress['H-APT-01'], {
+    nextBlock: 4,
+    completedBlockIds: ['ident', 'show-intro', 'talk-01', 'talk-02'],
+  });
+  assert.equal(savedApartmentAdapter.context().programId, 'H-APT-01');
+  assert.equal(savedApartmentAdapter.context().campaignNews, 'enabled');
   assert.equal(savedApartment.power, false);
   assert.deepEqual(savedApartment.heardBulletins, ['news.radio.day_two']);
   assert.equal(car.power, true, 'power belongs to the physical receiver');
@@ -109,6 +127,8 @@ test('schema v9 preserves heist/graveyard progress and grandfathers the inserted
     cursor: 0,
     cycle: 0,
     selections: {},
+    songCursors: {},
+    programProgress: {},
     songReactionCursor: 0,
     adReactionCursor: 0,
     heardBulletins: [],
@@ -186,6 +206,19 @@ test('radio save normalization bounds counters and rejects malformed maps', () =
     cursor: -2,
     cycle: 2_000_000,
     selections: { good: 12, negative: -1, decimal: 1.5, ["x".repeat(121)]: 3 },
+    songCursors: {
+      good: 'good-ole-days', empty: '', tooLong: 's'.repeat(121), bad: 3,
+      ["p".repeat(121)]: 'cosmic-drift',
+    },
+    programProgress: {
+      good: {
+        nextBlock: 3,
+        completedBlockIds: ['ident', 'ident', 'talk-01', '', 'b'.repeat(121)],
+      },
+      negative: { nextBlock: -1, completedBlockIds: [] },
+      malformed: 'done',
+      ["q".repeat(121)]: { nextBlock: 2, completedBlockIds: ['ident'] },
+    },
     songReactionCursor: 2_000_000,
     adReactionCursor: -5,
     heardBulletins: [...Array.from({ length: 70 }, (_, i) => `bulletin.${i}`), 'bulletin.69'],
@@ -198,6 +231,10 @@ test('radio save normalization bounds counters and rejects malformed maps', () =
   assert.equal(radio.cursor, 0);
   assert.equal(radio.cycle, 1_000_000);
   assert.deepEqual(radio.selections, { good: 12 });
+  assert.deepEqual(radio.songCursors, { good: 'good-ole-days' });
+  assert.deepEqual(radio.programProgress, {
+    good: { nextBlock: 3, completedBlockIds: ['ident', 'talk-01'] },
+  });
   assert.equal(radio.songReactionCursor, 1_000_000);
   assert.equal(radio.adReactionCursor, 0);
   assert.equal(radio.heardBulletins.length, 64);

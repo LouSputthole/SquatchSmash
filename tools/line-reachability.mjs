@@ -4,6 +4,7 @@
  *
  *   npm run check:reachability            report, and fail on anything new
  *   node tools/line-reachability.mjs --all  also print what the allowlist covers
+ *   node tools/line-reachability.mjs --campaign  print every beat; fail on UNKNOWN
  *
  * WHY IT EXISTS. Every per-scene recording ledger in this repo enumerates
  * AUTHORED lines and calls them the scene's cues. `allSilentSquatchLines()`
@@ -36,33 +37,19 @@
  *    value; `detection.js` calls `onRadio?.('caib.sweep')`), and chasing the
  *    value would mean writing a data-flow analyser that gets it wrong.
  *  - A call site that BUILDS an id -- `dialogue.play(`nav.${lm.kind}`)` at
- *    src/beefrun/mission.js:1133 -- cannot be resolved statically at all.
- *    Every beat sharing that template's static prefix is treated as reachable
- *    and the report NAMES the template, so a reader can see exactly which
- *    beats the gate declined to judge instead of trusting a silence.
+ *    src/beefrun/mission.js:1133 -- is not evidence by itself. It is accepted
+ *    only when the runtime's finite data domain proves the exact ids that can
+ *    fill that template. Anything else is UNKNOWN, and UNKNOWN fails the gate.
  *  - Conversation trees are rebuilt under several mission-state contexts and
  *    the reachable sets are UNIONED, because a node can hang off an option
  *    list that only exists once you are carrying the package. A single
  *    context reported `bartender.tab`, `hallGuard.tailoring` and `dj.horns`
  *    as dead; all three are live on the other side of a flag.
  *
- * The cost of that bias is false negatives, and there are known ones: the
- * ceremony's `endured` and `roar` beats are dead in the cabin rewrite and this
- * gate cannot see it, because src/initiation/script.js lists their names as
- * strings in `RETIRED_CEREMONY_BEATS`. That is the right trade. A miss is a
- * line that stays as dead as it already was; a false positive is a person
- * being sent to fix something that works, once, and then never reading the
- * gate again.
- *
- * ---------------------------------------------------------------------------
- * SCENES COVERED: mansion, bing, beefrun, initiation, enolasquatch -- the five
- * the fourteen dead takes live in. Front and Center and golf are NOT covered
- * yet and should be: silver's `scriptContext()` (src/silver/voice-catalog.js)
- * is module-private, so a harness here would be a hand-copied duplicate of it
- * that goes wrong silently the first time somebody adds a context key, and
- * golf's trees want live mission state. Both want a small exported harness in
- * the scene first. Better an honest gap named here than a scene checked with a
- * stale copy of its own state.
+ * The campaign report below names every playable beat. A scene is PASS only
+ * when a native adapter proves its authored graph; a missing adapter is
+ * UNKNOWN with explicit non-green evidence. That distinction is deliberate:
+ * inventory completeness is not execution-path completeness.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -105,13 +92,61 @@ export function runtimeFiles(dir, exclude = []) {
 }
 
 /**
- * Every single- and double-quoted string in a file.
+ * Remove JavaScript comments without damaging strings or template literals.
  *
- * Deliberately not a parser. A regex over source text sees ids inside comments
- * too, and that is a feature rather than a bug here: a beat named in a comment
- * is a beat somebody is still talking about, and this gate would rather stay
- * quiet about it than be the reason a line gets deleted.
+ * A retired cue mentioned in a comment is documentation, not an executable
+ * path. The old scanner accepted it as proof and could therefore certify a
+ * recording which no runtime call could request. This deliberately small
+ * lexer preserves character positions/newlines so source anchors stay useful.
  */
+export function executableSource(text) {
+  let out = '';
+  let mode = 'code';
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1] ?? '';
+    if (mode === 'line-comment') {
+      if (ch === '\n') { out += ch; mode = 'code'; }
+      else out += ' ';
+      continue;
+    }
+    if (mode === 'block-comment') {
+      if (ch === '*' && next === '/') {
+        out += '  ';
+        i++;
+        mode = 'code';
+      } else out += ch === '\n' ? '\n' : ' ';
+      continue;
+    }
+    if (mode === 'single' || mode === 'double' || mode === 'template') {
+      out += ch;
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { escaped = true; continue; }
+      if ((mode === 'single' && ch === "'")
+        || (mode === 'double' && ch === '"')
+        || (mode === 'template' && ch === '`')) mode = 'code';
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      out += '  ';
+      i++;
+      mode = 'line-comment';
+    } else if (ch === '/' && next === '*') {
+      out += '  ';
+      i++;
+      mode = 'block-comment';
+    } else {
+      out += ch;
+      if (ch === "'") mode = 'single';
+      else if (ch === '"') mode = 'double';
+      else if (ch === '`') mode = 'template';
+    }
+  }
+  return out;
+}
+
+/** Every executable single- and double-quoted string in a file. */
 export function stringLiterals(text) {
   const out = new Set();
   for (const match of text.matchAll(/'([^'\\\n]{1,120})'|"([^"\\\n]{1,120})"/g)) {
@@ -179,7 +214,8 @@ export function scanRuntime(dir, exclude = []) {
   const idents = new Set();
   const templates = [];
   for (const file of runtimeFiles(dir, exclude)) {
-    const text = fs.readFileSync(file, 'utf8');
+    const raw = fs.readFileSync(file, 'utf8');
+    const text = executableSource(raw);
     for (const value of stringLiterals(text)) literals.add(value);
     for (const value of memberReferences(text)) members.add(value);
     for (const value of identifiers(text)) idents.add(value);
@@ -255,7 +291,9 @@ export function analyseKeyedMap({
  * Beefrun and the Enola Squatch both work this way, and both also hand ids
  * around as values, which is why a bare literal anywhere counts.
  */
-export function analyseBeatIds({ scene, map, mapName, runtime, source, countLines }) {
+export function analyseBeatIds({
+  scene, map, mapName, runtime, source, countLines, resolvedTemplateIds = new Set(),
+}) {
   const findings = [];
   const undecided = [];
   for (const [id, value] of Object.entries(map)) {
@@ -263,6 +301,7 @@ export function analyseBeatIds({ scene, map, mapName, runtime, source, countLine
     if (runtime.members.has(`${mapName}.${id}`)) continue;
     const template = coveringTemplate(runtime.templates, id);
     if (template) {
+      if (resolvedTemplateIds.has(id)) continue;
       undecided.push({ beat: `${mapName}['${id}']`, template });
       continue;
     }
@@ -446,6 +485,28 @@ export function unusedEntries(entries, usedIds, scenes) {
 const countArray = (value) => (Array.isArray(value) ? value.length : 1);
 /** HUD prose and stage directions carry no cue: they are read, not performed. */
 const countCued = (value) => (Array.isArray(value) ? value.filter((line) => line?.cue).length : 1);
+const countSpoken = (value) => (Array.isArray(value)
+  ? value.filter((line) => line?.speaker && typeof line?.text === 'string').length
+  : 1);
+
+function mergeAnalyses(scene, analyses, metadata = {}) {
+  return {
+    scene,
+    findings: analyses.flatMap((result) => result.findings ?? []),
+    undecided: analyses.flatMap((result) => result.undecided ?? []),
+    ...metadata,
+  };
+}
+
+function exactCueFinding(scene, beat, source, line) {
+  return {
+    scene,
+    beat,
+    lines: 1,
+    source,
+    say: firstWords(line),
+  };
+}
 
 /**
  * The Bing's mission-state contexts.
@@ -491,12 +552,12 @@ export async function analyseScenes() {
     const { SEQUENCES } = await import('../src/mansion/script.js');
     const runtime = scanRuntime('src/mansion', [source]);
     const aliases = aliasExports(fs.readFileSync(path.join(ROOT, source), 'utf8'), 'SEQUENCES');
-    reports.push({
-      scene: 'mansion',
-      ...analyseKeyedMap({
-        scene: 'mansion', map: SEQUENCES, mapName: 'SEQUENCES', runtime, aliases, source, countLines: countCued,
-      }),
-    });
+    reports.push(mergeAnalyses('mansion', [analyseKeyedMap({
+      scene: 'mansion', map: SEQUENCES, mapName: 'SEQUENCES', runtime, aliases, source, countLines: countCued,
+    })], {
+      completeCampaignBeats: ['silent_squatch', 'mansion_return'],
+      evidence: 'Every cued Silent Squatch sequence is an executable member, alias, or exact beat reference in mansion runtime.',
+    }));
   }
 
   {
@@ -512,20 +573,246 @@ export async function analyseScenes() {
     });
   }
 
+  {
+    const source = 'src/squatchfather/dialogue/dialogue.json';
+    const authored = JSON.parse(fs.readFileSync(path.join(ROOT, source), 'utf8'));
+    delete authored.speakers;
+    const runtime = scanRuntime('src/squatchfather', [source]);
+    reports.push(mergeAnalyses('squatchfather', [analyseKeyedMap({
+      scene: 'squatchfather', map: authored, mapName: 'DIALOGUE', runtime, source, countLines: countSpoken,
+    })], {
+      completeCampaignBeats: ['squatchfather'],
+      evidence: 'Every spoken sequence in dialogue.json is named by executable Squatchfather runtime source.',
+    }));
+  }
+
+  {
+    const source = 'src/cabin/script.js';
+    const lagSource = 'src/cabin/lag.js';
+    const {
+      CABIN_BEATS, CABIN_PHONE_CALLS,
+    } = await import('../src/cabin/script.js');
+    const {
+      LAG_DIALOGUE_CATALOG, createLagHintDirector,
+    } = await import('../src/cabin/lag.js');
+    const runtime = scanRuntime('src/cabin', [source, lagSource]);
+    const voicedBeats = Object.fromEntries(CABIN_BEATS
+      .filter(({ lines }) => countCued(lines) > 0)
+      .map(({ id, lines }) => [id, lines]));
+    const beatResult = analyseBeatIds({
+      scene: 'cabin', map: voicedBeats, mapName: 'CABIN_BEATS', runtime, source, countLines: countCued,
+    });
+    const callResult = analyseKeyedMap({
+      scene: 'cabin', map: CABIN_PHONE_CALLS, mapName: 'CABIN_PHONE_CALLS', runtime, source,
+      countLines: (call) => (call?.pickup ? 1 : 0) + (call?.lines?.length ?? 0) + (call?.replies?.length ?? 0),
+    });
+
+    /* Lag's cue ids are intentionally dynamic, so prove the actual finite
+     * selection domain rather than accepting `vo.cabin.lag.${id}`. Five
+     * synthetic discoveries enable every minimum-gated after-line without
+     * retiring any physical clue; one fresh equal-weight director per chop
+     * bucket proves each wood reaction can be selected. */
+    const hintDirector = createLagHintDirector({ random: () => 0 });
+    for (let index = 0; index < 5; index += 1) hintDirector.discover(`reachability.${index}`);
+    const selectedLagIds = new Set(hintDirector.debug.eligible);
+    const woodLines = LAG_DIALOGUE_CATALOG.filter(({ kind }) => kind === 'wood');
+    for (let index = 0; index < woodLines.length; index += 1) {
+      const director = createLagHintDirector({ random: () => (index + 0.5) / woodLines.length });
+      const selected = director.reactToChop({ now: 0 });
+      if (selected.ok) selectedLagIds.add(selected.id);
+    }
+    const lagFindings = LAG_DIALOGUE_CATALOG
+      .filter(({ id }) => !selectedLagIds.has(id))
+      .map((line) => exactCueFinding('cabin', `LAG_DIALOGUE_CATALOG['${line.id}']`, lagSource, line));
+    const lagDispatchMissing = !runtime.idents.has('createLagHintDirector')
+      || !runtime.idents.has('speakLagLine');
+    if (lagDispatchMissing) {
+      lagFindings.push(exactCueFinding(
+        'cabin', 'LAG_DIALOGUE_CATALOG runtime dispatch', lagSource,
+        { text: 'The finite Lag selection domain is not connected to speakLagLine in cabin runtime.' },
+      ));
+    }
+    reports.push(mergeAnalyses('cabin', [beatResult, callResult, {
+      findings: lagFindings, undecided: [],
+    }], {
+      completeCampaignBeats: ['cabin_lay_low', 'booski_sasole_call', 'cabin_two'],
+      evidence: 'Cabin beat and phone-call keys are executable runtime references; Lag hint/chop cue ids are exhaustively selected from their finite domains.',
+    }));
+  }
+
   for (const [scene, dir, source, module] of [
     ['beefrun', 'src/beefrun', 'src/beefrun/script.js', '../src/beefrun/script.js'],
     ['enolasquatch', 'src/enolasquatch', 'src/enolasquatch/dialogue/script.js', '../src/enolasquatch/dialogue/script.js'],
   ]) {
     const { BEATS, BARKS } = await import(module);
+    const resolvedTemplateIds = scene === 'beefrun'
+      ? new Set((await import('../src/beefrun/config.js')).LANDMARKS
+        .filter(({ kind }) => kind !== 'falls')
+        .map(({ kind }) => `nav.${kind}`))
+      : new Set();
     const runtime = scanRuntime(dir, [source]);
     const findings = [];
     const undecided = [];
     for (const [mapName, map] of [['BEATS', BEATS], ['BARKS', BARKS]]) {
-      const result = analyseBeatIds({ scene, map, mapName, runtime, source, countLines: countArray });
+      const result = analyseBeatIds({
+        scene, map, mapName, runtime, source, countLines: countArray, resolvedTemplateIds,
+      });
       findings.push(...result.findings);
       undecided.push(...result.undecided);
     }
-    reports.push({ scene, findings, undecided });
+    reports.push({
+      scene,
+      findings,
+      undecided,
+      completeCampaignBeats: scene === 'beefrun' ? ['beef_run'] : ['enola_squatch'],
+      evidence: 'Every authored beat/bark id is an executable reference or belongs to a proved finite dispatch domain.',
+    });
+  }
+
+  {
+    const source = 'src/nowake/dialogue.js';
+    const {
+      NO_WAKE_BODY_LINES,
+      NO_WAKE_CABIN_SCRIPT,
+      NO_WAKE_DOCK_LINES,
+      NO_WAKE_INLET_LINES,
+      allNoWakeVoiceLines,
+      buildNoWakeCruise,
+    } = await import('../src/nowake/dialogue.js');
+    const runtime = scanRuntime('src/nowake', [source]);
+    const analyses = [
+      analyseKeyedMap({
+        scene: 'nowake', map: NO_WAKE_INLET_LINES, mapName: 'NO_WAKE_INLET_LINES', runtime, source, countLines: countArray,
+      }),
+      analyseKeyedMap({
+        scene: 'nowake', map: NO_WAKE_BODY_LINES, mapName: 'NO_WAKE_BODY_LINES', runtime, source, countLines: countArray,
+      }),
+    ];
+    const findings = [];
+    for (const [identifier, lines] of [
+      ['NO_WAKE_DOCK_LINES', NO_WAKE_DOCK_LINES],
+      ['NO_WAKE_CABIN_SCRIPT', NO_WAKE_CABIN_SCRIPT],
+    ]) {
+      if (!runtime.idents.has(identifier)) {
+        findings.push(exactCueFinding('nowake', identifier, source, lines[0]));
+      }
+    }
+    if (!runtime.idents.has('buildNoWakeCruise')) {
+      findings.push(exactCueFinding('nowake', 'buildNoWakeCruise', source, { text: 'The cruise variant builder has no executable caller.' }));
+    }
+    const exercisedCues = new Set([
+      ...NO_WAKE_DOCK_LINES,
+      ...NO_WAKE_CABIN_SCRIPT,
+      ...Object.values(NO_WAKE_INLET_LINES),
+      ...Object.values(NO_WAKE_BODY_LINES),
+      ...buildNoWakeCruise({ beefDetected: false, motelPoliceHeat: 0 }),
+      ...buildNoWakeCruise({ beefDetected: true, motelPoliceHeat: 0 }),
+      ...buildNoWakeCruise({ beefDetected: false, motelPoliceHeat: 56 }),
+    ].map(({ cue }) => cue));
+    for (const line of allNoWakeVoiceLines()) {
+      if (!exercisedCues.has(line.cue)) {
+        findings.push(exactCueFinding('nowake', `cue['${line.cue}']`, source, line));
+      }
+    }
+    analyses.push({ findings, undecided: [] });
+    reports.push(mergeAnalyses('nowake', analyses, {
+      completeCampaignBeats: ['no_wake'],
+      evidence: 'Dock/cabin containers and inlet/body keys are executable runtime references; all three finite cruise-history variants exhaust the authored cue catalog.',
+    }));
+  }
+
+  for (const [scene, dir, source, module, completeCampaignBeats] of [
+    ['silvercase', 'src/silvercase', 'src/silvercase/dialogue/script.js', '../src/silvercase/dialogue/script.js', ['silver_case_setup', 'silver_case_mansion']],
+    ['siege', 'src/mansion/siege', 'src/mansion/siege/script.js', '../src/mansion/siege/script.js', ['mansion_siege']],
+  ]) {
+    const { SEQUENCES } = await import(module);
+    const runtime = scanRuntime(dir, [source]);
+    reports.push(mergeAnalyses(scene, [analyseKeyedMap({
+      scene, map: SEQUENCES, mapName: 'SEQUENCES', runtime, source, countLines: countArray,
+    })], {
+      completeCampaignBeats,
+      evidence: 'Every authored sequence key is named by executable scene runtime source.',
+    }));
+  }
+
+  {
+    const source = 'src/golf/script.js';
+    const { buildScripts, unreachableCues } = await import('../src/golf/script.js');
+    const noop = () => {};
+    const trees = buildScripts({
+      play: noop,
+      playSequence: noop,
+      remember: noop,
+      flag: noop,
+      playCallbacks: noop,
+      callbackHold: () => 0,
+    });
+    const findings = unreachableCues(trees).map((cue) => exactCueFinding(
+      'golf', `CUES['${cue}']`, source, { text: cue },
+    ));
+    reports.push({
+      scene: 'golf', findings, undecided: [], completeCampaignBeats: ['silver_pines'],
+      evidence: 'Golf\'s native unreachableCues harness proves every registry cue appears in a sequence, history branch, or live conversation tree.',
+    });
+  }
+
+  {
+    const source = 'src/specialmeeting/script.js';
+    const { BEATS } = await import('../src/specialmeeting/script.js');
+    const { walkScene } = await import('../src/specialmeeting/ride.js');
+    const pickers = [
+      () => 1,
+      (options) => options.at(-1).index,
+      (options) => options[Math.min(1, options.length - 1)].index,
+      (options) => options[Math.min(2, options.length - 1)].index,
+      (options) => options[Math.min(3, options.length - 1)].index,
+      (options, _beat, number) => options[(number - 1) % options.length].index,
+      (options) => (options.find((option) => !option.accepts) ?? options[0]).index,
+    ];
+    const visited = new Set();
+    const said = new Set();
+    const findings = [];
+    for (const pick of pickers) {
+      const run = walkScene({ pick });
+      if (!run.finished) {
+        findings.push(exactCueFinding('specialmeeting', 'walkScene did not finish', source, { text: 'One real Special Meeting choice strategy did not reach the handoff.' }));
+      }
+      for (const id of run.visited) visited.add(id);
+      for (const cue of run.said) said.add(cue);
+    }
+    for (const authoredBeat of BEATS.filter(({ act }) => act >= 2)) {
+      if (!visited.has(authoredBeat.id)) {
+        findings.push(exactCueFinding('specialmeeting', `BEATS['${authoredBeat.id}']`, source, authoredBeat.lines?.[0]));
+      }
+      for (const line of authoredBeat.lines ?? []) {
+        if (line?.cue && !said.has(line.cue)) {
+          findings.push(exactCueFinding('specialmeeting', `cue['${line.cue}']`, source, line));
+        }
+      }
+    }
+
+    /* Act One is a timed apartment prelude, not part of walkScene. Its shared
+     * module owns seven exact beats and apartment-story owns SM-030. Exact ids
+     * must appear in executable source; comments cannot satisfy this scan. */
+    const actOneRuntime = [
+      'src/core/special-meeting-home-prelude.js',
+      'src/core/apartment-story.js',
+      'src/main.js',
+      'src/luxury-apartment/main.js',
+    ].map((file) => executableSource(fs.readFileSync(path.join(ROOT, file), 'utf8'))).join('\n');
+    const actOneLiterals = stringLiterals(actOneRuntime);
+    for (const authoredBeat of BEATS.filter(({ act }) => act === 1)) {
+      if (!(authoredBeat.lines ?? []).some(({ cue }) => cue)) continue;
+      if (!actOneLiterals.has(authoredBeat.id)) {
+        findings.push(exactCueFinding('specialmeeting', `BEATS['${authoredBeat.id}']`, source, authoredBeat.lines?.[0]));
+      }
+    }
+    reports.push({
+      scene: 'specialmeeting', findings, undecided: [],
+      completeCampaignBeats: ['special_meeting_call', 'pickup_ride'],
+      evidence: 'Apartment prelude beat ids are exact executable references; seven exhaustive numbered-choice strategies union every ride beat and emitted cue through the handoff.',
+      runtimeEvidence: 'semantic-smoke special_meeting_canonical exercises real pointer-lock/input and inspects canonical speech playback receipts.',
+    });
   }
 
   {
@@ -547,11 +834,116 @@ export async function analyseScenes() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Campaign-beat disposition                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Turn scene-native graph proofs into one honest row per campaign beat.
+ *
+ * A catalog row is not proof. A beat becomes PASS only when a report declares
+ * that exact campaign id complete and the report has neither a live finding
+ * nor an unresolved dynamic dispatch. Missing adapters stay UNKNOWN; the
+ * caller can render the whole campaign without laundering inventory into
+ * reachability.
+ */
+export function buildCampaignBeatReachability({
+  spine,
+  dialogueRows,
+  reports,
+  allowlistEntries = [],
+}) {
+  const rowsByBeat = new Map();
+  for (const row of dialogueRows ?? []) {
+    const key = String(row?.beat ?? '');
+    rowsByBeat.set(key, (rowsByBeat.get(key) ?? 0) + 1);
+  }
+  const reportByBeat = new Map();
+  for (const report of reports ?? []) {
+    for (const beatId of report.completeCampaignBeats ?? []) {
+      if (reportByBeat.has(beatId)) {
+        throw new Error(`Campaign beat ${beatId} has two dialogue-reachability owners`);
+      }
+      reportByBeat.set(beatId, report);
+    }
+  }
+
+  return (spine ?? []).map((beat) => {
+    const authoredLines = rowsByBeat.get(String(beat.n)) ?? 0;
+    if (authoredLines === 0) {
+      return {
+        beat: beat.n,
+        beatId: beat.id,
+        title: beat.title,
+        scene: beat.scene,
+        authoredLines,
+        adapter: null,
+        status: 'INTENTIONAL_NA',
+        evidence: 'The generated campaign dialogue ledger contains zero authored spoken lines for this beat.',
+      };
+    }
+
+    const report = reportByBeat.get(beat.id);
+    if (!report) {
+      return {
+        beat: beat.n,
+        beatId: beat.id,
+        title: beat.title,
+        scene: beat.scene,
+        authoredLines,
+        adapter: null,
+        status: 'UNKNOWN',
+        evidence: `${authoredLines} authored lines exist, but an execution-path adapter for this campaign beat is not proved.`,
+      };
+    }
+
+    const { kept, suppressed } = applyReachabilityAllowlist(
+      report.findings ?? [], allowlistEntries,
+    );
+    const base = {
+      beat: beat.n,
+      beatId: beat.id,
+      title: beat.title,
+      scene: beat.scene,
+      authoredLines,
+      adapter: report.scene,
+    };
+    if (kept.length) {
+      return {
+        ...base,
+        status: 'FAIL',
+        evidence: `${kept.length} unreachable authored ${kept.length === 1 ? 'path is' : 'paths are'} proved by the ${report.scene} adapter.`,
+      };
+    }
+    if ((report.undecided ?? []).length) {
+      return {
+        ...base,
+        status: 'UNKNOWN',
+        evidence: `${report.undecided.length} dynamic dispatch ${report.undecided.length === 1 ? 'domain is' : 'domains are'} not proved by a finite runtime source.`,
+      };
+    }
+    if (suppressed.length) {
+      return {
+        ...base,
+        status: 'ALLOWLISTED_DEBT',
+        evidence: `${report.evidence ?? 'Scene-native graph proof completed.'} ${suppressed.length} known unreachable ${suppressed.length === 1 ? 'path remains' : 'paths remain'} explicitly allowlisted.`,
+      };
+    }
+    return {
+      ...base,
+      status: 'PASS',
+      evidence: report.evidence ?? 'Scene-native execution graph proves every authored line can be dispatched.',
+      runtimeEvidence: report.runtimeEvidence ?? null,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* CLI                                                                 */
 /* ------------------------------------------------------------------ */
 
 async function main() {
   const showAll = process.argv.includes('--all');
+  const showCampaign = process.argv.includes('--campaign');
   const doc = JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf8'));
   const { entries, issues } = validateReachabilityAllowlist(doc);
   if (issues.length) {
@@ -564,6 +956,8 @@ async function main() {
   const reports = await analyseScenes();
   const scenes = reports.map((report) => report.scene);
   const allFindings = reports.flatMap((report) => report.findings);
+  const allUnknown = reports.flatMap((report) => report.undecided
+    .map((entry) => ({ scene: report.scene, ...entry })));
   const { kept, suppressed, used } = applyReachabilityAllowlist(allFindings, entries);
   const stale = unusedEntries(entries, used, scenes);
 
@@ -584,7 +978,37 @@ async function main() {
     /* Say what was NOT judged. A gate that silently declines to look is the
      * gate in ENGINE-TRAPS entry 10 that reported nothing and was believed. */
     for (const { beat, template } of report.undecided) {
-      console.log(`  ? ${beat} — built by template \`${template.prefix}\${…}\` at ${template.source}; not statically resolvable, treated as reachable`);
+      console.log(`  ? ${beat} — built by template \`${template.prefix}\${…}\` at ${template.source}; UNKNOWN until its finite data domain is proved`);
+    }
+  }
+
+  let campaignOpen = [];
+  if (showCampaign) {
+    const [{ CAMPAIGN_SPINE }] = await Promise.all([
+      import('../src/core/campaign-spine.js'),
+    ]);
+    const dialogueRows = JSON.parse(fs.readFileSync(
+      path.join(ROOT, 'docs/dialogue/DIALOGUE-PASS.json'), 'utf8',
+    ));
+    const campaignRows = buildCampaignBeatReachability({
+      spine: CAMPAIGN_SPINE,
+      dialogueRows,
+      reports,
+      allowlistEntries: entries,
+    });
+    console.log('\nCampaign dialogue reachability — every playable beat:\n');
+    for (const row of campaignRows) {
+      console.log(`  ${String(row.beat).padStart(4)}  ${row.status.padEnd(18)} ${row.beatId}`
+        + ` — ${row.authoredLines} authored line(s); ${row.evidence}`);
+    }
+    const counts = Object.fromEntries([
+      'PASS', 'ALLOWLISTED_DEBT', 'INTENTIONAL_NA', 'FAIL', 'UNKNOWN',
+    ].map((status) => [status, campaignRows.filter((row) => row.status === status).length]));
+    console.log(`\nCampaign disposition: ${Object.entries(counts)
+      .map(([status, count]) => `${count} ${status}`).join(' · ')}`);
+    campaignOpen = campaignRows.filter(({ status }) => status === 'FAIL' || status === 'UNKNOWN');
+    if (campaignOpen.length) {
+      console.error(`${campaignOpen.length} campaign beat(s) are FAIL/UNKNOWN. Unknown is not a pass.`);
     }
   }
 
@@ -595,11 +1019,15 @@ async function main() {
     console.error('docs/ENGINE-TRAPS.md entry 10: the last time entries went stale, the gate had gone blind.');
   }
 
-  if (kept.length || stale.length) {
+  if (allUnknown.length) {
+    console.error(`\nUNKNOWN dynamic dispatches: ${allUnknown.length}. Unknown is not a pass.`);
+  }
+
+  if (kept.length || stale.length || allUnknown.length || campaignOpen.length) {
     process.exitCode = 1;
     return;
   }
-  console.log(`\nok — every authored line in ${scenes.length} scenes is dispatched or allowlisted.`);
+  console.log(`\nok — every authored line in ${scenes.length} scene-native adapters is dispatched or allowlisted.`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

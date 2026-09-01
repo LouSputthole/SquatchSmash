@@ -126,8 +126,14 @@ for (const [dir, name] of [
   ['assets/arcade/', 'manifest.json'],
   ['assets/models/', 'manifest.json'],
   ['assets/music/', 'manifest.json'],
+  ['assets/faces/', 'index.json'],
   ['assets/sfx/', 'manifest.json'],
   ['assets/sfx/', 'index.json'],
+  /* Runtime captions for a delivered take whose script has moved on. This is
+   * development metadata, but phone.js reads it during boot; baking the tiny
+   * queue prevents a strict-CSP single-file preview from attempting a network
+   * fetch that can never succeed. */
+  ['assets/sfx/', 'rerecord.json'],
 ]) {
   inline[dir + name] = JSON.parse(read(dir + name).toString('utf8'));
 }

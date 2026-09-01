@@ -532,7 +532,8 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   const beatTwentySeven = createLuxuryApartmentStory({ campaign });
   assert.equal(beatTwentySeven.pendingCall(), SPECIAL_MEETING_BOOSKI_CALL);
   assert.equal(beatTwentySeven.callAnswered(SPECIAL_MEETING_BOOSKI_CALL), true);
-  assert.deepEqual(beatTwentySeven.tryLeave(), {
+  assert.equal(beatTwentySeven.tryLeave().id, 'special_meeting_car');
+  assert.deepEqual(beatTwentySeven.tryLeave({ carOutside: true }), {
     kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,
   });
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_SPECIAL_MEETING);

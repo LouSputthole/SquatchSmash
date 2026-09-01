@@ -195,6 +195,35 @@ test('the meeting notice is one Day One bulletin and never repeats once heard', 
   assert.equal(later._queue.some((segment) => segment.notice), false);
 });
 
+test('campaign news is derived from the receiver manifest policy and campaign state', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const completedMotel = { missions: { jerky_motel: { status: 'complete' } } };
+  const audio = { ready: false };
+  const hud = { setRadio() {}, toast() {} };
+
+  const disabled = new Radio(audio, hud, { hour: 9 }, {
+    news: () => [{ id: 'scene-local-bypass', lines: ['must not air'] }],
+    state: {
+      load: () => ({}),
+      context: () => ({ receiverId: 'silver_pines_lead_cart', campaignNews: 'disabled' }),
+      campaignState: () => completedMotel,
+    },
+  });
+  disabled._programContext = disabled.state.context();
+  assert.deepEqual(disabled._eligibleNews(), []);
+
+  const enabled = new Radio(audio, hud, { hour: 9 }, {
+    news: () => [],
+    state: {
+      load: () => ({}),
+      context: () => ({ receiverId: 'apartment', campaignNews: 'enabled' }),
+      campaignState: () => completedMotel,
+    },
+  });
+  enabled._programContext = enabled.state.context();
+  assert.deepEqual(enabled._eligibleNews().map(({ id }) => id), ['news.segment.motel']);
+});
+
 test('the first music block starts the first manifest track and saves the next cursor', async () => {
   const { Radio } = await import('../src/core/radio.js');
   let saved = {
@@ -234,6 +263,65 @@ test('the first music block starts the first manifest track and saves the next c
   assert.equal(radio._track.title, 'First');
 });
 
+test('playlist cursors persist the next stable song id independently per physical venue', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  let saved = {
+    volume: 0.7, cursor: 0, cycle: 0, selections: {}, songCursors: {},
+    programProgress: {}, songReactionCursor: 0, adReactionCursor: 0, power: true,
+  };
+  const state = {
+    load: () => structuredClone(saved),
+    save: (next) => { saved = structuredClone(next); },
+  };
+  const audio = {
+    ready: true, ctx: { currentTime: 0 }, play() { return null; },
+    startLoop() {}, stopLoop() {}, setLoopVolume() {},
+  };
+  const installElement = (radio) => {
+    radio.el = {
+      readyState: 1, duration: 180, currentTime: 0,
+      addEventListener() {}, play() { return Promise.resolve(); }, pause() {},
+    };
+    radio._ensureGraph = () => {};
+    radio._fadeTo = () => {};
+  };
+
+  const apartment = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 }, {
+    venue: 'apartment', state,
+  });
+  apartment.tracks = [
+    { id: 'first', file: 'first.mp3', title: 'First' },
+    { id: 'second', file: 'second.mp3', title: 'Second' },
+  ];
+  installElement(apartment);
+  apartment._startSong();
+  assert.equal(saved.songCursors['squatch:apartment'], 'second');
+
+  const reordered = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 }, {
+    venue: 'apartment', state,
+  });
+  reordered.tracks = [
+    { id: 'second', file: 'second.mp3', title: 'Second' },
+    { id: 'new', file: 'new.mp3', title: 'New' },
+    { id: 'first', file: 'first.mp3', title: 'First' },
+  ];
+  installElement(reordered);
+  reordered._startSong();
+  assert.equal(reordered._track.id, 'second', 'reordering the manifest cannot change the saved next record');
+
+  const golf = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 }, {
+    venue: 'silver_pines', state,
+  });
+  golf.tracks = [
+    { id: 'first', file: 'first.mp3', title: 'First' },
+    { id: 'second', file: 'second.mp3', title: 'Second' },
+  ];
+  installElement(golf);
+  golf._startSong();
+  assert.equal(golf._track.id, 'first', 'a different physical venue owns a separate playlist cursor');
+  assert.equal(saved.songCursors['squatch:silver_pines'], 'second');
+});
+
 test('the Silver Pines full-song receiver does not apply the apartment excerpt timer', async () => {
   const { Radio } = await import('../src/core/radio.js');
   const radio = new Radio({ ready: false }, { setRadio() {}, toast() {} }, { hour: 9 }, {
@@ -250,6 +338,44 @@ test('the Silver Pines full-song receiver does not apply the apartment excerpt t
 
   assert.equal(radio.songPlaying, true,
     'a cart song continues past the shared thirty-second radio excerpt');
+});
+
+test('Nehoo always hard-cuts at 15 seconds to its authored ad, even on the Golf receiver', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/music/manifest.json'), 'utf8'));
+  const nehoo = manifest.tracks.find((track) => track.id === 'nehoo-with-a-guu');
+  assert.deepEqual(nehoo.afterCut, { type: 'ad', id: 'jerky' });
+
+  const played = [];
+  const audio = {
+    ready: true,
+    ctx: { currentTime: 0 },
+    play(cue) { played.push(cue); return { buffer: { duration: 2 }, stop() {} }; },
+    startLoop() {}, stopLoop() {}, setLoopVolume() {},
+  };
+  const radio = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 8 }, {
+    venue: 'silver_pines', fullSongs: true, canPlayNotice: () => false,
+  });
+  radio.tracks = manifest.tracks;
+  radio.el = {
+    readyState: 1, duration: 180, currentTime: 0,
+    addEventListener() {}, removeEventListener() {},
+    play() { return Promise.resolve(); }, pause() {},
+  };
+  radio._ensureGraph = () => {};
+  radio._fadeTo = () => {};
+  radio.on = true;
+
+  radio._startSong({ songId: 'nehoo-with-a-guu' });
+  radio.el.currentTime = 15;
+  radio.update(0.1);
+
+  assert.equal(radio.songPlaying, false);
+  assert.equal(played.includes('radio.cut'), true);
+  assert.equal(radio._activeSegment.line, '…');
+  assert.equal(radio._queue.some((segment) => /LOU’S ORIGINAL JERKY/.test(segment.line ?? '')), true);
+  assert.equal(radio._queue.some((segment) => segment.notice), false,
+    'the Nehoo edit owns its ad target and cannot depend on campaign notices');
 });
 
 test('spoken timing has one explicit gap rather than counting it twice', async () => {
@@ -391,4 +517,141 @@ test('a connected phone call ducks the radio by 66 percent without changing its 
   assert.equal(radio.volume, knob);
   assert.ok(Math.abs(loopVolumes.at(-1).volume - 0.055 * knob) < 1e-9);
   assert.ok(Math.abs(voiceVolumes.at(-1).volume - knob) < 1e-9);
+});
+
+test('a hub tune-in receipts the ident before the show intro reaches playback', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const { radioProgramFor } = await import('../src/core/radio-program.js');
+  const calls = [];
+  let receiptId = 0;
+  let saved = {
+    volume: 0.7, cursor: 0, cycle: 0, selections: {}, songCursors: {},
+    programProgress: {}, songReactionCursor: 0, adReactionCursor: 0, power: true,
+  };
+  const audio = {
+    ready: false,
+    play(cue) { calls.push(cue); return { buffer: { duration: cue === 'radio.ident.squatch' ? 3.631 : 2 }, stop() {} }; },
+    playWithReceipt(cue, opts) {
+      const source = this.play(cue, opts);
+      return {
+        source,
+        receipt: { id: ++receiptId, requested: cue, actual: cue, source: 'buffer', started: true },
+      };
+    },
+    startLoop() {}, stopLoop() {}, setLoopVolume() {},
+  };
+  const program = radioProgramFor({ beatId: 'first_apartment', receiverId: 'apartment' });
+  const state = {
+    load: () => structuredClone(saved),
+    save: (next) => { saved = structuredClone(next); },
+    context: () => ({
+      receiverId: 'apartment', beatId: 'first_apartment', campaignNews: 'enabled',
+      programId: program.id, program,
+    }),
+  };
+  const radio = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 }, { state });
+
+  radio.turnOn();
+
+  assert.equal(radio.playbackReceipts[0].programId, 'H-APT-01');
+  assert.equal(radio.playbackReceipts[0].blockId, 'ident');
+  assert.equal(radio.playbackReceipts[0].requested, 'radio.ident.squatch');
+  assert.equal(radio.playbackReceipts[0].started, true);
+  assert.equal(calls.filter((cue) => cue !== 'radio.click')[0], 'radio.ident.squatch');
+  assert.equal(calls.some((cue) => cue === voiceOf(showIntroLine(showAt(radio.station, 9))).cue), false);
+  assert.equal(saved.programProgress['H-APT-01'], undefined,
+    'starting the ident is not the same as finishing it');
+});
+
+test('a completed entry-packet block resumes at the next block on another receiver instance', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const { radioProgramFor } = await import('../src/core/radio-program.js');
+  const program = radioProgramFor({ beatId: 'first_apartment', receiverId: 'apartment' });
+  let saved = {
+    volume: 0.7, cursor: 0, cycle: 0, selections: {}, songCursors: {},
+    programProgress: {}, songReactionCursor: 0, adReactionCursor: 0, power: true,
+  };
+  const state = {
+    load: () => structuredClone(saved),
+    save: (next) => { saved = structuredClone(next); },
+    context: () => ({
+      receiverId: 'apartment', beatId: 'first_apartment', campaignNews: 'enabled',
+      programId: program.id, program,
+    }),
+  };
+  const audio = {
+    ready: false,
+    play(cue) { return { buffer: { duration: cue === 'radio.ident.squatch' ? 3.631 : 2 }, stop() {} }; },
+    playWithReceipt(cue, opts) {
+      const source = this.play(cue, opts);
+      return { source, receipt: { requested: cue, actual: cue, source: 'buffer', started: true } };
+    },
+    startLoop() {}, stopLoop() {}, setLoopVolume() {},
+  };
+
+  const first = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 }, { state });
+  first.turnOn();
+  first.update(3.631);
+
+  assert.deepEqual(saved.programProgress['H-APT-01'], {
+    nextBlock: 1,
+    completedBlockIds: ['ident'],
+  });
+  assert.equal(first.playbackReceipts[0].completed, true);
+
+  const resumed = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 }, { state });
+  resumed.turnOn();
+  assert.equal(resumed.playbackReceipts[0].blockId, 'show-intro');
+  assert.equal(resumed.playbackReceipts[0].kind, 'voice');
+  assert.equal(resumed.playbackReceipts[0].requested,
+    voiceOf(showIntroLine(showAt(resumed.station, 9))).cue);
+});
+
+test('an entry-packet song with no media playback path skips once instead of recursing', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  let saved = {
+    volume: 0.7, cursor: 0, cycle: 0, selections: {}, songCursors: {},
+    programProgress: {}, songReactionCursor: 0, adReactionCursor: 0, power: true,
+  };
+  const program = {
+    id: 'H-DAMAGED-01',
+    blocks: [{ id: 'song-1', type: 'song', songId: 'known-song' }],
+  };
+  const radio = new Radio(
+    {
+      ready: false,
+      play() { return null; },
+      startLoop() {}, stopLoop() {}, setLoopVolume() {},
+    },
+    { setRadio() {}, toast() {} },
+    { hour: 9 },
+    {
+      state: {
+        load: () => structuredClone(saved),
+        save: (next) => { saved = structuredClone(next); },
+        context: () => ({ program, programId: program.id, campaignNews: 'disabled' }),
+      },
+    },
+  );
+  radio.tracks = [{ id: 'known-song', file: 'known.mp3', title: 'Known' }];
+
+  radio.turnOn();
+
+  assert.deepEqual(saved.programProgress['H-DAMAGED-01'], {
+    nextBlock: 1,
+    completedBlockIds: ['song-1'],
+  });
+  assert.deepEqual(radio.playbackReceipts.map((receipt) => ({
+    blockId: receipt.blockId,
+    source: receipt.source,
+    started: receipt.started,
+    completed: receipt.completed,
+    skipped: receipt.skipped,
+  })), [{
+    blockId: 'song-1',
+    source: 'unavailable',
+    started: false,
+    completed: true,
+    skipped: true,
+  }]);
 });

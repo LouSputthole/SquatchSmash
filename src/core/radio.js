@@ -27,6 +27,7 @@ import {
   showIntroLine,
   voiceOf,
   MEETING_NOTICE,
+  newsSegmentsFor,
 } from './stations.js';
 import { loadJson, assetUrl } from './assets.js';
 
@@ -163,6 +164,17 @@ export class Radio {
     /** Position in the running order. */
     this._cycle = Number.isSafeInteger(saved.cycle) ? saved.cycle : 0;
     this._selections = new Map(Object.entries(saved.selections ?? {}));
+    this._songCursors = new Map(Object.entries(saved.songCursors ?? {}));
+    this._programProgress = Object.fromEntries(
+      Object.entries(saved.programProgress ?? {}).map(([id, progress]) => [id, {
+        nextBlock: progress.nextBlock ?? 0,
+        completedBlockIds: [...(progress.completedBlockIds ?? [])],
+      }]),
+    );
+    /** Ordered proof that programme output reached its concrete playback path. */
+    this.playbackReceipts = [];
+    this._playbackReceiptId = 0;
+    this._programContext = null;
     this._songReactionCursor = Number.isSafeInteger(saved.songReactionCursor)
       ? saved.songReactionCursor : 0;
     this._adReactionCursor = Number.isSafeInteger(saved.adReactionCursor)
@@ -215,6 +227,13 @@ export class Radio {
       cursor: this.cursor,
       cycle: this._cycle,
       selections: Object.fromEntries(this._selections ?? []),
+      songCursors: Object.fromEntries(this._songCursors ?? []),
+      programProgress: Object.fromEntries(
+        Object.entries(this._programProgress ?? {}).map(([id, progress]) => [id, {
+          nextBlock: progress.nextBlock,
+          completedBlockIds: [...progress.completedBlockIds],
+        }]),
+      ),
       songReactionCursor: this._songReactionCursor ?? 0,
       adReactionCursor: this._adReactionCursor ?? 0,
       power: this.preferredOn,
@@ -434,7 +453,24 @@ export class Radio {
 
   _current() {
     const list = this.playlist;
-    return list[this.cursor % Math.max(1, list.length)] || null;
+    if (!list.length) return null;
+    const stableId = this._songCursors.get(this._playlistKey());
+    if (stableId) {
+      const saved = list.find((track) => this._trackId(track) === stableId);
+      if (saved) return saved;
+    }
+    /* A v26 save has only the scalar cursor. Let the first receiver migrate
+     * that position once; all newly encountered physical venues start at the
+     * head of their own rotation rather than inheriting another room's turn. */
+    if (!this._songCursors.size) return list[this.cursor % list.length] ?? null;
+    return list[0];
+  }
+
+  _playlistKey() { return `${this.station.id}:${this.venue}`; }
+
+  _trackId(track) {
+    if (typeof track?.id === 'string' && track.id) return track.id;
+    return String(track?.file ?? '').replace(/\.[^.]+$/, '');
   }
 
   /* ---------------------------------------------------------------- */
@@ -568,10 +604,11 @@ export class Radio {
       ref: 2.6, maxDist: RADIO_HUD_AUDIBLE_DISTANCE,
     });
     this._show = null;
-    this._pump();
-    if (announce) {
-      this.audio.play(st.ident, { position: this.position, volume: this._level(0.55) });
+    this._programContext = this.state?.context?.() ?? null;
+    if (announce && !this._programContext?.program) {
+      this._queue.push({ cueOnly: st.ident, ident: true });
     }
+    this._pump();
     return;
   }
 
@@ -588,6 +625,9 @@ export class Radio {
     if (this.songPlaying) {
       this._endSong(auto ? SONG_FADE_OUT : 0.4);
       return;
+    }
+    if (this._activeSegment?._program) {
+      this._completeProgramBlock(this._activeSegment._program, { skipped: true });
     }
     this._queue.length = 0;
     try { this._voice?.stop(); } catch { /* already finished */ }
@@ -613,6 +653,7 @@ export class Radio {
    * you past the rest of the bit rather than one line further into it.
    */
   _refill() {
+    if (this._refillProgram()) return;
     const st = this.station;
     const show = showAt(st, this.time ? this.time.hour : 9);
     if (show !== this._show) {
@@ -725,6 +766,140 @@ export class Radio {
     }
   }
 
+  /** Queue exactly one unfinished entry-packet block. */
+  _refillProgram() {
+    const program = this._programContext?.program;
+    if (!program) return false;
+    for (let guard = 0; guard <= program.blocks.length; guard++) {
+      const progress = this._programProgress[program.id] ?? {
+        nextBlock: 0, completedBlockIds: [],
+      };
+      const entry = program.blocks[progress.nextBlock];
+      if (!entry) {
+        this._programContext = { ...this._programContext, program: null, programId: null };
+        return false;
+      }
+      const programme = {
+        programId: program.id,
+        blockId: entry.id,
+        blockIndex: progress.nextBlock,
+        terminal: true,
+      };
+      const show = showAt(this.station, program.showHour ?? this.time?.hour ?? 9);
+      const enqueue = (segments) => {
+        segments.forEach((segment, index) => this._queue.push({
+          ...segment,
+          _program: {
+            ...programme,
+            terminal: index === segments.length - 1,
+          },
+        }));
+        return segments.length > 0;
+      };
+
+      if (entry.type === 'ident') {
+        return enqueue([{ cueOnly: this.station.ident, ident: true }]);
+      }
+      if (entry.type === 'showIntro') {
+        this._show = show;
+        return enqueue([{ line: showIntroLine(show), cue: 'radio.jingle' }]);
+      }
+      if (entry.type === 'talk') {
+        this._show = show;
+        const exchanges = show?.exchanges ?? [];
+        const offset = this._programHash(program.id) % Math.max(1, exchanges.length);
+        const exchange = exchanges[(offset + (entry.ordinal ?? 0)) % Math.max(1, exchanges.length)] ?? [];
+        if (enqueue(exchange.map((line) => ({ line, cue: null })))) return true;
+      } else if (entry.type === 'link') {
+        const lines = this.station.lines ?? [];
+        const line = lines[this._programHash(`${program.id}:${entry.id}`) % Math.max(1, lines.length)];
+        if (line && enqueue([{ line, cue: null }])) return true;
+      } else if (entry.type === 'song') {
+        return enqueue([{ song: true, songId: entry.songId }]);
+      } else if (entry.type === 'notice') {
+        const segments = MEETING_NOTICE.filter((segment) => !segment.bulletinId
+          || !this.hasHeardBulletin(segment.bulletinId));
+        if (enqueue(segments)) return true;
+      } else if (entry.type === 'news') {
+        const segment = this._eligibleNews().find(({ id }) => id === entry.newsId);
+        if (segment && enqueue(segment.lines.map((line, index) => ({
+          line,
+          cue: index === 0 ? 'radio.jingle' : null,
+          news: true,
+          newsId: index === 0 ? segment.id : null,
+        })))) return true;
+      } else if (entry.type === 'ad') {
+        const ad = (this.station.commercials ?? []).find(({ id, live }) => live && id === entry.adId);
+        if (ad && enqueue([...ad.segments, { reaction: 'ad' }])) return true;
+      } else if (entry.type === 'handoff') {
+        this._recordProgramReceipt(programme, {
+          kind: 'handoff', requested: 'generic-rotation', actual: 'generic-rotation',
+          source: 'program', started: true,
+        });
+        this._completeProgramBlock(programme);
+        continue;
+      }
+
+      /* The programme declaration and the delivered catalog are validated in
+       * tests. Runtime still must not loop forever on a damaged save/build. */
+      this._recordProgramReceipt(programme, {
+        kind: entry.type, requested: entry.songId ?? entry.adId ?? entry.newsId ?? entry.id,
+        actual: null, source: 'unavailable', started: false,
+      });
+      this._completeProgramBlock(programme, { skipped: true, reason: 'unavailable' });
+    }
+    return false;
+  }
+
+  _programHash(value) {
+    let hash = 2166136261;
+    for (const char of String(value)) {
+      hash ^= char.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  _recordProgramReceipt(programme, details) {
+    if (!programme) return null;
+    const receipt = Object.freeze({
+      id: ++this._playbackReceiptId,
+      ...programme,
+      ...details,
+      completed: details.completed === true,
+    });
+    this.playbackReceipts.push(receipt);
+    if (this.playbackReceipts.length > 256) this.playbackReceipts.shift();
+    return receipt;
+  }
+
+  _completeProgramBlock(programme, { skipped = false, reason = null } = {}) {
+    if (!programme) return false;
+    const program = this._programContext?.program;
+    if (!program || program.id !== programme.programId) return false;
+    const progress = this._programProgress[program.id] ?? {
+      nextBlock: 0, completedBlockIds: [],
+    };
+    if (progress.nextBlock !== programme.blockIndex
+      || progress.completedBlockIds.includes(programme.blockId)) return false;
+    this._programProgress[program.id] = {
+      nextBlock: progress.nextBlock + 1,
+      completedBlockIds: [...progress.completedBlockIds, programme.blockId],
+    };
+    const receiptIndex = this.playbackReceipts.findLastIndex((receipt) => (
+      receipt.programId === programme.programId
+      && receipt.blockId === programme.blockId
+      && receipt.completed !== true
+    ));
+    if (receiptIndex >= 0) {
+      this.playbackReceipts[receiptIndex] = Object.freeze({
+        ...this.playbackReceipts[receiptIndex], completed: true, skipped, reason,
+      });
+    }
+    this._persist();
+    return true;
+  }
+
   /** Deterministic coverage: every authored item airs before any repeats. */
   _pick(key, list) {
     if (!list?.length) return '';
@@ -743,6 +918,13 @@ export class Radio {
   /** The news segments whose events have happened, per the scene's gate. */
   _eligibleNews() {
     try {
+      const context = this._programContext ?? this.state?.context?.();
+      if (context?.campaignNews === 'disabled') return [];
+      if (context?.campaignNews === 'enabled') {
+        return newsSegmentsFor(this.state?.campaignState?.());
+      }
+      /* Legacy scene adapters without a receiver declaration retain their
+       * existing callback until they are moved onto the campaign adapter. */
       const segments = this.news();
       return Array.isArray(segments) ? segments : [];
     } catch {
@@ -773,7 +955,7 @@ export class Radio {
     const s = this._queue.shift();
     if (!s) return;
     this._blocks++;
-    if (s.song) { this._startSong(); return; }
+    if (s.song) { this._startSong(s); return; }
     if (s.reaction) {
       const isSong = s.reaction === 'song';
       const count = isSong ? 6 : 4;
@@ -811,11 +993,18 @@ export class Radio {
   }
 
   _playSegmentAudio(s) {
+    if (s.cueOnly) {
+      this._voice = this._playCueWithReceipt(s.cueOnly, {
+        position: this.position, volume: this._level(0.55),
+      }, s);
+      this._dwell = this._voice?.buffer?.duration ?? 3.6;
+      return;
+    }
     if (s.reactionCue) {
-      this._voice = this.audio.play(s.reactionCue, {
+      this._voice = this._playCueWithReceipt(s.reactionCue, {
         follow: () => this.position, volume: this._level(1),
         ref: 3.4, maxDist: RADIO_HUD_AUDIBLE_DISTANCE, rolloff: DIALOGUE_ROLLOFF,
-      });
+      }, s);
       this._dwell = this._voice?.buffer?.duration ?? 2.2;
       return;
     }
@@ -836,13 +1025,34 @@ export class Radio {
      * exchanges, songs, ads, all of it -- but a host at 0.68 through the
      * default 1.4m rolloff is a murmur by the time you are at the fridge, so
      * from anywhere but the sideboard the station read as dead air. */
-    this._voice = v ? this.audio.play(v.cue, {
+    this._voice = v ? this._playCueWithReceipt(v.cue, {
       follow: () => this.position, volume: this._level(1),
       ref: 3.4, maxDist: RADIO_HUD_AUDIBLE_DISTANCE, rolloff: DIALOGUE_ROLLOFF,
-    }) : null;
+    }, s) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration
       : (s.line && s.line.length > 90 ? SEGMENT_TIME + 2.5 : SEGMENT_TIME);
+  }
+
+  _playCueWithReceipt(cue, options, segment = null) {
+    let source = null;
+    let audioReceipt = null;
+    if (typeof this.audio.playWithReceipt === 'function') {
+      ({ source, receipt: audioReceipt } = this.audio.playWithReceipt(cue, options));
+    } else {
+      source = this.audio.play?.(cue, options) ?? null;
+    }
+    if (segment?._program) {
+      this._recordProgramReceipt(segment._program, {
+        kind: segment.ident ? 'ident' : (segment.reactionCue ? 'reaction' : (segment.line ? 'voice' : 'cue')),
+        requested: cue,
+        actual: audioReceipt?.actual ?? cue,
+        source: audioReceipt?.source ?? (source ? 'legacy-handle' : 'unknown'),
+        started: audioReceipt?.started ?? Boolean(source),
+        audioReceiptId: audioReceipt?.id ?? null,
+      });
+    }
+    return source;
   }
 
   _showOsd() {
@@ -895,17 +1105,42 @@ export class Radio {
    * Put a record on: thirty seconds from a fifth of the way in, faded up and
    * out, with the talk bed pulled down under it.
    */
-  _startSong() {
+  _startSong(segment = {}) {
     const list = this.playlist;
-    if (!list.length) { this._songT = -1; this._pump(); return; }
-    const track = this._current();
-    if (!track) { this._songT = -1; this._pump(); return; }
-    this.cursor = (this.cursor + 1) % list.length;
+    const unavailable = (reason, track = null) => {
+      this._songT = -1;
+      this._track = null;
+      this._activeSegment = null;
+      this._line = null;
+      this._phase = 'gap';
+      this._gapDuration = 0;
+      this._segT = 0;
+      if (segment._program) {
+        this._recordProgramReceipt(segment._program, {
+          kind: 'song', requested: segment.songId ?? track?.id ?? track?.file ?? null,
+          actual: track?.id ?? track?.file ?? null,
+          source: 'unavailable', started: false,
+        });
+        this._completeProgramBlock(segment._program, { skipped: true, reason });
+      }
+      /* Do not call _pump() from here. A damaged programme song used to
+       * synchronously enqueue itself again until the stack overflowed. The
+       * next update tick advances from this explicit gap instead. */
+    };
+    if (!list.length) { unavailable('empty-playlist'); return; }
+    const track = segment.songId
+      ? list.find((candidate) => candidate.id === segment.songId)
+      : this._current();
+    if (!track) { unavailable('missing-song'); return; }
+    const trackIndex = list.indexOf(track);
+    const nextIndex = (Math.max(0, trackIndex) + 1) % list.length;
+    this.cursor = nextIndex;
+    this._songCursors.set(this._playlistKey(), this._trackId(list[nextIndex]));
     this._track = track;
     this._persist();
 
     this._ensureGraph();
-    if (!this.el) { this._songT = -1; this._pump(); return; }
+    if (!this.el) { unavailable('no-media-element', track); return; }
 
     this.el.src = assetUrl(MUSIC_DIR, track.file);
     /* Seeking has to wait for metadata, and a track that never loads must not
@@ -925,7 +1160,7 @@ export class Radio {
      * does the cutting, but rAF throttles to about 1fps in a background tab
      * while the audio keeps rolling -- so the element's own clock gets a say
      * too. Whichever notices first wins; _cutSong is idempotent. */
-    if (track.cutAt && this._noticeEligible()) {
+    if (track.cutAt) {
       const watch = () => {
         if (this._songT < 0 || this._track !== track) {
           this.el.removeEventListener('timeupdate', watch);
@@ -941,17 +1176,24 @@ export class Radio {
 
     const p = this.el.play();
     if (p && p.catch) p.catch(() => { /* the error handler covers it */ });
+    if (segment._program) {
+      this._recordProgramReceipt(segment._program, {
+        kind: 'song', requested: segment.songId ?? track.id ?? track.file,
+        actual: track.id ?? track.file, source: 'media-element', started: true,
+      });
+    }
     this._fadeTo(this._level(0.85), SONG_FADE_IN);
     // The murmuring talk bed would sit under the music otherwise.
     this._setTalkVolume(0.006, 0.6);
 
     this._songT = 0;
+    this._activeSegment = segment;
     this._line = `${track.artist ? `${track.artist} \u2014 ` : ''}${track.title || track.file}`;
     this._showOsd();
   }
 
   /**
-   * Kill the record mid-bar and go straight to the meeting notice.
+   * Kill the record mid-bar and go straight to its authored target.
    *
    * Not a fade. The element is paused and the gain cut on the same tick as the
    * static, so the join is a hard edit -- a station stepping on its own record
@@ -959,7 +1201,8 @@ export class Radio {
    */
   _cutSong() {
     if (this._songT < 0) return;   // the frame loop and the media clock can both land on this tick
-    if (!this._noticeEligible()) return;
+    const track = this._track;
+    const programme = this._activeSegment?._program;
     this._songT = -1;
     this._track = null;
     if (this.el) {
@@ -968,10 +1211,22 @@ export class Radio {
     }
     this.audio.play('radio.cut', { position: this.position, volume: this._level(0.75) });
     this._setTalkVolume(0.04, 0.8);
+    if (programme) this._completeProgramBlock(programme);
+    this._activeSegment = null;
 
-    // Jump the queue: whatever the station was going to say next waits.
-    this._queue.unshift(...MEETING_NOTICE.filter((segment) => !segment.bulletinId
-      || !this.hasHeardBulletin(segment.bulletinId)));
+    // Jump the queue: whatever the station was going to say next waits. The
+    // target is catalog data, so Nehoo cannot turn into a different joke just
+    // because this receiver is not permitted to air campaign notices.
+    const afterCut = track?.afterCut;
+    if (afterCut?.type === 'ad') {
+      const ad = (this.station.commercials ?? []).find(({ id, live }) => (
+        live && id === afterCut.id
+      ));
+      if (ad) this._queue.unshift(...ad.segments, { reaction: 'ad' });
+    } else if (afterCut?.type === 'notice') {
+      this._queue.unshift(...MEETING_NOTICE.filter((segment) => !segment.bulletinId
+        || !this.hasHeardBulletin(segment.bulletinId)));
+    }
     this._line = null;
     this._segT = 0;
     this._dwell = 0;
@@ -980,6 +1235,7 @@ export class Radio {
 
   _endSong(fade = SONG_FADE_OUT) {
     if (this._songT < 0) return;
+    const programme = this._activeSegment?._program;
     this._songT = -1;
     this._track = null;
     this._fadeTo(0, fade);
@@ -989,6 +1245,7 @@ export class Radio {
     this._line = null;
     this._segT = 0;
     this._activeSegment = null;
+    if (programme) this._completeProgramBlock(programme);
     /* The gap is measured from the moment the record is actually GONE, not
      * from the moment the fade starts -- otherwise a host opens his mouth
      * two seconds into a still-audible outro, which is exactly the thing
@@ -1029,7 +1286,7 @@ export class Radio {
       // element's own clock rather than accumulated frame time, because "the
       // 15 second mark" has to mean the recording's 15 second mark exactly and
       // summed dt drifts.
-      const cut = this._noticeEligible() ? this._track?.cutAt : null;
+      const cut = this._track?.cutAt;
       if (cut && this.el && this.el.currentTime >= cut) { this._cutSong(); return; }
       if (!this.fullSongs && this._songT >= SONG_SECONDS - SONG_FADE_OUT) this._endSong();
       return;
@@ -1039,6 +1296,8 @@ export class Radio {
     if (this._phase === 'air') {
       const dwell = this._dwell ?? SEGMENT_TIME;
       if (this._segT >= dwell) {
+        const completed = this._activeSegment?._program;
+        if (completed?.terminal) this._completeProgramBlock(completed);
         this._line = null;
         this._activeSegment = null;
         this._phase = 'gap';

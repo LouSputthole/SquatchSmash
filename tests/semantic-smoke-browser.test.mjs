@@ -30,6 +30,8 @@ test('the browser Adapter registry explicitly covers every runtime entry variant
   ]);
   assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.minimumEngines >= 1));
   assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.minimumRequiredReceipts >= 1));
+  assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.minimumNaturalEndReceipts >= 1));
+  assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.minimumWorldSpeechReceipts >= 1));
   assert.ok(audioEvidence.every(({ adapter }) => adapter.audio.requiredCuePrefixes.length > 0));
 });
 
@@ -79,6 +81,7 @@ class FakeBootPage {
         strictEngineCount: 1,
         receiptCount: 1,
         scheduledRequiredRecordingCount: 1,
+        naturallyFinishedRequiredRecordingCount: 1,
         violationCount: 0,
         receipts: [{
           requested: 'vo.specialmeeting.test',
@@ -86,6 +89,20 @@ class FakeBootPage {
           source: 'buffer',
           started: true,
           requiredRecorded: true,
+          lifecycle: { endedAt: 1, naturalEnd: true },
+          speech: {
+            mode: 'world',
+            bodyRequired: true,
+            bodyPresent: true,
+            bodyResolved: true,
+            bodyVisible: true,
+            bodyPosition: { x: 0, y: 1.7, z: -2 },
+            bodyForward: { x: 0, y: 0, z: 1 },
+            listenerPosition: { x: 0, y: 1.7, z: 0 },
+            listenerForward: { x: 0, y: 0, z: -1 },
+            distance: 2,
+            facingListenerDot: 1,
+          },
         }],
       };
     }
@@ -459,6 +476,115 @@ test('an observable scene must schedule an expected required recording', async (
   assert.equal(result.status, 'FAIL');
   assert.match(result.errors.action.join('\n'), /scheduled required recording/i);
   assert.match(result.errors.action.join('\n'), /vo\.specialmeeting\./i);
+});
+
+test('an observable scene fails when world dialogue lacks speaker spatial evidence', async () => {
+  const page = new FakeSemanticPage([
+    specialMeetingObservation(),
+    specialMeetingObservation({ yaw: 0.25, pitch: -0.15 }),
+    specialMeetingObservation({ x: 0.6, yaw: 0.25, pitch: -0.15, keys: ['KeyD'] }),
+    specialMeetingObservation({ x: 0.6, yaw: 0.25, pitch: -0.15 }),
+  ]);
+  const baseEvaluate = page.evaluate.bind(page);
+  page.evaluate = async (fn) => fn.name === 'observeQaAudioPolicy'
+    ? {
+      installed: true,
+      strictRequiredRecordings: true,
+      engineCount: 1,
+      strictEngineCount: 1,
+      receiptCount: 1,
+      scheduledRequiredRecordingCount: 1,
+      violationCount: 0,
+      receipts: [{
+        requested: 'vo.specialmeeting.lag.01',
+        actual: 'vo.specialmeeting.lag.01',
+        source: 'buffer',
+        started: true,
+        requiredRecorded: true,
+        speech: {
+          mode: 'world',
+          bodyRequired: true,
+          bodyPresent: false,
+          bodyResolved: false,
+          bodyVisible: null,
+          bodyPosition: null,
+          bodyForward: null,
+          listenerPosition: { x: 0, y: 1.7, z: 0 },
+          listenerForward: { x: 0, y: 0, z: -1 },
+          distance: null,
+          facingListenerDot: null,
+        },
+      }],
+    }
+    : baseEvaluate(fn);
+  const smokeCase = buildSemanticSmokeCases()
+    .find(({ entrypointId }) => entrypointId === 'special_meeting_canonical');
+
+  const result = await executeSemanticSmokeCase({
+    page,
+    smokeCase,
+    baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
+  });
+
+  assert.equal(result.status, 'FAIL');
+  assert.match(result.errors.action.join('\n'), /world dialogue spatial receipt/i);
+});
+
+test('a started required world line does not pass until its decoded recording ends naturally', async () => {
+  const page = new FakeSemanticPage([
+    specialMeetingObservation(),
+    specialMeetingObservation({ yaw: 0.25, pitch: -0.15 }),
+    specialMeetingObservation({ x: 0.6, yaw: 0.25, pitch: -0.15, keys: ['KeyD'] }),
+    specialMeetingObservation({ x: 0.6, yaw: 0.25, pitch: -0.15 }),
+  ]);
+  const baseEvaluate = page.evaluate.bind(page);
+  page.evaluate = async (fn) => fn.name === 'observeQaAudioPolicy'
+    ? {
+      installed: true,
+      strictRequiredRecordings: true,
+      engineCount: 1,
+      strictEngineCount: 1,
+      receiptCount: 1,
+      scheduledRequiredRecordingCount: 1,
+      naturallyFinishedRequiredRecordingCount: 0,
+      violationCount: 0,
+      receipts: [{
+        id: 1,
+        requested: 'vo.specialmeeting.lag.01',
+        actual: 'vo.specialmeeting.lag.01',
+        source: 'buffer',
+        started: true,
+        requiredRecorded: true,
+        lifecycle: { endedAt: null, naturalEnd: false },
+        speech: {
+          mode: 'world',
+          bodyRequired: true,
+          bodyPresent: true,
+          bodyResolved: true,
+          bodyVisible: true,
+          bodyPosition: { x: 0, y: 1.7, z: -2 },
+          bodyForward: { x: 0, y: 0, z: 1 },
+          listenerPosition: { x: 0, y: 1.7, z: 0 },
+          listenerForward: { x: 0, y: 0, z: -1 },
+          distance: 2,
+          facingListenerDot: 1,
+        },
+      }],
+    }
+    : baseEvaluate(fn);
+  const smokeCase = buildSemanticSmokeCases()
+    .find(({ entrypointId }) => entrypointId === 'special_meeting_canonical');
+
+  const result = await executeSemanticSmokeCase({
+    page,
+    smokeCase,
+    baseUrl: 'http://127.0.0.1:8123/',
+    exerciseJourneys: false,
+  });
+
+  assert.equal(result.status, 'FAIL');
+  assert.match(result.errors.action.join('\n'), /naturally finished required recording/i);
 });
 
 test('spawn and checkpoint obligations require exact live-state and legal-action evidence', () => {

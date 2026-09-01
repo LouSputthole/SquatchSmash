@@ -20,6 +20,7 @@
  * stands, and nothing 404s looking for it.
  */
 import { makePerson } from '../bing/cast.js';
+import { loadJson } from './assets.js';
 import { DEFAULT_PLAYER_OUTFIT } from './first-person-body.js';
 
 export const PROSPECT_BASE = Object.freeze({
@@ -123,8 +124,7 @@ let prospectFacePromise = null;
 let resolvedProspectFace = null;
 
 export function prospectFaceUrl() {
-  prospectFacePromise ??= fetch('assets/faces/index.json')
-    .then((response) => (response.ok ? response.json() : null))
+  prospectFacePromise ??= loadJson('assets/faces/', 'index.json')
     .then((index) => {
       resolvedProspectFace = index?.files?.includes?.('prospect.png') ? PROSPECT_FACE_URL : null;
       return resolvedProspectFace;

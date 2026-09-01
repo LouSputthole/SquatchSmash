@@ -13807,26 +13807,22 @@
     {
       "name": "vo.call.margo.cabin_date.1",
       "voice": "margo",
-      "say": "Tony from the Bing. I was starting to think the number was decorative.",
-      "needsRerecord": true
+      "say": "Tony from the Bing. I was starting to think the number was decorative."
     },
     {
       "name": "vo.call.margo.cabin_date.tony.1",
       "voice": "player",
-      "say": "Margo. It’s Tony. From the Bing.",
-      "needsRerecord": true
+      "say": "Margo. It’s Tony. From the Bing."
     },
     {
       "name": "vo.call.margo.cabin_date.2",
       "voice": "margo",
-      "say": "Look at you, arriving with a plan. Nine o’clock, then. If you’re late, I eat without you.",
-      "needsRerecord": true
+      "say": "Look at you, arriving with a plan. Nine o’clock, then. If you’re late, I eat without you."
     },
     {
       "name": "vo.call.margo.cabin_date.tony.2",
       "voice": "player",
-      "say": "Work dragged me out of town — I’m calling before the trees learn my name. Front & Center, the Silver Room, nine o’clock.",
-      "needsRerecord": true
+      "say": "Work dragged me out of town — I’m calling before the trees learn my name. Front & Center, the Silver Room, nine o’clock."
     },
     {
       "name": "vo.call.margo.cabin_date.3",
@@ -13836,8 +13832,7 @@
     {
       "name": "vo.call.margo.cabin_date.tony.3",
       "voice": "player",
-      "say": "I won’t waste it.",
-      "needsRerecord": true
+      "say": "I won’t waste it."
     },
     {
       "_comment": "cabin.booski.sasole — Phone call with BOOSKIBRO",

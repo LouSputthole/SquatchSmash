@@ -2,33 +2,39 @@
   "_comment": "Music catalog for the one live station, 97.8 THE SQUATCH, plus direct scene cues. Runtime playlist selection uses `cue` and exact `venue`; unscoped non-cue tracks enter 97.8's record pool. Historical `station` values (`uncle` / `ksqch`) are retained only as unresolved legacy metadata and do not create dial positions or filter playback. Do not revive or remove those identities until the owner decides their future.",
   "tracks": [
     {
+      "id": "good-ole-days",
       "file": "good-ole-days.mp3",
       "station": "uncle",
       "artist": "Silver Sasquatches",
       "title": "Good Ole Days"
     },
     {
+      "id": "cosmic-drift",
       "file": "cosmic-drift.mp3",
       "venue": "apartment",
       "title": "Cosmic Drift"
     },
     {
+      "id": "through-the-night",
       "file": "through-the-night.mp3",
       "station": "uncle",
       "title": "Through the Night"
     },
     {
+      "id": "daydream-diner-2",
       "file": "daydream-diner-2.mp3",
       "venue": "mansion",
       "title": "Daydream Diner 2"
     },
     {
+      "id": "front-and-center-bananaphone",
       "file": "front-and-center-bananaphone-e786d7fe.mp3",
       "venue": "silver_room",
       "artist": "Raffi",
       "title": "Bananaphone"
     },
     {
+      "id": "squatch-up",
       "file": "squatch-up.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
@@ -36,12 +42,14 @@
       "venue": "bada_bing"
     },
     {
+      "id": "10-drunk-cigarettes",
       "file": "10-drunk-cigarettes.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "10 Drunk Cigarettes"
     },
     {
+      "id": "booskibro",
       "file": "booskibro.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
@@ -49,12 +57,14 @@
       "venue": "bada_bing"
     },
     {
+      "id": "i-aint-gay",
       "file": "i-aint-gay.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "I Ain't Gay"
     },
     {
+      "id": "sallie-j",
       "file": "sallie-j.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
@@ -62,6 +72,7 @@
       "venue": "bada_bing"
     },
     {
+      "id": "squatches-in-the-house",
       "file": "squatches-in-the-house.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
@@ -69,15 +80,18 @@
       "venue": "bada_bing"
     },
     {
-      "_comment": "Plays from the top and gets exactly 15 seconds before the station cuts it dead for the meeting notice. `start` pins it to 0 so the 15s is the recording's 15s, not 15s from wherever the usual random drop-in landed.",
+      "id": "nehoo-with-a-guu",
+      "_comment": "Plays from the top and gets exactly 15 seconds before the station cuts it dead into the authored jerky ad. `start` pins it to 0 so the 15s is the recording's 15s, not 15s from wherever the usual drop-in landed. The edit is unconditional on every receiver and does not depend on campaign notices.",
       "file": "nehoo-with-a-guu.mp3",
       "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "Nehoo With a Guu",
       "start": 0,
-      "cutAt": 15
+      "cutAt": 15,
+      "afterCut": { "type": "ad", "id": "jerky" }
     },
     {
+      "id": "baby-snakes",
       "file": "baby-snakes.mp3",
       "title": "Baby Snakes",
       "artist": "Frank Zappa",
@@ -87,6 +101,7 @@
       "cue": true
     },
     {
+      "id": "sensi-lou",
       "file": "sensi-lou.mp3",
       "title": "Sensi Lou",
       "artist": "—",
@@ -96,6 +111,7 @@
       "cue": true
     },
     {
+      "id": "cant-you-hear-me-knocking",
       "file": "cant-you-hear-me-knocking.mp3",
       "title": "Can't You Hear Me Knocking",
       "artist": "The Rolling Stones",
@@ -103,6 +119,7 @@
       "cue": true
     },
     {
+      "id": "fortunate-son",
       "file": "fortunate-son.mp3",
       "title": "Fortunate Son",
       "artist": "Creedence Clearwater Revival",
@@ -110,18 +127,21 @@
       "cue": true
     },
     {
+      "id": "codename-sasquatch",
       "file": "codename-sasquatch.mp3",
       "title": "Codename: Sasquatch",
       "_note": "THE TAKE's safehouse radio, on the crew's actual fresh start the morning of the job -- not on the preview/resume/return paths. No station and no venue -- a cue, not programming. Runtime reads the file directly in src/heist/main.js's begin().",
       "cue": true
     },
     {
+      "id": "spy-jazz",
       "file": "spy-jazz.mp3",
       "title": "Theme for an Unconfirmed Sighting",
       "_note": "The Bing store room's portable radio during License to Grill (Blond). No station and no venue -- a cue, not programming. Runtime reads signature-music.js's storeRoomJazz.",
       "cue": true
     },
     {
+      "id": "driving-jerky-hotel",
       "file": "driving-jerky-hotel.mp3",
       "title": "Driving to the Jerky Hotel",
       "cue": true,
@@ -129,6 +149,7 @@
       "_note": "Low-volume, non-diegetic score for the Jerky Motel drive. It is not radio programming and has no world source."
     },
     {
+      "id": "driving-the-take",
       "file": "driving-the-take.mp3",
       "title": "Driving THE TAKE",
       "cue": true,
@@ -136,6 +157,31 @@
       "_note": "Low-volume, non-diegetic score for THE TAKE's escape drive. It is not radio programming and has no world source."
     },
     {
+      "id": "graveyard-arrival-score",
+      "file": "graveyard-arrival-score.mp3",
+      "title": "Graveyard Arrival",
+      "duration": 45.035,
+      "cue": true,
+      "_note": "Short non-diegetic car-arrival score. The shared CampaignArrivalScore routes it through the ducked music bus and retires it when Billy is lifted from the trunk."
+    },
+    {
+      "id": "silver-case-pickup-score",
+      "file": "silver-case-pickup-score.mp3",
+      "title": "Silver Case Pickup",
+      "duration": 45.035,
+      "cue": true,
+      "_note": "Short non-diegetic pickup score for the Silver Case car ride. The shared CampaignArrivalScore routes it through the ducked music bus and fades at the hallway arrival."
+    },
+    {
+      "id": "cartel-palace-arrival-score",
+      "file": "cartel-palace-arrival-score.mp3",
+      "title": "Cartel Palace Arrival",
+      "duration": 55.014,
+      "cue": true,
+      "_note": "Short non-diegetic estate-approach score. The shared CampaignArrivalScore routes it through the ducked music bus and retires it at the perimeter or immediately on alarm."
+    },
+    {
+      "id": "front-and-center-background",
       "file": "front-and-center-background-35c043f1.mp3",
       "artist": "lousputthole",
       "title": "Coco Cabana",
@@ -144,6 +190,7 @@
       "_note": "Non-diegetic supper-club bed. The Silver runtime filters it in the kitchen hallway, opens it in the dining room, and ducks it under story dialogue."
     },
     {
+      "id": "front-and-center-opening",
       "file": "front-and-center-opening-b3b9d1cc.mp3",
       "artist": "lousputthole",
       "title": "Big Feet on the Dance Floor",
@@ -153,6 +200,17 @@
       "_note": "The first 27 seconds only, immediately after the band's opening joke; it fades directly into Bananaphone."
     },
     {
+      "id": "initiation-cabin-stereo",
+      "file": "initiation-cabin-stereo.mp3",
+      "title": "Initiation Cabin Stereo",
+      "duration": 90.044,
+      "cue": true,
+      "loop": true,
+      "venue": "initiation",
+      "_note": "Purpose-built slow old-cabin instrumental. Positional and muffled outside, open inside, then faded before the oath; it is never station programming."
+    },
+    {
+      "id": "enola-pre-bomb-drop-approach",
       "file": "enola-pre-bomb-drop-approach.mp3",
       "title": "Enola Pre-Bomb-Drop Approach",
       "duration": 37.704,
@@ -160,6 +218,7 @@
       "_note": "Non-diegetic approach score. The mission aligns its ending to bomb release and hard-cuts it if the release happens early."
     },
     {
+      "id": "enola-escape-after-drop",
       "file": "enola-escape-after-drop.mp3",
       "title": "Enola Escape After Drop",
       "duration": 148.2,

@@ -10,6 +10,7 @@ import { FocusRush } from '../core/focus-rush.js';
 import { Highs } from '../core/highs.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { applyHubContinuity } from '../core/hub-continuity.js';
 import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
@@ -46,6 +47,11 @@ import {
 } from '../core/apartment-story.js';
 import { DRESS_HELP_CUES } from '../world/dress-help.js';
 import { createLuxuryApartmentStory } from '../core/luxury-apartment-story.js';
+import {
+  SPECIAL_MEETING_HOME_TIMING,
+  createSpecialMeetingHomePrelude,
+  specialMeetingHomePreludeCueNames,
+} from '../core/special-meeting-home-prelude.js';
 import { createLuxuryInputPolicy } from './controls.js';
 import {
   LUXURY_MARGO_CHECKPOINT_IDS,
@@ -237,18 +243,20 @@ function currentObjective() {
    * `pending` items: the UI cannot ask the player to answer silence. */
   const pendingCall = luxuryStory.pendingCall();
   if (pendingCall && !phone?.ringing) return LUXURY_OBJECTIVE;
-  const [first] = luxuryStory.objectives().items;
+  const activities = specialMeetingActivities();
+  const [first] = luxuryStory.objectives(activities).items;
   if (!first) return LUXURY_OBJECTIVE;
   /* Beat 14's door is an `activity`, and the activity is the three chores the
    * tally already counts. Show the count rather than the door's own label:
    * "Get ready for your date" is true and tells him nothing about what is
    * left, and the panel is the only place he can find that out. */
-  const door = luxuryStory.tryLeave();
+  const door = luxuryStory.tryLeave(activities);
   if (door.kind === 'activity' && first.id === door.id) return readyTally.objective;
   return first.label;
 }
 
 function refreshObjective() {
+  syncLuxuryContinuity();
   objectivePanel.setLine(currentObjective(), {
     title: !routed && readyTally.ready ? 'READY' : 'OBJECTIVE',
   });
@@ -289,9 +297,12 @@ function startLuxuryStoryBeat() {
     luxuryMargo?.startWake(BIG_NIGHT_MARGO_WAKE, BIG_NIGHT_MARGO_DRESS_ASK);
     return;
   }
-  /* Six seconds, the same lead-in the starter flat gives every call: long
-   * enough to be standing in the room before it rings. */
-  luxuryPhone.nextRingAt = luxuryPhone.elapsed + 6;
+  /* The ordinary calls get six seconds. Beat 27 keeps its authored long quiet
+   * prelude: SM-010 has room to breathe before the same 74-second ring used by
+   * the starter flat, because moving homes must not silently shorten a beat. */
+  luxuryPhone.nextRingAt = luxuryPhone.elapsed + (
+    phase === 'special_meeting' ? SPECIAL_MEETING_HOME_TIMING.ringDelay : 6
+  );
 }
 
 function updateLuxuryPhone(dt) {
@@ -346,6 +357,7 @@ const phone = new Phone({
   },
   onCallState: (connected) => {
     radio.setPhoneDucked(connected);
+    if (!connected) specialMeetingPrelude?.callEnded();
     if (routed && state.phase === 'active') refreshObjective();
   },
 });
@@ -415,6 +427,7 @@ const pcArcade = createArcade({ audio, onInputModeChange: onArcadeInputModeChang
 const cabinetArcade = createArcade({ audio, onInputModeChange: onArcadeInputModeChange });
 
 let home = null;
+let luxuryContinuity = null;
 let bathroomMirror = null;
 let firstPersonBody = null;
 let player = null;
@@ -424,6 +437,25 @@ let crookedArt = null;
 let answeringMachine = null;
 let revolver = null;
 let darts = null;
+let specialMeetingPrelude = null;
+let specialMeetingCarLight = null;
+let specialMeetingCarTarget = null;
+let specialMeetingCarSweep = 0;
+let specialMeetingDoorRefusals = 0;
+const specialMeetingPlaybackReceipts = [];
+
+/** The phase resolver changes only real objects published by the world. The
+ * report is exposed to browser certification so an unmounted promise cannot
+ * pass merely because its id exists in the contract. */
+function syncLuxuryContinuity() {
+  if (!home) return null;
+  luxuryContinuity = applyHubContinuity({
+    hub: 'luxury_apartment',
+    phase: routed ? luxuryStory.phase() : 'get_ready',
+    props: home.continuityProps,
+  });
+  return luxuryContinuity;
+}
 let lastFrame = performance.now();
 /* The canonical browser-input Adapter (src/core/first-person-input.js). It is
  * constructed once `player` exists, and from that moment it — not this file —
@@ -431,6 +463,88 @@ let lastFrame = performance.now();
  * write `player.enabled = document.pointerLockElement === canvas` now asks it
  * to re-read the policy instead. */
 let browserInput = null;
+
+const LUXURY_SPECIAL_MEETING_SWEEP_SECONDS = 2.4;
+
+/** Live room facts handed to both the objective and the only physical exit. */
+function specialMeetingActivities() {
+  return {
+    carOutside: specialMeetingPrelude?.snapshot().carOutside === true,
+  };
+}
+
+/**
+ * One exact authored home-prelude take, through the receipt-aware speech seam.
+ * The array is deliberately public below: certification proves the recording
+ * really started, rather than proving only that a subtitle was requested.
+ */
+function saySpecialMeetingPrelude(take, options = {}) {
+  if (!take) return 0;
+  const playback = speak(audio, take.cue, {
+    ...options,
+    mix: SPEECH_MIX_CLOSE,
+    subtitle: take.text,
+    speakerId: 'luxury-apartment.prospect',
+    requiredRecorded: true,
+  });
+  hud.say(take.text, Math.max(2400, Math.round(playback.seconds * 1000) + 350));
+  specialMeetingPlaybackReceipts.push(Object.freeze({
+    beat: 'special-meeting-home-prelude',
+    cue: take.cue,
+    text: take.text,
+    receipt: playback.receipt,
+    acceptance: playback.acceptance,
+  }));
+  return playback.seconds;
+}
+
+/** Headlights sweep in through the panoramic south glass; the car stays below. */
+function stageSpecialMeetingCar() {
+  if (!specialMeetingCarLight) {
+    specialMeetingCarTarget = new THREE.Object3D();
+    specialMeetingCarTarget.name = 'luxury-special-meeting-headlight-target';
+    specialMeetingCarTarget.position.set(2.6, 3.1, 4.2);
+    scene.add(specialMeetingCarTarget);
+    specialMeetingCarLight = new THREE.SpotLight(
+      0xffe4ad, 8.5, 30, Math.PI / 5.5, 0.62, 1.15,
+    );
+    specialMeetingCarLight.name = 'luxury-special-meeting-headlights';
+    specialMeetingCarLight.position.set(2.6, 0.65, 8.45);
+    specialMeetingCarLight.target = specialMeetingCarTarget;
+    scene.add(specialMeetingCarLight);
+  }
+  specialMeetingCarSweep = LUXURY_SPECIAL_MEETING_SWEEP_SECONDS;
+  audio.startLoop('specialmeeting.car', {
+    name: 'car.engine.idle',
+    volume: 0.12,
+    ambience: true,
+    position: new THREE.Vector3(2.6, 0, 9.8),
+    fade: 1.2,
+  });
+  audio.setLoopCutoff('specialmeeting.car', 520, 0.4);
+}
+
+function updateSpecialMeetingCar(dt) {
+  if (!specialMeetingCarLight || specialMeetingCarSweep <= 0) return;
+  specialMeetingCarSweep = Math.max(0, specialMeetingCarSweep - dt);
+  const progress = 1 - specialMeetingCarSweep / LUXURY_SPECIAL_MEETING_SWEEP_SECONDS;
+  specialMeetingCarTarget.position.x = 2.6 + Math.sin(progress * Math.PI * 1.35) * 5.2;
+  specialMeetingCarLight.intensity = 8.5 + Math.sin(progress * Math.PI) * 5;
+  if (specialMeetingCarSweep <= 0) {
+    specialMeetingCarTarget.position.x = 2.6;
+    specialMeetingCarLight.intensity = 8.5;
+  }
+}
+
+function speakLuxuryDepartureRefusal(refusal) {
+  if (refusal?.id === 'special_meeting_car') {
+    const take = specialMeetingPrelude?.doorRefusal(++specialMeetingDoorRefusals)
+      ?? refusal.takes?.[Math.min(specialMeetingDoorRefusals - 1, refusal.takes.length - 1)];
+    if (take) saySpecialMeetingPrelude(take);
+    return;
+  }
+  if (refusal?.line) hud.say(refusal.line, 4200);
+}
 
 function worldPoint(object, fallback = new THREE.Vector3()) {
   if (object?.getWorldPosition) return object.getWorldPosition(new THREE.Vector3());
@@ -627,7 +741,7 @@ function luxuryDeparture() {
       },
     };
   }
-  const door = luxuryStory.tryLeave();
+  const door = luxuryStory.tryLeave(specialMeetingActivities());
   if (door.kind !== 'go') return { refusal: door };
   return {
     navigate: () => {
@@ -669,7 +783,7 @@ function luxuryElevatorStatus() {
   if (phone.inCall) {
     return { ...tally, ready: false, label: 'Private <b>elevator</b> · finish the call' };
   }
-  const door = luxuryStory.tryLeave();
+  const door = luxuryStory.tryLeave(specialMeetingActivities());
   if (door.kind === 'go') return { ...tally, ready: true };
   return {
     ...tally,
@@ -682,7 +796,9 @@ function luxuryElevatorStatus() {
       ? 'Private <b>elevator</b> · she is still here'
       : door.kind === 'call'
         ? 'Private <b>elevator</b> · wait for the call'
-        : 'Private <b>elevator</b> · get ready first',
+        : door.id === 'special_meeting_car'
+          ? 'Private <b>elevator</b> · wait for the car'
+          : 'Private <b>elevator</b> · get ready first',
   };
 }
 
@@ -692,7 +808,7 @@ function beginElevatorExit() {
   const departure = luxuryDeparture();
   if (departure.refusal) {
     const { line, hint } = departure.refusal;
-    if (line) hud.say(line, 4200);
+    speakLuxuryDepartureRefusal(departure.refusal);
     if (hint) hud.toast(hint);
     refreshObjective();
     return false;
@@ -789,7 +905,7 @@ function useElevator(mode) {
   if (departure.refusal) {
     audio.play('door.knob', { volume: 0.28 });
     const { line, hint } = departure.refusal;
-    if (line) hud.say(line, 4200);
+    speakLuxuryDepartureRefusal(departure.refusal);
     if (hint) hud.toast(hint);
     refreshObjective();
     return false;
@@ -914,6 +1030,7 @@ function useWardrobe() {
   hud.toast(`Changed · ${outfit.label}`, 'good');
   audio.play('closet.slide', { volume: 0.36 });
   refreshLuxuryObjective({ toast: true });
+  specialMeetingPrelude?.dressed();
   return true;
 }
 
@@ -940,7 +1057,7 @@ function sleepAtHome() {
   if (routed) {
     const night = luxuryStory.sleep();
     if (!night.ok) {
-      const door = luxuryStory.tryLeave();
+      const door = luxuryStory.tryLeave(specialMeetingActivities());
       if (door.line) hud.say(door.line, 4200);
       return false;
     }
@@ -1115,8 +1232,14 @@ try {
     },
     onArt: (slot, record = {}) => showArt(slot, record),
     onCityView: () => hud.say('The whole city below. The original apartment is still down there somewhere.', 4200),
+    onContinuity: (id) => {
+      if (id !== 'margo-morning-mugs') return false;
+      hud.say('Two coffees, both gone cold. <em>One side of the bed is already empty.</em>', 4200);
+      return true;
+    },
     onMinigame: enterStation,
   }));
+  syncLuxuryContinuity();
   /* Glass size comes from the mounted PlaneGeometry now — the old explicit
    * 0.54x0.66 belonged to the pedestal basin and stretched the vanity's
    * 0.72x0.84 glass. */
@@ -1129,6 +1252,35 @@ try {
   window.__squatchSceneFail?.('Could not build the luxury apartment', error?.message || String(error));
   throw error;
 }
+
+specialMeetingPrelude = createSpecialMeetingHomePrelude({
+  isActive: () => routed
+    && luxuryStory.phase() === 'special_meeting'
+    && state.phase === 'active',
+  isCallTaken: () => (
+    campaign.state.events[SPECIAL_MEETING_BOOSKI_CALL.eventId]?.status === 'answered'
+  ),
+  isSpeechBusy: () => Boolean(hud.saying || audio.busy()),
+  say: saySpecialMeetingPrelude,
+  onCallbackAvailable: () => {
+    if (state.phase === 'active') {
+      hud.toast('Phone in hand · [R] rings the last caller back', '', 9000);
+    }
+  },
+  onRingbackStart: () => {
+    audio.startLoop('specialmeeting.ringback', { name: 'phone.ring', volume: 0.22 });
+    audio.setLoopCutoff('specialmeeting.ringback', 1400, 0.1);
+    hud.say('<em>Calling Booskibro.</em>', 4000);
+  },
+  onRingbackEnd: () => {
+    audio.stopLoop('specialmeeting.ringback', 0.12);
+    audio.play('phone.hangup', { volume: 0.5 });
+  },
+  onCarArrives: stageSpecialMeetingCar,
+  onChanged: () => {
+    if (state.phase === 'active') refreshObjective();
+  },
+});
 
 luxuryMargo = createLuxuryMargoScene({
   actor: home.margo,
@@ -1285,6 +1437,8 @@ startButton.addEventListener('click', async () => {
         BIG_NIGHT_MARGO_DRESS_ASK,
       ),
       ...LUXURY_STORY_CALL_CUES,
+      ...specialMeetingHomePreludeCueNames(),
+      'car.engine.idle',
       'vo.luxury.poker.solo',
       'vo.luxury.elevator.not-ready', 'vo.luxury.elevator.not-ready-repeat',
       ...radio.preloadCueNames({ startupOnly: true }),
@@ -1468,6 +1622,10 @@ function routeLuxuryKeyDown(event, { code }) {
   if (code === 'KeyQ' && !event.repeat) inventoryRuntime.pocket();
   if (code === 'KeyR' && !event.repeat) {
     if (home.inventory.held === 'gun') revolver.reload();
+    else if (specialMeetingPrelude?.ringBack({
+      phoneBusy: Boolean(phone.call),
+      phoneHeld: home.inventory.held === 'phone',
+    })) event.preventDefault();
     else if (radio.on) radio.next();
   }
   const number = /^Digit([1-5])$/.exec(event.code)?.[1];
@@ -1636,6 +1794,14 @@ function frame(now) {
     }
     luxuryMargo?.update(dt);
     updateLuxuryPhone(dt);
+    specialMeetingPrelude?.update(dt, {
+      busy: Boolean(
+        phone.ringing || phone.inCall || luxuryMargo?.active
+        || state.posture || state.resting || state.showering
+      ),
+      moving: (player.velocity?.lengthSq?.() ?? 0) > 0.04,
+    });
+    updateSpecialMeetingCar(dt);
     const wasRinging = phone.ringing;
     phone.update(dt);
     if (wasRinging !== phone.ringing) refreshObjective();
@@ -1850,6 +2016,7 @@ window.LUXURY_APARTMENT = {
   appearanceStore,
   readyTally,
   margoScene: luxuryMargo,
+  get continuity() { return luxuryContinuity; },
   outfits: LUXURY_OUTFITS,
   bongBehavior,
   verifyParity,
@@ -1892,6 +2059,30 @@ window.LUXURY_APARTMENT = {
     },
   },
   debug: {
+    specialMeeting: {
+      snapshot: () => specialMeetingPrelude?.snapshot() ?? null,
+      activities: () => specialMeetingActivities(),
+      receipts: () => specialMeetingPlaybackReceipts.map((entry) => ({
+        ...entry,
+        receipt: entry.receipt ? { ...entry.receipt } : null,
+      })),
+      /**
+       * Browser certification may compress only the two authored WAIT clocks;
+       * it still answers the real phone, selects the real inventory slot,
+       * rings back through the real key route and rides the real lift. Keeping
+       * this here avoids a verifier mutating private fields or mission state.
+       */
+      advance({ seconds, phoneClock = true, preludeClock = true, busy = true } = {}) {
+        const elapsed = Math.max(0, Number(seconds) || 0);
+        if (phoneClock) updateLuxuryPhone(elapsed);
+        if (preludeClock) specialMeetingPrelude?.update(elapsed, { busy, moving: false });
+        updateSpecialMeetingCar(Math.min(elapsed, 0.05));
+        return {
+          phone: { ringing: phone.ringing, inCall: phone.inCall },
+          prelude: specialMeetingPrelude?.snapshot() ?? null,
+        };
+      },
+    },
     pcApps: pcArcade.apps.map((app) => ({ id: app.id, title: app.title ?? app.name ?? app.id })),
     margo: {
       checkpointIds: Object.freeze({ ...LUXURY_MARGO_CHECKPOINT_IDS }),

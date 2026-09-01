@@ -116,6 +116,13 @@ export const SCENE_GATES = Object.freeze([
     why: 'One specialmeeting boot, a click for pointer lock, 2 s of held input. Stops at the kerb.',
   },
   {
+    script: 'verify:radio-program',
+    tier: 'smoke',
+    why: 'Two boots: Apartment steps 12 radio seconds synchronously inside one evaluate, '
+      + 'then Golf crosses the 15 s Nehoo edit at 16x media playback with a 5 s ceiling. '
+      + 'No mission time is driven through rendered frames; measured wall time was 8.0 s.',
+  },
+  {
     script: 'verify:pixel-ratio',
     tier: 'smoke',
     why: 'Two combatlab boots; reads renderer state straight after each.',

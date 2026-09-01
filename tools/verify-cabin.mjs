@@ -583,7 +583,7 @@ async function extractBodyThroughRealRoute(page, cleanupId, { checkCarrySuppress
 }
 
 try {
-  check('Cabin script exposes exactly 163 authored VO cues', authoredCues.length === 163, `${authoredCues.length} cues`);
+  check('Cabin script exposes exactly 164 authored VO cues', authoredCues.length === 164, `${authoredCues.length} cues`);
   check('Every authored Cabin VO cue is synchronized into the sound manifest', absentFromManifest.length === 0,
     absentFromManifest.length ? absentFromManifest.slice(0, 3).join(', ') : 'manifest synchronized');
   check('Required inside-joke and polite-choice lines remain authored',
@@ -732,7 +732,7 @@ try {
    * never enough to cover it. Measured on an idle sandbox at 1280x720 under
    * SwiftShader: click to `state.phase === 'active'` took 146 s, spent almost
    * entirely in the handler's own awaits -- audio.init(), the radio manifest,
-   * and a decode of roughly two hundred cues (163 authored Cabin VO lines plus
+   * and a decode of roughly two hundred cues (164 authored Cabin VO lines plus
    * the weapon, radio and Lag prefixes). That leaves 34 s of headroom, and the
    * fifteen boot checks and the '01-day-arrival' capture above spend it, which
    * is why this one step failed every run while the other fourteen passed.

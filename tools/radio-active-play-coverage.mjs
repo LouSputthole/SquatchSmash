@@ -15,7 +15,7 @@ export function radioTimelineOwnerKey(row) {
 export function uniqueAuditedRadioOwners(rows) {
   const owners = new Map();
   for (const row of rows) {
-    if (row['Radio or music source'] === 'No authored radio or music source found') continue;
+    if (row['Radio or music source'] === 'No active radio/music playback owner') continue;
     const key = radioTimelineOwnerKey(row);
     if (!owners.has(key)) owners.set(key, row);
   }
@@ -213,6 +213,41 @@ const RECEIPTS = [
     'tools/verify-mansion.mjs',
     'the return gesture restores exactly one house bed while both prior scene contexts stay suspended',
   ),
+  receipt(
+    'graveyard.html',
+    'Graveyard arrival score',
+    'music.arrival.squatch-graveyard',
+    'tools/verify-graveyard.mjs',
+    'the Graveyard arrival score starts once and fades at body pickup',
+  ),
+  receipt(
+    'silvercase.html',
+    'Silver Case pickup score',
+    'music.arrival.silver-case',
+    'tools/verify-silvercase.mjs',
+    'the Silver Case pickup score starts once and fades at hallway arrival',
+  ),
+  receipt(
+    'cartel-palace.html',
+    'Cartel Palace arrival score',
+    'music.arrival.cartel-palace',
+    'tools/verify-cartel-palace.mjs',
+    'clean start: the Palace arrival score starts once and fades at the perimeter',
+  ),
+  receipt(
+    'specialmeeting.html',
+    'Special Meeting two-second car-radio gag',
+    'radio.vo.announcer.0177le3',
+    'tools/verify-specialmeeting.mjs',
+    'SM-200 plays the delivered announcer recording and Seff cuts it at exactly two seconds',
+  ),
+  receipt(
+    'initiation.html',
+    'Initiation cabin stereo',
+    'initiation.cabin.music',
+    'tools/verify-initiation.mjs',
+    'the cabin stereo begins its authored fade before the oath and cannot restart afterward',
+  ),
 ];
 
 export const RADIO_ACTIVE_PLAY_COVERAGE = new Map(RECEIPTS.map((entry) => [entry.key, entry]));
@@ -238,7 +273,7 @@ export function summarizeRadioActivePlayCoverage(timelineRows) {
 
 export function applyRadioActivePlayCoverage(timelineRows) {
   for (const row of timelineRows) {
-    if (row['Radio or music source'] === 'No authored radio or music source found') continue;
+    if (row['Radio or music source'] === 'No active radio/music playback owner') continue;
     const evidence = RADIO_ACTIVE_PLAY_COVERAGE.get(radioTimelineOwnerKey(row));
     if (!evidence) continue;
     /* Keep the review sheet scannable. The exact immutable receipt text lives

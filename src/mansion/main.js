@@ -40,6 +40,7 @@ import { createFirstPersonInput } from '../core/first-person-input.js';
 import { createPromptHud } from '../core/hud.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { applyHubContinuity } from '../core/hub-continuity.js';
 import { AudioEngine } from '../core/audio.js';
 import { Highs } from '../core/highs.js';
 import { FocusRush } from '../core/focus-rush.js';
@@ -262,6 +263,13 @@ const foyerRepairs = mansionVisit === 'return'
     at: { x: 0, y: GROUND_Y, z: CHANDELIER_POS.z },
   })
   : null;
+const mansionContinuity = applyHubContinuity({
+  hub: 'mansion',
+  phase: mansionVisit,
+  props: new Map(foyerRepairs ? [[
+    'mansion.foyer-repair-site', foyerRepairs.root,
+  ]] : []),
+});
 /* A named contributor to the collider total, for the same reason Snow's
  * cart is one: verify-mansion adds that total up from its contributors and
  * an anonymous +3 makes the sum unverifiable rather than merely wrong. */
@@ -3236,6 +3244,7 @@ window.mansion = {
     creditEveningBeat: (id) => creditEveningBeat(id),
     brief: () => useReturnBriefing(),
   },
+  continuity: mansionContinuity,
   /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)
    * against the same THREE instance the scene was built with rather than
    * re-deriving world boxes from constructor parameters. */

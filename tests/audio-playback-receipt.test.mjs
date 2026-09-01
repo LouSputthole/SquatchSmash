@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import { AudioEngine, RequiredRecordedAudioError } from '../src/core/audio.js';
+import { speak } from '../src/core/dialogue.js';
 
 function param(value = 0) {
   return {
@@ -32,6 +34,11 @@ function readyAudio(options = {}) {
     createPanner: () => node({
       positionX: param(), positionY: param(), positionZ: param(),
     }),
+    listener: {
+      positionX: param(), positionY: param(), positionZ: param(),
+      forwardX: param(), forwardY: param(), forwardZ: param(),
+      upX: param(), upY: param(), upZ: param(),
+    },
   };
   const audio = new AudioEngine(options);
   audio.ctx = ctx;
@@ -40,6 +47,41 @@ function readyAudio(options = {}) {
   audio.busVoice = node();
   return audio;
 }
+
+test('canonical world speech receipts identify the body, player distance, and orientation', () => {
+  const audio = readyAudio();
+  audio.buffers.set('vo.scene.open', [{ duration: 2.5 }]);
+
+  const camera = new THREE.PerspectiveCamera();
+  camera.position.set(0, 1.6, 0);
+  camera.updateMatrixWorld(true);
+  audio.updateListener(camera);
+
+  const lou = new THREE.Object3D();
+  lou.position.set(0, 1.6, -4);
+  lou.updateMatrixWorld(true);
+
+  const spoken = speak(audio, 'vo.scene.open', {
+    speaker: lou,
+    speakerId: 'LOU',
+    subtitle: 'The body saying this must be the body we can see.',
+  });
+
+  assert.deepEqual(spoken.receipt.speech, {
+    mode: 'world',
+    bodyRequired: true,
+    bodyId: 'LOU',
+    bodyPresent: true,
+    bodyResolved: true,
+    bodyVisible: true,
+    bodyPosition: { x: 0, y: 1.6, z: -4 },
+    bodyForward: { x: 0, y: 0, z: 1 },
+    listenerPosition: { x: 0, y: 1.6, z: 0 },
+    listenerForward: { x: 0, y: 0, z: -1 },
+    distance: 4,
+    facingListenerDot: 1,
+  });
+});
 
 test('a play request before audio is ready leaves a factual silent receipt', () => {
   const audio = new AudioEngine();

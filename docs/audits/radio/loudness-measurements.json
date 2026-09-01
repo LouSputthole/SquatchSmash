@@ -267,6 +267,45 @@
       "gatedBlocks": 1935
     },
     {
+      "file": "assets/music/graveyard-arrival-score.mp3",
+      "sha256": "f2f6025f97cd3a8d71462fb0aec59e58a25a3b0a04bd7af65fe485b2106d7ccc",
+      "bytes": 720606,
+      "decodedDurationSeconds": 45.035,
+      "sampleRate": 48000,
+      "channels": 2,
+      "integratedLufs": -16.19,
+      "samplePeakDbfs": -1.47,
+      "truePeakEstimateDbtp": -1.47,
+      "blocks": 447,
+      "gatedBlocks": 163
+    },
+    {
+      "file": "assets/music/silver-case-pickup-score.mp3",
+      "sha256": "1881ebb9b9606922cbe610804d266f8cfed5f31701ca5894d38657acb99940a2",
+      "bytes": 720606,
+      "decodedDurationSeconds": 45.035,
+      "sampleRate": 48000,
+      "channels": 2,
+      "integratedLufs": -16.19,
+      "samplePeakDbfs": -1.23,
+      "truePeakEstimateDbtp": -1.23,
+      "blocks": 447,
+      "gatedBlocks": 230
+    },
+    {
+      "file": "assets/music/cartel-palace-arrival-score.mp3",
+      "sha256": "904210222b238f2220a2ede26d3a20a49ab61c58fcb68416e7632f5a7829663c",
+      "bytes": 880267,
+      "decodedDurationSeconds": 55.014,
+      "sampleRate": 48000,
+      "channels": 2,
+      "integratedLufs": -18.99,
+      "samplePeakDbfs": -1.48,
+      "truePeakEstimateDbtp": -1.48,
+      "blocks": 547,
+      "gatedBlocks": 481
+    },
+    {
       "file": "assets/music/front-and-center-background-35c043f1.mp3",
       "sha256": "35c043f1834d73a693bbe019f4d170abf988a08ebebd53f631c45e8bb0a8bd2a",
       "bytes": 2588181,
@@ -291,6 +330,19 @@
       "truePeakEstimateDbtp": -0.97,
       "blocks": 3368,
       "gatedBlocks": 3357
+    },
+    {
+      "file": "assets/music/initiation-cabin-stereo.mp3",
+      "sha256": "82699d07e73b229dca65306f507d344b6c8545c2c852bb6bb26dbf2662c8de92",
+      "bytes": 1440750,
+      "decodedDurationSeconds": 90.044,
+      "sampleRate": 48000,
+      "channels": 2,
+      "integratedLufs": -15.35,
+      "samplePeakDbfs": -1.42,
+      "truePeakEstimateDbtp": -1.42,
+      "blocks": 897,
+      "gatedBlocks": 720
     },
     {
       "file": "assets/music/enola-pre-bomb-drop-approach.mp3",

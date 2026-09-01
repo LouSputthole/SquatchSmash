@@ -25,6 +25,7 @@ import {
   LUXURY_STAIR_RUN,
   luxuryGroundAt,
 } from './layout.js';
+import { makeLuxuryMorningMugs } from './continuity-props.js';
 
 const WALL = LUXURY_LAYOUT.wall;
 const MAIN_Y = LUXURY_LAYOUT.mainY;
@@ -429,6 +430,11 @@ export async function buildLuxuryApartment(ctx = {}) {
     label: 'Sit in the sunken <b>lounge</b>',
     onUse: () => ctx.onCouch?.(),
   });
+  register('margoMorningMugs', domestic.morningMugs, {
+    label: 'Look at the two unfinished <b>coffees</b>',
+    enabled: () => domestic.morningMugs.visible,
+    onUse: () => ctx.onContinuity?.('margo-morning-mugs'),
+  });
   register('desk', domestic.desk.panel, {
     label: () => state.pcOn ? 'Use the <b>loft PC</b>' : 'Wake the <b>loft PC</b>',
     onUse: () => {
@@ -723,6 +729,9 @@ export async function buildLuxuryApartment(ctx = {}) {
     spawns,
     poses,
     utilityTargets,
+    continuityProps: new Map([
+      ['luxury.margo-morning-mugs', domestic.morningMugs],
+    ]),
     minigameAnchors,
     gameStations,
     artTargets,
@@ -2454,7 +2463,11 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
   };
   const nightLeft = addProp(loftContents, makeOrientedNightstand(5.68, -7.48), 'luxury-nightstand-left', LOFT_Y);
   const nightRight = addProp(loftContents, makeOrientedNightstand(8.42, -7.48), 'luxury-nightstand-right', LOFT_Y);
-  void nightRight;
+  const morningMugs = makeLuxuryMorningMugs({
+    left: [5.84, nightLeft.top + 0.01, -7.54],
+    right: [8.27, nightRight.top + 0.01, -7.54],
+  });
+  loftContents.add(own(morningMugs, 'luxury-continuity:margo-morning-mugs'));
   const desk = addProp(loftContents, P.makeDesk(M, {
     x: 0.15,
     z: -7.05,
@@ -2869,6 +2882,7 @@ function buildDomesticZones({ furnishings, loftContents, M, gear, propTexture, c
     closet,
     nightLeft,
     nightRight,
+    morningMugs,
     propArtPlacements: Object.freeze(propArtPlacements),
     tub,
     toilet,

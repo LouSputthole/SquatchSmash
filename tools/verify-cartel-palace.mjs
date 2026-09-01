@@ -548,6 +548,15 @@ try {
    * targets and their registered InteractionSystem handlers. */
   await aimAtPalaceTarget('powerBox');
   await holdCurrentPalaceInteraction(() => window.CARTEL_PALACE.snapshot().beat === 'perimeter');
+  const arrivalScore = await page.evaluate(() => window.CARTEL_PALACE.arrivalScore());
+  check('clean start: the Palace arrival score starts once and fades at the perimeter',
+    arrivalScore.key === 'music.arrival.cartel-palace'
+      && arrivalScore.startCount === 1
+      && arrivalScore.stopCount === 1
+      && arrivalScore.stopReason === 'perimeter-entered'
+      && arrivalScore.active === false
+      && arrivalScore.duckedByCanonicalVoiceBus === true,
+    JSON.stringify(arrivalScore));
   await aimAtPalaceTarget('estateDoor');
   await holdCurrentPalaceInteraction(() => window.CARTEL_PALACE.snapshot().beat === 'estate');
 

@@ -50,6 +50,10 @@ import { buildSpecialMeetingCast } from './cast.js';
 import { createFrontPassengerDoorTarget } from './door-interaction.js';
 import { PassengerRig, createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
+import {
+  SPECIAL_MEETING_RADIO_GAG,
+  playSpecialMeetingRadioGag,
+} from './radio-gag.js';
 import { SPEAKERS, scriptCues } from './script.js';
 import { EYE_HEIGHT, FOOTSTEP_SURFACE, stageSpecialMeeting } from './stage.js';
 
@@ -158,6 +162,7 @@ let voiceReady = false;
 let missingVoiceCues = [];
 let failedVoiceCues = [];
 let voiceLoadError = null;
+const radioGagPlaybackReceipts = [];
 
 window.__squatchStage?.('A car, already running…');
 const stage = stageSpecialMeeting(scene, { renderer, audio, onPhase: onArrivalPhase });
@@ -497,6 +502,9 @@ const ride = createRideSequence({
     if (line.startsForestDrive) {
       driveTransitionReceipt.matchCutAt = performance.now();
       beginTheDrive();
+    }
+    if (line.radioGag) {
+      radioGagPlaybackReceipts.push(playSpecialMeetingRadioGag(audio));
     }
     if (line.opensTrunk) stage.sedan.setTrunk(1);
     if (line.closesTrunk) stage.sedan.setTrunk(0);
@@ -1075,6 +1083,7 @@ async function wakeTheSound() {
     await audio.loadAdditional({
       names: [
         ...SPECIAL_MEETING_VOICE_CUES,
+        SPECIAL_MEETING_RADIO_GAG.cue,
         ...AMBIENCE_CUES,
         ...Object.values(FOREST_TRAVEL_AUDIO).map(({ cue }) => cue),
       ],
@@ -1212,6 +1221,12 @@ const certification = {
       activeTravelLoops: activeForestTravelLoops(),
     };
   },
+  get radioGag() {
+    return radioGagPlaybackReceipts.map((evidence) => ({
+      ...evidence,
+      receipt: evidence.receipt ? { ...evidence.receipt } : null,
+    }));
+  },
   get rideBeat() { return ride.beatId; },
   get ridePhase() { return ride.phase; },
   get arrival() { return arrivalEvidence(); },
@@ -1252,5 +1267,6 @@ window.SPECIAL_MEETING = {
       0,
     );
   },
+  get radioGagReceipts() { return certification.radioGag; },
   certification,
 };

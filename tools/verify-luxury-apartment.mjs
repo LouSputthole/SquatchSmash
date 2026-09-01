@@ -818,6 +818,32 @@ try {
   );
   console.log('  ...   Beat 27 saved page ready; starting the real phone scheduler');
   await ringingReloadPage.locator('#start-btn').click();
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.phase === 'active'
+      && window.LUXURY_APARTMENT.audio.hasSample('vo.specialmeeting.tony.idle_before.1')
+  ), null, AUXILIARY_WAIT);
+  /* Compress only authored WAIT clocks through the scene's public QA seam.
+   * The actual idle take, scheduler, ringtone, phone key, call, inventory,
+   * callback and lift remain the production controllers. */
+  await ringingReloadPage.evaluate(() => {
+    window.LUXURY_APARTMENT.debug.specialMeeting.advance({
+      seconds: 19.1, phoneClock: false, preludeClock: true, busy: false,
+    });
+  });
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+      .some(({ cue, receipt }) => cue === 'vo.specialmeeting.tony.idle_before.1'
+        && receipt?.started === true)
+  ), null, AUXILIARY_WAIT);
+  const firstIdleReceipt = await ringingReloadPage.evaluate(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+      .find(({ cue }) => cue === 'vo.specialmeeting.tony.idle_before.1')
+  ));
+  await ringingReloadPage.evaluate(() => {
+    window.LUXURY_APARTMENT.debug.specialMeeting.advance({
+      seconds: 75, phoneClock: true, preludeClock: false,
+    });
+  });
   await ringingReloadPage.waitForFunction(
     () => window.LUXURY_APARTMENT.phone.ringing === true,
     null,
@@ -843,6 +869,15 @@ try {
     { pinLuxuryRenderer: true },
   );
   await ringingReloadPage.locator('#start-btn').click();
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.phase === 'active'
+      && window.LUXURY_APARTMENT.audio.hasSample('vo.specialmeeting.tony.dead_line.1')
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.evaluate(() => {
+    window.LUXURY_APARTMENT.debug.specialMeeting.advance({
+      seconds: 75, phoneClock: true, preludeClock: false,
+    });
+  });
   await ringingReloadPage.waitForFunction(
     () => window.LUXURY_APARTMENT.phone.ringing === true,
     null,
@@ -907,9 +942,156 @@ try {
   await ringingReloadPage.waitForFunction(() => (
     window.LUXURY_APARTMENT.phone.inCall === false
       && window.LUXURY_APARTMENT.phone.ringing === false
-      && /Leave for the car downstairs/i.test(
-        document.getElementById('objectives')?.textContent ?? '',
-      )
+      && window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+        .some(({ cue, receipt }) => cue === 'vo.specialmeeting.tony.dead_line.1'
+          && receipt?.started === true)
+  ), null, AUXILIARY_WAIT);
+  /* The callback is player-authored: select the persisted phone with its real
+   * number key, press real R, let the shared prelude expire the unanswered
+   * ring, then pocket it before interacting with the room again. */
+  const phoneSlot = await ringingReloadPage.evaluate(() => (
+    window.LUXURY_APARTMENT.home.inventory.items.indexOf('phone') + 1
+  ));
+  if (phoneSlot < 1 || phoneSlot > 5) throw new Error(`Beat 27 phone slot invalid: ${phoneSlot}`);
+  await ringingReloadPage.keyboard.press(String(phoneSlot));
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.home.inventory.held === 'phone'
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.keyboard.press('r');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.snapshot().ringingOut > 0
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.evaluate(() => {
+    const qa = window.LUXURY_APARTMENT.debug.specialMeeting;
+    qa.advance({ seconds: 11.1, phoneClock: false, preludeClock: true, busy: true });
+    qa.advance({ seconds: 0.6, phoneClock: false, preludeClock: true, busy: true });
+  });
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+      .some(({ cue, receipt }) => cue === 'vo.specialmeeting.tony.call_back.1'
+        && receipt?.started === true)
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.keyboard.press('q');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.home.inventory.held === null
+      && !window.LUXURY_APARTMENT.audio.busy()
+  ), null, AUXILIARY_WAIT);
+
+  /* SM-060 replaces the pre-call stillness bank; this advances only that
+   * authored idle wait and observes the real receipt. */
+  await ringingReloadPage.evaluate(() => {
+    window.LUXURY_APARTMENT.debug.specialMeeting.advance({
+      seconds: 19.1, phoneClock: false, preludeClock: true, busy: false,
+    });
+  });
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+      .some(({ cue, receipt }) => cue === 'vo.specialmeeting.tony.idle_after.1'
+        && receipt?.started === true)
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.waitForFunction(
+    () => !window.LUXURY_APARTMENT.audio.busy(), null, AUXILIARY_WAIT,
+  );
+
+  /* Stand at the authored wardrobe exit, aim the production camera and press
+   * the real interaction key. The setup is the same pose-only allowance used
+   * for the elevator below; the action still resolves through the raycaster. */
+  const wardrobeApproach = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const target = runtime.home.utilityTargets.wardrobe;
+    const pose = runtime.home.poses.wardrobe;
+    runtime.player.position.set(pose.position.x, pose.exit.y + 1.66, pose.position.z);
+    runtime.player.ground = pose.exit.y;
+    runtime.player.grounded = true;
+    runtime.player.jumpHeight = 0;
+    runtime.player.yaw = pose.yaw;
+    runtime.player.pitch = pose.pitch;
+    runtime.player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    return {
+      targetResolved: runtime.interaction.current === target,
+      current: runtime.interaction.current?.name ?? null,
+      dressed: runtime.home.state.dressed,
+    };
+  });
+  await ringingReloadPage.keyboard.press('e');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.home.state.dressed === true
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.evaluate(() => {
+    window.LUXURY_APARTMENT.debug.specialMeeting.advance({
+      seconds: 1.7, phoneClock: false, preludeClock: true, busy: true,
+    });
+  });
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+      .some(({ cue, receipt }) => cue === 'vo.specialmeeting.tony.getting_ready.1'
+        && receipt?.started === true)
+  ), null, AUXILIARY_WAIT);
+  await ringingReloadPage.waitForFunction(
+    () => !window.LUXURY_APARTMENT.audio.busy(), null, AUXILIARY_WAIT,
+  );
+
+  /* Try the actual elevator before the car. It must stay shut and speak the
+   * first recorded SM-080 refusal, rather than silently opening its collider.
+   * The wardrobe can legitimately return pointer lock to the browser; move out
+   * of that posture first, then reacquire the game through the same canvas click
+   * a player uses before aiming and pressing E. */
+  await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    runtime.teleport('arrival');
+    /* `teleportToSpawn` moves the eye but deliberately leaves the previous
+     * support sample alone. We just came from the loft wardrobe, so seed the
+     * authored arrival floor before the next production Player update exactly
+     * as the earlier loft setup does. */
+    const arrivalGround = runtime.home.spawns.arrival.position.y - 1.68;
+    runtime.player.position.y = arrivalGround + 1.66;
+    runtime.player.ground = arrivalGround;
+    runtime.player.grounded = true;
+    runtime.player.jumpHeight = 0;
+  });
+  const beat27InputCaptured = await ringingReloadPage.evaluate(() => (
+    window.LUXURY_APARTMENT.player.enabled
+      && document.pointerLockElement === document.getElementById('scene')
+  ));
+  if (!beat27InputCaptured) {
+    await ringingReloadPage.locator('#scene').click({ position: { x: 12, y: 12 } });
+    await ringingReloadPage.waitForFunction(() => (
+      window.LUXURY_APARTMENT.player.enabled
+        && document.pointerLockElement === document.getElementById('scene')
+    ), null, AUXILIARY_WAIT);
+  }
+  const earlyElevator = await ringingReloadPage.evaluate(() => {
+    const runtime = window.LUXURY_APARTMENT;
+    const target = runtime.home.utilityTargets.elevator;
+    const point = target.getWorldPosition(new target.position.constructor());
+    const delta = point.clone().sub(runtime.player.position);
+    runtime.player.yaw = Math.atan2(-delta.x, -delta.z);
+    runtime.player.pitch = Math.atan2(delta.y, Math.hypot(delta.x, delta.z));
+    runtime.player.update(0.001);
+    runtime.camera.updateMatrixWorld(true);
+    runtime.interaction.setPaused(false);
+    runtime.interaction.update(0);
+    return {
+      targetResolved: runtime.interaction.current === target,
+      playerEnabled: runtime.player.enabled,
+      pointerLocked: document.pointerLockElement === document.getElementById('scene'),
+      position: runtime.player.position.toArray(),
+      ground: runtime.player.ground,
+      carOutside: runtime.debug.specialMeeting.activities().carOutside,
+      elevatorOpen: runtime.home.state.elevatorOpen,
+    };
+  });
+  if (!earlyElevator.targetResolved || !earlyElevator.playerEnabled || !earlyElevator.pointerLocked) {
+    throw new Error(`Beat 27 early elevator input was not live: ${JSON.stringify(earlyElevator)}`);
+  }
+  await ringingReloadPage.keyboard.press('e');
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.debug.specialMeeting.receipts()
+      .some(({ cue, receipt }) => cue === 'vo.specialmeeting.tony.door_refusal.1'
+        && receipt?.started === true)
   ), null, AUXILIARY_WAIT);
   const afterCallDrained = await ringingReloadPage.evaluate(() => {
     const runtime = window.LUXURY_APARTMENT;
@@ -921,6 +1103,9 @@ try {
       timeEventCopies: saved.story.timeEvents
         .filter((id) => id === 'call.booski_special_meeting').length,
       objective: document.getElementById('objectives')?.textContent ?? '',
+      elevatorOpen: runtime.home.state.elevatorOpen,
+      prelude: runtime.debug.specialMeeting.snapshot(),
+      receipts: runtime.debug.specialMeeting.receipts(),
     };
   });
   await ringingReloadPage.reload({ waitUntil: 'domcontentloaded' });
@@ -937,7 +1122,25 @@ try {
   );
   console.log('  ...   Beat 27 call drained; reloading the answered save for duplicate suppression');
   await ringingReloadPage.locator('#start-btn').click();
-  await ringingReloadPage.waitForTimeout(7200);
+  await ringingReloadPage.waitForFunction(() => (
+    window.LUXURY_APARTMENT.state.phase === 'active'
+      && window.LUXURY_APARTMENT.audio.hasSample('vo.specialmeeting.tony.headlights.1')
+  ), null, AUXILIARY_WAIT);
+  /* An answered reload resumes the existing pickup at 16 seconds instead of
+   * replaying the 170-second first wait. Compress that wait, then the 1.5 s
+   * authored headlight-line delay, through the runtime's clock seam. */
+  await ringingReloadPage.evaluate(() => {
+    const qa = window.LUXURY_APARTMENT.debug.specialMeeting;
+    qa.advance({ seconds: 16.1, phoneClock: false, preludeClock: true, busy: true });
+    qa.advance({ seconds: 1.6, phoneClock: false, preludeClock: true, busy: true });
+  });
+  await ringingReloadPage.waitForFunction(() => {
+    const qa = window.LUXURY_APARTMENT.debug.specialMeeting;
+    return qa.activities().carOutside
+      && qa.receipts().some(({ cue, receipt }) => (
+        cue === 'vo.specialmeeting.tony.headlights.1' && receipt?.started === true
+      ));
+  }, null, AUXILIARY_WAIT);
   const afterAnsweredReload = await ringingReloadPage.evaluate(() => {
     const runtime = window.LUXURY_APARTMENT;
     const saved = JSON.parse(localStorage.getItem('squatchlife.campaign'));
@@ -950,8 +1153,26 @@ try {
       timeEventCopies: saved.story.timeEvents
         .filter((id) => id === 'call.booski_special_meeting').length,
       objective: document.getElementById('objectives')?.textContent ?? '',
+      prelude: runtime.debug.specialMeeting.snapshot(),
+      receipts: runtime.debug.specialMeeting.receipts(),
+      engineLoop: runtime.audio.loops.has('specialmeeting.car'),
     };
   });
+  const requiredPreludeCues = [
+    'vo.specialmeeting.tony.idle_before.1',
+    'vo.specialmeeting.tony.dead_line.1',
+    'vo.specialmeeting.tony.call_back.1',
+    'vo.specialmeeting.tony.idle_after.1',
+    'vo.specialmeeting.tony.getting_ready.1',
+    'vo.specialmeeting.tony.door_refusal.1',
+    'vo.specialmeeting.tony.headlights.1',
+  ];
+  const allPreludeReceipts = [
+    firstIdleReceipt,
+    ...afterCallDrained.receipts,
+    ...afterAnsweredReload.receipts,
+  ].filter(Boolean);
+  const preludeReceiptByCue = new Map(allPreludeReceipts.map((entry) => [entry.cue, entry]));
   check('a real save reload during the ring recovers the call, while an answered reload cannot duplicate it',
     beforeRingReload.ringing
       && beforeRingReload.held === null
@@ -965,7 +1186,9 @@ try {
       && !afterCallDrained.inCall
       && afterCallDrained.status === 'answered'
       && afterCallDrained.timeEventCopies === 1
-      && /Leave for the car downstairs/i.test(afterCallDrained.objective)
+      && /Wait in for Seff, Lag and Numbskull/i.test(afterCallDrained.objective)
+      && !afterCallDrained.elevatorOpen
+      && !afterCallDrained.prelude.carOutside
       && !afterAnsweredReload.ringing
       && !afterAnsweredReload.inCall
       && afterAnsweredReload.hotbarCopies === 1
@@ -973,6 +1196,9 @@ try {
       && afterAnsweredReload.status === 'answered'
       && afterAnsweredReload.timeEventCopies === 1
       && !/Answer Booskibro/i.test(afterAnsweredReload.objective)
+      && /Leave for the car downstairs/i.test(afterAnsweredReload.objective)
+      && afterAnsweredReload.prelude.carOutside
+      && afterAnsweredReload.engineLoop
       && [initialAuxiliaryMetrics, ringingAuxiliaryMetrics, answeredAuxiliaryMetrics]
         .every((metrics) => (
           metrics.css[0] === 640
@@ -992,6 +1218,25 @@ try {
         ringing: ringingAuxiliaryMetrics,
         answered: answeredAuxiliaryMetrics,
       },
+    }));
+  check('all seven authored Beat 27 home-prelude banks reach the canonical luxury route as real recordings',
+    wardrobeApproach.targetResolved
+      && earlyElevator.targetResolved
+      && !earlyElevator.carOutside
+      && !earlyElevator.elevatorOpen
+      && requiredPreludeCues.every((cue) => {
+        const entry = preludeReceiptByCue.get(cue);
+        return entry?.receipt?.started === true
+          && entry.receipt.requested === cue
+          && entry.receipt.actual === cue
+          && entry.receipt.source === 'buffer';
+      }),
+    JSON.stringify({
+      wardrobeApproach,
+      earlyElevator,
+      receipts: Object.fromEntries(requiredPreludeCues.map((cue) => [
+        cue, preludeReceiptByCue.get(cue)?.receipt ?? null,
+      ])),
     }));
 
   /* The `teleport` and pose calls below are setup only: they put the player

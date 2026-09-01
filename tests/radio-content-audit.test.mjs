@@ -77,7 +77,7 @@ test('the generated audit distinguishes verified speech from owner-reviewed musi
   assert.equal(data.summary.verifiedSpokenCues, 298);
   assert.equal(data.summary.spokenCueTotal, 298);
   assert.equal(verified.length, 298);
-  assert.equal(music.length, 24);
+  assert.equal(music.length, 28);
   assert.ok(music.every((row) => String(row['Filename-content mismatch']).startsWith('OWNER LISTEN —')));
 
   const finding = data.rows['Problems and Decisions']

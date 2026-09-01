@@ -1,5 +1,9 @@
 # Campaign timeline — current production flow (updated 2026-08-28)
 
+> The exact beat/scene/spawn/exit table is generated directly from the live
+> spine in [`CAMPAIGN-ROUTE-GENERATED.md`](./CAMPAIGN-ROUTE-GENERATED.md).
+> This narrative document supplies context; it is not a second route ledger.
+
 > **This file is the record of what is BUILT, not the plan.**
 >
 > The owner's campaign story bible arrived on 2026-08-26 and lives at

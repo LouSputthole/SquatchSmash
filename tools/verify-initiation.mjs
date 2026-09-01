@@ -666,9 +666,19 @@ async function runCleanStartGoldenPath(page) {
     ready: window.INITIATION.audioReady,
     error: window.INITIATION.audioLoadError,
     missing: window.INITIATION.missingVoiceCues,
+    cabinMusic: window.INITIATION.cabinMusic,
   }));
   if (!audio.ready || audio.error || audio.missing.length) {
     throw new Error(`Initiation clean start could not arm its voice bank: ${JSON.stringify(audio)}`);
+  }
+  if (audio.cabinMusic.key !== 'initiation.cabin.music'
+    || audio.cabinMusic.source !== 'assets/music/initiation-cabin-stereo.mp3'
+    || audio.cabinMusic.state !== 'muffled'
+    || !audio.cabinMusic.loopActive
+    || !audio.cabinMusic.streamed
+    || audio.cabinMusic.cutoff !== 780) {
+    throw new Error(`Initiation clean start did not start the delivered cabin stereo through the wall: `
+      + JSON.stringify(audio.cabinMusic));
   }
 
   /* Woods -> exact place in the prospect line, entirely through shared WASD. */
@@ -738,6 +748,14 @@ async function runCleanStartGoldenPath(page) {
     throw new Error(`Initiation clean start did not complete its player-driven trail: `
       + JSON.stringify({ cabinWalk, trailStart, trailDistance }));
   }
+  const openCabinMusic = await page.evaluate(() => window.INITIATION.cabinMusic);
+  if (openCabinMusic.state !== 'open'
+    || !openCabinMusic.loopActive
+    || openCabinMusic.cutoff !== 14_000
+    || openCabinMusic.volume !== 0.24) {
+    throw new Error(`Initiation cabin stereo did not open with the real cabin door: `
+      + JSON.stringify(openCabinMusic));
+  }
   console.log('  clean start: authored trail, walking reply and cabin doorway crossed through WASD');
 
   await pressActionTo(page, 'ceremony_approach', { timeout: 240000, seen });
@@ -757,6 +775,12 @@ async function runCleanStartGoldenPath(page) {
   /* Continue through the room with Space and choose the visible commitment
    * answer with its real randomized number key. */
   await pressActionUntilChoice(page, 'oath_question', { timeout: 360000, seen });
+  const oathMusic = await page.evaluate(() => window.INITIATION.cabinMusic);
+  if (!oathMusic.silenceCommitted
+    || oathMusic.loopActive
+    || !['fading', 'silent'].includes(oathMusic.state)) {
+    throw new Error(`Initiation cabin stereo survived into the oath: ${JSON.stringify(oathMusic)}`);
+  }
   const commitment = await chooseDisplayedOption(
     page,
     (option) => option.text.endsWith('Yes. I do.'),
@@ -810,6 +834,7 @@ async function runCleanStartGoldenPath(page) {
     pointerReleased: document.pointerLockElement === null,
     focusId: document.activeElement?.id ?? null,
     pathname: location.pathname,
+    cabinMusic: window.INITIATION.cabinMusic,
   }));
   if (completion.phase !== 'complete'
     || !completion.visible
@@ -817,7 +842,10 @@ async function runCleanStartGoldenPath(page) {
     || completion.headings.join('|') !== "THE PROSPECT'S RECORD|THE FAMILY|BIG UNCLE LOU SPUTTHOLE"
     || !completion.buttonVisible
     || !completion.pointerReleased
-    || completion.focusId !== 'credits') {
+    || completion.focusId !== 'credits'
+    || completion.cabinMusic.state !== 'silent'
+    || completion.cabinMusic.loopActive
+    || !completion.cabinMusic.silenceCommitted) {
     throw new Error(`Initiation clean start did not reach its full campaign credit roll: `
       + JSON.stringify(completion));
   }
@@ -840,13 +868,40 @@ async function runCleanStartGoldenPath(page) {
     throw new Error(`Residual ceremony Space skipped the credit roll: ${JSON.stringify(afterResidualSpace)}`);
   }
 
+  await page.locator('#credits-skip').click();
+  await page.waitForFunction(() => document.querySelector('#replay-anything')
+    ?.getAttribute('aria-hidden') === 'false', null, { timeout: 30000 });
+  const replayPortal = await page.evaluate(() => {
+    const button = document.querySelector('#replay-anything-button');
+    const rect = button?.getBoundingClientRect();
+    const hit = rect
+      ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      : null;
+    return {
+      label: button?.textContent?.trim() ?? null,
+      focusId: document.activeElement?.id ?? null,
+      buttonVisible: Boolean(rect && rect.width >= 300 && rect.height >= 70),
+      hitId: hit?.id ?? null,
+      pathname: location.pathname,
+    };
+  });
+  if (replayPortal.label !== 'Click here to replay anything'
+    || replayPortal.focusId !== 'replay-anything-button'
+    || !replayPortal.buttonVisible
+    || replayPortal.hitId !== 'replay-anything-button'
+    || !replayPortal.pathname.endsWith('/initiation.html')) {
+    throw new Error(`Initiation clean start did not reveal the post-credit replay portal: `
+      + JSON.stringify(replayPortal));
+  }
+
   await Promise.all([
-    page.waitForURL((url) => url.pathname.endsWith('/index.html'), {
+    page.waitForURL((url) => url.pathname.endsWith('/preview.html'), {
       waitUntil: 'domcontentloaded',
       timeout: 120000,
     }),
-    page.locator('#credits-skip').click(),
+    page.locator('#replay-anything-button').click(),
   ]);
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
   const exit = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem('squatchlife.campaign') || 'null');
     return {
@@ -856,11 +911,11 @@ async function runCleanStartGoldenPath(page) {
       status: saved?.missions?.initiation?.status ?? null,
     };
   });
-  if (!exit.pathname.endsWith('/index.html')
+  if (!exit.pathname.endsWith('/preview.html')
     || exit.status !== 'complete') {
-    throw new Error(`Initiation clean start did not save completion before returning to title: ${JSON.stringify(exit)}`);
+    throw new Error(`Initiation clean start did not preserve completion through preview reload: ${JSON.stringify(exit)}`);
   }
-  console.log('  clean start: ritual, induction, full credits and title return completed');
+  console.log('  clean start: ritual, induction, credits, replay portal and preview reload completed');
 
   /* Mechanical guardrail: this function and every helper it delegates to
    * must remain free of the known test-only state-changing APIs. */
@@ -989,6 +1044,7 @@ try {
     error: window.INITIATION.audioLoadError,
     missing: window.INITIATION.missingVoiceCues,
     failed: window.INITIATION.failedCues,
+    cabinMusic: window.INITIATION.cabinMusic,
   }));
   check('the delivered Kitten Boss begging take exists in the production voice bank',
     productionKittenBegCueExists,
@@ -998,6 +1054,14 @@ try {
   check('the first gesture decodes the active Initiation voice bank before ceremony dialogue',
     audioState.ready && !audioState.error && audioState.missing.length === 0 && audioState.failed.length === 0,
     JSON.stringify({ ...audioState, verifierSubstitute: !productionKittenBegCueExists }));
+  check('the first gesture streams the delivered cabin stereo as muffled positional music',
+    audioState.cabinMusic.key === 'initiation.cabin.music'
+      && audioState.cabinMusic.source === 'assets/music/initiation-cabin-stereo.mp3'
+      && audioState.cabinMusic.state === 'muffled'
+      && audioState.cabinMusic.loopActive
+      && audioState.cabinMusic.streamed
+      && audioState.cabinMusic.cutoff === 780,
+    JSON.stringify(audioState.cabinMusic));
   check('all scene modules, art and face textures load', missing.length === 0, missing.join(' | '));
 
   /* ---------------------------------------------------------------- */
@@ -1300,6 +1364,13 @@ try {
       && cabinWalk.trail?.choiceUsed
       && cabinWalk.trail?.choiceResolved,
     JSON.stringify({ answered: cabinWalk.trailChoiceAnswered, trail: cabinWalk.trail }));
+  const openCabinMusic = await page.evaluate(() => window.INITIATION.cabinMusic);
+  check('crossing the real cabin door opens the stereo mix inside the room',
+    openCabinMusic.state === 'open'
+      && openCabinMusic.loopActive
+      && openCabinMusic.cutoff === 14_000
+      && openCabinMusic.volume === 0.24,
+    JSON.stringify(openCabinMusic));
 
   await pressActionTo(page, 'ceremony_approach', { timeout: 240000 });
   const ceremonyWalk = await walkAuthoredRouteTo(
@@ -1329,6 +1400,12 @@ try {
   await pressActionTo(page, 'oath_question', { timeout: 360000 });
   await page.waitForFunction(() => window.INITIATION.phase === 'oath_question'
     && window.INITIATION.quizOpen, null, { timeout: 120000 });
+  const oathMusic = await page.evaluate(() => window.INITIATION.cabinMusic);
+  check('the cabin stereo begins its authored fade before the oath and cannot restart afterward',
+    oathMusic.silenceCommitted
+      && !oathMusic.loopActive
+      && ['fading', 'silent'].includes(oathMusic.state),
+    JSON.stringify(oathMusic));
   const commitmentOptions = await page.locator('#quiz .quiz-opt').evaluateAll((buttons) => buttons
     .filter((button) => !button.hidden)
     .map((button) => ({
@@ -1564,6 +1641,7 @@ try {
     creditNames: [...document.querySelectorAll('#credits-track .credits-name')]
       .map((name) => name.textContent?.trim()),
     focusId: document.activeElement?.id ?? null,
+    cabinMusic: window.INITIATION.cabinMusic,
   }));
   check('induction keeps shared first-person control and awards Tony the member bandana',
     inducted.controller === 'Player'
@@ -1581,7 +1659,10 @@ try {
       && inducted.creditRows >= 250
       && inducted.creditNames.includes('Prospect')
       && inducted.creditNames.filter((name) => name === 'Lou Sputthole').length === 240
-      && inducted.focusId === 'credits',
+      && inducted.focusId === 'credits'
+      && inducted.cabinMusic.state === 'silent'
+      && !inducted.cabinMusic.loopActive
+      && inducted.cabinMusic.silenceCommitted,
     JSON.stringify(inducted));
 
   const completionPointer = await page.evaluate(() => {
@@ -1616,13 +1697,41 @@ try {
     JSON.stringify(afterResidualSpace));
 
   const completionUrl = page.url();
+  await page.locator('#credits-skip').click();
+  await page.waitForFunction(() => document.querySelector('#replay-anything')
+    ?.getAttribute('aria-hidden') === 'false', null, { timeout: 30000 });
+  const replayPortal = await page.evaluate(() => {
+    const button = document.querySelector('#replay-anything-button');
+    const rect = button?.getBoundingClientRect();
+    const hit = rect
+      ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      : null;
+    return {
+      label: button?.textContent?.trim() ?? null,
+      focusId: document.activeElement?.id ?? null,
+      buttonVisible: Boolean(rect && rect.width >= 300 && rect.height >= 70),
+      hitId: hit?.id ?? null,
+      ariaHidden: document.querySelector('#replay-anything')?.getAttribute('aria-hidden'),
+      pathname: location.pathname,
+    };
+  });
+  check('the finished credit roll reveals one large explicit replay-anything button',
+    replayPortal.label === 'Click here to replay anything'
+      && replayPortal.focusId === 'replay-anything-button'
+      && replayPortal.buttonVisible
+      && replayPortal.hitId === 'replay-anything-button'
+      && replayPortal.ariaHidden === 'false'
+      && replayPortal.pathname.endsWith('/initiation.html'),
+    JSON.stringify(replayPortal));
+
   await Promise.all([
-    page.waitForURL((url) => url.pathname.endsWith('/index.html'), {
+    page.waitForURL((url) => url.pathname.endsWith('/preview.html'), {
       waitUntil: 'domcontentloaded',
       timeout: 120000,
     }),
-    page.locator('#credits-skip').click(),
+    page.locator('#replay-anything-button').click(),
   ]);
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
   const successfulExit = await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem('squatchlife.campaign') || 'null');
     return {
@@ -1632,9 +1741,9 @@ try {
       initiationStatus: saved?.missions?.initiation?.status ?? null,
     };
   });
-  check('skipping the completed credit roll returns to the title without losing completion',
+  check('the replay button opens preview.html and completion survives a preview reload',
     completionUrl.endsWith('/initiation.html')
-      && new URL(successfulExit.url).pathname.endsWith('/index.html')
+      && new URL(successfulExit.url).pathname.endsWith('/preview.html')
       && successfulExit.initiationStatus === 'complete',
     JSON.stringify({ completionUrl, ...successfulExit }));
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));

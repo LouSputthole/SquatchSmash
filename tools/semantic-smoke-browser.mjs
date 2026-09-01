@@ -118,19 +118,37 @@ function installQaAudioPolicy() {
 function observeQaAudioPolicy() {
   const policy = globalThis.__SQUATCH_QA_AUDIO__ ?? null;
   const engines = Array.isArray(policy?.engines) ? policy.engines : [];
-  const receipts = engines.flatMap((engine) => engine?.playbackReceipts ?? [])
-    .map((receipt) => ({
+  const receipts = engines.flatMap((engine) => {
+    const lifecycleByReceipt = new Map((engine?.playbacks ?? [])
+      .filter((playback) => Number.isInteger(playback?.receiptId))
+      .map((playback) => [playback.receiptId, {
+        endedAt: Number.isFinite(playback.endedAt) ? playback.endedAt : null,
+        naturalEnd: playback.naturalEnd === true,
+      }]));
+    return (engine?.playbackReceipts ?? []).map((receipt) => ({
+      id: receipt?.id ?? null,
       requested: receipt?.requested ?? null,
       actual: receipt?.actual ?? null,
       source: receipt?.source ?? null,
       started: receipt?.started === true,
       requiredRecorded: receipt?.requiredRecorded === true,
+      speech: receipt?.speech ?? null,
+      lifecycle: lifecycleByReceipt.get(receipt?.id) ?? null,
     }));
+  });
   const scheduledRequiredRecordingCount = receipts.filter((receipt) => (
     receipt.requiredRecorded
       && receipt.started
       && receipt.source === 'buffer'
       && receipt.actual === receipt.requested
+  )).length;
+  const naturallyFinishedRequiredRecordingCount = receipts.filter((receipt) => (
+    receipt.requiredRecorded
+      && receipt.started
+      && receipt.source === 'buffer'
+      && receipt.actual === receipt.requested
+      && receipt.lifecycle?.naturalEnd === true
+      && Number.isFinite(receipt.lifecycle.endedAt)
   )).length;
   return {
     installed: Boolean(policy),
@@ -139,12 +157,33 @@ function observeQaAudioPolicy() {
     strictEngineCount: engines.filter((engine) => engine?.strictQa === true).length,
     receiptCount: receipts.length,
     scheduledRequiredRecordingCount,
+    naturallyFinishedRequiredRecordingCount,
     violationCount: engines.reduce(
       (total, engine) => total + (engine?.qaViolations?.length ?? 0),
       0,
     ),
     receipts,
   };
+}
+
+function specialMeetingRequiredRecordingNaturallyFinished(prefix) {
+  const policy = globalThis.__SQUATCH_QA_AUDIO__ ?? null;
+  const engines = Array.isArray(policy?.engines) ? policy.engines : [];
+  return engines.some((engine) => {
+    const receiptById = new Map((engine?.playbackReceipts ?? [])
+      .map((receipt) => [receipt?.id, receipt]));
+    return (engine?.playbacks ?? []).some((playback) => {
+      const receipt = receiptById.get(playback?.receiptId);
+      return receipt?.requiredRecorded === true
+        && receipt?.started === true
+        && receipt?.source === 'buffer'
+        && receipt?.actual === receipt?.requested
+        && receipt?.requested?.startsWith(prefix)
+        && receipt?.speech?.mode === 'world'
+        && playback?.naturalEnd === true
+        && Number.isFinite(playback?.endedAt);
+    });
+  });
 }
 
 function specialMeetingReady() {
@@ -630,6 +669,8 @@ export const SEMANTIC_SMOKE_BROWSER_ADAPTERS = Object.freeze({
     audio: Object.freeze({
       minimumEngines: 1,
       minimumRequiredReceipts: 1,
+      minimumNaturalEndReceipts: 1,
+      minimumWorldSpeechReceipts: 1,
       requiredCuePrefixes: Object.freeze(['vo.specialmeeting.']),
     }),
     readyTimeoutMs: 120_000,
@@ -683,6 +724,18 @@ export function buildSemanticSmokeCases({
         || adapter.audio.minimumRequiredReceipts < 1) {
         throw new TypeError(
           `Observable Adapter ${entrypointId} must require recorded-audio receipt evidence`,
+        );
+      }
+      if (!Number.isInteger(adapter.audio.minimumNaturalEndReceipts)
+        || adapter.audio.minimumNaturalEndReceipts < 1) {
+        throw new TypeError(
+          `Observable Adapter ${entrypointId} must require naturally finished recorded-audio evidence`,
+        );
+      }
+      if (!Number.isInteger(adapter.audio.minimumWorldSpeechReceipts)
+        || adapter.audio.minimumWorldSpeechReceipts < 1) {
+        throw new TypeError(
+          `Observable Adapter ${entrypointId} must require world dialogue spatial receipt evidence`,
         );
       }
       if (!Array.isArray(adapter.audio.requiredCuePrefixes)
@@ -1093,6 +1146,15 @@ async function exerciseSpecialMeetingJourney(page, adapter, errors) {
   } catch (error) {
     errors.action.push(`Objective progression failed: ${messageOf(error)}`);
   }
+  try {
+    await page.waitForFunction(
+      specialMeetingRequiredRecordingNaturallyFinished,
+      'vo.specialmeeting.',
+      { polling: 'raf', timeout: 45_000 },
+    );
+  } catch (error) {
+    errors.action.push(`Required world dialogue did not finish naturally: ${messageOf(error)}`);
+  }
   const afterInteraction = await page.evaluate(adapter.observe);
   const kerbAudio = await page.evaluate(observeQaAudioPolicy);
 
@@ -1276,6 +1338,13 @@ export async function executeSemanticSmokeCase({
             + `expected at least ${minimumReceipts}.`,
           );
         }
+        if (audio?.naturallyFinishedRequiredRecordingCount
+          < audioContract.minimumNaturalEndReceipts) {
+          diagnostics.errors.action.push(
+            `Observed ${audio?.naturallyFinishedRequiredRecordingCount ?? 0} naturally finished `
+            + `required recording(s); expected at least ${audioContract.minimumNaturalEndReceipts}.`,
+          );
+        }
         for (const prefix of audioContract.requiredCuePrefixes) {
           const scheduled = audio?.receipts?.some((receipt) => (
             receipt.requiredRecorded
@@ -1289,6 +1358,55 @@ export async function executeSemanticSmokeCase({
               `No requested recording with prefix ${prefix} was scheduled from its own buffer.`,
             );
           }
+          const finished = audio?.receipts?.some((receipt) => (
+            receipt.requiredRecorded
+              && receipt.started
+              && receipt.source === 'buffer'
+              && receipt.actual === receipt.requested
+              && receipt.requested?.startsWith(prefix)
+              && receipt.lifecycle?.naturalEnd === true
+              && Number.isFinite(receipt.lifecycle.endedAt)
+          ));
+          if (!finished) {
+            diagnostics.errors.action.push(
+              `No requested recording with prefix ${prefix} naturally finished from its own buffer.`,
+            );
+          }
+        }
+        const worldSpeechReceipts = (audio?.receipts ?? []).filter((receipt) => (
+          receipt.requiredRecorded
+            && receipt.started
+            && receipt.source === 'buffer'
+            && receipt.actual === receipt.requested
+            && audioContract.requiredCuePrefixes.some((prefix) => (
+              receipt.requested?.startsWith(prefix)
+            ))
+            && receipt.speech?.mode === 'world'
+        ));
+        const completeWorldSpeechReceipts = worldSpeechReceipts.filter((receipt) => {
+          const speech = receipt.speech;
+          const finiteVector = (value) => value
+            && Number.isFinite(value.x)
+            && Number.isFinite(value.y)
+            && Number.isFinite(value.z);
+          return speech.bodyRequired === true
+            && speech.bodyPresent === true
+            && speech.bodyResolved === true
+            && speech.bodyVisible === true
+            && finiteVector(speech.bodyPosition)
+            && finiteVector(speech.bodyForward)
+            && finiteVector(speech.listenerPosition)
+            && finiteVector(speech.listenerForward)
+            && Number.isFinite(speech.distance)
+            && Number.isFinite(speech.facingListenerDot)
+            && receipt.lifecycle?.naturalEnd === true
+            && Number.isFinite(receipt.lifecycle.endedAt);
+        });
+        if (completeWorldSpeechReceipts.length < audioContract.minimumWorldSpeechReceipts) {
+          diagnostics.errors.action.push(
+            `Observed ${completeWorldSpeechReceipts.length} complete world dialogue spatial receipt(s); `
+            + `expected at least ${audioContract.minimumWorldSpeechReceipts}.`,
+          );
         }
       }
       if (audio?.violationCount > 0) {
@@ -1499,6 +1617,9 @@ function printHumanReport(report) {
     console.log(`  ${result.status.padEnd(7)} ${result.entrypointId}`
       + ` obligations PASS=${passCount} FAIL=${failCount} UNKNOWN=${unknownCount}`);
     if (result.reason) console.log(`          ${result.reason}`);
+    for (const [kind, messages] of Object.entries(result.errors ?? {})) {
+      for (const message of messages ?? []) console.log(`          ${kind}: ${message}`);
+    }
   }
 }
 

@@ -8,6 +8,8 @@ import {
 } from './campaign.js';
 import { getCharacter, voiceProfileFor } from './characters.js';
 import { RING_SECONDS } from './phone.js';
+import { SPECIAL_MEETING_ACT_ONE } from './special-meeting-home-prelude.js';
+export { SPECIAL_MEETING_ACT_ONE } from './special-meeting-home-prelude.js';
 /**
  * THE SPECIAL MEETING's own script, read rather than restated.
  *
@@ -955,49 +957,6 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
  * finished player to wait in for a car would be a trap with the credits
  * already rolled.
  * ====================================================================== */
-
-/**
- * One beat's spoken lines, each with the exact cue `script.js` minted for it.
- *
- * Exact cues rather than a bank name, because these banks are not
- * interchangeable takes of one line -- they are three or eight DIFFERENT
- * sentences, and `AudioEngine.say()` picks from a bank at random. Play a bank
- * at the door and the screen says "I don't know where it is" while the man
- * says "They're picking me up", which is two people having half a conversation
- * each. The cue travels with its own words instead.
- */
-function actOneTakes(beatId) {
-  return Object.freeze(specialMeetingBeat(beatId).lines
-    .filter((line) => line.spoken)
-    .map((line) => Object.freeze({
-      text: line.text,
-      cue: line.cue,
-      /* SM-070 only. `wardrobe` and `mirror` in the script are the fittings of
-       * a flat that has neither; the nightstand drawer is this one's wardrobe
-       * and there is no mirror at all, so main.js reads this to decide which
-       * of the four lines the drawer gets. */
-      where: line.where ?? null,
-    })));
-}
-
-/**
- * Every bank Act One speaks with, by the beat it comes from.
- *
- * `doorRefusals` is spoken by `tryLeave` below, and `idleBefore` lends the
- * door one line for the hour before the phone rings (see `WAITING_ON_BOOSKI`).
- * The other five belong to the room, and `src/main.js` plays them: the idle
- * timer, the drawer, the dead line after Booskibro hangs up, ringing him back,
- * and the headlights.
- */
-export const SPECIAL_MEETING_ACT_ONE = Object.freeze({
-  idleBefore: actOneTakes('SM-010'),
-  deadLine: actOneTakes('SM-040'),
-  callBack: actOneTakes('SM-050'),
-  idleAfter: actOneTakes('SM-060'),
-  gettingReady: actOneTakes('SM-070'),
-  doorRefusals: actOneTakes('SM-080'),
-  headlights: actOneTakes('SM-090'),
-});
 
 /**
  * The one thing he says at the door before the phone has rung at all.

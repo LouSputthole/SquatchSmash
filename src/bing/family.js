@@ -19,6 +19,7 @@
  * photo lands on the same skull with no code changes.
  */
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { loadJson } from '../core/assets.js';
 import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 import { Npc, STOOL_SIT } from './cast.js';
 import { WARDROBE } from '../core/wardrobe.js';
@@ -259,9 +260,10 @@ export function familyPresent(campaignState) {
 /** Fetch which face photos exist, without ever 404ing a missing one. */
 export async function loadFaceIndex(url = 'assets/faces/index.json') {
   try {
-    const res = await fetch(url);
-    if (!res.ok) return new Set();
-    const data = await res.json();
+    const split = String(url).lastIndexOf('/');
+    const dir = split >= 0 ? String(url).slice(0, split + 1) : '';
+    const name = split >= 0 ? String(url).slice(split + 1) : String(url);
+    const data = await loadJson(dir, name);
     return new Set(Array.isArray(data.files) ? data.files : []);
   } catch {
     return new Set();

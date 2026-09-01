@@ -69,6 +69,7 @@ import {
   verifyExecutionStaging,
 } from './executions.js';
 import {
+  INITIATION_CABIN_MUSIC_KEY,
   INITIATION_CARD_SLOT,
   buildInitiationCabinSite,
 } from './cabin/index.js';
@@ -124,6 +125,7 @@ import { createCampaignSceneRecovery } from '../core/campaign-scene-skip.js';
 import { createCampaignCreditsView } from '../core/campaign-credits-view.js';
 import { campaignCreditRoll } from '../core/campaign-credits.js';
 import { prospectRecordCreditEntries } from '../core/campaign-stats.js';
+import { createInitiationFinale } from './finale.js';
 import {
   MISSION_IDS,
   SCENE_IDS,
@@ -173,7 +175,8 @@ if (campaign.state.scene.id !== SCENE_IDS.INITIATION) {
 }
 
 const campaignCreditsView = createCampaignCreditsView();
-campaignCreditsView.setDoneHandler(() => location.assign('./index.html'));
+const initiationFinale = createInitiationFinale();
+campaignCreditsView.setDoneHandler(() => initiationFinale.showReplayPortal());
 
 const ACTIVE_INITIATION_VOICE_CUES = Object.freeze([...new Set([
   ...allCabinVoiceLines(),
@@ -2461,6 +2464,11 @@ function runCeremonyBeat() {
     return;
   }
   const id = CEREMONY_BEATS_IN_ORDER[ceremonyIndex++];
+  if (id === 'IN-350') {
+    /* Let the old stereo disappear under the last two pieces of ceremony so
+     * the oath question arrives in an already silent room. */
+    site.ambience.fadeForOath();
+  }
   if (id === 'IN-310') {
     /* Lou asks; then the player, who is Tony, walks there himself. Keeping
      * the continuation out of this callback is deliberate: dialogue cannot
@@ -2489,6 +2497,10 @@ let ceremonyHold = 0;
  * room will wait, and the pause before the input is the content.
  */
 function askTheQuestion() {
+  /* Checkpoint/retry paths can enter here without replaying IN-350. The call
+   * is idempotent, and permanently closes the music boundary for the oath and
+   * everything after it. */
+  site.ambience.fadeForOath();
   setPhase('oath_question');
   /* The first time he has moved. The whole room comes off the walls half a
    * step, which is why he was sitting for eleven minutes. */
@@ -3631,6 +3643,19 @@ window.INITIATION = {
   get audioLoadError() { return audioLoadError?.message ?? null; },
   get missingVoiceCues() { return [...missingVoiceCues]; },
   get failedCues() { return [...audio.failedCues]; },
+  get cabinMusic() {
+    const policy = site.ambience.music;
+    const handle = audio.loops.get(INITIATION_CABIN_MUSIC_KEY) ?? null;
+    return {
+      ...policy,
+      loopActive: Boolean(handle),
+      cutoff: handle?.cutoff ?? null,
+      volume: handle?.volume ?? null,
+      streamed: handle?.streamed === true,
+      released: handle?.released === true,
+      failed: handle?.failed === true,
+    };
+  },
   smashAction: actionPress,
   advanceSay,
   stagingFindings: verifyExecutionStaging,

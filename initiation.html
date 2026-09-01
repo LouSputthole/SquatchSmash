@@ -239,6 +239,32 @@
   }
   #credits-skip:hover { color: #fff; border-color: rgba(255,154,58,.5); }
   #credits-skip:focus-visible { outline: 3px solid #fff1ca; outline-offset: 3px; }
+  #replay-anything {
+    position: fixed; inset: 0; z-index: 95; display: grid; place-items: center;
+    padding: 24px; color: #f5efe6; text-align: center;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(84, 48, 139, .35), transparent 42%),
+      #050407;
+  }
+  .replay-anything-panel {
+    width: min(760px, 92vw); padding: clamp(36px, 7vw, 72px) clamp(24px, 6vw, 64px);
+    border: 1px solid rgba(197, 172, 244, .45); border-radius: 16px;
+    background: rgba(17, 12, 25, .94);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .72), inset 0 0 50px rgba(108, 65, 178, .1);
+  }
+  .replay-anything-panel h2 {
+    margin: 0 0 18px; color: var(--silver-bright);
+    font-size: clamp(34px, 7vw, 68px); line-height: 1; letter-spacing: 3px;
+  }
+  .replay-anything-panel p {
+    margin: 0 auto 30px; max-width: 560px; color: #bcb1cb;
+    font-size: clamp(17px, 2.4vw, 22px); line-height: 1.55;
+  }
+  #replay-anything-button {
+    width: min(620px, 100%); min-height: 84px;
+    font-size: clamp(22px, 4vw, 34px); line-height: 1.15;
+  }
+  #replay-anything-button:focus-visible { outline: 4px solid #fff1ca; outline-offset: 5px; }
   @keyframes creditsCrawl {
     from { transform: translateY(100%); }
     to { transform: translateY(-100%); }
@@ -327,6 +353,15 @@
       <div id="credits-track" class="credits-track"></div>
     </div>
     <button id="credits-skip" type="button">SKIP — ESC</button>
+  </section>
+
+  <section id="replay-anything" class="hidden-hard" role="dialog" aria-modal="true"
+    aria-labelledby="replay-anything-title" aria-hidden="true">
+    <div class="replay-anything-panel">
+      <h2 id="replay-anything-title">THE END</h2>
+      <p>The campaign is complete. Return to the developer preview to replay any scene.</p>
+      <button id="replay-anything-button" class="btn" type="button">Click here to replay anything</button>
+    </div>
   </section>
 
   <div id="fade"></div>

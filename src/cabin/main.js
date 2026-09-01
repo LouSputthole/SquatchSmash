@@ -23,6 +23,7 @@ import { FirstPersonBody, createPlayerAppearanceStore } from '../core/first-pers
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
+import { applyHubContinuity } from '../core/hub-continuity.js';
 import { ITEMS } from '../core/inventory.js';
 
 /* WHAT THE POCKETS CAN SHOW.
@@ -251,6 +252,7 @@ const lagHints = createLagHintDirector();
 const creekListening = createCabinCreekListeningMode({ audio });
 
 let cabin = null;
+let cabinContinuity = null;
 let bathroomMirror = null;
 let reflectionBody = null;
 let input = null;
@@ -326,6 +328,18 @@ function syncCampaignPresentation() {
   applyTimeOfDay();
   repaintObjectives();
   phone.setThreads(phoneThreadsForCampaign(campaign.state));
+  if (cabin) {
+    cabinContinuity = applyHubContinuity({
+      hub: 'cabin',
+      phase: story.phase(),
+      props: new Map([
+        ['cabin.lay-low-note', cabin.utilityTargets.corkboard],
+        ['cabin.cellar-entry', cabin.basement.entryAssembly],
+        ['cabin.dungeon', cabin.basement.dungeon.root],
+        ['cabin.body-cleanup', cabin.bodyCleanup.root],
+      ]),
+    });
+  }
 }
 
 function discoverCabin(id) {
@@ -2309,6 +2323,7 @@ window.CABIN = window.COUNTRYSIDE_CABIN = window.__squatchCabin = {
   radio,
   time,
   state,
+  get continuity() { return cabinContinuity; },
   /* Deterministic presentation seam for visual/browser evidence. Cabin time
    * normally comes from the campaign and its lighting palette is applied by
    * the active frame. Tests and previews that deliberately freeze that frame

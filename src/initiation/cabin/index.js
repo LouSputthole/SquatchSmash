@@ -71,7 +71,14 @@ import { buildGroundSlab, buildWoods } from './woods.js';
 
 export * from './site.js';
 export * from './staging.js';
-export { createCabinAmbience, footingAt, playFootstep, sayFrom } from './ambience.js';
+export {
+  INITIATION_CABIN_MUSIC_KEY,
+  INITIATION_CABIN_MUSIC_SRC,
+  createCabinAmbience,
+  footingAt,
+  playFootstep,
+  sayFrom,
+} from './ambience.js';
 export {
   INITIATION_ART_SLOTS,
   INITIATION_CARD_SLOT,

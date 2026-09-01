@@ -26,11 +26,18 @@ import {
   applyRadioActivePlayCoverage,
   summarizeRadioActivePlayCoverage,
 } from './radio-active-play-coverage.mjs';
+import {
+  CAMPAIGN_RADIO_BEATS,
+  PHYSICAL_RADIO_RECEIVERS,
+  RADIO_PROGRAMS,
+} from '../src/core/radio-program.js';
+import { CAMPAIGN_ARRIVAL_SCORES } from '../src/core/campaign-arrival-score.js';
 
 const TOOL_FILE = fileURLToPath(import.meta.url);
 const DEFAULT_ROOT = path.resolve(path.dirname(TOOL_FILE), '..');
 const MUSIC_EXTENSIONS = ['.mp3', '.ogg', '.m4a', '.wav'];
 const FORMULA_ERRORS = ['#REF!', '#DIV/0!', '#VALUE!', '#NAME?', '#N/A'];
+const NO_ACTIVE_SOURCE = 'No active radio/music playback owner';
 
 export const SHEETS = Object.freeze({
   'Scene Timeline': Object.freeze([
@@ -40,6 +47,11 @@ export const SHEETS = Object.freeze({
     'Loop behavior', 'Expected duration', 'Volume', 'Ducking behavior',
     'Priority', 'Overlap risk', 'Current status', 'Notes', 'Proposed change',
     'Owner decision required', 'Implementation status',
+  ]),
+  'Radio Program': Object.freeze([
+    'Beat ID', 'Policy', 'Receiver ID', 'Campaign news', 'Program ID',
+    'Target seconds', 'Show hour', 'Block order', 'Song IDs', 'Ad IDs',
+    'Editorial IDs', 'Resume key', 'Browser proof',
   ]),
   'Station Catalog': Object.freeze([
     'Station ID', 'Display name', 'Intended identity', 'Genre or mood',
@@ -72,7 +84,7 @@ const LOCATION_BY_SCENE = Object.freeze({
   airstrip_smuggling: 'Whispering Pines airstrip, cockpit, and mountain route',
   bada_bing_two: 'Bada Bing party and cleanup',
   squatch_graveyard: 'Squatch graveyard',
-  jerky_motel: 'Roadside motel and approach drive',
+  jerky_motel: 'Roadside motel and getaway drive',
   bank_heist: 'Safehouse, bank, streets, garage, and escape car',
   silver_pines: 'Silver Pines course and lead golf cart',
   luxury_apartment: 'Luxury apartment',
@@ -101,7 +113,7 @@ const BASE_BEAT_CLOCK = Object.freeze({
   squatchfather: ['Day 1–2', 'Late night; completion anchored Day 2 03:00'],
   cabin_lay_low: ['Day 2', 'Morning; lay-low rest anchored 09:20'],
   booski_sasole_call: ['Day 2', 'After required cabin exploration; variable'],
-  beef_run: ['Day 2', '09:10–20:30 anchored flight window'],
+  beef_run: ['Day 2', '11:21 departure; 20:30 completion anchor'],
   cabin_two: ['Day 3–4', '08:10; nightfall 20:45; blackout Day 4 09:30'],
   bada_bing_two: ['Day 4', '23:00 anchored departure'],
   graveyard: ['Day 5', '00:15 anchored arrival'],
@@ -198,53 +210,68 @@ function buildBeatClock(campaignSource) {
 
 /* One declaration per physical implementation. Mansion Return deliberately
  * shares Mansion's receiver; every other ID is unique save ownership. */
-const RECEIVERS = Object.freeze({
+const RECEIVER_LAYOUTS = {
   apartment: {
     sourceFile: 'src/main.js', receiverId: 'apartment', venue: 'apartment',
-    persisted: true, notice: 'Day One only', news: true, output: 1,
+    persisted: true, notice: 'Day One only', output: 1,
     hour: 'Live campaign clock', fullSongs: false,
   },
   bada_bing_one: {
     sourceFile: 'src/bing/main.js', receiverId: 'bing_car', venue: 'apartment',
-    persisted: true, notice: 'Day One only', news: false, output: 1,
+    persisted: true, notice: 'Day One only', output: 1,
     hour: 'Live campaign clock', fullSongs: false,
   },
   countryside_cabin: {
     sourceFile: 'src/cabin/main.js', receiverId: 'countryside_cabin',
-    venue: 'countryside_cabin', persisted: true, notice: 'Off', news: true,
+    venue: 'countryside_cabin', persisted: true, notice: 'Off',
     output: 0.9, hour: 'Live campaign clock', fullSongs: false,
   },
   airstrip_smuggling: {
     sourceFile: 'src/beefrun/main.js', receiverId: 'beefrun_cockpit',
-    venue: 'beefrun', persisted: true, notice: 'Off', news: false,
-    output: 0.62, hour: 'Authored 09:10', fullSongs: false,
+    venue: 'beefrun', persisted: true, notice: 'Off',
+    output: 0.62, hour: 'Campaign departure; direct-entry fallback 11:21', fullSongs: false,
   },
   no_wake: {
     sourceFile: 'src/nowake/main.js', receiverId: 'no_wake_cabin',
-    venue: 'apartment', persisted: true, notice: 'Off', news: false,
+    venue: 'apartment', persisted: true, notice: 'Off',
     output: 0.55, hour: 'Authored 12:45', fullSongs: false,
+    trigger: 'Scene forces the faint receiver on when the cabin meeting begins',
+    stop: 'Lou turns it off after 2.6 s + 2.3 s (about 4.9 s), or scene teardown',
+    loopBehavior: '21-slot cycle begins, but the forced opening is cut short; ordinary song slots apply only if later re-enabled',
+    expectedDuration: 'About 4.9 s forced opening; later use is interaction-gated',
+    notes: 'The opening is an authored shutoff gag, not a continuously available default receiver.',
+    proposedChange: 'Keep the brief shutoff beat; verify the intended cue is audible before Lou kills it.',
   },
   silver_pines: {
     sourceFile: 'src/golf/main.js', receiverId: 'silver_pines_lead_cart',
-    venue: 'silver_pines', persisted: true, notice: 'Off', news: false,
+    venue: 'silver_pines', persisted: true, notice: 'Off',
     output: 1, hour: 'Authored 08:00', fullSongs: true,
   },
   luxury_apartment: {
     sourceFile: 'src/luxury-apartment/main.js', receiverId: 'luxury_apartment',
-    venue: 'luxury_apartment', persisted: true, notice: 'Off', news: false,
+    venue: 'luxury_apartment', persisted: true, notice: 'Off',
     output: 0.88, hour: 'Live campaign clock', fullSongs: false,
   },
   mansion: {
     sourceFile: 'src/mansion/main.js', receiverId: 'mansion_house', venue: 'mansion',
-    persisted: true, notice: 'Off', news: false, output: 1,
-    hour: 'Fixed 21:00', fullSongs: false,
+    persisted: true, notice: 'Off', output: 1,
+    hour: 'Saved hour clamped 18–23; normally 20:10', fullSongs: false,
   },
   mansion_return: {
     sourceFile: 'src/mansion/main.js', receiverId: 'mansion_house', venue: 'mansion',
-    persisted: true, notice: 'Off', news: false, output: 1,
-    hour: 'Fixed 21:00', fullSongs: false,
+    persisted: true, notice: 'Off', output: 1,
+    hour: 'Saved hour clamped 18–23; normally 18:30', fullSongs: false,
   },
-});
+};
+
+/* Mechanical receiver placement stays here; campaign-news policy comes only
+ * from radio-program.js so runtime, tests, and this audit cannot disagree. */
+const RECEIVERS = Object.freeze(Object.fromEntries(
+  Object.entries(RECEIVER_LAYOUTS).map(([sceneId, receiver]) => [sceneId, Object.freeze({
+    ...receiver,
+    news: PHYSICAL_RADIO_RECEIVERS[receiver.receiverId]?.campaignNews === 'enabled',
+  })]),
+));
 
 const DEDICATED_PROGRAMS = Object.freeze([
   {
@@ -302,14 +329,14 @@ const DEDICATED_PROGRAMS = Object.freeze([
     beats: ['bada_bing_two'], source: 'Billy Hotdog party record', station: 'Venue music',
     cue: 'party.record', files: ['good-ole-days.mp3'],
     trigger: 'Hotdog party runtime starts', start: 'Mission start', stop: 'Scene teardown / cleanup transition',
-    loop: 'Loops', duration: 'Party duration', volume: '0.035 positional · DJ booth',
+    loop: 'Loops', duration: 'Party duration', volume: 'Dynamic positional mix: 0.17 main room · 0.06 other interior · 0.025 exterior (0.035 startup only)',
     duck: 'Shared music-bus voice duck', priority: 'Venue bed', risk: 'LOW', status: 'LIVE',
     notes: 'Owner-selected record retained.',
   },
   {
     beats: ['jerky_motel'], source: 'Jerky Motel drive score', station: 'Non-diegetic score',
     cue: 'motel.drive.score', files: ['driving-jerky-hotel.mp3'],
-    trigger: 'Approach drive begins', start: 'Driving phase', stop: 'Arrival / drive phase ends',
+    trigger: 'Getaway drive begins', start: 'Escape drive phase', stop: 'Getaway / drive phase ends',
     loop: 'Loops while driving', duration: 'Driving phase', volume: '0.16 × user volume',
     duck: 'Dedicated HTML media; voice mix requires active-play check',
     priority: 'Mission score', risk: 'MEDIUM — procedural Motel score starts later', status: 'LIVE',
@@ -392,7 +419,83 @@ const DEDICATED_PROGRAMS = Object.freeze([
     priority: 'Narrative score', risk: 'LOW — approach and takeoff tracks are stopped first', status: 'LIVE',
     notes: 'Owner-delivered escape master retained.',
   },
+  {
+    beats: ['graveyard'], source: 'Graveyard arrival score', station: 'Non-diegetic score',
+    cue: CAMPAIGN_ARRIVAL_SCORES.squatch_graveyard.key,
+    files: [path.basename(CAMPAIGN_ARRIVAL_SCORES.squatch_graveyard.file)],
+    trigger: 'Fresh graveyard arrival after the player starts the mission',
+    start: 'Body-loaded arrival', stop: 'Body pickup, natural end, or scene teardown',
+    loop: 'One-shot', duration: '45.035 s maximum',
+    volume: String(CAMPAIGN_ARRIVAL_SCORES.squatch_graveyard.volume),
+    duck: 'Shared music-bus voice duck', priority: 'Arrival texture',
+    risk: 'LOW — stops before the carry', status: 'LIVE',
+    notes: 'Purpose-built restrained transition cue; no station identity.',
+  },
+  {
+    beats: ['silver_case_setup'], source: 'Silver Case pickup score', station: 'Non-diegetic score',
+    cue: CAMPAIGN_ARRIVAL_SCORES.silver_case.key,
+    files: [path.basename(CAMPAIGN_ARRIVAL_SCORES.silver_case.file)],
+    trigger: 'Fresh Silver Case car ride begins', start: 'CAR_RIDE entry',
+    stop: 'Hallway arrival, natural end, or scene teardown', loop: 'One-shot',
+    duration: '45.035 s maximum', volume: String(CAMPAIGN_ARRIVAL_SCORES.silver_case.volume),
+    duck: 'Shared music-bus voice duck', priority: 'Pickup texture',
+    risk: 'LOW — fades before the apartment confrontation', status: 'LIVE',
+    notes: 'Purpose-built pickup cue; no station identity.',
+  },
+  {
+    beats: ['cartel_palace'], source: 'Cartel Palace arrival score', station: 'Non-diegetic score',
+    cue: CAMPAIGN_ARRIVAL_SCORES.cartel_palace.key,
+    files: [path.basename(CAMPAIGN_ARRIVAL_SCORES.cartel_palace.file)],
+    trigger: 'Fresh Palace approach begins', start: 'APPROACH entry',
+    stop: 'Perimeter entry, alarm raised, natural end, or scene teardown', loop: 'One-shot',
+    duration: '55.014 s maximum', volume: String(CAMPAIGN_ARRIVAL_SCORES.cartel_palace.volume),
+    duck: 'Shared music-bus voice duck', priority: 'Arrival texture',
+    risk: 'LOW — retires before the compound action', status: 'LIVE',
+    notes: 'Purpose-built arrival cue; no station identity.',
+  },
+  {
+    beats: ['pickup_ride'], source: 'Special Meeting two-second car-radio gag',
+    station: '97.8 THE SQUATCH fragment', cue: 'radio.vo.announcer.0177le3',
+    files: [], assetPaths: ['assets/sfx/radio.vo.announcer.0177le3.mp3'],
+    trigger: 'SM-200: Lag reaches for the pickup car radio', start: 'Delivered announcer take begins',
+    stop: 'Seff cuts the source exactly 2.0 s later', loop: 'One-shot fragment',
+    duration: '2.0 s authored cut', volume: '0.36 voice/radio mix',
+    duck: 'Ambient radio speech; authored cut', priority: 'Continuity gag',
+    risk: 'LOW — exact bounded fragment', status: 'LIVE',
+    notes: 'Not a receiver program; one scripted station fragment with a receipt-backed cut.',
+  },
+  {
+    beats: ['initiation'], source: 'Initiation cabin stereo', station: 'Diegetic cabin source',
+    cue: 'initiation.cabin.music', files: ['initiation-cabin-stereo.mp3'],
+    trigger: 'Cabin ambience starts during the exterior approach',
+    start: 'Muffled through the wall outside; opens with the real cabin door',
+    stop: 'Five-second authored fade before the oath; permanent silence thereafter',
+    loop: 'Loops only during approach/interior pre-oath', duration: 'Up to pre-oath boundary',
+    volume: '0.19 outside · 0.24 inside', duck: 'Shared music bus; positional source',
+    priority: 'Authored environmental music', risk: 'LOW — oath/end are hard silence boundaries',
+    status: 'LIVE', notes: 'Purpose-built stereo bed; not station programming.',
+  },
 ]);
+
+/* Scripted, missing, and deliberately inert media surfaces have no active
+ * playback owner, so they do not belong in the active-play receipt contract.
+ * They still need explicit timeline rows; otherwise "silent" hides three
+ * materially different facts: an unwired gag, a missing required bed, and an
+ * intentionally off prop. */
+const INACTIVE_BEAT_DETAILS = Object.freeze({
+  silver_case_setup: Object.freeze({
+    station: 'None — inert dashboard prop', cue: 'silvercase.dashboard.radio.prop',
+    assetPath: 'No runtime station or audio asset',
+    trigger: 'Car interior builds the dashboard radio in its off state',
+    start: 'Off for the entire current scene', stop: 'Scene teardown', loop: 'None',
+    duration: 'Inert by implementation', volume: '0', priority: 'Environmental prop',
+    risk: 'LOW — honest inert state', status: 'INERT / OFF PROP',
+    notes: 'The pickup car visibly has a radio, but there is no receiver or playback path.',
+    proposed: 'If this beat gains programming, attach the canonical receiver rather than a scene-local player.',
+    owner: 'OWNER: whether the pickup drive should become music-first.',
+    implementation: 'No active-play owner — prop only',
+  }),
+});
 
 function parseArgs(argv) {
   const out = { check: false };
@@ -584,6 +687,41 @@ function musicScenes(file) {
 
 const MUSIC_BEAT_SCENE = new Map();
 
+export function buildRadioProgramRows(spine) {
+  const programs = new Map(RADIO_PROGRAMS.map((program) => [program.id, program]));
+  return spine.map((beat) => {
+    const declaration = CAMPAIGN_RADIO_BEATS[beat.id];
+    if (!declaration) throw new Error(`RadioProgram manifest misses campaign beat ${beat.id}`);
+    const program = declaration.programId ? programs.get(declaration.programId) : null;
+    if (declaration.programId && !program) {
+      throw new Error(`RadioProgram ${declaration.programId} for ${beat.id} does not exist`);
+    }
+    const blocks = program?.blocks ?? [];
+    const editorial = blocks.filter((entry) => ['news', 'notice', 'link'].includes(entry.type));
+    return {
+      'Beat ID': beat.id,
+      Policy: declaration.policy,
+      'Receiver ID': declaration.receiverId ?? '',
+      'Campaign news': declaration.receiverId
+        ? (PHYSICAL_RADIO_RECEIVERS[declaration.receiverId]?.campaignNews ?? 'disabled')
+        : 'N/A',
+      'Program ID': program?.id ?? '',
+      'Target seconds': program?.targetSeconds ?? '',
+      'Show hour': program?.showHour ?? '',
+      'Block order': blocks.map((entry) => `${entry.id}:${entry.type}`).join(' → '),
+      'Song IDs': blocks.filter((entry) => entry.type === 'song').map((entry) => entry.songId).join(' → '),
+      'Ad IDs': blocks.filter((entry) => entry.type === 'ad').map((entry) => entry.adId).join(' → '),
+      'Editorial IDs': editorial.map((entry) => entry.newsId ?? entry.noticeId ?? entry.id).join(' → '),
+      'Resume key': program ? `campaign.radio.programProgress.${program.id}` : 'N/A',
+      'Browser proof': program
+        ? 'tools/verify-radio-program.mjs · ordered buffer receipts'
+        : beat.id === 'silver_pines'
+          ? 'tools/verify-radio-program.mjs · Nehoo 15 s → jerky'
+          : 'Policy declaration; scene lifecycle verifier listed in Scene Timeline',
+    };
+  });
+}
+
 function buildSceneTimeline({ spine, contracts, musicTracks, beatClock }) {
   const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
   const programsByBeat = new Map();
@@ -614,22 +752,22 @@ function buildSceneTimeline({ spine, contracts, musicTracks, beatClock }) {
         Station: '97.8 THE SQUATCH',
         'Cue ID': 'station:squatch',
         'Asset path': `assets/music/manifest.json (${eligible.length} eligible tracks); assets/sfx/manifest.json`,
-        Trigger: 'Player powers the physical receiver; saved power may start it already on',
+        Trigger: receiver.trigger ?? 'Player powers the physical receiver; saved power may start it already on',
         'Start condition': `${receiver.hour}; notice ${receiver.notice}; mission news ${receiver.news ? 'enabled' : 'disabled'}`,
-        'Stop condition': 'Power off or scene teardown',
-        'Loop behavior': receiver.fullSongs
+        'Stop condition': receiver.stop ?? 'Power off or scene teardown',
+        'Loop behavior': receiver.loopBehavior ?? (receiver.fullSongs
           ? 'Deterministic 21-slot station cycle; full records on song slots'
-          : 'Deterministic 21-slot station cycle; 30 s excerpts on song slots',
-        'Expected duration': 'Continuous while powered',
+          : 'Deterministic 21-slot station cycle; 30 s excerpts on song slots'),
+        'Expected duration': receiver.expectedDuration ?? 'Continuous while powered',
         Volume: `Saved knob defaults 0.70 × output ${receiver.output}`,
         'Ducking behavior': 'Phone calls scale radio to 0.34 where the scene wires call ducking',
         Priority: 'Diegetic receiver',
         'Overlap risk': receiver.persisted ? 'LOW/MEDIUM — verify against scene music' : 'MEDIUM — state resets on reload',
         'Current status': `${beat.status.toUpperCase()} · LIVE RECEIVER`,
-        Notes: `Eligible: ${eligible.map((track) => track.file).join(', ') || 'no records'}; ${receiver.persisted ? 'campaign-persisted' : 'not campaign-persisted'}.`,
-        'Proposed change': receiver.persisted
+        Notes: `${receiver.notes ? `${receiver.notes} ` : ''}Eligible: ${eligible.map((track) => track.file).join(', ') || 'no records'}; ${receiver.persisted ? 'campaign-persisted' : 'not campaign-persisted'}.`,
+        'Proposed change': receiver.proposedChange ?? (receiver.persisted
           ? 'Keep; add active-play overlap receipt.'
-          : 'Mechanical: give this receiver the shared campaign adapter if reload continuity is intended.',
+          : 'Mechanical: give this receiver the shared campaign adapter if reload continuity is intended.'),
         'Owner decision required': 'No for receiver mechanics; OWNER only for playlist identity.',
         'Implementation status': receiver.persisted ? 'Live; active-play audit pending' : 'Live; persistence gap open',
       });
@@ -643,7 +781,11 @@ function buildSceneTimeline({ spine, contracts, musicTracks, beatClock }) {
         'Location or venue': LOCATION_BY_SCENE[beat.scene] ?? contract?.title ?? beat.scene,
         'Radio or music source': program.source, Station: program.station,
         'Cue ID': program.cue,
-        'Asset path': program.files.length ? program.files.map((file) => `assets/music/${file}`).join('; ') : 'No music asset — deliberate silence',
+        'Asset path': program.assetPaths?.length
+          ? program.assetPaths.join('; ')
+          : program.files.length
+            ? program.files.map((file) => `assets/music/${file}`).join('; ')
+            : 'No music asset — deliberate silence',
         Trigger: program.trigger, 'Start condition': program.start, 'Stop condition': program.stop,
         'Loop behavior': program.loop, 'Expected duration': program.duration,
         Volume: program.volume, 'Ducking behavior': program.duck, Priority: program.priority,
@@ -654,20 +796,24 @@ function buildSceneTimeline({ spine, contracts, musicTracks, beatClock }) {
       });
     }
     if (!receiver && !programs.length) {
+      const detail = INACTIVE_BEAT_DETAILS[beat.id];
       rows.push({
         Chapter: beat.chapter.replaceAll('_', ' '), Beat: `${beat.n} · ${beat.title}`,
         'Campaign day': clock[0], 'Campaign time': clock[1], 'Scene ID': beat.scene,
         'Scene filename': contract?.campaign?.href ?? '',
         'Location or venue': LOCATION_BY_SCENE[beat.scene] ?? contract?.title ?? beat.scene,
-        'Radio or music source': 'No authored radio or music source found', Station: 'None',
-        'Cue ID': 'None', 'Asset path': 'None', Trigger: 'None', 'Start condition': 'Scene entry',
-        'Stop condition': 'N/A', 'Loop behavior': 'N/A', 'Expected duration': 'Silent by implementation',
-        Volume: 'N/A', 'Ducking behavior': 'N/A', Priority: 'N/A',
-        'Overlap risk': 'LOW — no source found', 'Current status': `${beat.status.toUpperCase()} · SILENT`,
-        Notes: 'Source audit found no station receiver or long-form music asset owned by this beat.',
-        'Proposed change': 'Keep silent unless a deliberate creative brief says otherwise.',
-        'Owner decision required': 'OWNER only if this scene should gain music.',
-        'Implementation status': 'No mechanical change proposed',
+        'Radio or music source': NO_ACTIVE_SOURCE, Station: detail?.station ?? 'None',
+        'Cue ID': detail?.cue ?? 'None', 'Asset path': detail?.assetPath ?? 'None',
+        Trigger: detail?.trigger ?? 'None', 'Start condition': detail?.start ?? 'Scene entry',
+        'Stop condition': detail?.stop ?? 'N/A', 'Loop behavior': detail?.loop ?? 'N/A',
+        'Expected duration': detail?.duration ?? 'No active playback by implementation',
+        Volume: detail?.volume ?? 'N/A', 'Ducking behavior': 'N/A', Priority: detail?.priority ?? 'N/A',
+        'Overlap risk': detail?.risk ?? 'LOW — no active source found',
+        'Current status': detail?.status ?? `${beat.status.toUpperCase()} · NO ACTIVE PLAYBACK`,
+        Notes: detail?.notes ?? 'Source audit found no active station receiver or long-form music playback owned by this beat.',
+        'Proposed change': detail?.proposed ?? 'Keep unscored unless an explicit creative brief says otherwise.',
+        'Owner decision required': detail?.owner ?? 'OWNER only if this scene should gain music.',
+        'Implementation status': detail?.implementation ?? 'No active-play owner',
       });
     }
   }
@@ -905,7 +1051,7 @@ function buildProblems({
   const orphanCount = cueRows.filter((row) => String(row['Orphan status']).startsWith('YES')).length;
   const missingCount = cueRows.filter((row) => String(row['Orphan status']).startsWith('BROKEN')).length;
   const licenseGap = musicTracks.filter((track) => !track.license && !track.source && !track._license).length;
-  const silentBeats = timelineRows.filter((row) => row['Radio or music source'] === 'No authored radio or music source found').length;
+  const silentBeats = timelineRows.filter((row) => String(row['Current status']).endsWith('NO ACTIVE PLAYBACK')).length;
   const exactless = [...new Set(Object.values(RECEIVERS).map((receiver) => receiver.venue))]
     .filter((venue) => !musicTracks.some((track) => !track.cue && track.venue === venue));
   const measuredMasters = cueRows.filter((row) => /^(music|track):/.test(row['Cue ID'])
@@ -920,6 +1066,12 @@ function buildProblems({
     .map((row) => row['Cue ID']);
   const onlyOwnerLegacyOrphans = orphanCueIds.length > 0
     && orphanCueIds.every((cueId) => legacyIdentityCues.has(cueId));
+  const newsEnabled = Object.entries(PHYSICAL_RADIO_RECEIVERS)
+    .filter(([, receiver]) => receiver.campaignNews === 'enabled')
+    .map(([receiverId]) => receiverId);
+  const newsDisabled = Object.entries(PHYSICAL_RADIO_RECEIVERS)
+    .filter(([, receiver]) => receiver.campaignNews === 'disabled')
+    .map(([receiverId]) => receiverId);
   const rows = [
     {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'Station architecture',
@@ -959,6 +1111,22 @@ function buildProblems({
         : 'OPEN — LIFECYCLE COVERAGE DRIFT',
     },
     {
+      Severity: 'P1', Scene: 'Special Meeting', 'Station or cue': 'Two-second car-radio announcer gag',
+      Problem: 'The canonical SM-200 action now plays one delivered station-announcer recording and Seff cuts the real source at exactly two seconds.',
+      Evidence: `${lineReference('src/specialmeeting/script.js', source.specialMeetingScript, 'Lag reaches forward between the seats')}; src/specialmeeting/radio-gag.js; tools/verify-specialmeeting.mjs.`,
+      'Player impact': 'The authored continuity gag is audible without turning the dread ride into another full radio programme.',
+      'Proposed fix': 'Implemented; keep the fragment bounded and receipt-backed.',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No; the current script specifies the beat.', Status: 'RESOLVED — DELIVERED TWO-SECOND CUT',
+    },
+    {
+      Severity: 'P1', Scene: 'Initiation', 'Station or cue': 'initiation.cabin.music',
+      Problem: 'The exterior and ambience briefs now resolve to a delivered 90.044-second stereo old-cabin bed with one positional lifecycle owner.',
+      Evidence: `${lineReference('src/initiation/cabin/exterior.js', source.initiationExterior, 'music — slow, heavy, old')}; ${lineReference('src/initiation/cabin/ambience.js', source.initiationAmbience, 'initiation.cabin.music')}`,
+      'Player impact': 'The approach now has required authored texture while the oath and ending remain deliberately silent.',
+      'Proposed fix': 'Implemented; preserve the muffled-outside/open-inside mix and permanent pre-oath fade boundary.',
+      'Mechanical or creative': 'Creative', 'Owner decision needed': 'No for implementation; OWNER may still audition the final mix in context.', Status: 'RESOLVED — DELIVERED AND WIRED',
+    },
+    {
       Severity: 'P1', Scene: 'Global', 'Station or cue': 'All long-form music',
       Problem: `All ${musicTracks.length} music tracks lack a structured license/source field; ${licenseGap} rely on title/artist/notes only.`,
       Evidence: 'assets/music/manifest.json contains file/title/artist/venue/cue notes but no consistent license or provenance schema.',
@@ -986,12 +1154,12 @@ function buildProblems({
       'Mechanical or creative': 'Creative', 'Owner decision needed': 'OWNER: venue availability for existing tracks.', Status: 'OWNER',
     },
     {
-      Severity: 'P2', Scene: 'Apartment; Cabin vs other receivers', 'Station or cue': 'Mission news',
-      Problem: 'Mission-aware NEWS_SEGMENTS are enabled on the apartment and cabin receivers only; other receivers run the same station without news eligibility.',
-      Evidence: `${lineReference('src/main.js', source.apartment, 'news: () => newsSegmentsFor(campaign.state)')}; ${lineReference('src/cabin/main.js', source.cabin, 'news: () => newsSegmentsFor(campaign.state)')}`,
-      'Player impact': 'A player can hear the same station in another location but not the campaign bulletin that is eligible at home.',
-      'Proposed fix': 'OWNER: decide which physical receivers carry mission news; then wire the same shared callback where intended.',
-      'Mechanical or creative': 'Creative', 'Owner decision needed': 'OWNER: news coverage by venue.', Status: 'OWNER',
+      Severity: 'P2', Scene: 'All physical receivers', 'Station or cue': 'Mission news',
+      Problem: `Campaign-news policy is explicit per physical receiver: enabled on ${newsEnabled.join(', ')}; disabled on ${newsDisabled.join(', ')}.`,
+      Evidence: 'PHYSICAL_RADIO_RECEIVERS in src/core/radio-program.js drives runtime eligibility and the generated Radio Program sheet.',
+      'Player impact': 'A receiver can no longer gain or lose campaign bulletins because one scene forgot or copied a local news callback.',
+      'Proposed fix': 'Keep the manifest as the only policy owner; reject undeclared receivers and regenerate the audit after policy changes.',
+      'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No; current receiver policy is explicit.', Status: 'RESOLVED — MANIFEST POLICY',
     },
     {
       Severity: 'P2', Scene: 'Global', 'Station or cue': 'Station shows vs mission news',
@@ -1025,8 +1193,8 @@ function buildProblems({
     },
     {
       Severity: 'P3', Scene: 'Campaign-wide', 'Station or cue': 'Intentional silence',
-      Problem: `${silentBeats} campaign beat rows have no authored station or long-form music source.`,
-      Evidence: 'Generated Scene Timeline covers every CAMPAIGN_SPINE beat and emits an explicit silent row when no source is found.',
+      Problem: `${silentBeats} campaign beat rows have no active station or long-form music playback and no contrary authored media requirement.`,
+      Evidence: 'Generated Scene Timeline covers every CAMPAIGN_SPINE beat and separates unscored beats from authored-but-unwired, required-but-missing, and inert-prop rows.',
       'Player impact': 'Not inherently a defect; the audit now makes silence reviewable instead of invisible.',
       'Proposed fix': 'Keep silent. OWNER may issue a specific music brief; do not fill gaps automatically.',
       'Mechanical or creative': 'Creative', 'Owner decision needed': 'OWNER only if a silent beat should gain music.', Status: 'DOCUMENTED',
@@ -1055,13 +1223,13 @@ function buildRevampPlan({
   measuredMasters, musicMasters, verifiedSpokenCues, spokenCueTotal, lifecycleCoverage,
 }) {
   return [
-    { Order: 1, 'Work item': 'Generate the source-driven radio/music audit and five review sheets', Files: 'tools/radio-audit.mjs; docs/audits/radio/*.csv; docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx; docs/audits/SQUATCHSMASH-RADIO-REVAMP.md', Dependency: 'Current manifests, station data, scene contracts, campaign spine', Risk: 'Low', 'Acceptance check': 'Generator --check passes; all five sheets render; every campaign beat is represented', Status: 'DONE', Commit: 'd6f2ae0e; b2e63abb' },
+    { Order: 1, 'Work item': 'Generate the source-driven radio/music audit and six review sheets', Files: 'tools/radio-audit.mjs; docs/audits/radio/*.csv; docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx; docs/audits/SQUATCHSMASH-RADIO-REVAMP.md', Dependency: 'Current manifests, station data, scene contracts, campaign spine, RadioProgram manifest', Risk: 'Low', 'Acceptance check': 'Generator --check passes; all six sheets render; every campaign beat and radio policy is represented', Status: 'DONE', Commit: 'd6f2ae0e; b2e63abb' },
     { Order: 2, 'Work item': 'Reconcile station documentation and manifest semantics while preserving unresolved legacy identities', Files: 'src/core/stations.js; assets/music/manifest.json; src/core/radio.js; tests/radio-*.test.mjs', Dependency: 'OWNER rules on legacy uncle/ksqch identities for any runtime change', Risk: 'Medium', 'Acceptance check': 'Docs, manifest, runtime selection, and tests describe the same current station model without guessing the legacy identities future', Status: 'DOCUMENTATION DONE — IDENTITY DECISION OWNER', Commit: 'b2e63abb' },
-    { Order: 3, 'Work item': 'Make receiver persistence consistent', Files: 'src/luxury-apartment/main.js; src/mansion/main.js; src/core/campaign.js', Dependency: 'Existing createCampaignRadioAdapter', Risk: 'Low', 'Acceptance check': 'Power, volume, cursor, and selection survive reload without cross-receiver collisions', Status: 'DONE', Commit: '4d7d01ef' },
+    { Order: 3, 'Work item': 'Make receiver and entry-packet persistence consistent', Files: 'src/core/campaign.js; src/core/radio.js; src/core/radio-program.js', Dependency: 'Existing createCampaignRadioAdapter', Risk: 'Low', 'Acceptance check': 'Power, volume, stable per-venue song ID, and completed packet block survive reload without cross-receiver collisions', Status: 'DONE', Commit: '4d7d01ef' },
     { Order: 4, 'Work item': 'Add stop, restore, overlap, and teardown browser receipts', Files: 'tools/radio-active-play-coverage.mjs; existing Playwright scene verifiers; audio residency tests', Dependency: 'Stable receiver IDs and current music ownership', Risk: 'Medium', 'Acceptance check': 'Every unique non-silent timeline owner maps to an exact named active-play receipt; contract rejects missing/stale mappings and renamed checks', Status: lifecycleCoverage.complete ? `DONE — ${lifecycleCoverage.covered}/${lifecycleCoverage.total} OWNERS MAPPED; SOURCE RECEIPTS GREEN` : `OPEN — ${lifecycleCoverage.covered}/${lifecycleCoverage.total} OWNERS MAPPED`, Commit: '' },
     { Order: 5, 'Work item': 'Add repeatable duration, integrated-loudness, true-peak, and identity evidence', Files: 'tools/audio-loudness-audit.mjs; tools/verify-radio-content.ps1; docs/audits/radio/loudness-measurements.json; docs/audits/radio/content-transcriptions.json; tools/radio-audit.mjs; generated Cue Inventory', Dependency: 'Existing Playwright Chromium decoder and ElevenLabs Scribe v2 for spoken identity', Risk: 'Medium', 'Acceptance check': 'Every retained master has measured duration/LUFS/peak; every spoken cue has a current transcript; music identity remains an explicit owner review', Status: measuredMasters === musicMasters && verifiedSpokenCues === spokenCueTotal ? 'LOUDNESS + SPOKEN IDENTITY DONE — MUSIC OWNER REVIEW' : 'PARTIAL — EVIDENCE DRIFT', Commit: '14cc6c94; b2e63abb' },
     { Order: 6, 'Work item': 'Resolve OWNER programming decisions', Files: 'Problems and Decisions sheet', Dependency: 'Owner chooses legacy stations, venue allocation, news coverage, provenance, and any host rewrite', Risk: 'High if guessed', 'Acceptance check': 'Every OWNER row has an explicit answer; no track is silently replaced or deleted', Status: 'WAITING ON OWNER', Commit: '' },
-    { Order: 7, 'Work item': 'Implement approved mechanical trigger, stop, restore, and selection fixes', Files: 'src/core/radio.js; scene-owned score modules; manifests; relevant tests', Dependency: 'Orders 2–6', Risk: 'Medium', 'Acceptance check': 'Source contracts and real-browser receipts pass; owner-selected material remains intact', Status: lifecycleCoverage.complete ? 'MECHANICAL LIFECYCLE SOURCE DONE — PROGRAMMING CHANGES WAIT ON OWNER' : 'OPEN — LIFECYCLE COVERAGE DRIFT', Commit: '' },
+    { Order: 7, 'Work item': 'Implement deterministic entry packets, stable playlists, explicit receiver news, and the Nehoo edit', Files: 'src/core/radio-program.js; src/core/radio.js; src/core/campaign.js; assets/music/manifest.json; tools/verify-radio-program.mjs', Dependency: 'Current station recordings and campaign spine', Risk: 'Medium', 'Acceptance check': 'Unit contracts and real-browser buffer/media receipts pass; owner-selected material remains intact', Status: lifecycleCoverage.complete ? 'DONE — PROGRAM + PLAYBACK RECEIPTS GREEN' : 'OPEN — LIFECYCLE COVERAGE DRIFT', Commit: '' },
     { Order: 8, 'Work item': 'Run campaign-wide active-play music/dialogue mix QA', Files: 'All Scene Timeline rows; Playwright traces and scene evidence', Dependency: 'Mechanical fixes and loudness measurements', Risk: 'Medium', 'Acceptance check': 'Dialogue remains intelligible; intentional silence lands; no stale loop crosses a scene handoff', Status: lifecycleCoverage.complete ? 'MECHANICAL COVERAGE DONE — OWNER LISTENING OPEN' : 'OPEN — MECHANICAL COVERAGE', Commit: '' },
     { Order: 9, 'Work item': 'Regenerate ledgers and certify the final radio revamp', Files: 'Generated dialogue/audio/take ledgers; check:radio-vo; scene tests; campaign marathon if handoffs change', Dependency: 'Any authored line or route changes', Risk: 'Low', 'Acceptance check': 'All applicable cue, take, audio, radio, scene, and campaign gates actually run and pass', Status: lifecycleCoverage.complete ? 'RELEASE-CANDIDATE LEDGERS + MAPPED RECEIPTS GREEN — FINAL HOSTED RECEIPT EXTERNAL' : 'BLOCKED — LIFECYCLE COVERAGE DRIFT', Commit: '' },
   ];
@@ -1089,6 +1257,7 @@ This is the implementation plan paired with [SQUATCHSMASH-RADIO-AUDIT.xlsx](./SQ
 
 - Campaign beats represented: **${data.summary.beatsCovered} / ${data.summary.beatsTotal}**.
 - Scene Timeline rows: **${data.rows['Scene Timeline'].length}**.
+- Beat/receiver radio declarations: **${data.rows['Radio Program'].length}**; resumable hub packets: **${data.summary.entryPrograms}**.
 - Live stations: **${data.summary.liveStations}**; legacy manifest station identities: **2**.
 - Current generated station/news voice cues: **${data.summary.voiceCues}**.
 - Cue Inventory rows: **${data.rows['Cue Inventory'].length}**.
@@ -1102,6 +1271,8 @@ This is the implementation plan paired with [SQUATCHSMASH-RADIO-AUDIT.xlsx](./SQ
 ## What is actually built
 
 There is one live station, **97.8 THE SQUATCH**. Its running order is deterministic: talk, links, records, commercials, tape, meeting notice, and mission-aware news. The show changes by in-game hour; finite lists wrap after complete coverage. Physical receivers choose records with exact venue filtering plus every unscoped non-cue track.
+
+The beat/receiver RadioProgram manifest now owns every campaign beat's radio policy, each physical receiver's campaign-news policy, and thirteen resumable hub entry packets. Packet progress advances from concrete playback receipts; stable song IDs preserve the next record independently per venue.
 
 The manifest still carries 'uncle' and 'ksqch' station tags and matching ident/sting assets. They are not selectable stations in the current runtime. That is an evidence-backed mismatch, not permission to revive or delete them.
 
@@ -1124,6 +1295,7 @@ ${markdownTable(SHEETS['Revamp Plan'], data.rows['Revamp Plan'])}
 ## Generated data
 
 - [Scene Timeline CSV](./radio/scene-timeline.csv)
+- [Radio Program CSV](./radio/radio-program.csv)
 - [Station Catalog CSV](./radio/station-catalog.csv)
 - [Cue Inventory CSV](./radio/cue-inventory.csv)
 - [Hash-bound loudness measurements](./radio/loudness-measurements.json)
@@ -1186,9 +1358,13 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     musicManifest: 'assets/music/manifest.json', luxury: 'src/luxury-apartment/main.js',
     mansion: 'src/mansion/main.js', apartment: 'src/main.js', cabin: 'src/cabin/main.js',
     oldAudit: 'docs/audits/2026-08-05/radio-audit.md', campaign: 'src/core/campaign.js',
+    specialMeetingScript: 'src/specialmeeting/script.js',
+    initiationExterior: 'src/initiation/cabin/exterior.js',
+    initiationAmbience: 'src/initiation/cabin/ambience.js',
   })) source[key] = await fs.readFile(path.join(repoRoot, relative), 'utf8');
 
   const beatClock = buildBeatClock(source.campaign);
+  const radioProgramRows = buildRadioProgramRows(CAMPAIGN_SPINE);
   const timeline = buildSceneTimeline({
     spine: CAMPAIGN_SPINE, contracts: SCENE_CONTRACTS, musicTracks: musicManifest.tracks,
     beatClock,
@@ -1219,6 +1395,7 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
     verifiedSpokenCues, spokenCueTotal, lifecycleCoverage });
   const rows = {
     'Scene Timeline': timeline,
+    'Radio Program': radioProgramRows,
     'Station Catalog': stationCatalog,
     'Cue Inventory': cueInventory.rows,
     'Problems and Decisions': problems,
@@ -1239,10 +1416,14 @@ export async function buildAuditData({ repoRoot = DEFAULT_ROOT } = {}) {
   if (beatIdsCovered.size !== CAMPAIGN_SPINE.length) {
     throw new Error(`Scene Timeline covers ${beatIdsCovered.size}/${CAMPAIGN_SPINE.length} beats`);
   }
+  if (radioProgramRows.length !== CAMPAIGN_SPINE.length) {
+    throw new Error(`Radio Program covers ${radioProgramRows.length}/${CAMPAIGN_SPINE.length} beats`);
+  }
   const summary = {
     beatsTotal: CAMPAIGN_SPINE.length, beatsCovered: beatIdsCovered.size,
     scenesCovered: sceneIdsCovered.size, liveStations: stationsModule.STATIONS.length,
     voiceCues: voiceCues.length,
+    entryPrograms: RADIO_PROGRAMS.length,
     measuredMasters, musicMasters: musicManifest.tracks.length,
     verifiedSpokenCues, spokenCueTotal,
     lifecycleOwners: lifecycleCoverage.total,

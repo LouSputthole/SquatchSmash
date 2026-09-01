@@ -4,11 +4,10 @@
  * ═══════════════════════════════════════════════════════════════════════
  * EVERY CUE NAMED HERE ALREADY EXISTS IN assets/sfx/manifest.json
  *
- * Nothing is minted, deliberately: this pass does not own the manifest, and a
- * scene that names a cue nobody has recorded is a scene that plays silence and
- * tells no one. The three beds this place actually wants — wind in branches, a
- * stove, and the music from inside — are NOT in the manifest, and they are
- * written out at the bottom of this file as a request rather than guessed at.
+ * Manifest cues are never invented here: a scene that names a cue nobody has
+ * recorded is a scene that plays silence and tells no one. The cabin stereo is
+ * different — it is a delivered long-form music asset, streamed through the
+ * shared AudioEngine instead of decoded into the SFX bank.
  *
  * Cue names are spelled out at the call sites rather than looked up from a
  * table, because `tools/check.mjs` reads the call sites: a cue assembled out of
@@ -50,8 +49,18 @@ export const AMBIENCE_CUES = Object.freeze([
   'car.door.close.heavy',
 ]);
 
-/** Loop keys, so a scene teardown can stop them without knowing the cues. */
+/** Clearing loop keys, so the walk can kill both engines together. */
 export const AMBIENCE_LOOPS = Object.freeze(['initiation.car.west', 'initiation.car.east']);
+
+/** The delivered old-cabin stereo master and its one keyed playback handle. */
+export const INITIATION_CABIN_MUSIC_KEY = 'initiation.cabin.music';
+export const INITIATION_CABIN_MUSIC_SRC = 'assets/music/initiation-cabin-stereo.mp3';
+
+const CABIN_MUSIC_MUFFLED_CUTOFF_HZ = 780;
+const CABIN_MUSIC_OPEN_CUTOFF_HZ = 14_000;
+const CABIN_MUSIC_OUTSIDE_VOLUME = 0.19;
+const CABIN_MUSIC_INSIDE_VOLUME = 0.24;
+const CABIN_MUSIC_OATH_FADE_S = 5;
 
 /**
  * The mix for a spoken line in this scene.
@@ -131,10 +140,10 @@ export function playFootstep(audio, x, z, { volume = 0.5, cadenceKey = 'player' 
 /**
  * What is running while the player is out here.
  *
- * Two engines, idling, from the two cars with their lights on — which is the
- * only ambience this scene can honestly have today, and it is not nothing:
- * a clearing with two engines running in it is a clearing nobody is planning
- * to stay in.
+ * Two engines idle in the clearing. The cabin's old stereo also runs from a
+ * fixed speaker inside the building: quiet and heavily low-passed through the
+ * wall outside, then open when the door does. It is retired well before the
+ * oath and cannot be restarted after that boundary.
  *
  * `audio` may be null (headless, or a scene with the sound off); every method
  * is then a no-op and the scene still runs.
@@ -142,8 +151,52 @@ export function playFootstep(audio, x, z, { volume = 0.5, cadenceKey = 'player' 
 export function createCabinAmbience({ audio = null } = {}) {
   let running = false;
   let doorPlayed = false;
+  let doorOpen = false;
+  let musicState = 'idle';
+  let musicHandle = null;
+  let musicSilenceCommitted = false;
+
+  function startCabinMusic() {
+    if (musicSilenceCommitted || musicHandle || !audio?.startMusicLoop) return;
+    musicHandle = audio.startMusicLoop(
+      INITIATION_CABIN_MUSIC_KEY,
+      INITIATION_CABIN_MUSIC_SRC,
+      {
+        bus: 'music',
+        volume: doorOpen ? CABIN_MUSIC_INSIDE_VOLUME : CABIN_MUSIC_OUTSIDE_VOLUME,
+        fade: 3,
+        loop: true,
+        position: SPEAKERS.cabinMusic,
+        ref: 5,
+        maxDist: 90,
+      },
+    ) ?? null;
+    musicState = doorOpen ? 'open' : 'muffled';
+    audio.setLoopCutoff?.(
+      INITIATION_CABIN_MUSIC_KEY,
+      doorOpen ? CABIN_MUSIC_OPEN_CUTOFF_HZ : CABIN_MUSIC_MUFFLED_CUTOFF_HZ,
+      0,
+    );
+  }
+
+  function openCabinMusic() {
+    if (musicSilenceCommitted || musicState === 'idle') return;
+    musicState = 'open';
+    audio?.setLoopCutoff?.(INITIATION_CABIN_MUSIC_KEY, CABIN_MUSIC_OPEN_CUTOFF_HZ, 1.4);
+    audio?.setLoopVolume?.(INITIATION_CABIN_MUSIC_KEY, CABIN_MUSIC_INSIDE_VOLUME, 1.4);
+  }
 
   return {
+    get music() {
+      return Object.freeze({
+        key: INITIATION_CABIN_MUSIC_KEY,
+        source: INITIATION_CABIN_MUSIC_SRC,
+        state: musicState,
+        silenceCommitted: musicSilenceCommitted,
+        handleStarted: musicHandle !== null,
+      });
+    },
+
     /** Cars idling. Idempotent — `startLoop` is keyed. */
     start() {
       if (running) return;
@@ -156,22 +209,35 @@ export function createCabinAmbience({ audio = null } = {}) {
         name: 'car.engine.idle', volume: 0.14, position: SPEAKERS.clearingEast,
         ref: 5, maxDist: 34, rolloff: 0.9, fade: 2.2,
       });
+      startCabinMusic();
     },
 
     /** The engines are killed when the walk up the trail starts. */
     hushClearing() {
-      for (const key of AMBIENCE_LOOPS) audio?.stopLoop?.(key, { fade: 3.5 });
+      for (const key of AMBIENCE_LOOPS) audio?.stopLoop?.(key, 3.5);
     },
 
     /** The cabin door, once, as he is brought in. */
     openDoor() {
-      if (doorPlayed) return;
-      doorPlayed = true;
-      audio?.play?.('door.creak', {
-        volume: 0.6,
-        position: { x: CABIN_DOOR.x, y: 1.4, z: CABIN_DOOR.z },
-        ref: 2, maxDist: 20, rolloff: 0.9,
-      });
+      doorOpen = true;
+      openCabinMusic();
+      if (!doorPlayed) {
+        doorPlayed = true;
+        audio?.play?.('door.creak', {
+          volume: 0.6,
+          position: { x: CABIN_DOOR.x, y: 1.4, z: CABIN_DOOR.z },
+          ref: 2, maxDist: 20, rolloff: 0.9,
+        });
+      }
+    },
+
+    /** Begin the long fade while the final pre-oath lines are still playing. */
+    fadeForOath() {
+      if (musicSilenceCommitted) return;
+      musicSilenceCommitted = true;
+      musicState = running ? 'fading' : 'silent';
+      musicHandle = null;
+      audio?.stopLoop?.(INITIATION_CABIN_MUSIC_KEY, CABIN_MUSIC_OATH_FADE_S);
     },
 
     stop() {
@@ -181,6 +247,12 @@ export function createCabinAmbience({ audio = null } = {}) {
        * every time the cabin ambience stopped. Nothing caught it because
        * nothing had ever played this part of the scene. */
       for (const key of AMBIENCE_LOOPS) audio?.stopLoop?.(key, 1.2);
+      if (!musicSilenceCommitted) {
+        audio?.stopLoop?.(INITIATION_CABIN_MUSIC_KEY, 1.2);
+      }
+      musicHandle = null;
+      musicSilenceCommitted = true;
+      musicState = 'silent';
     },
   };
 }
@@ -189,22 +261,17 @@ export function createCabinAmbience({ audio = null } = {}) {
  * ═══════════════════════════════════════════════════════════════════════
  * WHAT THIS SCENE NEEDS RECORDED, AND CANNOT ASK FOR ITSELF
  *
- * Three beds, none of which exist in the manifest today. Every one of them is
- * in the owner's own description of the night, so they are not decoration:
+ * Two beds, neither of which exists in the manifest today. Both are in the
+ * owner's own description of the night, so they are not decoration:
  *
  *   initiation.forest.wind    — wind in high branches, no leaves, no birds.
  *                               Loop, 30 s+. The whole approach is silent
  *                               without it, and silence reads as a bug.
- *   initiation.cabin.music    — slow, heavy, old, traditional, played on
- *                               something with strings. Heard THROUGH a wall
- *                               from the yard and properly from inside, so it
- *                               wants a muffled variant or the engine's
- *                               `muffle` option pointed at it.
  *   initiation.stove.fire     — a closed wood stove: no crackle-and-pop, a low
  *                               roar with the odd shift of a log.
  *
- * The scene plays them the moment they exist: anchors are already in
- * site.js's SPEAKERS (`cabinMusic`, `stove`) and the clearing's own
- * `burnBarrel`.
+ * Their anchors already exist in site.js's SPEAKERS (`stove`) and the
+ * clearing's own `burnBarrel`. The delivered cabin music above already uses
+ * SPEAKERS.cabinMusic.
  * ═══════════════════════════════════════════════════════════════════════
  */

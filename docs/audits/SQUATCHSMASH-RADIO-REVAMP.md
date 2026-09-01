@@ -7,19 +7,22 @@ This is the implementation plan paired with [SQUATCHSMASH-RADIO-AUDIT.xlsx](./SQ
 
 - Campaign beats represented: **31 / 31**.
 - Scene Timeline rows: **43**.
+- Beat/receiver radio declarations: **31**; resumable hub packets: **13**.
 - Live stations: **1**; legacy manifest station identities: **2**.
 - Current generated station/news voice cues: **275**.
-- Cue Inventory rows: **337**.
+- Cue Inventory rows: **341**.
 - Radio/music rows with no reachable source/runtime use: **4**.
 - Referenced audit assets missing on disk: **0**.
-- Long-form masters with current hash-bound loudness evidence: **24 / 24**.
+- Long-form masters with current hash-bound loudness evidence: **28 / 28**.
 - Spoken station/news cues with current hash-bound Scribe receipts: **298 / 298**.
-- Unique live radio/music owners mapped to named active-play receipts: **26 / 26**.
+- Unique live radio/music owners mapped to named active-play receipts: **31 / 31**.
 - Live 97.8 programming pool: **12** non-cue tracks before venue filtering.
 
 ## What is actually built
 
 There is one live station, **97.8 THE SQUATCH**. Its running order is deterministic: talk, links, records, commercials, tape, meeting notice, and mission-aware news. The show changes by in-game hour; finite lists wrap after complete coverage. Physical receivers choose records with exact venue filtering plus every unscoped non-cue track.
+
+The beat/receiver RadioProgram manifest now owns every campaign beat's radio policy, each physical receiver's campaign-news policy, and thirteen resumable hub entry packets. Packet progress advances from concrete playback receipts; stable song IDs preserve the next record independently per venue.
 
 The manifest still carries 'uncle' and 'ksqch' station tags and matching ident/sting assets. They are not selectable stations in the current runtime. That is an evidence-backed mismatch, not permission to revive or delete them.
 
@@ -32,8 +35,10 @@ Long-form scene music remains owned by the scene-specific systems already in pla
 | P1 | Global | Station architecture | Runtime and source documentation now agree that 97.8 THE SQUATCH is the one live station; `uncle` and `ksqch` remain unresolved legacy identities only. | Documentation is corrected. Do not revive or delete legacy identities until the owner decides their future. | DOCUMENTED — OWNER DECISION OPEN |
 | P1 | Global | assets/music/manifest.json `station` | The manifest now labels `station` as ignored legacy catalog metadata; current Radio.playlist intentionally filters only `cue` plus exact `venue`. | After OWNER decides station/venue allocation, update metadata and runtime together with a contract test. | DOCUMENTED — OWNER DECISION OPEN |
 | P1 | Luxury Apartment; Mansion; Mansion Return | Physical 97.8 receivers | Luxury Apartment and both Mansion visits previously reset their physical 97.8 receivers instead of using the shared campaign adapter. | Implemented: unique Luxury ownership and one shared physical Mansion house tuner, both default-off and restored after audio unlock. | RESOLVED |
-| P1 | Global | Radio + venue/mission scores | The generated Scene Timeline binds all 26/26 unique radio, venue-music, mission-score, and authored-silence owners to exact named active-play receipts. | Keep the source-driven contract green and rerun the named browser verifiers after lifecycle edits. | SOURCE + MAPPING CONTRACT GREEN — RERUN SCENES AFTER FUTURE LIFECYCLE EDITS |
-| P1 | Global | Mix / loudness | 24/24 long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review. | Mechanical measurement and named active-play ownership coverage are complete. OWNER listens in context and approves any gain or asset normalization changes. | MEASURED — OWNER AUDIBLE MIX REVIEW |
+| P1 | Global | Radio + venue/mission scores | The generated Scene Timeline binds all 31/31 unique radio, venue-music, mission-score, and authored-silence owners to exact named active-play receipts. | Keep the source-driven contract green and rerun the named browser verifiers after lifecycle edits. | SOURCE + MAPPING CONTRACT GREEN — RERUN SCENES AFTER FUTURE LIFECYCLE EDITS |
+| P1 | Special Meeting | Two-second car-radio announcer gag | The canonical SM-200 action now plays one delivered station-announcer recording and Seff cuts the real source at exactly two seconds. | Implemented; keep the fragment bounded and receipt-backed. | RESOLVED — DELIVERED TWO-SECOND CUT |
+| P1 | Global | Mix / loudness | 28/28 long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review. | Mechanical measurement and named active-play ownership coverage are complete. OWNER listens in context and approves any gain or asset normalization changes. | MEASURED — OWNER AUDIBLE MIX REVIEW |
+| P2 | All physical receivers | Mission news | Campaign-news policy is explicit per physical receiver: enabled on apartment, countryside_cabin, luxury_apartment, mansion_house; disabled on bing_car, beefrun_cockpit, silver_pines_lead_cart, no_wake_cabin. | Keep the manifest as the only policy owner; reject undeclared receivers and regenerate the audit after policy changes. | RESOLVED — MANIFEST POLICY |
 | P2 | Global | Cue inventory | 4 radio/music assets have no reachable source/runtime use; 0 referenced audit assets are missing. | Mechanical: review each generated row. Remove manifest and file together only after confirming no dynamic use; preserve legacy station assets pending OWNER decision. | OWNER — LEGACY IDENTITY CUES |
 | P2 | Global | Filename/content and source-only audit limit | 298 spoken station/news cues have current hash-bound Scribe v2 receipts; 0 spoken cues remain stale, missing, or below the review threshold. Long-form music still requires owner listening/provenance. | Mechanical spoken-content verification is implemented. OWNER supplies provenance and reviews retained music identity; rerender any future speech review row. | RESOLVED FOR SPOKEN CUES — MUSIC OWNER REVIEW |
 | P3 | Global | Previous radio audit | The 2026-08-05 prose audit reports 222 cues; current voiceCues() reports 275 and includes mission-aware news. | Mechanical: treat this generated workbook/CSVs as the current audit and keep the older report as dated history. | RESOLVED BY THIS AUDIT |
@@ -46,32 +51,32 @@ No creative decision below is implemented by the generator.
 | --- | --- | --- | --- | --- | --- |
 | P1 | Global | Station architecture | Runtime and source documentation now agree that 97.8 THE SQUATCH is the one live station; `uncle` and `ksqch` remain unresolved legacy identities only. | OWNER: retire or restore `uncle` and `ksqch` identities. | DOCUMENTED — OWNER DECISION OPEN |
 | P1 | Global | assets/music/manifest.json `station` | The manifest now labels `station` as ignored legacy catalog metadata; current Radio.playlist intentionally filters only `cue` plus exact `venue`. | OWNER: desired station/venue allocation for existing tracks. | DOCUMENTED — OWNER DECISION OPEN |
-| P1 | Global | All long-form music | All 24 music tracks lack a structured license/source field; 24 rely on title/artist/notes only. | OWNER: provenance/license for every retained track. | OWNER |
-| P1 | Global | Mix / loudness | 24/24 long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review. | OWNER for audible mix changes after measurements. | MEASURED — OWNER AUDIBLE MIX REVIEW |
+| P1 | Global | All long-form music | All 28 music tracks lack a structured license/source field; 28 rely on title/artist/notes only. | OWNER: provenance/license for every retained track. | OWNER |
+| P1 | Global | Mix / loudness | 28/28 long-form masters now have hash-bound integrated-LUFS, sample-peak, and 4× intersample peak evidence; configured gains still need active-scene mix review. | OWNER for audible mix changes after measurements. | MEASURED — OWNER AUDIBLE MIX REVIEW |
 | P2 | Multiple receivers | Venue filtering | No exact non-cue track is tagged for countryside_cabin, beefrun, silver_pines, luxury_apartment; those venues inherit every unscoped radio record. | OWNER: venue availability for existing tracks. | OWNER |
-| P2 | Apartment; Cabin vs other receivers | Mission news | Mission-aware NEWS_SEGMENTS are enabled on the apartment and cabin receivers only; other receivers run the same station without news eligibility. | OWNER: news coverage by venue. | OWNER |
 | P2 | Global | Station shows vs mission news | Show selection remains hour-only. Mission news is event-gated, but the named hosts do not gain day/chapter-specific exchange pools. | OWNER: whether host programming should become chapter-aware. | OWNER |
 | P2 | Global | Cue inventory | 4 radio/music assets have no reachable source/runtime use; 0 referenced audit assets are missing. | OWNER only for legacy station identity cues. | OWNER — LEGACY IDENTITY CUES |
 | P2 | Global | Filename/content and source-only audit limit | 298 spoken station/news cues have current hash-bound Scribe v2 receipts; 0 spoken cues remain stale, missing, or below the review threshold. Long-form music still requires owner listening/provenance. | OWNER only for long-form music provenance/identity or a genuine creative speech mismatch. | RESOLVED FOR SPOKEN CUES — MUSIC OWNER REVIEW |
-| P3 | Campaign-wide | Intentional silence | 7 campaign beat rows have no authored station or long-form music source. | OWNER only if a silent beat should gain music. | DOCUMENTED |
+| P3 | Campaign-wide | Intentional silence | 2 campaign beat rows have no active station or long-form music playback and no contrary authored media requirement. | OWNER only if a silent beat should gain music. | DOCUMENTED |
 
 ## Ordered revamp plan
 
 | Order | Work item | Files | Dependency | Risk | Acceptance check | Status | Commit |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Generate the source-driven radio/music audit and five review sheets | tools/radio-audit.mjs; docs/audits/radio/*.csv; docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx; docs/audits/SQUATCHSMASH-RADIO-REVAMP.md | Current manifests, station data, scene contracts, campaign spine | Low | Generator --check passes; all five sheets render; every campaign beat is represented | DONE | d6f2ae0e; b2e63abb |
+| 1 | Generate the source-driven radio/music audit and six review sheets | tools/radio-audit.mjs; docs/audits/radio/*.csv; docs/audits/SQUATCHSMASH-RADIO-AUDIT.xlsx; docs/audits/SQUATCHSMASH-RADIO-REVAMP.md | Current manifests, station data, scene contracts, campaign spine, RadioProgram manifest | Low | Generator --check passes; all six sheets render; every campaign beat and radio policy is represented | DONE | d6f2ae0e; b2e63abb |
 | 2 | Reconcile station documentation and manifest semantics while preserving unresolved legacy identities | src/core/stations.js; assets/music/manifest.json; src/core/radio.js; tests/radio-*.test.mjs | OWNER rules on legacy uncle/ksqch identities for any runtime change | Medium | Docs, manifest, runtime selection, and tests describe the same current station model without guessing the legacy identities future | DOCUMENTATION DONE — IDENTITY DECISION OWNER | b2e63abb |
-| 3 | Make receiver persistence consistent | src/luxury-apartment/main.js; src/mansion/main.js; src/core/campaign.js | Existing createCampaignRadioAdapter | Low | Power, volume, cursor, and selection survive reload without cross-receiver collisions | DONE | 4d7d01ef |
-| 4 | Add stop, restore, overlap, and teardown browser receipts | tools/radio-active-play-coverage.mjs; existing Playwright scene verifiers; audio residency tests | Stable receiver IDs and current music ownership | Medium | Every unique non-silent timeline owner maps to an exact named active-play receipt; contract rejects missing/stale mappings and renamed checks | DONE — 26/26 OWNERS MAPPED; SOURCE RECEIPTS GREEN |  |
+| 3 | Make receiver and entry-packet persistence consistent | src/core/campaign.js; src/core/radio.js; src/core/radio-program.js | Existing createCampaignRadioAdapter | Low | Power, volume, stable per-venue song ID, and completed packet block survive reload without cross-receiver collisions | DONE | 4d7d01ef |
+| 4 | Add stop, restore, overlap, and teardown browser receipts | tools/radio-active-play-coverage.mjs; existing Playwright scene verifiers; audio residency tests | Stable receiver IDs and current music ownership | Medium | Every unique non-silent timeline owner maps to an exact named active-play receipt; contract rejects missing/stale mappings and renamed checks | DONE — 31/31 OWNERS MAPPED; SOURCE RECEIPTS GREEN |  |
 | 5 | Add repeatable duration, integrated-loudness, true-peak, and identity evidence | tools/audio-loudness-audit.mjs; tools/verify-radio-content.ps1; docs/audits/radio/loudness-measurements.json; docs/audits/radio/content-transcriptions.json; tools/radio-audit.mjs; generated Cue Inventory | Existing Playwright Chromium decoder and ElevenLabs Scribe v2 for spoken identity | Medium | Every retained master has measured duration/LUFS/peak; every spoken cue has a current transcript; music identity remains an explicit owner review | LOUDNESS + SPOKEN IDENTITY DONE — MUSIC OWNER REVIEW | 14cc6c94; b2e63abb |
 | 6 | Resolve OWNER programming decisions | Problems and Decisions sheet | Owner chooses legacy stations, venue allocation, news coverage, provenance, and any host rewrite | High if guessed | Every OWNER row has an explicit answer; no track is silently replaced or deleted | WAITING ON OWNER |  |
-| 7 | Implement approved mechanical trigger, stop, restore, and selection fixes | src/core/radio.js; scene-owned score modules; manifests; relevant tests | Orders 2–6 | Medium | Source contracts and real-browser receipts pass; owner-selected material remains intact | MECHANICAL LIFECYCLE SOURCE DONE — PROGRAMMING CHANGES WAIT ON OWNER |  |
+| 7 | Implement deterministic entry packets, stable playlists, explicit receiver news, and the Nehoo edit | src/core/radio-program.js; src/core/radio.js; src/core/campaign.js; assets/music/manifest.json; tools/verify-radio-program.mjs | Current station recordings and campaign spine | Medium | Unit contracts and real-browser buffer/media receipts pass; owner-selected material remains intact | DONE — PROGRAM + PLAYBACK RECEIPTS GREEN |  |
 | 8 | Run campaign-wide active-play music/dialogue mix QA | All Scene Timeline rows; Playwright traces and scene evidence | Mechanical fixes and loudness measurements | Medium | Dialogue remains intelligible; intentional silence lands; no stale loop crosses a scene handoff | MECHANICAL COVERAGE DONE — OWNER LISTENING OPEN |  |
 | 9 | Regenerate ledgers and certify the final radio revamp | Generated dialogue/audio/take ledgers; check:radio-vo; scene tests; campaign marathon if handoffs change | Any authored line or route changes | Low | All applicable cue, take, audio, radio, scene, and campaign gates actually run and pass | RELEASE-CANDIDATE LEDGERS + MAPPED RECEIPTS GREEN — FINAL HOSTED RECEIPT EXTERNAL |  |
 
 ## Generated data
 
 - [Scene Timeline CSV](./radio/scene-timeline.csv)
+- [Radio Program CSV](./radio/radio-program.csv)
 - [Station Catalog CSV](./radio/station-catalog.csv)
 - [Cue Inventory CSV](./radio/cue-inventory.csv)
 - [Hash-bound loudness measurements](./radio/loudness-measurements.json)

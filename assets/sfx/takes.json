@@ -7277,13 +7277,13 @@
       "source": "assumed"
     },
     "vo.call.margo.cabin_date.1": {
-      "text": "1efbaf93e4bf",
+      "text": "4734d65e33b1",
       "source": "rendered",
       "voice": "margo",
       "voiceId": "XlDdozLmuTofIxK4BjPD"
     },
     "vo.call.margo.cabin_date.2": {
-      "text": "6b5c29e8647d",
+      "text": "fb86f5ae2096",
       "source": "rendered",
       "voice": "margo",
       "voiceId": "XlDdozLmuTofIxK4BjPD"
@@ -7295,19 +7295,19 @@
       "voiceId": "XlDdozLmuTofIxK4BjPD"
     },
     "vo.call.margo.cabin_date.tony.1": {
-      "text": "79b88ed26b92",
+      "text": "634951f6d02f",
       "source": "rendered",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"
     },
     "vo.call.margo.cabin_date.tony.2": {
-      "text": "5cc4974c0d77",
+      "text": "20f85fc2a947",
       "source": "rendered",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"
     },
     "vo.call.margo.cabin_date.tony.3": {
-      "text": "4529b97adb05",
+      "text": "870580806114",
       "source": "rendered",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"
@@ -18019,6 +18019,12 @@
     "vo.zyn.5": {
       "text": "8158ea6aa3a4",
       "source": "assumed"
+    },
+    "vo.call.margo.cabin_date.pickup": {
+      "text": "e488608fe752",
+      "source": "rendered",
+      "voice": "margo",
+      "voiceId": "XlDdozLmuTofIxK4BjPD"
     }
   }
 }

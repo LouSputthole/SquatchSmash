@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { AudioEngine } from '../core/audio.js';
+import { createCampaignArrivalScore } from '../core/campaign-arrival-score.js';
 import { createCampaignAudioFeedback } from '../core/campaign-audio-feedback.js';
 import {
   MISSION_IDS,
@@ -213,6 +214,7 @@ player.pitch = -0.06;
 const interaction = new InteractionSystem(camera, hud);
 interaction.setOccluders([palace.root]);
 const audio = new AudioEngine();
+const arrivalScore = createCampaignArrivalScore(audio, 'cartel_palace');
 
 /* THE CAN. Owner's direction for this mission is that the Prospect goes in
  * with a suppressor on: a real one on the barrel, a dull small flash, a
@@ -942,6 +944,7 @@ function captureCombatCheckpoint(name = mission.beat) {
 }
 
 function persistCheckpoint(id, facts = {}) {
+  if (id !== PALACE_BEATS.APPROACH) arrivalScore.stop('perimeter-entered');
   state.lastCheckpoint = id;
   const checkpointSnapshot = captureCombatCheckpoint(id);
   const accepted = campaignStory.checkpoint(id, { ...facts, checkpointSnapshot });
@@ -992,6 +995,7 @@ security = new PalaceSecurity({
    * presented here and again below costs one voice, not two. */
   audio: combatAudio,
   onAlarm: (reason) => {
+    arrivalScore.stop('alarm-raised');
     document.body.classList.add('alarm');
     soundTheEstateAlarm();
     if (reason !== 'dining_room') mission.raiseAlarm(reason);
@@ -1628,6 +1632,7 @@ startButton.addEventListener('click', async () => {
     'heist.bullet.impact',
   ], { timeout: 500 });
   const restored = restoreMissionProgress();
+  if (mission.beat === PALACE_BEATS.APPROACH) arrivalScore.start();
   /* After the restore, so a mid-estate checkpoint boots hearing its own
    * room — the loops start at the restored room's gains, not outdoors. */
   acoustics.start(player.position);
@@ -2013,6 +2018,7 @@ window.CARTEL_PALACE = {
    * objective card to the beat table rather than to itself. */
   get objective() { return state.objective; },
   get campaignState() { return campaign.state; },
+  arrivalScore: () => arrivalScore.snapshot(),
   get checkpoint() { return state.lastCheckpoint; },
   snapshot: () => mission.snapshot(),
   combatSnapshot: () => captureCombatCheckpoint(mission.beat),

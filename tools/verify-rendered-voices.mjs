@@ -16,6 +16,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { textHash } from './take-ledger.mjs';
+import { isFutureInitiationCue } from './audio-scope.mjs';
 
 const TOOL_FILE = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(TOOL_FILE), '..');
@@ -25,7 +26,9 @@ const LEDGER_FILE = path.join(SFX_DIR, 'takes.json');
 const INDEX_FILE = path.join(SFX_DIR, 'index.json');
 const REWORD_QUEUE_FILE = path.join(SFX_DIR, 'rerecord.json');
 const DEFAULT_OUTPUT = path.join(ROOT, 'docs', 'audits', 'voice', 'rendered-voice-receipts.json');
-const SCHEMA = 'squatchsmash.rendered-voice-receipts.v1';
+const SCHEMA = 'squatchsmash.rendered-voice-receipts.v2';
+/** Fixed so evidence does not change with the verifier host's audio device. */
+export const RENDERED_VOICE_AUDIT_SAMPLE_RATE = 44_100;
 
 function parseArgs(argv) {
   const options = { check: false, output: DEFAULT_OUTPUT };
@@ -49,6 +52,43 @@ function digest(algorithm, bytes, length = null) {
 
 function fileOf(cue) {
   return cue.file || `${cue.name}.mp3`;
+}
+
+/**
+ * Report the real playable voice denominator, not only the subset of takes
+ * rendered by our current production tooling. A green exact-receipt count can
+ * otherwise hide a missing file, a rewritten line, or an entire stale recast.
+ */
+async function currentVoiceCoverage(renderedExact = null) {
+  const [manifest, index] = await Promise.all([
+    readJson(MANIFEST_FILE), readJson(INDEX_FILE),
+  ]);
+  const indexed = new Set(index.files ?? []);
+  const recastProfiles = new Set(Object.entries(manifest.voices ?? {})
+    .filter(([, profile]) => profile && typeof profile === 'object' && profile.recast)
+    .map(([name]) => name));
+  const spoken = (manifest.sfx ?? [])
+    .filter((cue) => typeof cue.say === 'string' && cue.say.trim())
+    .filter((cue) => !isFutureInitiationCue(cue));
+  const missing = spoken.filter((cue) => !indexed.has(fileOf(cue))).map((cue) => cue.name).sort();
+  const rerecord = spoken.filter((cue) => cue.needsRerecord === true).map((cue) => cue.name).sort();
+  const recast = spoken.filter((cue) => recastProfiles.has(cue.voice)).map((cue) => cue.name).sort();
+  const outstandingNames = new Set([...missing, ...rerecord, ...recast]);
+  const currentDelivered = spoken.length - outstandingNames.size;
+  const exact = renderedExact ?? (await currentRenderedTakes()).length;
+  if (exact > currentDelivered) {
+    throw new Error(`Rendered exact takes exceed current delivered voice lines: ${exact}/${currentDelivered}`);
+  }
+  return {
+    authoredPlayable: spoken.length,
+    currentDelivered,
+    outstanding: outstandingNames.size,
+    missing,
+    rerecord,
+    recast,
+    renderedExact: exact,
+    assumedCurrent: currentDelivered - exact,
+  };
 }
 
 async function currentRenderedTakes() {
@@ -163,9 +203,12 @@ async function decodeRows(rows) {
     });
     const page = await browser.newPage();
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    await page.evaluate(() => {
-      window.__renderedVoiceAuditContext = new AudioContext({ latencyHint: 'playback' });
-    });
+    await page.evaluate((sampleRate) => {
+      window.__renderedVoiceAuditContext = new AudioContext({
+        latencyHint: 'playback',
+        sampleRate,
+      });
+    }, RENDERED_VOICE_AUDIT_SAMPLE_RATE);
     for (const [index, row] of rows.entries()) {
       const decoded = await page.evaluate(async (assetUrl) => {
         const response = await fetch(assetUrl, { cache: 'no-store' });
@@ -194,8 +237,12 @@ async function decodeRows(rows) {
   }
 }
 
-async function validateEvidence(current, evidence) {
+async function validateEvidence(current, evidence, expectedCoverage = null) {
   if (evidence.schema !== SCHEMA) throw new Error(`Unexpected rendered-voice schema: ${evidence.schema}`);
+  const coverage = expectedCoverage ?? await currentVoiceCoverage(current.length);
+  if (JSON.stringify(evidence.coverage) !== JSON.stringify(coverage)) {
+    throw new Error(`Rendered-voice denominator drift: receipt=${JSON.stringify(evidence.coverage)} current=${JSON.stringify(coverage)}`);
+  }
   const receipts = new Map((evidence.receipts ?? []).map((row) => [row.cue, row]));
   if (receipts.size !== current.length) {
     throw new Error(`Rendered-voice coverage drift: receipt=${receipts.size} current=${current.length}`);
@@ -216,15 +263,16 @@ async function validateEvidence(current, evidence) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const current = await currentRenderedTakes();
+  const coverage = await currentVoiceCoverage(current.length);
   if (options.check) {
     const evidence = await readJson(options.output);
-    const count = await validateEvidence(current, evidence);
-    console.log(`[rendered-voices] ${count}/${current.length} exact rendered takes have current hash, text, performer, index, and browser-decode receipts.`);
+    const count = await validateEvidence(current, evidence, coverage);
+    console.log(`[rendered-voices] ${count} exact rendered + ${coverage.assumedCurrent} assumed-current; ${coverage.outstanding} outstanding (${coverage.missing.length} missing, ${coverage.rerecord.length} rerecord, ${coverage.recast.length} recast) of ${coverage.authoredPlayable} playable voice lines.`);
     return;
   }
   const receipts = await decodeRows(current);
-  const evidence = { schema: SCHEMA, receipts };
-  await validateEvidence(current, evidence);
+  const evidence = { schema: SCHEMA, coverage, receipts };
+  await validateEvidence(current, evidence, coverage);
   await fs.mkdir(path.dirname(options.output), { recursive: true });
   await fs.writeFile(options.output, `${JSON.stringify(evidence, null, 2)}\n`);
   console.log(`[rendered-voices] wrote ${receipts.length} receipts to ${path.relative(ROOT, options.output)}`);
@@ -237,4 +285,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === TOOL_FILE) {
   });
 }
 
-export { SCHEMA, currentRenderedTakes, validateEvidence };
+export { SCHEMA, currentRenderedTakes, currentVoiceCoverage, validateEvidence };

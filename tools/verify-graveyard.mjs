@@ -539,6 +539,15 @@ try {
   check('walking to the trunk offers the lift prompt', true);
   await holdEUntil(() => window.GRAVEYARD.mission.state === 'carried');
   const carried = await page.evaluate(() => window.GRAVEYARD.bodyPresentation());
+  const arrivalScore = await page.evaluate(() => window.GRAVEYARD.arrivalScore());
+  check('the Graveyard arrival score starts once and fades at body pickup',
+    arrivalScore.key === 'music.arrival.squatch-graveyard'
+      && arrivalScore.startCount === 1
+      && arrivalScore.stopCount === 1
+      && arrivalScore.stopReason === 'body-picked-up'
+      && arrivalScore.active === false
+      && arrivalScore.duckedByCanonicalVoiceBus === true,
+    fmt(arrivalScore));
   check('the held lift puts Billy in both arms: body phase carrying, parented to the camera',
     carried.phase === 'carrying' && carried.parent === 'graveyard.camera' && carried.visible,
     fmt({ phase: carried.phase, parent: carried.parent }));

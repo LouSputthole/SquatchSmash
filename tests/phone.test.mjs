@@ -7,7 +7,12 @@ globalThis.document ??= {
   }),
 };
 
-const { Phone, callScript, OUTGOING_RING_SECONDS } = await import('../src/core/phone.js');
+const {
+  Phone,
+  callScript,
+  loadAsRecordedCaptions,
+  OUTGOING_RING_SECONDS,
+} = await import('../src/core/phone.js');
 const {
   phoneThreadsForCampaign,
   phoneReadEventForThread,
@@ -25,6 +30,30 @@ class MemoryStorage {
   getItem(key) { return this.values.get(key) ?? null; }
   setItem(key, value) { this.values.set(key, String(value)); }
 }
+
+test('bundled phone captions come from inline metadata without a CSP-blocked fetch', async () => {
+  const priorInline = globalThis.__SQUATCH_INLINE;
+  const priorFetch = globalThis.fetch;
+  let fetches = 0;
+  globalThis.__SQUATCH_INLINE = {
+    'assets/sfx/rerecord.json': {
+      lines: [{ cue: 'vo.test.retired', retiredText: 'What the delivered take actually says.' }],
+    },
+  };
+  globalThis.fetch = async () => {
+    fetches += 1;
+    throw new Error('strict CSP blocked connect-src');
+  };
+  try {
+    const captions = await loadAsRecordedCaptions();
+    assert.equal(captions.get('vo.test.retired'), 'What the delivered take actually says.');
+    assert.equal(fetches, 0);
+  } finally {
+    if (priorInline === undefined) delete globalThis.__SQUATCH_INLINE;
+    else globalThis.__SQUATCH_INLINE = priorInline;
+    globalThis.fetch = priorFetch;
+  }
+});
 
 test('the phone turns durable campaign progress into readable Family texts and remembers a read thread', () => {
   const storage = new MemoryStorage();

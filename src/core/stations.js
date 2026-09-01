@@ -12,8 +12,8 @@
  * Delivered takes therefore retain one discoverable cue, voice, filename,
  * current text, and take-ledger history instead of relying on captions alone.
  *
- * The 60-second station commercial is the one the player wrote, with one
- * exception: the original "Irish's Deep Dives" teaser was an antisemitic
+ * The station promo is the one the player wrote, split into two bounded
+ * daypart breaks, with one exception: the original "Irish's Deep Dives" teaser was an antisemitic
  * conspiracy line, and that is not going in a repository. The Deep Dives
  * slot keeps its format, its kazoo and its tone; the target is now Big Egg
  * suppressing the pasture-raised truth, which at least ties back to the
@@ -182,8 +182,8 @@ export function newsSegmentsFor(state) {
 /* 97.8 THE SQUATCH                                                    */
 /* ------------------------------------------------------------------ */
 
-/** The station's own promo, beat by beat. */
-const COMMERCIAL_STATION = [
+/** The station's old 131-second promo, now two bounded daypart breaks. */
+const COMMERCIAL_STATION_MORNING = [
   seg('…', 'radio.riff'),
   seg('Tired of boring radio stations that care about "facts" and "professionalism"?'),
   seg('Then tune your dial to 97.8… THE SQUATCH!', 'radio.airhorn'),
@@ -195,6 +195,10 @@ const COMMERCIAL_STATION = [
   seg('At 3 PM, it’s Irish’s Deep Dives… bringing you Real News You Can Trust.', 'radio.kazoo'),
   seg('"Tonight: is Big Egg suppressing the pasture-raised truth? '
     + 'We investigate… for way longer than necessary."'),
+];
+
+const COMMERCIAL_STATION_EVENING = [
+  seg('…', 'radio.riff'),
   seg('Then at 5 PM, don’t miss Eric & Gratin’s "What’s Happening in India!"'),
   seg('Covering headlines, cricket scores, technology, food, and somehow always '
     + 'ending with a discussion about butter chicken.'),
@@ -271,7 +275,8 @@ const COMMERCIAL_DEALERSHIP = [
  * play. Flip `live` to true once the lines are in `assets/sfx/index.json`.
  */
 const COMMERCIALS = [
-  { id: 'station', live: true, segments: COMMERCIAL_STATION },
+  { id: 'station.morning', live: true, segments: COMMERCIAL_STATION_MORNING },
+  { id: 'station.evening', live: true, segments: COMMERCIAL_STATION_EVENING },
   { id: 'jerky', live: true, segments: COMMERCIAL_JERKY },
   { id: 'attorney', live: true, segments: COMMERCIAL_ATTORNEY },
   { id: 'dealership', live: true, segments: COMMERCIAL_DEALERSHIP },

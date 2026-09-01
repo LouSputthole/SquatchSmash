@@ -10,6 +10,7 @@ import {
   SPECIAL_MEETING_BOOSKI_CALL,
   departureRefusal,
 } from './apartment-story.js';
+import { SPECIAL_MEETING_ACT_ONE } from './special-meeting-home-prelude.js';
 
 /**
  * THE LUXURY APARTMENT, as the campaign sees it. Beats 14, 16, 17, 19 and 27.
@@ -309,7 +310,7 @@ class LuxuryApartmentStory {
    * @param {object} activities the room's own live flags, for parity with the
    *   starter flat's door. Nothing in this flat gates on one yet.
    */
-  tryLeave() {
+  tryLeave(activities = {}) {
     const phase = this.phase();
     if (phase === 'get_ready') {
       return {
@@ -355,6 +356,13 @@ class LuxuryApartmentStory {
       };
     }
     if (phase === 'special_meeting') {
+      /* Legacy finished-campaign saves intentionally keep their old replay
+       * door. They already completed the ride and have no transient car clock
+       * to resume, so making them wait for a new pickup would manufacture a
+       * second Beat 27 after the credits. */
+      if (this.#mission(MISSION_IDS.INITIATION).status === 'complete') {
+        return { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING };
+      }
       if (!this.#answered(EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL)) {
         return {
           kind: 'call',
@@ -363,7 +371,16 @@ class LuxuryApartmentStory {
           hint: 'Answer Booskibro’s call.',
         };
       }
-      return { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING };
+      if (activities.carOutside === true) {
+        return { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING };
+      }
+      return {
+        kind: 'wait',
+        id: 'special_meeting_car',
+        label: 'Wait in for Seff, Lag and Numbskull',
+        line: SPECIAL_MEETING_ACT_ONE.doorRefusals[0].text,
+        takes: SPECIAL_MEETING_ACT_ONE.doorRefusals,
+      };
     }
     return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
   }
@@ -375,9 +392,9 @@ class LuxuryApartmentStory {
    * panel that authors its own copy of the door's rules is a panel that will
    * eventually disagree with the door, and the player believes the panel.
    */
-  objectives() {
+  objectives(activities = {}) {
     const phase = this.phase();
-    const door = this.tryLeave();
+    const door = this.tryLeave(activities);
     const items = [];
     const call = this.pendingCall();
     if (call) {
@@ -388,7 +405,7 @@ class LuxuryApartmentStory {
         required: true,
       });
     }
-    if (door.kind === 'activity') {
+    if (door.kind === 'activity' || door.kind === 'wait') {
       items.push({ id: door.id, label: door.label, done: false, required: true });
     } else if (door.kind === 'stay') {
       /* THREE SHUT DOORS, AND ONLY ONE OF THEM IS A BED.
