@@ -558,9 +558,18 @@ try {
       cancelable: true,
     }));
   }, type);
-  await tabIn('keydown');
-  await page.waitForTimeout(120);
-  await tabIn('keyup');
+  /* The tap must be atomic inside the page: two separate evaluate round
+   * trips put runner scheduling between keydown and keyup, and a starved
+   * hosted runner stretched the 120 ms gap past the exit hold — scheduled
+   * run 33488181465 failed with the tap read as a hold (osMode desktop)
+   * while the same tree passes locally. One evaluate, one in-page timer. */
+  await campground.evaluate(() => new Promise((resolve) => {
+    const fire = (eventType) => window.dispatchEvent(new KeyboardEvent(eventType, {
+      code: 'Tab', key: 'Tab', bubbles: true, cancelable: true,
+    }));
+    fire('keydown');
+    setTimeout(() => { fire('keyup'); resolve(); }, 120);
+  }));
   await page.waitForTimeout(200);
   const smashAfterTap = await computerState();
   check('a tap of Tab inside Squatch Smash is left to the game',

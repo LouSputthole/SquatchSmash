@@ -236,8 +236,14 @@ try {
     repairRoot.traverse((object) => {
       if (object.visible && object.name) repairNames.push(object.name);
     });
+    /* The hammer hangs off Snow's animated forearm, so its world-Y extent
+     * depends on which strike phase the sample lands on -- 0.12 mid-strike
+     * on a scheduled runner, 0.24 locally, both the same authored prop.
+     * The AABB diagonal never shrinks below the prop's true length in any
+     * pose, so it is the measurement that proves a full-size hammer. */
     const hammerSize = new M.THREE.Box3().setFromObject(hammer)
       .getSize(new M.THREE.Vector3());
+    const hammerLength = hammerSize.length();
 
     M.setRendering(true);
     return {
@@ -260,7 +266,7 @@ try {
         return false;
       })(),
       hammerName: hammer.name,
-      hammerHeight: hammerSize.y,
+      hammerLength,
       repairNames,
       frame: M.framesRendered,
     };
@@ -284,12 +290,12 @@ try {
       && stageSnowRepair.hammerVisible
       && stageSnowRepair.hammerAttachedToSnow
       && stageSnowRepair.hammerName === 'snow-repair-hammer'
-      && stageSnowRepair.hammerHeight > 0.35,
+      && stageSnowRepair.hammerLength > 0.4,
     JSON.stringify({
       visible: stageSnowRepair.hammerVisible,
       attached: stageSnowRepair.hammerAttachedToSnow,
       name: stageSnowRepair.hammerName,
-      height: stageSnowRepair.hammerHeight,
+      length: stageSnowRepair.hammerLength,
     }));
 
   const snowRepairSamples = [];

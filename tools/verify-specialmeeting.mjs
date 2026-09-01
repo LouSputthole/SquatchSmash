@@ -700,6 +700,20 @@ try {
   }));
   await page.mouse.move(320, 180);
   await page.mouse.move(402, 132, { steps: 2 });
+  /* A starved hosted runner can coalesce or defer the synthetic
+   * pointer-locked deltas past any fixed wait (scheduled run 33488181465
+   * failed the look check with yaw byte-identical while the same tree
+   * passes locally). Wait on the camera itself and nudge again, bounded. */
+  for (let nudge = 0; nudge < 3; nudge += 1) {
+    const turned = await page.waitForFunction(({ yaw, pitch }) => (
+      Math.abs(window.SPECIAL_MEETING.player.yaw - yaw) > 0.01
+        && Math.abs(window.SPECIAL_MEETING.player.pitch - pitch) > 0.01
+    ), { yaw: beforeInput.yaw, pitch: beforeInput.pitch }, { timeout: 1500 })
+      .catch(() => null);
+    if (turned) break;
+    await page.mouse.move(320 + nudge * 8, 180 + nudge * 6);
+    await page.mouse.move(402, 132, { steps: 2 });
+  }
   await page.waitForTimeout(50);
   const afterLook = await page.evaluate(() => ({
     yaw: window.SPECIAL_MEETING.player.yaw,

@@ -178,6 +178,21 @@ async function verifyOpeningMovement(target, label) {
   }));
   await target.mouse.move(240, 150);
   await target.mouse.move(306, 116, { steps: 2 });
+  /* A starved hosted runner can coalesce or defer the synthetic
+   * pointer-locked deltas past any fixed wait: scheduled run 33488181465
+   * failed the mouse-look check with yaw byte-identical while the same
+   * tree passes all 50 checks locally. Wait on the Adapter's own event
+   * counter and nudge again, bounded, if nothing arrived. */
+  for (let nudge = 0; nudge < 3; nudge += 1) {
+    const moved = await target.waitForFunction(
+      (count) => window.squatchfather.input.snapshot().lookEvents > count,
+      beforeLook.input.lookEvents,
+      { timeout: 1500 },
+    ).catch(() => null);
+    if (moved) break;
+    await target.mouse.move(240 + nudge * 8, 150 + nudge * 6);
+    await target.mouse.move(306, 116, { steps: 2 });
+  }
   await target.waitForTimeout(80);
   const afterLook = await target.evaluate(() => ({
     yaw: window.squatchfather.prospect.yaw,

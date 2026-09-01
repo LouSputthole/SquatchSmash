@@ -573,9 +573,15 @@ try {
     const story = window.__squatch.campaign.state.story;
     return { day: story.day, timeMinutes: story.timeMinutes, events: story.timeEvents };
   });
-  check('leaving for the airstrip lands at Day 2, 9:10 AM through the authored clock',
+  /* DEPART_AIRSTRIP stopped being a 09:10 anchor when the cabin took the
+   * Day 2 morning: it is a 25-minute drive DURATION now (see the authoring
+   * note over TIME_EVENT_IDS.DEPART_AIRSTRIP in campaign.js). On this
+   * legacy apartment route the TV beat ends at 7:20, so the drive lands at
+   * 7:45 -- the pin held the retired anchor and failed every scheduled run
+   * since the change. */
+  check('leaving for the airstrip lands at Day 2, 7:45 AM through the authored 25-minute drive',
     departTime.day === 2
-      && departTime.timeMinutes === 9 * 60 + 10
+      && departTime.timeMinutes === 7 * 60 + 45
       && departTime.events.includes('travel.airstrip'),
     JSON.stringify(departTime));
 
