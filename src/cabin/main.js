@@ -94,6 +94,7 @@ import {
   knownCabinPlayerOutfitId,
   makeCabinPlayerFigure,
 } from './player-body.js';
+import { prospectFaceUrl } from '../core/prospect-body.js';
 import {
   CABIN_RANGE_ACTIVITY_RADIUS,
   CABIN_RADIO_AUDIBLE_DISTANCE,
@@ -1428,6 +1429,8 @@ try {
     outfitId: initialCabinOutfitId,
     eyeHeight: WALK_EYE_HEIGHT,
   });
+  // If the owner's prospect.png ever lands, the mirror adopts it on next boot.
+  prospectFaceUrl().then((face) => { if (face) reflectionBody?.refresh(); });
 } catch (error) {
   console.warn('Cabin reflection body unavailable; mirror remains safe:', error);
 }

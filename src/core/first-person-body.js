@@ -198,6 +198,15 @@ export class FirstPersonBody {
     return true;
   }
 
+  /**
+   * Rebuild the same outfit through the factory again — for a factory whose
+   * output improved after mount (the Prospect's photo face resolving).
+   */
+  refresh() {
+    this.group.removeFromParent();
+    this._mount(this.outfitId);
+  }
+
   /** Attach a scene-owned weapon/model to the reflected right hand. */
   setWeapon(object = null, { visible = true } = {}) {
     this.weapon?.removeFromParent?.();

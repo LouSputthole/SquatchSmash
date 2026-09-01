@@ -221,6 +221,7 @@ const TEST_MODULES = [
   './cold-open.test.mjs',
   './apartment-voice-coverage.test.mjs',
   './phone.test.mjs',
+  './prospect-body.test.mjs',
   './squatchfather-story.test.mjs',
   './squatchfather-voice-manifest.test.mjs',
   './airstrip-story.test.mjs',

@@ -14,7 +14,7 @@ import { ENVIRONMENT_VISIBILITY } from '../core/environment-visibility.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { PlanarMirror } from '../core/planar-mirror.js';
-import { Person } from '../core/person.js';
+import { makeProspectFigure, prospectFaceUrl } from '../core/prospect-body.js';
 import { Phone, callScript, loadAsRecordedCaptions } from '../core/phone.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
@@ -139,14 +139,15 @@ const initialOutfitId = appearanceStore.read();
 const readyTally = createLuxuryReadyTally();
 let luxuryMargo = null;
 
+/* The canonical Prospect, same as the apartment and cabin mirrors. This
+ * scene used to dress the old story-scene box rig in its wardrobe palettes
+ * and scale it 0.70, and the vanity mirror faithfully reflected a cruder
+ * man than every other glass in the game (owner, 2026-09-01: "In luxury
+ * apartment, mirror kind sucks still"). The palette table survives only to
+ * canonicalize persisted outfit ids; the figure's colours are the canonical
+ * table's. */
 function makeLuxuryPlayerBody(outfitId) {
-  const person = new Person({
-    ...(LUXURY_OUTFIT_PALETTES[outfitId] ?? LUXURY_OUTFIT_PALETTES.charcoal_suit),
-    bandana: null,
-  });
-  person.group.scale.setScalar(0.70);
-  person.group.userData.outfitId = outfitId;
-  return person;
+  return makeProspectFigure(outfitId, { name: 'luxury-player-reflection-body' });
 }
 
 const renderer = new THREE.WebGLRenderer({
@@ -1169,6 +1170,8 @@ firstPersonBody = new FirstPersonBody(scene, {
   outfitId: initialOutfitId,
   eyeHeight: 1.68,
 });
+// If the owner's prospect.png ever lands, the mirror adopts it on next boot.
+prospectFaceUrl().then((face) => { if (face) firstPersonBody?.refresh(); });
 
 inventoryRuntime = new LuxuryInventoryRuntime({
   camera,

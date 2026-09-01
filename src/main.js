@@ -101,7 +101,7 @@ import {
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
 import { createApartmentInputPolicy } from './apartment-controls.js';
-import { makePerson } from './bing/cast.js';
+import { knownProspectOutfitId, makeProspectFigure, prospectFaceUrl } from './core/prospect-body.js';
 
 const DRINK_TIME = 2.4;
 const SWIG_TIME = 1.7;   // whiskey goes down faster, for better or worse
@@ -113,42 +113,10 @@ const CIG_EXHALE = 1.55;
 const CIG_DONE = 2.40;
 const CIG_AFTERGLOW = 4.20;
 
-/* Stable appearance ids are shared with the Cabin and Luxury Apartment.
- * Each scene may own its figure builder, but an id must still mean the same
- * clothes when Tony crosses a page boundary. This apartment also preserves
- * its three long-standing shirt choices for saves made here. */
-const APARTMENT_PLAYER_OUTFITS = Object.freeze({
-  black_henley: Object.freeze({
-    dress: 'shirt', shirt: 0x17191d, trouserColour: 0x20242b,
-    trim: true, tie: false, neckline: 'open',
-  }),
-  grey_henley: Object.freeze({
-    dress: 'shirt', shirt: 0x6d7278, trouserColour: 0x20242b,
-    trim: true, tie: false, neckline: 'open',
-  }),
-  good_shirt: Object.freeze({
-    dress: 'shirt', shirt: 0x323b4b, trouserColour: 0x181b21,
-    trim: true, tie: false, neckline: 'open',
-  }),
-  charcoal_suit: Object.freeze({
-    dress: 'suit', jacketColour: 0x292d35, shirtAccent: 0xe4d8c2,
-    trouserColour: 0x171a20, trim: true, belt: 'leather',
-    tie: true, tieColour: 0x49354e, pocketSquare: false,
-  }),
-  cream_cashmere: Object.freeze({
-    dress: 'shirt', shirt: 0xd8cdb7, trouserColour: 0x393a3f,
-    trim: false, tie: false, neckline: 'open',
-  }),
-  'late-night_track_jacket': Object.freeze({
-    dress: 'tracksuit', shirt: 0x252d3d, trouserColour: 0x171c27,
-    jacketColour: 0x252d3d, trim: true, tie: false,
-  }),
-  cabin_workshirt: Object.freeze({
-    dress: 'shirt', shirt: 0x4b5143, trouserColour: 0x27303a,
-    trim: true, belt: 'leather', tie: false, neckline: 'open',
-  }),
-});
-
+/* Stable appearance ids are shared with the Cabin and Luxury Apartment via
+ * the canonical table in `src/core/prospect-body.js` -- one Tony in every
+ * mirror. This apartment still preserves its three long-standing shirt
+ * choices for saves made here. */
 const APARTMENT_SHIRT_OUTFIT = Object.freeze({
   'black shirt': 'black_henley',
   'grey henley': 'grey_henley',
@@ -157,24 +125,12 @@ const APARTMENT_SHIRT_OUTFIT = Object.freeze({
 
 const apartmentAppearanceStore = createPlayerAppearanceStore({ fallback: 'charcoal_suit' });
 const storedApartmentOutfitId = apartmentAppearanceStore.read();
-const initialApartmentOutfitId = Object.hasOwn(APARTMENT_PLAYER_OUTFITS, storedApartmentOutfitId)
+const initialApartmentOutfitId = knownProspectOutfitId(storedApartmentOutfitId) === storedApartmentOutfitId
   ? storedApartmentOutfitId
   : apartmentAppearanceStore.write('charcoal_suit');
 
 function buildApartmentPlayerBody(outfitId) {
-  const outfit = APARTMENT_PLAYER_OUTFITS[outfitId]
-    ?? APARTMENT_PLAYER_OUTFITS.charcoal_suit;
-  return makePerson({
-    height: 1.80,
-    build: 1.03,
-    gut: 0.08,
-    skin: 0xc9936d,
-    hair: 'short',
-    hairColour: 0x261b16,
-    bandana: false,
-    castShadow: false,
-    ...outfit,
-  });
+  return makeProspectFigure(outfitId, { name: 'apartment-player-reflection-body' });
 }
 
 const canvas = document.getElementById('scene');
@@ -877,6 +833,8 @@ async function boot() {
     outfitId: initialApartmentOutfitId,
     eyeHeight: 1.66,
   });
+  // If the owner's prospect.png ever lands, the mirror adopts it on next boot.
+  prospectFaceUrl().then((face) => { if (face) playerBody?.refresh(); });
   /* The view-model remains camera-owned; this second revolver exists only on
    * the mirror layer and rides the shared body's hand socket. */
   const reflectedRevolver = makeRevolver(makeMaterials(), { x: 0, y: 0, z: 0 }).group;
