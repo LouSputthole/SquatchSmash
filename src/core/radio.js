@@ -270,7 +270,16 @@ export class Radio {
    */
   preloadCueNames({ hours = null, startupOnly = false } = {}) {
     const requestedHours = Array.isArray(hours) && hours.length
-      ? hours : [this.time?.hour ?? 9];
+      ? [...hours] : [this.time?.hour ?? 9];
+    /* A campaign packet may pin a show hour that is not the wall clock
+     * (`showAt(station, program.showHour ?? hour)` in _playProgramme), and a
+     * preload that only covers the current hour then decodes the wrong
+     * show's announcer intro -- the aired one falls to the synth. Whatever
+     * programme this receiver would air, its show belongs in the slice. */
+    const programHour = (this._programContext ?? this.state?.context?.())?.program?.showHour;
+    if (Number.isFinite(programHour) && !requestedHours.includes(programHour)) {
+      requestedHours.push(programHour);
+    }
     const cues = new Set([
       'radio.click', 'radio.tune', 'radio.static', 'radio.talk',
       'radio.jingle', 'radio.cut',

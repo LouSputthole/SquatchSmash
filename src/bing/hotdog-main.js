@@ -1720,6 +1720,16 @@ startButton.addEventListener('click', async () => {
   startButton.textContent = 'Loading party audio...';
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_TWO);
   clock.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
+  /* This click is the one user gesture the party gets, and the two audio
+   * awaits below outlive it: Chrome then rejects the post-load
+   * requestPointerLock with "NotAllowedError: A user gesture is required"
+   * (measured 2026-09-02), the drag fallback does not recover, and the
+   * Adapter sits disabled -- mouse and W dead after START until the player
+   * clicks again. Take the lock now, raw, while the gesture is alive; the
+   * Adapter's own pointerlockchange listener adopts it, and the
+   * requestGamePointerLock below becomes the no-op for an already-held
+   * lock instead of the doomed late ask. */
+  try { canvas.requestPointerLock()?.catch?.(() => {}); } catch { /* headless or denied: the post-load ask still runs */ }
   await audio.init();
   // The authored party is almost entirely voiced. Do not let a fast player
   // reach Hog Mama's controls while the recordings are still decoding and
