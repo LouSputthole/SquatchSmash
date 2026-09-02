@@ -873,8 +873,8 @@ const houseRadioHud = {
   toast: () => {},
 };
 const houseRadio = new Radio(audio, houseRadioHud, { hour: HOUSE_RADIO_HOUR }, {
-  hudVisible: () => radioHudWithinRange(camera?.position, activeRadioSet?.speakerPos),
   venue: 'mansion',
+  hudVisible: () => radioHudWithinRange(camera?.position, activeRadioSet?.speakerPos),
   state: createCampaignRadioAdapter(mansionRecoveryCampaign, {
     /* The billiard-bay and pool-deck cabinets are two speaker sets on the
      * same physical house tuner. The Silent Squatch and repaired-house visits
