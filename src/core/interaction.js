@@ -111,14 +111,18 @@ export class InteractionSystem {
     let found = null;
     let soft = null;
     for (const hit of hits) {
-      /* Aim volumes are for bullets, not for the crosshair. A combat scene
-       * wraps every person in an invisible person-sized box so a shot can find
-       * them; those boxes were also the first thing this ray met, so a dead
-       * officer lying beside THE TAKE's van ate the van's prompt with nothing
-       * visible on screen to explain it. */
-      if (hit.object.userData?.aimProxy) continue;
       const owner = this._ownerOf(hit.object);
-      if (!owner) break;
+      /* An aim volume with nobody interactive behind it is air. A combat
+       * scene wraps every person in an invisible person-sized box so a shot
+       * can find them; a dead officer's box lying beside THE TAKE's van was
+       * the first thing this ray met, and it ate the van's prompt with
+       * nothing visible on screen to explain it. A box that DOES resolve to a
+       * descriptor is still honoured: a hostage flat on the marble is aimed
+       * at through exactly such a volume, and that is what it is for. */
+      if (!owner) {
+        if (hit.object.userData?.aimProxy) continue;
+        break;
+      }
       const desc = owner.userData.interact;
       if (desc.enabled && !desc.enabled()) continue;
       // Remembered, not taken: anything solid further down the ray beats it.
