@@ -27,25 +27,9 @@ body.beefrun { background: #0c0c10; }
 #br-hud.hidden { display: none; }
 
 /* ---- Objective ---- */
-#br-objective {
-  position: absolute;
-  top: 4.2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.34rem 1.1rem;
-  background: var(--br-ink);
-  border-left: 3px solid var(--br-amber);
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
-  max-width: 70vw;
-  text-align: center;
-}
-#br-objective.hidden { display: none; }
-#br-objective.pop { animation: br-pop 0.45s ease-out; }
-@keyframes br-pop {
-  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
+/* On the shared src/core/objective-panel.js card since 2026-09-02; nothing of
+   the old windscreen strip is left to style. */
+
 
 /* ---- Speed tape, left ---- */
 .br-left { position: absolute; left: 2.2rem; top: 50%; transform: translateY(-50%); }

@@ -1292,6 +1292,25 @@ test('the other pool performer uses the shared seven-hit dress-help sequence', (
     'clap.wet.loop.1', 'clap.wet.loop.2', 'clap.wet.loop.3',
   ]);
   assert.ok(timings.some(Boolean), 'the shared TimingBar never reached the Mansion HUD');
+
+  /* THE GLUE. Owner, 2026-09-02: the Bing's cues, and the mess on her back
+   * before she gets back on the chair. Pickup at the start, a squeeze under
+   * every hit, the tube giving at the finish -- then she holds the pose
+   * while the blobs arrive, and only then reclines. */
+  const glueCues = retryPlayed.filter(({ name }) => /^glue\./.test(name)).map(({ name }) => name);
+  assert.equal(glueCues[0], 'glue.pickup');
+  assert.equal(glueCues.filter((name) => name === 'glue.squeeze').length, 8,
+    'one squeeze on pickup and one under each of the seven pulls');
+  assert.equal(glueCues.at(-1), 'glue.burst');
+  const dress = () => cast.debug.evening.secondDress;
+  assert.equal(dress().onAllFours, true, 'she got straight back on the chair');
+  assert.ok(dress().glueHold > 1, 'no hold for the glue to land in');
+  for (let i = 0; i < 40; i++) cast.update(1 / 60);
+  assert.ok(dress().glue > 0.9, `the mess is only ${dress().glue.toFixed(2)} of the way on`);
+  assert.equal(dress().onAllFours, true, 'she reclined before the tube was empty');
+  for (let i = 0; i < 80; i++) cast.update(1 / 60);
+  assert.equal(dress().onAllFours, false, 'she never got back on the chair');
+  assert.equal(dress().glue, 1, 'the glue came off with the pose');
 });
 
 test('the quiet evening seats Old Stove with Seff and Lag in real theatre recliners', () => {

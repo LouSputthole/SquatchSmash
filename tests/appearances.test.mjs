@@ -543,10 +543,10 @@ test('finite procedural clothing/job combinations have deterministic extreme fix
 test('the mansion ledger includes every authored Family and performer model consumer', async () => {
   const house = appearancesInScene('mansion_house');
   const familyEvidence = new Map([
-    [CHARACTER_IDS.SEFF, 'model: familyModel(CHARACTER_IDS.SEFF),'],
-    [CHARACTER_IDS.LAG, 'model: familyModel(CHARACTER_IDS.LAG),'],
+    [CHARACTER_IDS.SEFF, 'model: withFace(familyModel(CHARACTER_IDS.SEFF), FACES.seff),'],
+    [CHARACTER_IDS.LAG, 'model: withFace(familyModel(CHARACTER_IDS.LAG), FACES.lag),'],
     [CHARACTER_IDS.APE, 'model: withFace(familyModel(CHARACTER_IDS.APE), FACES.ape),'],
-    [CHARACTER_IDS.SAUCE, 'model: familyModel(CHARACTER_IDS.SAUCE),'],
+    [CHARACTER_IDS.SAUCE, 'model: withFace(familyModel(CHARACTER_IDS.SAUCE), FACES.sauce),'],
     [CHARACTER_IDS.OLD_STOVE, 'model: withFace(familyModel(CHARACTER_IDS.OLD_STOVE), FACES.stove),'],
   ]);
   for (const [character, evidence] of familyEvidence) {

@@ -359,8 +359,11 @@ export const PHASES = Object.freeze({
   shot_drink: phase('shot_drink', {
     camera: 'ritual', advance: 'timer', timeout: 1.8, exits: ['pullback'],
   }),
+  /* Owner, 2026-09-02: "there's an awkward long pause after you take the
+   * shot." IN-540 is stage directions only, so this was fourteen seconds
+   * of silent camera; six is the pull and the black. */
   pullback: phase('pullback', {
-    camera: 'pullback', advance: 'timer', timeout: 14, beat: 'IN-540', exits: ['complete'],
+    camera: 'pullback', advance: 'timer', timeout: 6, beat: 'IN-540', exits: ['complete'],
   }),
   complete: phase('complete', {
     camera: 'pullback', advance: 'player', terminal: true, exits: [],

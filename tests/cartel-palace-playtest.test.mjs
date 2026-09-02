@@ -363,6 +363,40 @@ test('the cleaner is an unarmed bystander who cowers and never fights', () => {
   assert.equal(people.panic(), false, 'panicking twice is not a thing');
 });
 
+test('a shot on the grounds leaves Rosa on her feet until he walks in, then she dives', () => {
+  /* Owner, 2026-09-02: "Be better if Rosa was standing and then dives on
+   * the ground when you come in." A shot outside used to put her face down
+   * at her corner before the front door opened, so the first he saw of her
+   * was a body on the floor. */
+  const scene = new THREE.Group();
+  const cast = buildPalaceCast(scene);
+  const cleaner = cast.bystanders[0];
+  const spoken = [];
+  const people = new PalaceBystanders({ cast, voice: { say: (id) => { spoken.push(id); return true; } } });
+  const farAway = new THREE.Vector3(cleaner.root.position.x + 60, 0, cleaner.root.position.z + 60);
+  assert.equal(people.panic({ position: farAway }), false, 'a shot on the lawn dropped her');
+  assert.equal(people.report().people[0].phase, 'calm');
+  assert.equal(people.report().people[0].alarmed, true, 'she did not remember the noise');
+  for (let index = 0; index < 60; index++) people.update(1 / 60);
+  assert.equal(cleaner.figure.pose !== 'prone', true, 'she went down with nobody in the room');
+  assert.equal(people.notice(cleaner), true);
+  assert.equal(cleaner.figure.pose, 'startled', 'she did not stand and see him first');
+  for (let index = 0; index < 30; index++) people.update(1 / 60);
+  assert.equal(people.report().people[0].phase, 'startled', 'she dived before her line had a chance');
+  for (let index = 0; index < 36; index++) people.update(1 / 60);
+  assert.equal(people.report().people[0].phase, 'fleeing', 'the remembered alarm never sent her down');
+  for (let index = 0; index < 90; index++) people.update(1 / 60);
+  assert.equal(cleaner.figure.pose, 'prone');
+  assert.ok(cleaner.root.position.distanceTo(cleaner.cowerAt) < 0.02);
+  assert.deepEqual(spoken.slice(0, 2), ['cleaner.spotted', 'cleaner.panic.one']);
+
+  /* A shot in her own room drops her at once, as it always did. */
+  const again = buildPalaceCast(new THREE.Group());
+  const room = new PalaceBystanders({ cast: again, voice: { say: () => true } });
+  assert.equal(room.panic({ position: again.bystanders[0].root.position }), true);
+  assert.equal(room.report().people[0].phase, 'fleeing');
+});
+
 /* ---------------- Intelligence desk ---------------- */
 
 test('the surveillance monitor hangs off a ceiling mount and carries a readable file', () => {

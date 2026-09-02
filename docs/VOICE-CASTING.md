@@ -45,7 +45,7 @@ document is the ledger. `tools/generate-sfx.mjs` gained `--cast <voice,...>`
 
 | Character | voice profile | LOCKED ElevenLabs id | replaced | lines to redo | face photo |
 |---|---|---|---|---|---|
-| Lag | `lag` *(new)* | `fBD19tfE58bkETeiwUoC` | — | 0 | **MISSING** |
+| Lag | `lag` *(new)* | `fBD19tfE58bkETeiwUoC` | — | 0 | `lag.png` |
 | Gratin | `gratin` | `UgBBYS2sOqTuMpoF3BR0` | pqHfZKP7… | 13 | `gratin.png` |
 | Eric | `eric` | `A7AUsa1uITCDpK29MG3m` | cjVigY5q… | 13 | `erican.png` |
 | Hog Mama | `hogmama` | `052jzHJceQiZr7ltnY0C` | FGY2WhTY… | 24 | `hogmama.png` |
@@ -54,14 +54,14 @@ document is the ledger. `tools/generate-sfx.mjs` gained `--cast <voice,...>`
 | Booskibro | `booski` | `s2wvuS7SwITYg8dqsJdn` | N2lVS1w4… | 27 | `booski.png` |
 | Captain Lou Sasole | `lou2` | `QzTKubutNn9TjrB7Xb2Q` | TX3LPaxm… | **155** | `sasole.png` |
 | Willy | `willy` *(new)* | `R9EZoy8pXSL8Yh4yxiew` | — | 0 | **MISSING** |
-| Irish | `irish` | `qwaVDEGNsBllYcZO1ZOJ` | JBFqnCBs… | 24 | **MISSING** |
-| Ape | `ape` | `pI7p9goUOVAfkfaP1k9Z` | CwhRBWXz… | 30 | **MISSING** |
-| Old Stove | `old-stove` | `lUTamkMw7gOzZbFIwmq4` | nPczCjzI… | 10 | **MISSING** |
+| Irish | `irish` | `qwaVDEGNsBllYcZO1ZOJ` | JBFqnCBs… | 24 | `irish.png` |
+| Ape | `ape` | `pI7p9goUOVAfkfaP1k9Z` | CwhRBWXz… | 30 | `ape.png` |
+| Old Stove | `old-stove` | `lUTamkMw7gOzZbFIwmq4` | nPczCjzI… | 10 | `stove.png` |
 | Snow | `snow` *(new)* | `OhisAd2u8Q6qSA4xXAAT` | — | 0 | `snow.png` |
 | Rippinflow | `rippinflow` *(new)* | `rHWSYoq8UlV0YIBKMryp` | — | 0 | `rippinflow.png` |
-| Seff | `seff` *(new)* | `lnFzEtvLAfx8I9DtiJTS` | — | 0 | **MISSING** |
+| Seff | `seff` *(new)* | `lnFzEtvLAfx8I9DtiJTS` | — | 0 | `seff.png` |
 | The Shubenator | `shubenator` *(new)* | `vpPOiJgwc09J0uCYqE35` | — | 0 | `shubes.png` |
-| Numbskull | `numbskull` *(new)* | `R4Zv8YQNcHyNDZl0ViUG` | — | 0 | **MISSING** |
+| Numbskull | `numbskull` *(new)* | `R4Zv8YQNcHyNDZl0ViUG` | — | 0 | `numbskull.png` |
 | *Radio (station voice)* | `announcer` | `dn9HtxgDwCH96MVX9iAO` | pNInz6ob… | 62 | n/a |
 
 The prospect (**Tony Squatchtana**, profile `player`, 365 lines) was not
@@ -73,10 +73,13 @@ recast — his voice stands.
    supplied `R4Zv8YQNcHyNDZl0ViUG`, it is in `voices.numbskull.id`, and his
    two hangout lines are now manifest cues (`vo.bing.hang.numbskull.1/.2`)
    and recorded like everyone else's. Nothing outstanding.
-2. **Four Family faces missing.** Old Stove's, Irish's, and Ape's supplied
-   faces now live under `assets/faces/`. Drop PNGs under these remaining ledger
-   names and every scene picks them up: `lag.png`, `willy.png`, `seff.png`,
-   `numbskull.png`.
+2. **One Family face missing.** Lag's, Seff's and Numbskull's landed on
+   2026-09-01 (with Sauce's and Aubbie's). Only `willy.png` is still owed.
+   "Every scene picks them up" turned out to be false for the scenes that
+   name faces in their own tables rather than reading the index -- the
+   mansion, the siege, THE TAKE, the Initiation, Enola, the cabin, the
+   Palace and the HotDog party all had to be wired by hand on 2026-09-02,
+   and `tests/faces-coverage.test.mjs` now holds them to the index.
 3. Station voices `uncle` (98.8) and `ksqch` (101.7) keep their old stock
    ids — the sheet supplied one radio voice and 97.8 got it. Shout if those
    two should recast as well.

@@ -52,7 +52,7 @@ import {
   PALACE_BACKGROUND_BANK, PALACE_NEXT_BEAT_BANK, PALACE_START_BANK,
   PALACE_WAVE_INCOMING_CUE,
 } from './audio-banks.js';
-import { buildPalaceCast } from './cast.js';
+import { buildPalaceCast, MARK_ARMOR } from './cast.js';
 import { PalaceFinaleDirector } from './finale.js';
 import {
   EVIDENCE_IDS, PALACE_BEATS, PALACE_DINING_OBJECTIVES, CartelPalaceMission,
@@ -359,12 +359,15 @@ const MARK_LAST_STAND = Object.freeze({ x: 0, z: -47.8, faceZ: -40 });
  * nothing. It is set, not topped up: the number is the fight's, not a
  * remainder of the previous one.
  */
-const MARK_LAST_STAND_HEALTH = 260;
+/* Owner, 2026-09-02: fifty percent more on each stage. 260 -> 390, and the
+ * enraged bonus below 60 -> 90 with it, so the two proportions hold. */
+export const MARK_LAST_STAND_HEALTH = 390;
+export const MARK_ENRAGED_BONUS = 90;
 function restoreMarkForLastStand({ enraged = false } = {}) {
   const actor = cast.mark.actor;
   if (!actor) return false;
   actor.armor = 0;
-  actor.health = enraged ? MARK_LAST_STAND_HEALTH + 60 : MARK_LAST_STAND_HEALTH;
+  actor.health = enraged ? MARK_LAST_STAND_HEALTH + MARK_ENRAGED_BONUS : MARK_LAST_STAND_HEALTH;
   actor.incapacitated = false;
   cast.mark.armorPresentation?.applyResult?.({ applied: true, armorBroken: true });
   return true;
@@ -722,8 +725,10 @@ const weapons = new WeaponSystem({
         radius: suppressor.hearingRadiusFor(event.id),
       });
     }
-    // The room goes to the floor whether or not anybody heard the shot.
-    bystanders.panic();
+    /* The room goes to the floor whether or not anybody heard the shot --
+     * if the shot was in the room. One on the grounds is remembered, and
+     * she dives when he walks in (see `PalaceBystanders.panic`). */
+    bystanders.panic({ position: player.position });
   },
 });
 
@@ -1793,7 +1798,7 @@ function updateBoss() {
   const actor = subject.entry()?.actor;
   if (!actor) return;
   if (ui.bossName && ui.bossName.textContent !== subject.name) ui.bossName.textContent = subject.name;
-  ui.bossArmor.style.width = `${Math.round(actor.armor / 170 * 100)}%`;
+  ui.bossArmor.style.width = `${Math.round(actor.armor / (subject.entry()?.armorMax ?? MARK_ARMOR) * 100)}%`;
   ui.bossLife.style.width = `${Math.round(actor.health / actor.maxHealth * 100)}%`;
   ui.bossState.textContent = actor.incapacitated ? 'DOWN' : actor.armor > 0 ? 'ARMORED' : 'EXPOSED';
 }

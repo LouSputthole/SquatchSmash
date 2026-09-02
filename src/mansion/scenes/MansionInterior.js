@@ -123,6 +123,16 @@ export const MANSION_ART_SLOTS = [
   'mansion.basement.shield',
   // Third pass: the west wing and the lower level.
   'mansion.trophy.crest',
+  /* 2026-09-02: the last name cards in the two rooms the owner walked --
+   * the fireplace living room's east-wall run and breast, and the Great
+   * Includer hall's two founders. Files already on disk; see the manifest. */
+  'mansion.living.family',
+  'mansion.living.booski',
+  'mansion.living.lou',
+  'mansion.living.fireplace-west',
+  'mansion.living.fireplace-east',
+  'mansion.trophy.founder-west',
+  'mansion.trophy.founder-east',
   'mansion.winter.shield',
   'mansion.cellar.crest',
   'mansion.theatre.banner',
@@ -3186,13 +3196,31 @@ export function buildMansionInterior(shell = null) {
      * and the drinks cabinet already standing under it. Hung as a proper
      * group on one picture line, with a rail and a picture light. */
     const artWallX = r.x1 - 0.12;
-    wallArt('living-crest', artWallX, GY + 2.55, 43.2, -Math.PI / 2, 1.6, 2.0,
+    /* REAL PICTURES, 2026-09-02. Owner: "there's placeholder art in the
+     * mansion, in the living room with the fireplace, on the right hand side
+     * when you walk in, that we can replace with real art." This run is
+     * that wall -- you come in through the foyer arch heading west and it is
+     * on your right. The three frames were a drawn crest and two name cards;
+     * they now resolve through `artTargets` to the formal family portrait
+     * and the Bing's own Booskibro and Uncle Lou portraits, the same files
+     * the Squatchfather's dining room hangs. The crest and the cards stay
+     * underneath as the fallback for a file that fails to load.
+     *
+     * Every `h` is `w / (file width / file height)`: 1024x1280 for the
+     * portrait (1.6 / 0.8 = 2.0, which the drawn crest already was) and
+     * 1122x1402 for the two men, so `applyResolvedArt`'s aspect rebuild is
+     * a no-op and the recorded doorway-sweep box is the box on the wall. */
+    const livingCrest = wallArt('mansion.living.family', artWallX, GY + 2.55, 43.2, -Math.PI / 2, 1.6, 2.0,
       squatchArt('mansion-living-art', {
         title: ['THE SILVER', 'SASQUATCHES'], footer: 'FAMILY, FIRST', ink: '#c8a24a', bg: '#20161a',
       }));
-    wallArt('living-booski', artWallX, GY + 2.45, 41.2, -Math.PI / 2, 0.9, 1.2,
+    const livingBooski = wallArt('mansion.living.booski', artWallX, GY + 2.45, 41.2, -Math.PI / 2, 0.9,
+      // 1122 x 1402
+      1.1246,
       makePortraitTexture('booski', 'BOOSKIBRO', '#1e1a26'));
-    wallArt('living-lou', artWallX, GY + 2.45, 45.2, -Math.PI / 2, 0.9, 1.2,
+    const livingLou = wallArt('mansion.living.lou', artWallX, GY + 2.45, 45.2, -Math.PI / 2, 0.9,
+      // 1122 x 1402
+      1.1246,
       makePortraitTexture('lou', 'BIG UNCLE LOU', '#241a14'));
     // Picture rail tying the three together, and a light over the canvas.
     root.add(box({
@@ -3231,10 +3259,14 @@ export function buildMansionInterior(shell = null) {
     // Two smaller family photographs flank the mantel clock. They turn the
     // fireplace breast into a composed secondary wall instead of leaving the
     // room's entire art collection in one distant row.
+    /* Same 2026-09-02 pass: the two name cards ("FAMILY", "FIRST") resolve
+     * to the Silver Sasquatches arrival and lounge plates, 1024 x 1280, so
+     * h is 0.64 / 0.8 = 0.80 -- two centimetres taller than the cards were,
+     * still a hand's width under the breast's top and clear of the clock. */
     const galleryArt = [
-      wallArt('living-fireplace-family-west', fx + 0.51, GY + 3.03, 51.75, Math.PI / 2, 0.64, 0.78,
+      wallArt('mansion.living.fireplace-west', fx + 0.51, GY + 3.03, 51.75, Math.PI / 2, 0.64, 0.80,
         makePortraitTexture('living-family-west', 'FAMILY', '#281b18')),
-      wallArt('living-fireplace-family-east', fx + 0.51, GY + 3.03, 53.45, Math.PI / 2, 0.64, 0.78,
+      wallArt('mansion.living.fireplace-east', fx + 0.51, GY + 3.03, 53.45, Math.PI / 2, 0.64, 0.80,
         makePortraitTexture('living-family-east', 'FIRST', '#1d2028')),
     ];
     for (const portrait of galleryArt) portrait.group.name = 'living-family-miniature';
@@ -3282,6 +3314,9 @@ export function buildMansionInterior(shell = null) {
       flames,
       galleryArt,
       fireside: livingFireside,
+      family: livingCrest,
+      booski: livingBooski,
+      lou: livingLou,
       updateFire,
     };
   }
@@ -12021,13 +12056,22 @@ const M_GOLD_BAR = mat({
      * wall is also glazed at z 43.0..46.4 and 50.2..53.6. Between them there
      * is exactly one band wide enough for a 1.24 m frame that clears both the
      * glass and the 0.68 m column at z 48.4, and 47.2 is the middle of it. */
-    wallArt('trophy-founder-west', r.x0 + 0.14, GY + 2.7, 47.2, Math.PI / 2, 1.1, 1.5,
+    /* Real portraits, 2026-09-02 -- owner: "there's some [placeholder art]
+     * in the trophy room as well." Both founders resolve through
+     * `artTargets` to the Bing's 1122 x 1402 hallway portraits, so h is
+     * 1.1 / 0.8003 = 1.3745: a hand shorter than the name cards were, on the
+     * same measured bands, so the doorway sweep that placed them holds. */
+    const founderWest = wallArt('mansion.trophy.founder-west', r.x0 + 0.14, GY + 2.7, 47.2, Math.PI / 2, 1.1,
+      // 1122 x 1402
+      1.3745,
       makePortraitTexture('includer-booski', 'BOOSKIBRO', '#171c22'));
     /* z=52.0, not 48.4: the hall's east wall IS the house's west wall, and the
      * living room's own glazing runs z:47.6..50.8 through it. A portrait at
      * 48.4 would be hung across a window from the far side -- caught by the
      * art sweep, which does not care which room a piece thinks it is in. */
-    wallArt('trophy-founder-east', r.x1 - 0.14, GY + 2.7, 53.75, -Math.PI / 2, 1.1, 1.5,
+    const founderEast = wallArt('mansion.trophy.founder-east', r.x1 - 0.14, GY + 2.7, 53.75, -Math.PI / 2, 1.1,
+      // 1122 x 1402
+      1.3745,
       makePortraitTexture('includer-shubes', 'THE SHUBENATOR', '#221a18'));
 
     /* Display cases down the long walls: the silverware that is not the point
@@ -12100,6 +12144,8 @@ const M_GOLD_BAR = mat({
     return {
       crest: trophyCrest,
       plate: includerPlate,
+      founderWest,
+      founderEast,
       trophy,
       dais: { x: tx, z: apseZ - 1.9, top: daisTop },
       statues: [],
@@ -14181,6 +14227,15 @@ const M_GOLD_BAR = mat({
     { slot: 'mansion.gallery.campfire', mesh: galleryProps.dynasty?.['mansion.gallery.campfire'], w: 1.5 },
     { slot: 'mansion.gallery.dynasty-general', mesh: galleryProps.dynasty?.['mansion.gallery.dynasty-general'], w: 0.86 },
     { slot: 'mansion.living.fireside', mesh: livingProps.fireside?.art, w: 0.9 },
+    /* The 2026-09-02 pass: every frame here is authored at its file's own
+     * aspect (see each hanging's note), so these rebuilds are no-ops. */
+    { slot: 'mansion.living.family', mesh: livingProps.family?.art, w: 1.6 },
+    { slot: 'mansion.living.booski', mesh: livingProps.booski?.art, w: 0.9 },
+    { slot: 'mansion.living.lou', mesh: livingProps.lou?.art, w: 0.9 },
+    { slot: 'mansion.living.fireplace-west', mesh: livingProps.galleryArt?.[0]?.art, w: 0.64 },
+    { slot: 'mansion.living.fireplace-east', mesh: livingProps.galleryArt?.[1]?.art, w: 0.64 },
+    { slot: 'mansion.trophy.founder-west', mesh: trophyProps.founderWest?.art, w: 1.1 },
+    { slot: 'mansion.trophy.founder-east', mesh: trophyProps.founderEast?.art, w: 1.1 },
     { slot: 'mansion.lounge.club-apex', mesh: loungeProps.clubApex?.art, w: 0.95 },
     { slot: 'mansion.conference.council', mesh: conferenceProps.council?.art, w: 1.7 },
     { slot: 'mansion.office.patriarch', mesh: officeProps.patriarch?.art, w: 0.9 },

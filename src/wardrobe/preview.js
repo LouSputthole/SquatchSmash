@@ -41,9 +41,14 @@ import { makePerson } from '../bing/cast.js';
 import { WARDROBE } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { APE_FAMILY_MEMBER } from '../bing/family-ape.js';
+import { FAMILY } from '../bing/family.js';
 import {
   PHOTOS, SCENES, appearancesInScene, appearancesOf, isShowable,
 } from '../core/appearances.js';
+
+/* Seff and Lag have no `WARDROBE` export of their own; their bodies are the
+ * roster rows in src/bing/family.js, the same objects every scene builds. */
+const FAMILY_MODEL = Object.fromEntries(FAMILY.map((member) => [member.id, member.model]));
 
 /* Who is on the rail, in the order the player meets them. `photo` is the file
  * the face WILL come from -- present or not; the index decides. */
@@ -78,6 +83,12 @@ export const RAIL = [
     note: 'Green over the beard, on the dock or on the boat.' },
   { key: 'aubbie', name: 'Aubbie', photo: 'aubbie.png', model: WARDROBE.aubbie,
     note: 'Work clothes, because that is what the night turns into.' },
+  { key: 'sauce', name: 'Sauce', photo: 'sauce.png', model: WARDROBE.sauce,
+    note: 'Chef whites, because the food is the whole of him. The one who ratted.' },
+  { key: 'seff', name: 'Seff', photo: 'seff.png', model: FAMILY_MODEL.seff,
+    note: 'Drives the pickup. Stays at the wheel and leans across.' },
+  { key: 'lag', name: 'Lag', photo: 'lag.png', model: FAMILY_MODEL.lag,
+    note: 'The cabin, the phone in the front seat, the logistics. Forty minutes, roughly.' },
   { key: 'billy', name: 'Billy HotDog', photo: 'billy.png', model: BILLY_HOTDOG_MODEL,
     note: 'The man in the trunk. Canonical from src/core/hotdog-model.js so the body is visibly the man who went down.' },
   { key: 'james_blond', name: 'James Blond', photo: 'blond.png', model: WARDROBE.james_blond,

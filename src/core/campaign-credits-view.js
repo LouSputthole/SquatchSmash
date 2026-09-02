@@ -73,6 +73,10 @@ export const CREDITS_SONG_TAIL_S = 1.5;
 /** The fade to black, before anything moves. Seconds. */
 export const CREDITS_FADE_S = 2.4;
 
+/** The song's own fade-in, from the frame the crawl starts. Seconds. */
+export const CREDITS_MUSIC_FADE_S = 2.5;
+export const CREDITS_MUSIC_VOLUME = 0.85;
+
 function required(documentRef, id) {
   const element = documentRef?.getElementById?.(id);
   if (!element) throw new Error(`Credits view is missing #${id}`);
@@ -132,16 +136,23 @@ export function createCampaignCreditsView({
   }
 
   let music = null;
+  let musicFade = null;
   let onDone = null;
   let running = false;
   let crawlTimer = null;
   let finishTimer = null;
+
+  function clearMusicFade() {
+    if (musicFade !== null) globalThis.clearInterval?.(musicFade);
+    musicFade = null;
+  }
 
   function clearTimers() {
     if (crawlTimer !== null) globalThis.clearTimeout?.(crawlTimer);
     if (finishTimer !== null) globalThis.clearTimeout?.(finishTimer);
     crawlTimer = null;
     finishTimer = null;
+    clearMusicFade();
   }
 
   function stopMusic() {
@@ -202,7 +213,17 @@ export function createCampaignCreditsView({
         if (resolvedMusicSrc && typeof globalThis.Audio === 'function') {
           try {
             music = new globalThis.Audio(resolvedMusicSrc);
-            music.volume = 0.85;
+            /* Owner, 2026-09-02: "I want that song to fire off, or fade in,
+             * when the credits come up." It comes in over the first bars
+             * rather than at full volume on the frame the black lands. */
+            music.volume = 0;
+            const fadeStartedAt = Date.now();
+            musicFade = globalThis.setInterval?.(() => {
+              if (!running || !music) { clearMusicFade(); return; }
+              const k = Math.min(1, (Date.now() - fadeStartedAt) / (CREDITS_MUSIC_FADE_S * 1000));
+              music.volume = CREDITS_MUSIC_VOLUME * k;
+              if (k >= 1) clearMusicFade();
+            }, 50) ?? null;
             /* THE FULL SONG PLAYS. Owner, 2026-09-02: "i want the full song
              * for the credits." Once the delivered track reports its real
              * length, the crawl stretches to cover it plus a short tail, so

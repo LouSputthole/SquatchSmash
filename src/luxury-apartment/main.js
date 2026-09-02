@@ -251,7 +251,8 @@ function currentObjective() {
    * "Get ready for your date" is true and tells him nothing about what is
    * left, and the panel is the only place he can find that out. */
   const door = luxuryStory.tryLeave(activities);
-  if (door.kind === 'activity' && first.id === door.id) return readyTally.objective;
+  if (door.kind === 'activity' && first.id === door.id
+    && door.id === TIME_EVENT_IDS.LUXURY_GET_READY) return readyTally.objective;
   return first.label;
 }
 
@@ -366,7 +367,17 @@ loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions
 
 /** Rebuild the held inbox from the same durable campaign truth as every hub. */
 function syncPhoneThreads() {
-  phone.setThreads(phoneThreadsForCampaign(campaign.state));
+  const threads = phoneThreadsForCampaign(campaign.state);
+  /* Lag's "Outside." is not campaign state -- the car is a live thing in
+   * this room -- so it is appended here, unread, and only while it stands. */
+  if (specialMeetingText) {
+    const family = threads.find((thread) => thread.id === 'family');
+    if (family) {
+      family.messages = [...family.messages, { them: true, who: specialMeetingText.from, text: specialMeetingText.text }];
+      family.unread = true;
+    }
+  }
+  phone.setThreads(threads);
 }
 /* Taking the call is what commits it. The story adapter owns what each one
  * unlocks; this only tells it the receiver came off the hook. */
@@ -442,6 +453,8 @@ let specialMeetingCarLight = null;
 let specialMeetingCarTarget = null;
 let specialMeetingCarSweep = 0;
 let specialMeetingDoorRefusals = 0;
+/* Lag's text, once it has landed: shown in the held phone's family thread. */
+let specialMeetingText = null;
 const specialMeetingPlaybackReceipts = [];
 
 /** The phase resolver changes only real objects published by the world. The
@@ -469,8 +482,21 @@ const LUXURY_SPECIAL_MEETING_SWEEP_SECONDS = 2.4;
 /** Live room facts handed to both the objective and the only physical exit. */
 function specialMeetingActivities() {
   return {
+    dressed: luxuryStory.dressedForMeeting(),
     carOutside: specialMeetingPrelude?.snapshot().carOutside === true,
   };
+}
+
+/* Lag's text, the key to the door. The same shape the Bing gives Lou's texts
+ * (src/bing/main.js `onMessage`): a pocket buzz rather than a ringtone, a
+ * toast that says who it is from, and the words in the held phone's inbox
+ * so a player who missed the toast can read it off the handset. */
+function receiveSpecialMeetingText(message) {
+  specialMeetingText = message;
+  hud.toast(`${message.from} texted — ${message.text}`, 'good');
+  audio.play('phone.vibrate', { volume: 0.28 });
+  syncPhoneThreads();
+  refreshObjective();
 }
 
 /**
@@ -797,8 +823,10 @@ function luxuryElevatorStatus() {
       : door.kind === 'call'
         ? 'Private <b>elevator</b> · wait for the call'
         : door.id === 'special_meeting_car'
-          ? 'Private <b>elevator</b> · wait for the car'
-          : 'Private <b>elevator</b> · get ready first',
+          ? 'Private <b>elevator</b> · wait for the text'
+          : door.id === 'special_meeting_suit'
+            ? 'Private <b>elevator</b> · put the suit on first'
+            : 'Private <b>elevator</b> · get ready first',
   };
 }
 
@@ -1022,13 +1050,21 @@ function startShower() {
 }
 
 function useWardrobe() {
+  /* Beat 27: "Put on something decent." The wardrobe puts the suit on
+   * rather than cycling past it, and tells the story so the door and the
+   * car both know. Every later press cycles as it always did. */
+  const suitUp = routed && luxuryStory.phase() === 'special_meeting'
+    && !luxuryStory.dressedForMeeting();
   const current = LUXURY_OUTFITS.findIndex(({ id }) => id === firstPersonBody?.outfitId);
-  state.outfit = current < 0 ? 0 : (current + 1) % LUXURY_OUTFITS.length;
+  state.outfit = suitUp
+    ? LUXURY_OUTFITS.findIndex(({ id }) => id === 'charcoal_suit')
+    : current < 0 ? 0 : (current + 1) % LUXURY_OUTFITS.length;
   const outfit = LUXURY_OUTFITS[state.outfit];
   firstPersonBody?.setOutfit(outfit.id);
   readyTally.complete('dressed');
   hud.toast(`Changed · ${outfit.label}`, 'good');
   audio.play('closet.slide', { volume: 0.36 });
+  if (suitUp) luxuryStory.dressForMeeting();
   refreshLuxuryObjective({ toast: true });
   specialMeetingPrelude?.dressed();
   return true;
@@ -1277,6 +1313,8 @@ specialMeetingPrelude = createSpecialMeetingHomePrelude({
     audio.play('phone.hangup', { volume: 0.5 });
   },
   onCarArrives: stageSpecialMeetingCar,
+  onText: receiveSpecialMeetingText,
+  isDressed: () => luxuryStory.dressedForMeeting(),
   onChanged: () => {
     if (state.phase === 'active') refreshObjective();
   },
@@ -1420,7 +1458,7 @@ startButton.addEventListener('click', async () => {
       'cig.light', 'cig.exhale', 'cig.stub',
       'whiskey.pour', 'whiskey.swig', 'whiskey.gasp',
       'pizza.take', 'egg.crack', 'egg.eat', 'pan.sizzle',
-      'shower.run', 'toilet.lid', 'closet.slide', 'bed.rustle',
+      'shower.run', 'toilet.lid', 'closet.slide', 'bed.rustle', 'phone.vibrate',
       'phone.ring', 'phone.hangup', 'phone.pickup',
       'tv.click', 'card.deal', 'card.flip', 'ui.select',
       'chair.sit', 'pee.zip', 'pee.stream', 'pee.miss', 'toilet.plop',

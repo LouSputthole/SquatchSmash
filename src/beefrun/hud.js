@@ -10,6 +10,7 @@
  * Warnings are the exception. They are large, they are contextual, and they
  * disappear the moment the thing they are about stops being true.
  */
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { KT, FT } from './config.js';
 import { clamp } from './util.js';
 
@@ -56,7 +57,11 @@ export class FlightHud {
     this.hdgTape = $('br-hdg-tape');
     this.bug = $('br-bug');
     this.nav = $('br-nav');
-    this.objective = $('br-objective');
+    /* THE ONE PANEL (src/core/objective-panel.js). The cockpit used to write
+     * its objective into a strip of its own over the windscreen; owner,
+     * 2026-09-02: every scene on the one objective system, so the line goes
+     * on the shared card in the same corner as everywhere else. */
+    this.objectivePanel = createObjectivePanel({ parent: document.body });
     this.warnings = $('br-warnings');
     this.engines = [$('br-eng-l'), $('br-eng-r')];
     this.flaps = $('br-flaps');
@@ -330,16 +335,13 @@ export class FlightHud {
     }));
   }
 
+  /** The line on the card, for the pause menu. */
+  get objectiveText() { return (this._objective || '').trim(); }
+
   setObjective(text) {
     if (this._objective === text) return;
     this._objective = text;
-    this.objective.textContent = text || '';
-    this.objective.classList.toggle('hidden', !text);
-    if (text) {
-      this.objective.classList.remove('pop');
-      void this.objective.offsetWidth;      // restart the animation
-      this.objective.classList.add('pop');
-    }
+    this.objectivePanel.setLine(text || '', { title: 'OBJECTIVE' });
   }
 
   /** @param {Set<string>|string[]} active warning keys that are true right now */

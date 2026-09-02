@@ -106,6 +106,7 @@ import {
 } from './room-reaction.js';
 import { resolveGear } from '../world/gear.js';
 import { playFootstep } from './cabin/ambience.js';
+import { CombatStepCadence } from '../core/combat/audio.js';
 import {
   INITIATION_CABIN_PROCESSION,
   INITIATION_CABIN_REQUIRED_AT_MARK,
@@ -823,7 +824,9 @@ resolveGear([INITIATION_CARD_SLOT])
 // ---------- HUD ----------
 const $ = (id) => document.getElementById(id);
 const hudEl = $('hud');
-const objectiveEl = $('objective');
+/* The objective's words, for the pause menu; the card itself is the shared panel. */
+let objectiveText = '';
+const handItemEl = $('hand-item');
 const objectives = createObjectivePanel();
 const painFlashEl = $('painFlash');
 const fadeEl = $('fade');
@@ -866,9 +869,24 @@ if (roarBtn) roarBtn.style.display = 'none';
  * sits beside it. */
 function setObjective(label, keys = '') {
   const text = String(label ?? '');
-  objectiveEl.textContent = text;
+  objectiveText = text;
   if (text) objectives.setLine(text, { title: 'Initiation Night', hint: keys });
   else objectives.clear();
+}
+
+/**
+ * The thing in his hand, the way the Bing shows a drink (core/hud.js
+ * `setHand`): an icon, a name, and the key that uses it. Owner, 2026-09-02:
+ * "the shot, we should have the proper shot information that we've used in
+ * the past."
+ */
+function setHand(item) {
+  if (!handItemEl) return;
+  if (!item) { handItemEl.classList.add('hidden'); return; }
+  handItemEl.querySelector('.icon').textContent = item.icon ?? '';
+  handItemEl.querySelector('.name').textContent = item.name ?? '';
+  handItemEl.querySelector('.hint').textContent = item.hint ?? '';
+  handItemEl.classList.remove('hidden');
 }
 
 /** A phase's objective and its keys, in one call. */
@@ -1322,7 +1340,7 @@ input = createFirstPersonInput({
 createPauseMenu({
   title: 'The Initiation',
   canPause: () => phase !== 'complete' && phase !== 'failed' && phase !== 'failed_oath',
-  getObjective: () => objectiveEl.textContent || 'Follow the lights.',
+  getObjective: () => objectiveText || 'Follow the lights.',
   instructions: [
     'W A S D or arrows — move. Shift — hurry.',
     'Space or Click — continue, and the one button the ceremony asks for.',
@@ -1459,7 +1477,7 @@ function ensureAudio() {
   audioReadyPromise = (async () => {
     await audio.init();
     await audio.loadManifest({
-      names: [...ACTIVE_INITIATION_VOICE_CUES, ...weaponCueNames()],
+      names: [...ACTIVE_INITIATION_VOICE_CUES, ...weaponCueNames(), 'whiskey.swig', 'glass.set'],
       prefixes: ['footstep.', 'car.', 'door.'],
     });
     missingVoiceCues.splice(0, missingVoiceCues.length,
@@ -1825,6 +1843,38 @@ function executeKneeling(step, onFinished) {
 const _dir = new THREE.Vector3();
 const _zero = new THREE.Vector3();
 
+/**
+ * THE MEN AROUND HIM MAKE A SOUND. Owner, 2026-09-02: "He needs the same
+ * footsteps around you." Fifteen men walked the trail beside and behind
+ * him in total silence -- `walkNpc` moved bodies and nothing else. Every
+ * walker now feeds the shared crowd cadence (src/core/combat/audio.js,
+ * the Palace's and the siege's), keyed by figure, so each man strides at
+ * his own 1.35 m and the crowd is capped rather than thirty-five steps a
+ * second; the step itself goes through the scene's own `playFootstep`, so
+ * it is the same forest bank under his boots, positional, from where the
+ * man actually is.
+ */
+const npcSteps = new CombatStepCadence({
+  audio: {
+    step: ({ id, position }) => playFootstep(audio, position.x, position.z, {
+      volume: 0.34, cadenceKey: `npc:${id}`,
+    }),
+  },
+  stride: 1.35,
+  minInterval: 0.22,
+  maxPerSecond: 10,
+});
+let npcStepSerial = 0;
+const npcStepIds = new WeakMap();
+function npcStepId(sq) {
+  let id = npcStepIds.get(sq);
+  if (!id) {
+    id = `walker-${++npcStepSerial}`;
+    npcStepIds.set(sq, id);
+  }
+  return id;
+}
+
 /** Walk an NPC toward (x, z); returns true once arrived. */
 function walkNpc(sq, x, z, dt, speed = 3.4, arriveDist = 0.35) {
   const dx = x - sq.position.x;
@@ -1832,10 +1882,12 @@ function walkNpc(sq, x, z, dt, speed = 3.4, arriveDist = 0.35) {
   const d = Math.hypot(dx, dz);
   if (d < arriveDist) {
     sq.update(dt, _zero, 0);
+    npcSteps.update({ id: npcStepId(sq), dt, position: sq.position, moving: false });
     return true;
   }
   _dir.set(dx / d, 0, dz / d);
   sq.update(dt, _dir, Math.min(speed, d * 4));
+  npcSteps.update({ id: npcStepId(sq), dt, position: sq.position, moving: true });
   return false;
 }
 
@@ -1989,7 +2041,7 @@ const CAMERA_SHOTS = {
      * continuous, no cuts. It rises as it goes, so the last frame is over the
      * tops of the trees looking back at one lit window, and not a camera
      * bulldozing trunks. */
-    return place(INITIATION_SHOTS.pullback({ k: Math.min(1, phaseT / 13) }));
+    return place(INITIATION_SHOTS.pullback({ k: Math.min(1, phaseT / 5) }));
   },
   black() {
     /* The screen is already black. Hold exactly where the shot was fired. */
@@ -2726,6 +2778,8 @@ function beginRoomAside() {
       if (phase !== 'room_aside') return;
       ritualPressed = false;
       setPhase('shot_offer');
+      /* The Bing's card for Booski's shot, with this room's key on it. */
+      setHand({ icon: '🥃', name: 'Booski shot', hint: 'Space or Click to throw it back' });
     });
   });
 }
@@ -2751,6 +2805,10 @@ function beginCeremonialDrink() {
   if (phase !== 'shot_toast') return;
   ceremonialShotState = 'drinking';
   if (props.whiskey?.group) props.whiskey.group.userData.ceremonialState = 'drinking';
+  setHand(null);
+  /* The Bing's swig, on the tilt -- the shot was silent, which was the
+   * whole of "it just does the sound" turned round: it did not even do that. */
+  audio.play('whiskey.swig', { volume: 0.68 });
   setPhase('shot_drink');
 }
 
@@ -2761,9 +2819,11 @@ function finishCeremonialShot() {
     props.whiskey.group.userData.ceremonialState = 'spent';
   }
   ceremonialShotState = 'spent';
+  audio.play('glass.set', { volume: 0.5 });
   dialogEl.classList.remove('show');
   sayQueue = [];
-  site.ambience.stop();
+  /* The wind stays up under the pull-back; the credits' black takes it.
+   * Stopping it here was the second half of the awkward pause. */
   setPhase('pullback');
 }
 
@@ -3242,6 +3302,7 @@ function updatePhase(dt) {
     if (phaseT > spec.timeout) finishCeremonialShot();
   } else if (phase === 'pullback') {
     if (phaseT > spec.timeout) {
+      site.ambience.stop();
       recordInitiationComplete();
       setPhase('complete');
       input?.suspend();

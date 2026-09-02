@@ -31,6 +31,14 @@
  */
 
 const FLEE_SECONDS = 1.15;
+/* A gunshot this close is in her room; anything further is noise from the
+ * grounds she only reacts to once she has seen who made it. The entry hall
+ * is 14 m from the front doors to the corridor arch. */
+const NEAR_SHOT_RADIUS = 14;
+/* How long she stands startled before a remembered alarm sends her down:
+ * long enough for "Oh -- oh no" to read as hers, short enough that the
+ * dive is still the thing he sees on the way in. */
+const STARTLED_RECALL_SECONDS = 0.9;
 
 /* How hard she is shaking, by state — the shared `HeistFigure.update` fear
  * term, the same knob the finale's civilians use. */
@@ -104,6 +112,9 @@ export class PalaceBystanders {
     this.voice?.say?.('cleaner.spotted', {
       position: record.entry.root.position, radius: 12, urgent: true,
     });
+    /* If the grounds have already gone loud, she goes down a breath after
+     * she sees him -- standing, then diving, in that order. */
+    if (record.alarmed) record.recallClock = STARTLED_RECALL_SECONDS;
     return true;
   }
 
@@ -114,10 +125,26 @@ export class PalaceBystanders {
    * the door to the corridor, so a panicking civilian never becomes a
    * navigation problem in the middle of a firefight — and drops there.
    */
-  panic() {
+  panic({ position = null } = {}) {
     let moved = false;
     for (const record of this.state.values()) {
       if (record.entry.down || record.phase === 'fleeing' || record.phase === 'cowering') continue;
+      /* SHE STAYS ON HER FEET UNTIL HE WALKS IN. Owner, 2026-09-02: "Be
+       * better if Rosa was standing and then dives on the ground when you
+       * come in." A shot on the grounds or the alarm going up used to put
+       * her face down at her cower point before the player had reached the
+       * front door, so the first he saw of her was a body on the floor. Now
+       * a room that has not seen him yet only REMEMBERS the noise: she keeps
+       * working, and the moment `notice()` fires -- he is in the hall and she
+       * has seen him -- the remembered alarm sends her to the floor. A shot
+       * fired in her own room is the exception and drops her at once. */
+      if (record.phase === 'calm') {
+        const near = position && record.entry.root.position.distanceTo(position) <= NEAR_SHOT_RADIUS;
+        if (!near) {
+          record.alarmed = true;
+          continue;
+        }
+      }
       record.entry.panicked = true;
       record.from.copy(record.entry.root.position);
       record.t = 0;
@@ -146,6 +173,12 @@ export class PalaceBystanders {
       const { entry } = record;
       entry.figure.update(step, { fear: entry.down ? 0 : FEAR[record.phase] ?? 0 });
       if (entry.down) continue;
+
+      if (record.phase === 'startled' && record.recallClock > 0) {
+        record.recallClock -= step;
+        if (record.recallClock <= 0) this.panic({ position: entry.root.position });
+        continue;
+      }
 
       if (record.phase === 'fleeing') {
         record.t = Math.min(1, record.t + step / FLEE_SECONDS);
@@ -212,6 +245,7 @@ export class PalaceBystanders {
       people: [...this.state.values()].map((record) => Object.freeze({
         id: record.entry.id,
         phase: record.phase,
+        alarmed: record.alarmed === true,
         down: record.entry.down === true,
         x: record.entry.root.position.x,
         z: record.entry.root.position.z,

@@ -143,7 +143,10 @@ export const COMMIT_RANGE = 700;
 /** How long a lapse in the turret's fire discipline stays exploitable. */
 export const LAPSE_WINDOW = 4.5;
 /** The harasser's patience. It will not nag from range for the whole raid. */
-export const HARASS_PATIENCE = 45;
+/* Forty-five seconds of a fighter refusing to come in was the first wave of
+ * the return leg, and the return leg is the tail-gun scene; twenty is long
+ * enough to read as a coward and short enough that he still arrives. */
+export const HARASS_PATIENCE = 20;
 /** How long one bullet strike stays visible on a fighter that survived it. */
 export const STRIKE_SECONDS = 0.34;
 
@@ -565,7 +568,15 @@ export class Interceptors {
     }
     // In from ahead and off to one side, high — the way a controller vectors
     // them onto a bomber stream, not straight up from underneath it.
-    const bearing = Math.atan2(bomber.x - this._spawnAround.x, bomber.z - this._spawnAround.z);
+    /* The track is where the bomber has gone since the wave was called. A
+     * `delay: 0` wave spawns on the same frame it was called, before any
+     * physics step, so the bomber has not gone anywhere yet and atan2(0, 0)
+     * put wave one on world +Z regardless of heading -- half the time dead
+     * ahead of the turret's arc. When the track is degenerate, the bomber's
+     * own nose is the track. */
+    const track = _v.set(bomber.x - this._spawnAround.x, 0, bomber.z - this._spawnAround.z);
+    if (track.lengthSq() < 1 && this._spawnForward) track.copy(this._spawnForward).setY(0).normalize();
+    const bearing = track.lengthSq() > 1e-6 ? Math.atan2(track.x, track.z) : 0;
     const off = (rand() - 0.5) * 1.6 + (rand() < 0.5 ? Math.PI * 0.42 : -Math.PI * 0.42);
     const r = 2600 + rand() * 1400;
     f.position.set(
@@ -593,6 +604,8 @@ export class Interceptors {
    *   (`Defense.damage.engines`) — the priority profile aims at a live one.
    */
   update(dt, { position, velocity, evasion = 0, engines = null } = {}) {
+    /* Her track, for a spawn that lands on the same frame as its deploy. */
+    if (velocity && velocity.lengthSq() > 1) this._spawnForward = velocity;
     if (!this.deployed || !position) return;
     this._engineDamage = engines;
     this._lastTarget.copy(position);

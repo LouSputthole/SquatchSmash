@@ -40,6 +40,16 @@ export const LAG_MODEL = Object.freeze({
   role: LAG_IDENTITY.role,
 });
 
+/* His photograph. The roster row names the file (`LAG_FAMILY_MEMBER.photo`)
+ * and the Bing resolves it through the faces index; this cabin built him
+ * straight off the model and so kept the authored head after the photo
+ * landed on 2026-09-01. `makePerson`'s `face` builds an <img>, which is why
+ * the browser check below is the same `createElementNS` test the mansion
+ * uses: `node --test` gets the authored head and never touches a loader. */
+export const LAG_FACE = `assets/faces/${LAG_FAMILY_MEMBER.photo}`;
+const CAN_PAINT_FACES = typeof document !== 'undefined'
+  && typeof document.createElementNS === 'function';
+
 export const LAG_ACTIVITY_LOOP = Object.freeze([
   Object.freeze({ id: 'chop', seconds: 5.2 }),
   Object.freeze({ id: 'stack', seconds: 3.8 }),
@@ -400,7 +410,7 @@ export function buildLagActor({ scene, x, y, z, yaw = Math.PI } = {}) {
     yaw,
     job: 'stand',
     look: true,
-    model: LAG_MODEL,
+    model: CAN_PAINT_FACES ? { ...LAG_MODEL, face: LAG_FACE } : LAG_MODEL,
   });
   npc.characterId = LAG_IDENTITY.id;
   npc.familyMember = LAG_FAMILY_MEMBER;

@@ -586,6 +586,10 @@ test('a line from a man who is walking follows him, and carries across the clear
 
 test('boots know what they are standing on', () => {
   assert.equal(ambience.footingAt(0, -60), 'dirt', 'the track in');
+  /* Owner, 2026-09-02: the trail through the trees is the woods, and the
+   * woods are the four-way forest bank, not one dirt recording. */
+  const onTrail = site.TRAIL[Math.floor(site.TRAIL.length / 2)];
+  assert.equal(ambience.footingAt(onTrail.x, onTrail.z), 'forest', 'the trail');
   assert.equal(ambience.footingAt(0, -5), 'gravel', 'the clearing');
   assert.equal(ambience.footingAt(site.PLAYER_SLOT.x, site.PLAYER_SLOT.z), 'gravel', 'the line');
   assert.equal(ambience.footingAt(site.CABIN_DOOR.x, site.PORCH.minZ + 1), 'wood', 'the porch');

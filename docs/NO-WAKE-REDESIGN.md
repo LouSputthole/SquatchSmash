@@ -121,7 +121,7 @@ thin out, water darkens, the score thins to engines and hull.
 > WILLY: "Quiet tonight." BOOSKI: "Yeah."
 > WILLY: "Where exactly are we headed?" LOU: "Away from the dock."
 
-**The inlet.** Behind a wooded point or quarry wall.
+**The inlet.** Behind a wooded point, open water to starboard (the quarry wall that once stood opposite read as a concrete block and was cut on 2026-09-02).
 
 > LOU: "Bring her down." *(then)* LOU: "Kill them."
 

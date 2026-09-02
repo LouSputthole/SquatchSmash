@@ -12,6 +12,20 @@ import { dressInATeamColours } from '../world/ateam.js';
 import { palaceGuardVoice } from './voice.js';
 import { PALACE_ANCHORS } from './anchors.js';
 
+/* `makePerson`'s `face` builds an <img>, so a photographed figure cannot be
+ * constructed under `node --test`. Same `createElementNS` test as
+ * src/heist/cast.js: the headless suite gets the authored head, the browser
+ * gets the photograph. Sauce's landed on 2026-09-01 and this scene never
+ * asked for it -- owner, the next day: "I'm not seeing the new faces on the
+ * characters for ... Sauce." */
+const CAN_PAINT_FACES = typeof document !== 'undefined'
+  && typeof document.createElementNS === 'function';
+const SAUCE_FACE = 'assets/faces/sauce.png';
+
+/** Mark's first stage, in his plates. See the note at his build. */
+export const MARK_ARMORED_HEALTH = 690;
+export const MARK_ARMOR = 255;
+
 export const PALACE_GUARD_POSTS = Object.freeze([
   Object.freeze({ id: 'gate-one', x: 9.2, z: 54, yaw: Math.PI, weapon: WEAPON_IDS.PISTOL9, patrol: [[9.2, 54], [7.2, 48]] }),
   Object.freeze({ id: 'guardhouse', x: 9.1, z: 44, yaw: -Math.PI / 2, weapon: WEAPON_IDS.CARBINE, patrol: [[9.1, 44], [6.5, 39]] }),
@@ -465,16 +479,20 @@ export function buildPalaceCast(parent) {
     x: PALACE_ANCHORS.mark.x, z: PALACE_ANCHORS.mark.z, yaw: 0,
     model: MARK_LOOK,
     weapon: WEAPON_IDS.AK47,
-    health: 460,
-    armor: 170,
+    /* Owner, 2026-09-02: "give Mark slightly more health -- like fifty
+     * percent more on each stage." 460 / 170 became 690 / 255 here, and
+     * the last stand went 260 -> 390 (320 -> 480 enraged) in main.js. */
+    health: MARK_ARMORED_HEALTH,
+    armor: MARK_ARMOR,
   });
   mark.active = false;
   mark.phase = 'armored';
+  mark.armorMax = MARK_ARMOR;
 
   const sauce = makeCombatant({
     id: 'sauce', role: 'traitor',
     x: PALACE_ANCHORS.sauce.x, z: PALACE_ANCHORS.sauce.z, yaw: 0,
-    model: SAUCE,
+    model: CAN_PAINT_FACES ? { ...SAUCE, face: SAUCE_FACE } : SAUCE,
     weapon: WEAPON_IDS.PISTOL9,
     health: 115,
     armor: 0,

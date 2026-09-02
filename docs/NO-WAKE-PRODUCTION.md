@@ -94,7 +94,7 @@ closes it further. A radio plays faintly on the counter until Lou shuts it off.
    four lines are spoken, two of them one word. One of those four is derived
    from the player's own campaign — whether the Beef Run was detected and how
    hot the Motel got.
-4. **The inlet**, behind a wooded point with a quarry face opposite. "Bring her
+4. **The inlet**, behind a wooded point, open water opposite (the quarry face was cut 2026-09-02). "Bring her
    down." Then "Kill them." The hull is kinematically locked from that moment
    until the player restarts the engines to leave. Four seconds of nothing, then
    Irish reports the channel clear. **GO BELOW DECK.**

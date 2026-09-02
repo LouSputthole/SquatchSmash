@@ -490,6 +490,10 @@ async function executeBrowserAction(page, step) {
         `the Special Meeting call did not gate the lift: ${JSON.stringify(owed)}`);
         ensure(luxury.callAnswered(apartmentModule.SPECIAL_MEETING_BOOSKI_CALL) === true,
           'Special Meeting call was not accepted');
+        const suit = luxury.tryLeave();
+        ensure(suit?.kind === 'activity' && suit.id === 'special_meeting_suit',
+          `Luxury apartment did not ask for the suit: ${JSON.stringify(suit)}`);
+        ensure(luxury.dressForMeeting() === true, 'the suit did not go on');
         const waiting = luxury.tryLeave();
         ensure(waiting?.kind === 'wait' && waiting.id === 'special_meeting_car',
           `Luxury apartment did not wait for the pickup: ${JSON.stringify(waiting)}`);

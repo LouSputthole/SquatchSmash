@@ -98,7 +98,7 @@ export function sayFrom(audio, cue, speaker, options = {}) {
  *
  * The owner's line for the approach is "boots on leaves and gravel", and the
  * change between them is the only thing on the walk in that tells the player
- * he has arrived somewhere: mixed forest floor under the trees, dirt on the track, wet
+ * he has arrived somewhere: mixed forest floor under the trees and on the trail, dirt on the track, wet
  * gravel in the clearing, and then boards, once, on the porch.
  */
 export function footingAt(x, z) {
@@ -107,8 +107,17 @@ export function footingAt(x, z) {
   if (x >= MUD.minX && x <= MUD.maxX && z >= MUD.minZ && z <= MUD.maxZ) return 'gravel';
   if (Math.hypot(x - CLEARING.x, z - CLEARING.z) < CLEARING.radius) return 'gravel';
   if (distanceToPath(TRACK, { x, z }) < TRACK_HALF_WIDTH + 0.6) return 'dirt';
-  if (distanceToPath(TRAIL, { x, z }) < TRAIL_HALF_WIDTH + 0.5) return 'dirt';
-  if (Math.hypot(x - CABIN.x, z - CABIN.z) < 14) return 'dirt';
+  /* THE TRAIL IS THE WOODS. Owner, 2026-09-02: "The footstep sounds on the
+   * final initiation mission are still terrible. He needs the same
+   * footsteps ... using the same prior for walking through the woods." The
+   * trail through the trees used to answer `dirt` -- one recording with a
+   * nine-percent pitch wobble, for the longest walk in the scene -- while
+   * `forest`, the four-way rotation of dirt, leaf crunch, twig crack and
+   * soft floor, only played once he stepped OFF the path. The trail and
+   * the ground round the cabin are forest floor now; the graded track in
+   * from the road stays packed dirt because it is one. */
+  if (distanceToPath(TRAIL, { x, z }) < TRAIL_HALF_WIDTH + 0.5) return 'forest';
+  if (Math.hypot(x - CABIN.x, z - CABIN.z) < 14) return 'forest';
   return 'forest';
 }
 

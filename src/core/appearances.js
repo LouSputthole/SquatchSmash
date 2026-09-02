@@ -677,9 +677,9 @@ export const PHOTOS = Object.freeze({
   [CHARACTER_IDS.SHUBENATOR]: 'shubes.png',
   [CHARACTER_IDS.RIPPINFLOW]: 'rippinflow.png',
   [CHARACTER_IDS.SNOW]: 'snow.png',
-  /* Named for completeness; none of these files have landed, so everybody
-   * below wears the authored head `makePerson` builds, which is a legitimate
-   * look and not a placeholder. */
+  /* Numbskull, Aubbie, Sauce, Seff and Lag landed on the faces branch
+   * (2026-09-01). Willy and Billy have not; they wear the authored head
+   * `makePerson` builds, which is a legitimate look and not a placeholder. */
   [CHARACTER_IDS.WILLY]: 'willy.png',
   [CHARACTER_IDS.NUMBSKULL]: 'numbskull.png',
   [CHARACTER_IDS.AUBBIE]: 'aubbie.png',
@@ -1373,7 +1373,7 @@ export const APPEARANCES = Object.freeze([
     model: AUBBIE,
     from: { wardrobe: 'AUBBIE' },
     module: 'src/bing/hotdog-party.js',
-    evidence: 'model: AUBBIE,',
+    evidence: 'model: { ...AUBBIE, face:',
   }),
   row({
     character: CHARACTER_IDS.SAUCE,
@@ -1383,7 +1383,7 @@ export const APPEARANCES = Object.freeze([
     model: SAUCE,
     from: { wardrobe: 'SAUCE' },
     module: 'src/bing/hotdog-party.js',
-    evidence: 'model: SAUCE,',
+    evidence: 'model: { ...SAUCE, face:',
   }),
   row({
     character: CHARACTER_IDS.BILLY_HOTDOG,
@@ -1699,7 +1699,7 @@ export const APPEARANCES = Object.freeze([
     model: BING_SEFF,
     from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.SEFF, 'model'] },
     module: 'src/mansion/cast.js',
-    evidence: 'model: familyModel(CHARACTER_IDS.SEFF),',
+    evidence: 'model: withFace(familyModel(CHARACTER_IDS.SEFF), FACES.seff),',
   }),
   row({
     character: CHARACTER_IDS.LAG,
@@ -1709,7 +1709,7 @@ export const APPEARANCES = Object.freeze([
     model: BING_LAG,
     from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.LAG, 'model'] },
     module: 'src/mansion/cast.js',
-    evidence: 'model: familyModel(CHARACTER_IDS.LAG),',
+    evidence: 'model: withFace(familyModel(CHARACTER_IDS.LAG), FACES.lag),',
   }),
   row({
     character: CHARACTER_IDS.APE,
@@ -1729,7 +1729,7 @@ export const APPEARANCES = Object.freeze([
     model: SAUCE,
     from: { module: 'src/bing/family.js', export: 'FAMILY', at: [CHARACTER_IDS.SAUCE, 'model'] },
     module: 'src/mansion/cast.js',
-    evidence: 'model: familyModel(CHARACTER_IDS.SAUCE),',
+    evidence: 'model: withFace(familyModel(CHARACTER_IDS.SAUCE), FACES.sauce),',
   }),
   row({
     character: CHARACTER_IDS.OLD_STOVE,
@@ -1898,7 +1898,7 @@ export const APPEARANCES = Object.freeze([
     model: NUMBSKULL,
     from: { wardrobe: 'NUMBSKULL' },
     module: 'src/mansion/cast.js',
-    evidence: 'model: NUMBSKULL,',
+    evidence: 'model: withFace(NUMBSKULL, FACES.numbskull),',
   }),
   row({
     character: CHARACTER_IDS.IRISH,
@@ -2050,7 +2050,7 @@ export const APPEARANCES = Object.freeze([
     model: NUMBSKULL,
     from: { wardrobe: 'NUMBSKULL' },
     module: 'src/mansion/siege/ensemble.js',
-    evidence: 'model: () => NUMBSKULL,',
+    evidence: 'model: () => withFace(NUMBSKULL, FACES.numbskull),',
   }),
   row({
     character: CHARACTER_IDS.HOG_MAMA,
@@ -2151,7 +2151,7 @@ export const APPEARANCES = Object.freeze([
   row({
     character: CHARACTER_IDS.SAUCE, name: 'Sauce', scene: 'cartel_palace',
     where: 'the final encounter as the traitor', model: SAUCE,
-    from: { wardrobe: 'SAUCE' }, module: 'src/cartel-palace/cast.js', evidence: 'model: SAUCE,',
+    from: { wardrobe: 'SAUCE' }, module: 'src/cartel-palace/cast.js', evidence: 'model: CAN_PAINT_FACES ? { ...SAUCE, face: SAUCE_FACE } : SAUCE,',
   }),
 
   /* ================================================================== *

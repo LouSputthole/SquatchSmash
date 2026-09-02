@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { createPromptHud } from '../core/hud.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import {
   buildMotel, makeJerkyCase, BOUNDS, MOTEL_DOOR_OPEN_ANGLE,
   MOTEL_YOUR_CASE, MOTEL_YOUR_CASE_PAID,
@@ -147,9 +148,14 @@ window.addEventListener('resize', () => {
 // ---------- HUD handles ----------
 const $ = (id) => document.getElementById(id);
 const hudEl = $('hud');
-const objTitleEl = $('objTitle');
-const objSubEl = $('objSub');
-const objListEl = $('objList');
+/* THE ONE PANEL (src/core/objective-panel.js). The motel used to keep its
+ * own journal box in this corner -- a title, a sub-line and a MAIN /
+ * OPTIONAL / WARNING SIGNS list that was never actually shown. Owner,
+ * 2026-09-02: every scene on the one objective system. The main line is the
+ * card's line, the sub-line its hint, the optional work sits under a
+ * WHILE YOU ARE HERE rule and the warning signs are a tally. */
+const objectivePanel = createObjectivePanel({ parent: hudEl });
+const objectiveShown = { id: null, title: 'Reach room twelve', sub: '' };
 const metersEl = $('meters');
 const heatFillEl = $('heatFill');
 const heatPctEl = $('heatPct');
@@ -590,7 +596,7 @@ function togglePause() {
   if (paused) {
     sfx.stopMusic();
     $('pauseStats').innerHTML =
-      `Objective: <b>${objTitleEl.textContent}</b><br>` +
+      `Objective: <b>${objectiveShown.title}</b><br>` +
       `Warning signs found: <b>${S.cluesFound.size} / ${Object.keys(CLUES).length}</b> · ` +
       `Suspicion: <b>${Math.round(S.heat)}%</b>`;
     $('pause').classList.remove('hidden');
@@ -604,7 +610,7 @@ function togglePause() {
 sharedPauseMenu = createPauseMenu({
   title: 'The Jerky Motel',
   canPause: () => phase !== 'menu' && phase !== 'end',
-  getObjective: () => objTitleEl.textContent?.trim() || 'Reach room twelve and inspect the jerky deal.',
+  getObjective: () => objectiveShown.title?.trim() || 'Reach room twelve and inspect the jerky deal.',
   instructions: [
     'Q - get out when you are seated in Snow\'s car.',
     'W A S D — move. Shift — sprint. Space — jump.',
@@ -956,8 +962,9 @@ function cueFor(who, beat) {
 function setObjective(id, sub = '') {
   currentObjective = id;
   const o = OBJECTIVES.main.find((m) => m.id === id) || OBJECTIVES.opt.find((m) => m.id === id);
-  objTitleEl.textContent = o ? o.text : id;
-  objSubEl.textContent = sub;
+  objectiveShown.id = id;
+  objectiveShown.title = o ? o.text : id;
+  objectiveShown.sub = sub;
   sfx.objective();
   renderObjectiveList();
 }
@@ -977,16 +984,25 @@ function failObjective(id) {
 }
 
 function renderObjectiveList() {
-  const row = (o) => {
-    const cls = objDone.has(o.id) ? 'done' : 'todo';
-    const style = objFailed.has(o.id) ? ' style="opacity:.4;text-decoration:line-through"' : '';
-    return `<div class="${cls}"${style}>${o.text}</div>`;
-  };
-  objListEl.innerHTML =
-    `<h4>MAIN</h4>${OBJECTIVES.main.map(row).join('')}` +
-    `<h4>OPTIONAL</h4>${OBJECTIVES.opt.map(row).join('')}` +
-    `<h4>WARNING SIGNS · ${S.cluesFound.size}/${Object.keys(CLUES).length}</h4>` +
-    [...S.cluesFound].map((c) => `<div class="done">${CLUES[c]}</div>`).join('');
+  /* The current main objective is the one required row; the shared panel
+   * retires finished work by itself, and a failed optional is retired the
+   * same way rather than struck through -- the card names what is left to
+   * do, not what went wrong. */
+  const clueTotal = Object.keys(CLUES).length;
+  const items = [
+    { id: objectiveShown.id, label: objectiveShown.title, done: false, required: true, current: true },
+    { rule: 'WHILE YOU ARE HERE' },
+    ...OBJECTIVES.opt.map((o) => ({
+      id: o.id, label: o.text, required: false,
+      done: objDone.has(o.id) || objFailed.has(o.id),
+    })),
+    {
+      id: 'clues', label: 'Warning signs', required: false,
+      done: S.cluesFound.size >= clueTotal, retire: false,
+      tally: { count: S.cluesFound.size, total: clueTotal },
+    },
+  ];
+  objectivePanel.set({ title: 'OBJECTIVE', hint: objectiveShown.sub, items });
 }
 
 function award(id) {
@@ -5524,8 +5540,8 @@ window.MOTEL = {
   get objective() {
     return {
       id: currentObjective,
-      title: objTitleEl.textContent,
-      sub: objSubEl.textContent,
+      title: objectiveShown.title,
+      sub: objectiveShown.sub,
     };
   },
   get deal() {

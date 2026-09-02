@@ -186,28 +186,57 @@ export function makeSaintCard() {
   char.visible = false;
   group.add(char);
 
+  /* THE FIRE READS NOW. Owner, 2026-09-02: "when you burn it, it just does
+   * the sound. We should do a little burn effect on it." There was one:
+   * an 8.5 mm cone, four static ember points and a 0.8 m light on a card a
+   * hand wide, against a two-cue crackle -- the sound was carrying it. The
+   * flame is the bonfire's recipe from execution-ground.js scaled to a
+   * card: three nested cones, hot core to cool shell, each on its own
+   * flicker; a dozen embers lift off the char line and die; a wisp of
+   * smoke stands over the edge; the light doubles. Same names, same
+   * lifecycle -- `char`, `flame`, `light`, `embers` are what the lifecycle
+   * test and the certification gate read. */
   const flame = effect(new THREE.Mesh(
-    new THREE.ConeGeometry(0.0085, 0.026, 7),
-    glowMaterial(0xffa044, 3.1),
+    new THREE.ConeGeometry(0.0095, 0.03, 7),
+    glowMaterial(0xfff0b0, 3.6),
   ));
   flame.name = 'card.burn-flame';
   flame.visible = false;
   group.add(flame);
+  const flameLayers = [
+    [0.014, 0.046, 0xffa044, 2.9, 0.55],
+    [0.019, 0.064, 0xff5a22, 1.9, 0.30],
+  ].map(([radius, height, colour, boost, opacity], index) => {
+    const layer = effect(new THREE.Mesh(
+      new THREE.ConeGeometry(radius, height, 7),
+      glowMaterial(colour, boost, { transparent: true, opacity, depthWrite: false }),
+    ));
+    layer.name = `card.burn-flame-${index + 1}`;
+    layer.position.y = height * 0.18;
+    flame.add(layer);
+    return layer;
+  });
 
-  const light = new THREE.PointLight(0xff8f3d, 0, 0.8, 2);
+  const light = new THREE.PointLight(0xff8f3d, 0, 1.6, 2);
   light.name = 'card.burn-light';
   group.add(light);
 
+  const EMBER_COUNT = 12;
+  const emberSeeds = Array.from({ length: EMBER_COUNT }, (_, i) => ({
+    x: (i / EMBER_COUNT - 0.5) * width * 0.9,
+    life: 0.35 + ((i * 7) % 5) * 0.16,
+    t: ((i * 3) % EMBER_COUNT) / EMBER_COUNT,
+    drift: ((i % 3) - 1) * 0.004,
+  }));
   const emberGeometry = new THREE.BufferGeometry();
-  emberGeometry.setAttribute('position', new THREE.Float32BufferAttribute([
-    -0.012, 0.002, 0.003, 0.009, 0.008, 0.004,
-    -0.004, 0.016, 0.004, 0.014, 0.022, 0.003,
-  ], 3));
+  emberGeometry.setAttribute('position', new THREE.Float32BufferAttribute(
+    emberSeeds.flatMap((seed) => [seed.x, 0.002, 0.004]), 3,
+  ));
   const embers = effect(new THREE.Points(
     emberGeometry,
     new THREE.PointsMaterial({
       color: 0xffa24a,
-      size: 0.005,
+      size: 0.0042,
       transparent: true,
       opacity: 0,
       depthWrite: false,
@@ -217,6 +246,27 @@ export function makeSaintCard() {
   embers.name = 'card.burn-embers';
   embers.visible = false;
   group.add(embers);
+
+  const SMOKE_COUNT = 6;
+  const smokeGeometry = new THREE.BufferGeometry();
+  smokeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(
+    Array.from({ length: SMOKE_COUNT }, (_, i) => [
+      (i / SMOKE_COUNT - 0.5) * width * 0.5, 0.01 + i * 0.012, 0.004,
+    ]).flat(), 3,
+  ));
+  const smoke = effect(new THREE.Points(
+    smokeGeometry,
+    new THREE.PointsMaterial({
+      color: 0x8a8378,
+      size: 0.022,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    }),
+  ));
+  smoke.name = 'card.burn-smoke';
+  smoke.visible = false;
+  group.add(smoke);
 
   let burnProgress = 0;
   let burnClock = 0;
@@ -268,23 +318,65 @@ export function makeSaintCard() {
     flame.visible = true;
     flame.position.set(0.004 * Math.sin(burnProgress * 19), edgeY, 0.006);
     light.position.copy(flame.position);
-    light.intensity = 0.35 + 0.25 * Math.sin(burnProgress * 23) ** 2;
+    light.intensity = 0.7 + 0.5 * Math.sin(burnProgress * 23) ** 2;
     embers.visible = true;
     embers.position.set(0, edgeY, 0.006);
     embers.material.opacity = 0.45 + burnProgress * 0.35;
+    smoke.visible = true;
+    smoke.position.set(0, edgeY + 0.01, 0.006);
+    smoke.material.opacity = 0.12 + burnProgress * 0.14;
     return burnProgress;
   };
   const updateBurn = (dt) => {
     if (burnProgress <= 0 || burnProgress >= 1) return;
-    burnClock += Math.max(0, Number(dt) || 0);
+    const step = Math.max(0, Number(dt) || 0);
+    burnClock += step;
     flame.scale.set(
       0.88 + Math.sin(burnClock * 19) * 0.12,
       0.92 + Math.sin(burnClock * 23 + 0.7) * 0.16,
       0.88,
     );
     flame.rotation.z = Math.sin(burnClock * 13) * 0.18;
-    light.intensity = 0.42 + 0.18 * Math.sin(burnClock * 29) ** 2;
-    embers.rotation.z += Math.max(0, Number(dt) || 0) * 1.7;
+    flameLayers.forEach((layer, index) => {
+      const phase = burnClock * (15 - index * 4) + index * 1.9;
+      layer.scale.set(
+        0.9 + Math.sin(phase) * 0.14,
+        0.85 + Math.sin(phase * 1.3 + 0.4) * 0.22,
+        0.9,
+      );
+      layer.rotation.z = Math.sin(phase * 0.7) * 0.12 * (index + 1);
+    });
+    light.intensity = 0.85 + 0.35 * Math.sin(burnClock * 29) ** 2;
+    /* Ash lifting off the char line: each ember rises on its own clock,
+     * drifts, and is reborn at the edge when it dies. */
+    const positions = embers.geometry.attributes.position;
+    emberSeeds.forEach((seed, i) => {
+      seed.t += step / seed.life;
+      if (seed.t >= 1) {
+        seed.t = 0;
+        seed.x = (Math.sin(burnClock * 31 + i) * 0.5) * width * 0.9;
+      }
+      positions.setXYZ(
+        i,
+        seed.x + seed.drift * seed.t * 4 + Math.sin(burnClock * 9 + i) * 0.002,
+        0.002 + seed.t * 0.048,
+        0.004 + seed.t * 0.006,
+      );
+    });
+    positions.needsUpdate = true;
+    embers.material.opacity = 0.45 + burnProgress * 0.35;
+    const wisps = smoke.geometry.attributes.position;
+    for (let i = 0; i < SMOKE_COUNT; i++) {
+      const rise = (burnClock * 0.35 + i / SMOKE_COUNT) % 1;
+      wisps.setXYZ(
+        i,
+        Math.sin(burnClock * 2.2 + i * 1.7) * 0.006 + (i / SMOKE_COUNT - 0.5) * 0.004,
+        0.008 + rise * 0.07,
+        0.004,
+      );
+    }
+    wisps.needsUpdate = true;
+    smoke.material.opacity = (0.12 + burnProgress * 0.14) * (0.6 + 0.4 * Math.sin(burnClock * 1.7) ** 2);
   };
   resetBurn();
   return {
@@ -308,9 +400,18 @@ export function makeSaintCard() {
      * at its origin is therefore inside the hand and raycasts to FOREARM before
      * they ever reach the card. This offset sits the paper on the palm surface;
      * the rotation presents its printed face to the player. */
+    /* THE HALF TURN. Owner, 2026-09-02: "The card in your hand is upside
+     * down, so just flip it around." The -0.5 pitch was tuned against a
+     * rest arm; the ritual raise pitches the upper arm and forearm another
+     * -1.08 each, and the three add to -2.66 rad, which is the print facing
+     * the player 153 degrees from upright -- measured: the print's up
+     * vector dotted with world up came out -0.891. A half turn about the
+     * card's own normal keeps the same face toward him (same normal, 0.29,
+     * 0.43, -0.85) and puts the saint the right way up (+0.891). Not an X
+     * flip: that turns the blank backing to the camera. */
     grip: {
       offset: { x: 0.024, y: 0.045, z: 0.082 },
-      rotation: { x: -0.5, y: 0, z: 0 },
+      rotation: { x: -0.5, y: 0, z: Math.PI },
     },
   };
 }

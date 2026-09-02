@@ -1119,7 +1119,11 @@ function paintCombat() {
     beltStrip.style.color = hot ? '#ff8a6a' : '#a8ff7a';
   }
 
-  const line = mission.autopilot?.readout?.();
+  const readout = mission.autopilot?.readout?.();
+  /* On the return leg the man in the empty seat is Sasole, and the strip
+   * says so; "AUTOPILOT" is for the gyro he set himself outbound. */
+  const line = readout && mission.captainHasHer
+    ? readout.replace(/^AUTOPILOT/, 'CAPT. SASOLE') : readout;
   autoStrip.style.display = line ? 'block' : 'none';
   if (line) autoStrip.textContent = line;
 }
@@ -1852,7 +1856,7 @@ function pauseGame() {
 const pauseMenu = createPauseMenu({
   title: 'SQUATCHOLA GAY',
   canPause: () => game.started && !mission.finished,
-  getObjective: () => $('br-objective')?.textContent?.trim() || 'Follow the crew’s current instruction.',
+  getObjective: () => flightHud.objectiveText || 'Follow the crew’s current instruction.',
   instructions: [
     'On the apron: W A S D — walk. E — check the thing the marker is on. E at the crew door — get in.',
     'In the aircraft: W/S — pitch. A/D — bank. Q/E — rudder. Shift/Z — throttle.',

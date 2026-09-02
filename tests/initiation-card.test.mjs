@@ -78,3 +78,27 @@ test('the card preserves the portrait aspect and owns a bounded burn lifecycle',
   assert.equal(card.front.visible, true);
   assert.equal(card.light.intensity, 0);
 });
+
+test('the card is the right way up in the raised hand', () => {
+  /* Owner, 2026-09-02: "The card in your hand is upside down." The grip's
+   * pitch compounds with the ritual raise (-1.08 on the upper arm and again
+   * on the forearm) to -2.66 rad, so the print faced him upside down; the
+   * half turn about the card's own normal is the fix, and an X flip would
+   * turn the blank backing to the camera. Modelled here as the same chain:
+   * upper arm, forearm, grip. */
+  const card = makeSaintCard();
+  assert.equal(card.grip.rotation.z, Math.PI);
+  const chain = new THREE.Object3D();
+  const fore = new THREE.Object3D();
+  const hand = new THREE.Object3D();
+  chain.rotation.set(-1.08, 0.04, -0.28);
+  fore.rotation.set(-1.08, 0, -0.04);
+  chain.add(fore);
+  fore.add(hand);
+  hand.rotation.set(card.grip.rotation.x, card.grip.rotation.y, card.grip.rotation.z);
+  chain.updateMatrixWorld(true);
+  const up = new THREE.Vector3(0, 1, 0).transformDirection(hand.matrixWorld);
+  const normal = new THREE.Vector3(0, 0, 1).transformDirection(hand.matrixWorld);
+  assert.ok(up.y > 0.85, `the saint's head points ${up.y.toFixed(2)} of the way up`);
+  assert.ok(normal.z < -0.8, 'the print no longer faces the player');
+});

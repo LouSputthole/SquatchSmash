@@ -466,7 +466,7 @@ function pauseGame() {
 const pauseMenu = createPauseMenu({
   title: 'The Beef Run',
   canPause: () => game.started && !mission.finished,
-  getObjective: () => document.getElementById('br-objective')?.textContent?.trim()
+  getObjective: () => flightHud.objectiveText
     || (mission.flags.inCockpit
       ? 'Follow Captain Sasole’s current start-up or flight instruction.'
       : 'Go to Captain Sasole and follow the current mission instruction.'),

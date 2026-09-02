@@ -405,9 +405,13 @@ export const BEATS = {
     L('Gyro is off — she is going over! Prospect, seat, NOW!', 3.6),
   ],
 
+  /* Sasole's second line here -- "Nobody is flying this aeroplane but a box
+   * of gears" -- retired 2026-09-02 with its take: he IS flying her on the
+   * return leg (see MissionController.sasoleTakesTheAeroplane), and the
+   * owner heard the contradiction: "it says nobody's flying, but it also
+   * tells you Captain Lou Sasole's taking over." */
   'gun.take': [
     H('You want it? Take it. I am not proud and I am not accurate.', 3.6),
-    L('Prospect is on the tail gun. Nobody is flying this aeroplane but a box of gears, so be quick about it.', 5.4),
   ],
 
   'gun.leave': [

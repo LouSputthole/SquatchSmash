@@ -541,12 +541,21 @@ test('Sasole hands the aeroplane over with the key on screen', () => {
   const self = Object.assign(Object.create(MissionController.prototype), {
     gunOffered: false,
     dialogue: { play(id) { said.push(id); } },
-    autopilot: { engaged: false, engage() { this.engaged = true; return true; } },
+    autopilot: {
+      engaged: false,
+      targetHeading: null,
+      engage({ heading = null } = {}) { this.engaged = true; this.targetHeading = heading; return true; },
+    },
     objective: '',
     setObjective(text) { self.objective = text; },
     armCombatInstruction(html) { instructions.push(html); },
   });
   assert.equal(self.offerTailGun(), true);
+  /* Owner, 2026-09-02: "Sasole should start flying it and at least aim it
+   * in the right direction." Home is 270; the gyro is set on it, not on
+   * whatever heading the first fighter found her on. */
+  assert.equal(self.autopilot.targetHeading, 270, 'the captain did not point her home');
+  assert.equal(self.captainHasHer, true);
   assert.equal(self.offerTailGun(), false, 'the handover happens more than once');
   assert.ok(said.includes('fighters.sasoleTakesIt'));
   assert.match(BEATS['fighters.sasoleTakesIt'][0].text, /Plane.s mine/,

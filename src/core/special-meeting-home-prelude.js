@@ -27,6 +27,12 @@ export const SPECIAL_MEETING_ACT_ONE = Object.freeze({
 export const SPECIAL_MEETING_HOME_TIMING = Object.freeze({
   ringDelay: 74,
   carWait: 170,
+  /* Owner, 2026-09-02: the suit first, then the wait, then the text. The
+   * car clock still runs from the call, but the car will not pull up until
+   * he is dressed; if the clock has already run out by then it arrives this
+   * long after the wardrobe, so getting ready late is a short wait and
+   * getting ready early is the full one. */
+  dressedCarWait: 24,
   resumedCarWait: 16,
   idleAfter: 19,
   idleGap: 31,
@@ -35,6 +41,17 @@ export const SPECIAL_MEETING_HOME_TIMING = Object.freeze({
   ringBackLineDelay: 0.5,
   gettingReadyDelay: 1.6,
   headlightLineDelay: 1.5,
+});
+
+/**
+ * The text that is the key to the door. Lag does the logistics in the car
+ * ("Forty minutes, roughly. There's no signal past the reservoir."), so the
+ * text is his; Seff is driving. Display-only, like every text in the game:
+ * no recording, no cue, and it must not say what the meeting is.
+ */
+export const SPECIAL_MEETING_ARRIVAL_TEXT = Object.freeze({
+  from: 'LAG',
+  text: 'Outside.',
 });
 
 /** All home-prelude cues, for the two room adapters' startup decode lists. */
@@ -58,6 +75,10 @@ export function createSpecialMeetingHomePrelude({
   say = () => 0,
   onCallbackAvailable = () => {},
   onCarArrives = () => {},
+  onText = () => {},
+  /* Whether he has put the suit on. The car waits for it; a home that has
+   * no wardrobe (the starter flat's retired route) can leave this true. */
+  isDressed = () => true,
   onRingbackStart = () => {},
   onRingbackEnd = () => {},
   onChanged = () => {},
@@ -77,6 +98,9 @@ export function createSpecialMeetingHomePrelude({
     ringbackActive: false,
     rungBack: 0,
     dressed: 0,
+    /* The car clock ran out before he was dressed; it pulls up
+     * `dressedCarWait` after the wardrobe instead. */
+    carHeld: false,
     deferred: [],
   };
 
@@ -111,9 +135,19 @@ export function createSpecialMeetingHomePrelude({
 
   function carArrives() {
     if (state.carOutside) return false;
+    /* Not until he is dressed. The clock is spent; the car pulls up a short
+     * `dressedCarWait` after the wardrobe instead. */
+    if (!isDressed()) {
+      state.carIn = null;
+      state.carHeld = true;
+      return false;
+    }
     state.carIn = null;
+    state.carHeld = false;
     state.carOutside = true;
     onCarArrives();
+    /* The text lands as the headlights do; the spoken line follows. */
+    onText(SPECIAL_MEETING_ARRIVAL_TEXT);
     later(SPECIAL_MEETING_HOME_TIMING.headlightLineDelay, () => {
       const take = nextTake(SPECIAL_MEETING_ACT_ONE.headlights)
         ?? SPECIAL_MEETING_ACT_ONE.headlights[0];
@@ -196,6 +230,11 @@ export function createSpecialMeetingHomePrelude({
       ];
       state.dressed += 1;
       later(SPECIAL_MEETING_HOME_TIMING.gettingReadyDelay, () => speakTake(take));
+      /* The car was held on the suit: it is on its way now. */
+      if (state.carHeld && !state.carOutside && isDressed()) {
+        state.carHeld = false;
+        state.carIn = SPECIAL_MEETING_HOME_TIMING.dressedCarWait;
+      }
       onChanged(prelude.snapshot());
       return true;
     },
@@ -217,6 +256,7 @@ export function createSpecialMeetingHomePrelude({
         cooldown: state.cooldown,
         hungUp: state.hungUp,
         carIn: state.carIn,
+        carHeld: state.carHeld,
         carOutside: state.carOutside,
         ringingOut: state.ringingOut,
         rungBack: state.rungBack,

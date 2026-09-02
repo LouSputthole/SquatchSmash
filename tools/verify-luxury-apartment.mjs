@@ -1186,7 +1186,7 @@ try {
       && !afterCallDrained.inCall
       && afterCallDrained.status === 'answered'
       && afterCallDrained.timeEventCopies === 1
-      && /Wait in for Seff, Lag and Numbskull/i.test(afterCallDrained.objective)
+      && /Wait in for the text/i.test(afterCallDrained.objective)
       && !afterCallDrained.elevatorOpen
       && !afterCallDrained.prelude.carOutside
       && !afterAnsweredReload.ringing

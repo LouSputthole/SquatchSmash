@@ -162,10 +162,15 @@ export const PALACE_DINING_OBJECTIVES = Object.freeze({
     text: 'Break Mark\'s armor.',
     hint: 'The plates are what is keeping him in the room. Take them off him.',
   }),
+  /* Owner, 2026-09-02: "when Mark runs away, the objective should be to
+   * finish everyone in the room to lure Mark back. It should be clear that
+   * you have to kill everybody." Four A-Team men came in; the wife and the
+   * two on the floor are not them, and the old hint's "the last of them"
+   * did not say which. */
   wave: Object.freeze({
     kicker: 'HE CALLED EVERYBODY',
-    text: 'Clear the A-Team out of the dining room.',
-    hint: 'Mark is behind the doors until the last of them is down.',
+    text: 'Kill every A-Team man in the room to bring Mark back out.',
+    hint: 'Four came in. He stays behind the doors until all four are on the rug -- the family on the floor does not count.',
   }),
   'reprisal-final': Object.freeze({
     kicker: 'NOTHING LEFT ON HIM',

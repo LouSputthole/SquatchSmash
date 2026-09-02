@@ -47,3 +47,4 @@ Behavioral contract ready: NO.
 | checkpoint | 15 | 5 | 0 | 1 | 1 |
 | minimum_subjects | 21 | 0 | 0 | 1 | 0 |
 | progression | 20 | 1 | 1 | 0 | 0 |
+

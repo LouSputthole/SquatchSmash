@@ -994,7 +994,7 @@ try {
     formalMembers: window.INITIATION.members.every((member) => member.sq?.model?.dress === 'suit'),
     formalProspects: window.INITIATION.prospects.every((prospect) => prospect.sq?.model?.dress === 'suit'),
     actorColliders: window.INITIATION.actorColliders,
-    objective: document.querySelector('#objective')?.textContent,
+    objective: document.querySelector('#objectives .olist li')?.textContent,
     /* WHAT THE PLAYER ACTUALLY READS, which is now the shared upper-left
      * panel every other scene uses rather than this scene's own div. The keys
      * live in the panel's hint line, so a check that wants to know the player
@@ -1177,7 +1177,7 @@ try {
     phase: window.INITIATION.phase,
     control: window.INITIATION.control,
     failHidden: document.querySelector('#fail')?.classList.contains('hidden'),
-    objective: document.querySelector('#objective')?.textContent?.trim(),
+    objective: document.querySelector('#objectives .olist li')?.textContent?.trim(),
     url: location.href,
   }));
   check('reloading after a wrong answer restores a playable Initiation scene entry',

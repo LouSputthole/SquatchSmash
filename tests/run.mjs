@@ -252,6 +252,7 @@ const TEST_MODULES = [
   './gut-presentation.test.mjs',
   './outfits.test.mjs',
   './appearances.test.mjs',
+  './faces-coverage.test.mjs',
   './wrapped-body.test.mjs',
   './graveyard-mission.test.mjs',
   './hotdog-graveyard-story.test.mjs',

@@ -31,6 +31,7 @@ import {
   returnHomeFromMission,
 } from '../core/campaign.js';
 import { Hud } from '../core/hud.js';
+import { createObjectivePanel } from '../core/objective-panel.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createNoWakeStory } from '../core/no-wake-story.js';
 import { Player } from '../core/player.js';
@@ -79,8 +80,11 @@ const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
 const startButton = document.getElementById('start-btn');
-const objectiveEl = document.getElementById('objective');
-const objectiveDetailEl = document.getElementById('objective-detail');
+/* THE ONE PANEL (src/core/objective-panel.js). The scene used to write its
+ * standing order into a strip of its own at the top left; the shared card
+ * sits in the same corner and reads the same as every other scene's. */
+const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
+const objectiveShown = { title: '', detail: '' };
 const helmHud = document.getElementById('helm-hud');
 const throttleReadout = document.getElementById('throttle-readout');
 const speedReadout = document.getElementById('speed-readout');
@@ -274,8 +278,9 @@ let lastTime = performance.now();
 let elapsed = 0;
 
 function setObjective(title, detail = '') {
-  objectiveEl.textContent = title;
-  objectiveDetailEl.textContent = detail;
+  objectiveShown.title = title;
+  objectiveShown.detail = detail;
+  objectivePanel.setLine(title, { title: 'NO WAKE', hint: detail });
 }
 
 function phase(next) {
@@ -2161,7 +2166,7 @@ let interactionPausedBeforeMenu = false;
 const pauseMenu = createPauseMenu({
   title: 'No Wake',
   canPause: () => document.body.classList.contains('playing') && !state.leaving,
-  getObjective: () => [objectiveEl.textContent, objectiveDetailEl.textContent]
+  getObjective: () => [objectiveShown.title, objectiveShown.detail]
     .filter(Boolean).join(' — ') || 'Follow Lou’s current instruction aboard the boat.',
   instructions: [
     'W A S D — move. E or Click — interact; hold when the prompt asks.',

@@ -1,8 +1,8 @@
 {
   "schema": "squatchsmash.rendered-voice-receipts.v2",
   "coverage": {
-    "authoredPlayable": 4109,
-    "currentDelivered": 4094,
+    "authoredPlayable": 4108,
+    "currentDelivered": 4093,
     "outstanding": 15,
     "missing": [
       "heist.death_debrief_people",
@@ -25,7 +25,7 @@
     ],
     "recast": [],
     "renderedExact": 543,
-    "assumedCurrent": 3551
+    "assumedCurrent": 3550
   },
   "receipts": [
     {

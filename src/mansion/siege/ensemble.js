@@ -259,9 +259,11 @@ export const HOUSE_BOUNDS = Object.freeze({
 /* Only photographs that have landed -- assets/faces/index.json is the    */
 /* ledger and every path below is in it. A path to a photo that has not   */
 /* landed is a 404 in the console and `npm run verify:mansion` fails on   */
-/* exactly that. Snow and Numbskull and the security keep the           */
-/* authored heads they already have in `src/mansion/cast.js`; they are    */
-/* not being redressed by this pass.                                     */
+/* exactly that. Snow and the security keep the authored heads they      */
+/* already have in `src/mansion/cast.js`. Numbskull's photograph landed  */
+/* on the faces branch (2026-09-01) as an asset-only drop and this table */
+/* did not name it, so he held the west flight faceless -- owner, the    */
+/* next day: "I'm not seeing the new faces on ... Numbskull."            */
 /* ================================================================== */
 const FACES = Object.freeze({
   /* `lou.png` is BIG UNCLE LOU. `sasole.png` is CAPTAIN LOU SASOLE. Adjacent
@@ -276,6 +278,7 @@ const FACES = Object.freeze({
   shubes: 'assets/faces/shubes.png',
   hogmama: 'assets/faces/hogmama.png',
   gratin: 'assets/faces/gratin.png',
+  numbskull: 'assets/faces/numbskull.png',
 });
 
 /* `makePerson`'s `face` builds an <img>, so a figure with a photograph on it
@@ -678,7 +681,7 @@ const ROSTER = Object.freeze([
   Object.freeze({
     id: 'numbskull',
     name: 'Numbskull',
-    model: () => NUMBSKULL,
+    model: () => withFace(NUMBSKULL, FACES.numbskull),
     routine: Object.freeze(['scan', 'reload']),
     posts: Object.freeze({
       TO_OFFICE: P(-7.9, 49.4, -7.9, 45),

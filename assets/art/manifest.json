@@ -1118,6 +1118,48 @@
       "file": "a-team-best-team.webp",
       "title": "Best Team",
       "caption": "Fourth of four, twelve points, and a banner they paid for themselves."
+    },
+    {
+      "slot": "mansion.living.family",
+      "file": "silver-sasquatches/silver-sasquatches-formal-family-portrait.webp",
+      "title": "The Family, on the steps",
+      "caption": "The five of them on the front steps of the house, the year the house was theirs."
+    },
+    {
+      "slot": "mansion.living.booski",
+      "file": "bing-hallway-booskibro.webp",
+      "title": "Booskibro",
+      "caption": "The same portrait that hangs in the Bing's back hall. He liked it enough to ask for two."
+    },
+    {
+      "slot": "mansion.living.lou",
+      "file": "bing-hallway-uncle-lou.webp",
+      "title": "Big Uncle Lou",
+      "caption": "Uncle Lou, from the Bing's back hall. He did not ask for two; he got one anyway."
+    },
+    {
+      "slot": "mansion.living.fireplace-west",
+      "file": "silver-sasquatches/silver-sasquatches-mansion-arrival.webp",
+      "title": "The night they moved in",
+      "caption": "Arrival. Nobody carried a box."
+    },
+    {
+      "slot": "mansion.living.fireplace-east",
+      "file": "silver-sasquatches/silver-sasquatches-the-lounge.webp",
+      "title": "The Lounge",
+      "caption": "The lounge plate, framed small over the fire."
+    },
+    {
+      "slot": "mansion.trophy.founder-west",
+      "file": "bing-hallway-booskibro.webp",
+      "title": "Booskibro, founder",
+      "caption": "One of the founders, on the wall of the hall that is not about him."
+    },
+    {
+      "slot": "mansion.trophy.founder-east",
+      "file": "bing-hallway-shubenator.webp",
+      "title": "The Shubenator, founder",
+      "caption": "The other founder on this wall. He has never once looked at the trophy."
     }
   ]
 }

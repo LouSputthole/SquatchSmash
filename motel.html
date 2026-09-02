@@ -47,19 +47,7 @@
     border-radius: 10px; backdrop-filter: blur(2px);
   }
 
-  #objectiveBox {
-    position: absolute; top: 16px; left: 18px; padding: 10px 14px; min-width: 250px; max-width: 340px;
-  }
-  #objLabel { font-size: 11px; letter-spacing: 3px; color: var(--turq); font-weight: 800; }
-  #objTitle { font-size: 19px; font-weight: 900; color: #fff; margin-top: 2px; line-height: 1.25; }
-  #objSub { font-size: 13px; color: #a9b3c6; margin-top: 3px; }
-  #objList { margin-top: 8px; font-size: 13px; line-height: 1.6; display: none; }
-  #objList.show { display: block; }
-  #objList .done { color: var(--green); }
-  #objList .done::before { content: "✔ "; }
-  #objList .todo { color: #b9c2d4; }
-  #objList .todo::before { content: "▫ "; }
-  #objList h4 { font-size: 11px; letter-spacing: 2px; color: var(--pink); margin: 6px 0 2px; }
+
 
   #surveyBrief {
     position: absolute; top: 88px; left: 50%; transform: translateX(-50%);
@@ -344,15 +332,10 @@
   <div id="slowTint"></div>
 
   <div id="hud">
-    <div id="objectiveBox" class="card">
-      <div id="objLabel">OBJECTIVE</div>
-      <!-- Seeded with the first real objective's own words: the shipped text
-           said "Meet the jerky suppliers" until the first setObjective call,
-           two wordings for one state. -->
-      <div id="objTitle">Reach room twelve</div>
-      <div id="objSub"></div>
-      <div id="objList"></div>
-    </div>
+    <!-- The standing order is src/core/objective-panel.js's card, created by
+         src/motel/main.js and seeded with the first objective's own words.
+         The scene's own journal box retired on 2026-09-02 (owner: every
+         scene on the one objective system). -->
 
     <div id="surveyBrief" role="status" aria-live="polite">Survey the Motel before going into your meeting or go right into it</div>
 

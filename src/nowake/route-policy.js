@@ -3,7 +3,8 @@
 export const NO_WAKE_DRIVE_SECONDS = 90;
 
 /**
- * The inlet mouth is only 35 m wide between the wooded point and quarry.
+ * The authored channel into the inlet is 35 m wide off the wooded point
+ * (the quarry that used to close the other side is gone; the number stays).
  * Keeping the cruiser centre within 10.5 m of the authored centreline leaves
  * visible water around the 2.56 m half-beam on both sides. The longitudinal
  * window accepts the measured 90-second approach without accepting an

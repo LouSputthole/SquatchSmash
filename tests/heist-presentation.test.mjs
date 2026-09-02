@@ -181,12 +181,11 @@ test('safehouse crew face the briefing instead of presenting their backs to the 
   }
 });
 
-test('Numbskull has an explicit named procedural face treatment', () => {
-  assert.deepEqual(HEIST_CREW_PRESENTATION[CHARACTER_IDS.NUMBSKULL].proceduralFace, {
-    treatment: 'round_glasses',
-    brows: true,
-    nose: true,
-  });
+test('Numbskull wears his photograph like the rest of the crew', () => {
+  const numbskull = HEIST_CREW_PRESENTATION[CHARACTER_IDS.NUMBSKULL];
+  assert.equal(numbskull.face, 'assets/faces/numbskull.png');
+  assert.equal(numbskull.proceduralFace, undefined,
+    'the round-glasses fallback was the reason the landed photo never showed');
 });
 
 test('the named heist wardrobe reads through the crew mission overlays', () => {

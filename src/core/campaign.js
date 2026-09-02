@@ -358,6 +358,8 @@ export const TIME_EVENT_IDS = Object.freeze({
    * commits every answered call through `advanceTime`, so a call with no time
    * event is a call that cannot be recorded as answered. */
   BOOSKI_SPECIAL_MEETING_CALL: 'call.booski_special_meeting',
+  /* The suit going on for the pickup: zero minutes, exact-once, durable. */
+  SPECIAL_MEETING_DRESSED: 'special_meeting.dressed',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   /* Coming home from the restaurant. The Squatchfather scene keeps no clock of
    * its own -- it is deliberately frozen -- so the return leg is what puts the
@@ -597,6 +599,9 @@ const TIME_EVENTS = Object.freeze({
    * a registered zero-minute event because `advanceTime` is also the
    * exact-once ledger that records the call as answered. */
   [TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL]: Object.freeze({ minutes: 0 }),
+  /* "Put on something decent." The wardrobe is inside the 17:55 pickup
+   * anchor like the call is; the ledger only needs to remember it happened. */
+  [TIME_EVENT_IDS.SPECIAL_MEETING_DRESSED]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
   }),

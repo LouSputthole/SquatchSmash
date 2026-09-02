@@ -1770,8 +1770,10 @@ function debugSnapshot() {
           },
         };
       }),
-      numbskullFace: crew.get(CHARACTER_IDS.NUMBSKULL)?.group.userData.proceduralFace?.treatment
-        === 'round_glasses',
+      /* The photograph, since 2026-09-02; the drawn glasses go with the
+       * drawn head, so a true here with glasses would be the old fallback. */
+      numbskullFace: crew.get(CHARACTER_IDS.NUMBSKULL)?.figure.parts.head
+        .getObjectByName('person.face.photo-skull') != null,
       numbskullGlasses: crew.get(CHARACTER_IDS.NUMBSKULL)?.figure.parts.head
         .getObjectByName('person.glasses.bridge')?.visible === true,
       armorVisible: level.phases.safehouse.group.getObjectByName('armor-vest-body')?.visible === true,

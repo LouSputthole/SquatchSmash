@@ -371,18 +371,53 @@ class LuxuryApartmentStory {
           hint: 'Answer Booskibro’s call.',
         };
       }
+      /* THE SUIT, THEN THE TEXT. Owner, 2026-09-02: "maybe one of the
+       * objectives is to put on the suit. You also just kinda have to wait
+       * a while for them to arrive; after you put on the suit you get a
+       * text from Lag that just says come outside, and that's the key to go
+       * outside." Booski's own order on the call is "Put on something
+       * decent", and SM-070 is already the wardrobe beat; the door simply
+       * did not ask for it. `activities.dressed` is the flat's live flag --
+       * the wardrobe sets it for this beat -- and `carOutside` is the
+       * prelude's, which now waits on the suit before it sends the car. */
+      if (activities.dressed !== true && !this.dressedForMeeting()) {
+        return {
+          kind: 'activity',
+          id: 'special_meeting_suit',
+          label: 'Put on the suit',
+          hint: 'Something decent, he said. The charcoal suit is in the walk-in wardrobe.',
+          line: SPECIAL_MEETING_ACT_ONE.doorRefusals[0].text,
+          takes: SPECIAL_MEETING_ACT_ONE.doorRefusals,
+        };
+      }
       if (activities.carOutside === true) {
         return { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING };
       }
       return {
         kind: 'wait',
         id: 'special_meeting_car',
-        label: 'Wait in for Seff, Lag and Numbskull',
+        label: 'Wait in for the text',
+        hint: 'Seff, Lag and Numbskull are on their way. Lag will text when they are outside.',
         line: SPECIAL_MEETING_ACT_ONE.doorRefusals[0].text,
         takes: SPECIAL_MEETING_ACT_ONE.doorRefusals,
       };
     }
     return { kind: 'go', destination: SCENE_IDS.SILVER_CASE };
+  }
+
+  /** Whether the suit went on for beat 27. Durable: a reload does not undress him. */
+  dressedForMeeting() {
+    return this.campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.SPECIAL_MEETING_DRESSED);
+  }
+
+  /**
+   * The suit goes on. A zero-minute clock event, exact-once by id, so the
+   * fact survives a reload and the car does not wait on a wardrobe he has
+   * already used.
+   */
+  dressForMeeting() {
+    if (this.phase() !== 'special_meeting' || this.dressedForMeeting()) return false;
+    return this.campaign.advanceTime(TIME_EVENT_IDS.SPECIAL_MEETING_DRESSED).applied === true;
   }
 
   /**

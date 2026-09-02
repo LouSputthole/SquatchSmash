@@ -621,7 +621,11 @@ export async function buildHotDogParty(scene, club) {
   const aubbie = makeNpc(scene, club, {
     name: 'Aubbie', characterId: CHARACTER_IDS.AUBBIE,
     x: 6.1, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
-    model: AUBBIE,
+    /* Built here rather than by `populateFamily`, so the face merge that
+     * helper does has to be repeated by hand -- the same line Lou gets
+     * above. Left off, both hero figures wore authored heads while their
+     * roster rows at the ordinary Bing wore the photographs. */
+    model: { ...AUBBIE, face: faces.has('aubbie.png') ? 'assets/faces/aubbie.png' : null },
   });
   aubbie.folded = true;
   attachAubbieTools(aubbie);
@@ -638,7 +642,7 @@ export async function buildHotDogParty(scene, club) {
   const sauce = makeNpc(scene, club, {
     name: 'Sauce', characterId: CHARACTER_IDS.SAUCE,
     x: -1.4, z: 4.9, yaw: -2.8, job: 'work',
-    model: SAUCE,
+    model: { ...SAUCE, face: faces.has('sauce.png') ? 'assets/faces/sauce.png' : null },
   });
 
   /* The people working the room, rather than drinking in it: the bartender,

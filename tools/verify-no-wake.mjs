@@ -851,7 +851,24 @@ try {
       signLocal: game.world.channel.sign.position.toArray(),
       inlet: game.world.inlet,
       pointName: game.world.channel.point.name,
-      quarryName: game.world.channel.quarry.name,
+      /* Everything that is land between the marina and the inlet, with its
+       * world-space x, so the gate can prove starboard is open water. */
+      landforms: (() => {
+        const found = [];
+        game.world.channel.root.traverse((o) => {
+          if (!o.isMesh || !o.geometry?.parameters) return;
+          const name = o.name || '';
+          if (!/shoreline|headland|head land|quarry|wall|island shore/.test(name)) return;
+          const p = o.geometry.parameters;
+          const v = o.getWorldPosition(o.position.clone());
+          found.push({
+            name, x: v.x, z: v.z,
+            width: p.width ?? (p.radiusBottom ? p.radiusBottom * 2 : 0),
+            height: p.height ?? 0,
+          });
+        });
+        return found;
+      })(),
       daylight: game.world.water.mesh.parent.background.getHex(),
       shorelines,
       isolatedBanks,
@@ -866,11 +883,24 @@ try {
       && marina.cruiserExterior.outward === marina.cruiserExterior.sideFaces
       && marina.daylight > 0x808080,
     JSON.stringify({ neighbors: marina.neighbors, daylight: marina.daylight.toString(16) }));
-  check('the shore is continuous land rather than floating houseboat-sized islands',
-    marina.shorelines.length === 2
-      && marina.shorelines.every((bank) => bank.size[0] >= 150 && bank.size[2] >= 500)
+  check('the shore is one continuous west bank rather than floating houseboat-sized islands',
+    marina.shorelines.length === 1
+      && marina.shorelines.every((bank) => bank.size[0] >= 150 && bank.size[2] >= 500
+        && bank.position[0] < -100)
       && marina.isolatedBanks === 0,
     JSON.stringify({ shorelines: marina.shorelines, isolatedBanks: marina.isolatedBanks }));
+  /* Owner, 2026-09-02: "there's still just grass to the right when you're
+   * pulling the boat out. Just have it be open ocean ... there's one giant
+   * block that looks like a concrete building or something instead of an
+   * island. Let's just get rid of it." Every landform east of the centreline
+   * is gone, and nothing left standing is a plain box taller than the 12 m
+   * headland -- the quarry face was 26 m of sheer grey. */
+  check('starboard is open water: no land east of the centreline and no concrete block',
+    marina.landforms.length >= 3
+      && marina.landforms.every((land) => land.x + land.width / 2 <= 90.5)
+      && marina.landforms.every((land) => land.height <= 12)
+      && !marina.landforms.some((land) => /quarry/.test(land.name)),
+    JSON.stringify(marina.landforms));
   check('the dead-body objective no longer draws the gold arcade ring',
     marina.bodyMarkerChildren.every((child) => child.type !== 'TorusGeometry'
       && !/ring/i.test(child.name)),
@@ -878,7 +908,7 @@ try {
   /* "The NO WAKE sign passes to starboard, marina lights fall away, houses thin
    * out." The boat runs out along -Z, so starboard is +X. Owner, 2026-09-01:
    * the sixteen waterline shanties are gone -- a few roofs survive among the
-   * WEST shore's trees, the east shore is forest only, and a real island
+   * WEST shore's trees, the east side is open water, and a real island
    * holds the horizon past the inlet. */
   check('the run out passes the board to starboard, a treed west shore, and heads for the island',
     marina.signs >= 2 && marina.signLocal[0] > 5 && marina.signLocal[2] < 0
@@ -886,7 +916,7 @@ try {
       && marina.houseSides.every((x) => x < -100)
       && marina.shoreTrees >= 30
       && marina.islandParts >= 3
-      && /wooded point/.test(marina.pointName) && /quarry/.test(marina.quarryName)
+      && /wooded point/.test(marina.pointName)
       && marina.inlet.z < -300,
     JSON.stringify({
       sign: marina.signLocal, houses: marina.houses, houseSides: marina.houseSides,
@@ -1002,7 +1032,7 @@ try {
     bridgeStowed: !window.NO_WAKE.boat.gangway.visible,
     phase: window.NO_WAKE.phase,
     local: window.NO_WAKE.world.toBoatLocal(window.NO_WAKE.player.position.clone()).toArray(),
-    objective: document.getElementById('objective')?.textContent ?? null,
+    objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
   }));
   check('the player boards through the bridge target with real crosshair and E input',
     /boarding bridge/.test(boardingAim ?? '')
@@ -1254,8 +1284,8 @@ try {
     }
     return {
       log,
-      objective: document.getElementById('objective')?.textContent ?? null,
-      detail: document.getElementById('objective-detail')?.textContent ?? null,
+      objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
+      detail: document.querySelector('#objectives .ohint')?.textContent ?? null,
       running: game.physics.running,
       navOn: game.boat.controls.navLights.on,
     };
@@ -1697,11 +1727,11 @@ try {
    * objective the instant the phase changes is reading the gap the rule
    * creates, not a missing objective. */
   await page.waitForFunction(
-    () => /GO BELOW DECK/.test(document.getElementById('objective')?.textContent ?? ''),
+    () => /GO BELOW DECK/.test(document.querySelector('#objectives .olist li')?.textContent ?? ''),
   );
   const descend = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
-    objective: document.getElementById('objective')?.textContent ?? null,
+    objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
     spoken: window.NO_WAKE.cueLog.map((entry) => entry.cue),
   }));
   check('Irish reports the channel clear and the objective becomes GO BELOW DECK',
@@ -2043,7 +2073,7 @@ try {
     lines: window.NO_WAKE.dialogueLog.map((line) => line.text),
     cues: window.NO_WAKE.cueLog.map((entry) => entry.cue),
     phase: window.NO_WAKE.phase,
-    objective: document.getElementById('objective')?.textContent ?? null,
+    objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
     promptVisible: !document.getElementById('execution-prompt').classList.contains('hidden'),
     moveScale: window.NO_WAKE.player.moveScale,
   }));
@@ -2305,7 +2335,7 @@ try {
   /* Lou looks at the shoreline and nods, and only then does the screen ask for
    * anything. Same rule as the companionway: wait for the man, not the frame. */
   await page.waitForFunction(
-    () => /DUMP THE BODY/.test(document.getElementById('objective')?.textContent ?? '')
+    () => /DUMP THE BODY/.test(document.querySelector('#objectives .olist li')?.textContent ?? '')
       && window.NO_WAKE.interaction.paused === false,
     null, { timeout: 300000 },
   );
@@ -2313,7 +2343,7 @@ try {
     const game = window.NO_WAKE;
     return {
       shot: game.cameraDirector.shot?.id ?? null,
-      objective: document.getElementById('objective')?.textContent ?? null,
+      objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
       bag: game.bodyRig.bag.position.toArray(),
       platformY: game.boat.root.userData.waterline.platformY,
       waterY: game.boat.root.userData.waterline.surfaceY,
@@ -2415,12 +2445,12 @@ try {
 
   await page.waitForFunction(() => window.NO_WAKE.phase === 'exit', null, { timeout: 300000 });
   await page.waitForFunction(
-    () => /LEAVE THE INLET/.test(document.getElementById('objective')?.textContent ?? ''),
+    () => /LEAVE THE INLET/.test(document.querySelector('#objectives .olist li')?.textContent ?? ''),
     null, { timeout: 300000 },
   );
   const exitStart = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
-    objective: document.getElementById('objective')?.textContent ?? null,
+    objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
     anchored: window.NO_WAKE.physics.anchored,
     portRunning: window.NO_WAKE.state.ignitionPort,
     spoken: window.NO_WAKE.cueLog.map((e) => e.cue),
@@ -2476,7 +2506,7 @@ try {
         mission: game.campaignState.missions.no_wake,
         chapter: game.campaignState.story.chapter,
         canonical: localStorage.getItem('squatchlife.campaign'),
-        objective: document.getElementById('objective')?.textContent ?? null,
+        objective: document.querySelector('#objectives .olist li')?.textContent ?? null,
         webglHealth: {
           contextLossEvents: window.__noWakeContextLosses,
           contextLost: gl.isContextLost(),

@@ -482,8 +482,6 @@ function buildMarina(scene) {
  * of the mission happens.
  */
 function buildChannel(scene) {
-  const rock = mat(0x4a4740, .98);
-  const rockPale = mat(0x615c53, .96);
   const timber = mat(0x2a2219, .96);
   const foliage = mat(0x16221b, .95);
   const stucco = mat(0x565049, .92);
@@ -510,19 +508,19 @@ function buildChannel(scene) {
   signPost.position.set(13.5, 0, -62);
   channel.add(signPost);
 
-  /* Continuous banks on both sides make the shore read as a coast. Owner,
-   * 2026-09-01: "It should feel more like an ocean ... Lets open it up" --
-   * the inner edges moved from 65 m to 110 m off the centreline and the
-   * banks run the whole stretched channel, so the water is twice as wide
-   * and three times as long as the build he called a third world country. */
+  /* ONE bank, to port. Owner, 2026-09-01: "It should feel more like an
+   * ocean ... Lets open it up" -- the inner edge moved from 65 m to 110 m
+   * off the centreline and the bank runs the whole stretched channel.
+   * Owner, 2026-09-02: "there's still just grass to the right when you're
+   * pulling the boat out. Just have it be open ocean." The matching east
+   * bank is gone: from the helm, starboard is water to the fog line, and
+   * the coast is the west shore, the wooded point and the island ahead. */
   channel.add(box('west channel shoreline', [160, 3.4, 1020], mat(0x26382c), -190, .2, -480));
-  channel.add(box('east channel shoreline', [160, 3.4, 1020], mat(0x26382c), 190, .2, -480));
 
   /* Owner, 2026-09-01: "we dont need these huge wood piers with houses on
    * them. At least the one on the right." Sixteen waterline boxes read as
    * stilt shanties from the helm. What remains is five roofs among the
-   * trees of the WEST shore only, set well back on the bank; the east
-   * shore -- his right, running out -- is forest and nothing else. */
+   * trees of the WEST shore, set well back on the bank. */
   for (let i = 0; i < 5; i++) {
     const z = -70 - i * 150;
     /* Deep enough into the bank that the shore tree line (x up to -164)
@@ -553,14 +551,16 @@ function buildChannel(scene) {
     channel.add(house);
   }
 
-  /* The tree lines are what make the banks read as land instead of decking:
-   * a broken forest edge down both shores, bedded 2 cm into the 1.9 m bank
-   * top like every stacked pair in this scene. */
+  /* The tree line is what makes the bank read as land instead of decking:
+   * a broken forest edge down the west shore, bedded 2 cm into the 1.9 m
+   * bank top like every stacked pair in this scene. The forty-six trunks
+   * used to alternate shores; with the east bank gone they all stand on
+   * the west one, at the same 19 m pitch, so the coast reads as forest
+   * rather than a thinned-out row. */
   const CHANNEL_BANK_TOP = 1.9;
   for (let i = 0; i < 46; i++) {
-    const side = i % 2 ? 1 : -1;
     const z = -36 - i * 19 - (i % 5) * 7;
-    const x = side * (120 + ((i * 13) % 44));
+    const x = -(120 + ((i * 13) % 44));
     const height = 4.6 + (i % 4) * .9;
     const trunk = cylinder(`channel shore tree trunk ${i + 1}`, .2 + (i % 3) * .04, height,
       timber, x, CHANNEL_BANK_TOP - .02 + height / 2, z, 7);
@@ -573,8 +573,13 @@ function buildChannel(scene) {
     channel.add(trunk, crown);
   }
 
-  /* The wooded point to port, and the quarry face to starboard. Together they
-   * close the inlet: from inside it, there is no line of sight to anywhere. */
+  /* The wooded point to port. It used to be paired with a quarry face to
+   * starboard -- a 70 m by 26 m grey box with three proud strata bands,
+   * which from half a kilometre out is exactly what a concrete building
+   * looks like. Owner, 2026-09-02: "there's one giant block that looks
+   * like a concrete building or something instead of an island. Let's just
+   * get rid of it." The inlet is now a pocket on its west and back sides
+   * only; starboard is open water out to the fog, like the run in. */
   const point = new THREE.Group();
   point.name = 'wooded point';
   point.add(box('wooded point headland', [96, 9, 54], mat(0x1c2620), 0, 2.2, 0));
@@ -588,24 +593,6 @@ function buildChannel(scene) {
   point.position.set(-62, 0, INLET.z - 6);
   channel.add(point);
 
-  const quarry = new THREE.Group();
-  quarry.name = 'quarry wall';
-  quarry.add(box('quarry wall face', [70, 26, 40], rock, 0, 10, 0));
-  /* The face read as one flat grey monolith from half a kilometre out.
-   * Three proud strata bands and a talus apron break it into worked rock
-   * without moving a single bench. */
-  for (const [i, [y, h, tint]] of [[6, 2.6, rockPale], [13.5, 1.8, mat(0x3f3c35, .98)], [20, 2.2, rockPale]].entries()) {
-    quarry.add(box(`quarry stratum ${i + 1}`, [70.6, h, 40.4], tint, 0, y, 0));
-  }
-  quarry.add(box('quarry talus apron', [58, 3.2, 8], rockPale, -4, 1.0, 20.5));
-  for (let i = 0; i < 9; i++) {
-    /* 2.18 of rise for 2.2 of bench: each terrace beds into the one below it
-     * rather than balancing exactly on its top face. */
-    quarry.add(box(`quarry bench ${i + 1}`, [66 - i * 4, 2.2, 3.6], rockPale, -i * 1.2, 2.4 + i * 2.18, -17 + i * .9));
-  }
-  quarry.add(box('quarry spoil heap', [30, 4, 12], rockPale, 12, 1.4, -22));
-  quarry.position.set(56, 0, INLET.z + 10);
-  channel.add(quarry);
 
   /* Owner, 2026-09-01: "We have the island in the distance thats fine and
    * we head right towards it. It should be a better island tho." A real
@@ -650,7 +637,7 @@ function buildChannel(scene) {
     channel.add(cylinder(`inlet head tree trunk ${i + 1}`, .24, 5.6, timber, tx, HEAD_TOP + 2.78, tz, 7));
     channel.add(mesh(`inlet head tree crown ${i + 1}`, new THREE.ConeGeometry(2.4, 8.2, 8), foliage, tx, HEAD_TOP + 5.56 + 4.1, tz));
   }
-  return { root: channel, sign: signPost, point, quarry };
+  return { root: channel, sign: signPost, point };
 }
 
 /**

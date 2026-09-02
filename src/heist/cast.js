@@ -58,14 +58,15 @@ export const HEIST_CREW_PRESENTATION = Object.freeze({
   [CHARACTER_IDS.DEATHMEGATRON]: Object.freeze({
     face: 'assets/faces/deathmegatron.png', shirtDark: 0x201d1a, model: DEATHMEGATRON_HEIST,
   }),
-  // No canonical photo is present for Numbskull. The shared builder's
-  // procedural head is the deliberate fallback; another person's identity is
-  // never used. He keeps the round glasses that are his read across scenes.
+  /* Numbskull's photograph landed on 2026-09-01; until then this row was an
+   * explicit opt-out (`face: null` and a named round-glasses procedural
+   * head), which is why the faces drop changed nothing here -- owner, the
+   * next day: "I'm not seeing the new faces on the characters for
+   * Numbskull." He wears the photograph now like the other four, and the
+   * builder's `glasses && !face` rule takes the drawn glasses off with it,
+   * the same as every photographed man. */
   [CHARACTER_IDS.NUMBSKULL]: Object.freeze({
-    face: null,
-    shirtDark: 0x24262a,
-    proceduralFace: Object.freeze({ treatment: 'round_glasses', brows: true, nose: true }),
-    model: NUMBSKULL,
+    face: 'assets/faces/numbskull.png', shirtDark: 0x24262a, model: NUMBSKULL,
   }),
 });
 
@@ -184,8 +185,7 @@ export function buildHeistCrew(scene) {
       model: {
         ...presentation.model,
         bandana: false,
-        glasses: presentation.proceduralFace?.treatment === 'round_glasses'
-          || presentation.model.glasses === true,
+        glasses: presentation.model.glasses === true,
         face: CAN_PAINT_FACES ? (presentation.face ?? null) : null,
       },
     });
@@ -193,9 +193,7 @@ export function buildHeistCrew(scene) {
     armCrewMember(figure, id === CHARACTER_IDS.DEATHMEGATRON || id === CHARACTER_IDS.SNOW);
     figure.root.userData.characterId = id;
     figure.root.userData.subtitleName = identity.subtitleName;
-    if (presentation.proceduralFace) {
-      figure.root.userData.proceduralFace = presentation.proceduralFace;
-    }
+
     // A person-sized look volume, so naming a crew member does not depend on
     // getting the crosshair onto a forearm.
     const proxy = new THREE.Mesh(

@@ -498,6 +498,9 @@ test('nobody in the air battle says left or right', () => {
 test('the crew talk about the autopilot as a trade, not as a convenience', () => {
   const words = BEATS['auto.on'].map((l) => l.text).join(' ').toLowerCase();
   assert.ok(/will not|nothing else/.test(words), 'nobody says what it cannot do');
-  assert.ok(BEATS['gun.take'].some((l) => /nobody is flying/i.test(l.text)),
-    'nobody says out loud that the seat is empty');
+  /* Owner, 2026-09-02: on the return leg Sasole has her, so the gun beat
+   * may not say the seat is empty -- that line and its take are retired. */
+  assert.ok(!BEATS['gun.take'].some((l) => /nobody is flying/i.test(l.text)),
+    'the gun beat still says nobody is flying while Sasole has the aeroplane');
+  assert.match(BEATS['fighters.sasoleTakesIt'].map((l) => l.text).join(' '), /I have the yoke/);
 });

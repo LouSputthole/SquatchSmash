@@ -249,6 +249,13 @@ gate. Everything else on that list got a real picture:
 | `mansion.conference.crest` | INNER CIRCLE |
 | `mansion.gallery.pride` | OMERTA |
 | `mansion.trophy.crest` | BLOOD OATH |
+| `mansion.living.family` | The Family, on the steps — the big canvas on the living room's east wall, on your right coming in from the foyer |
+| `mansion.living.booski` | Booskibro — living room east wall, south of the family canvas |
+| `mansion.living.lou` | Big Uncle Lou — living room east wall, north of the family canvas |
+| `mansion.living.fireplace-west` | The night they moved in — small frame on the fireplace breast, west of the clock |
+| `mansion.living.fireplace-east` | The Lounge — small frame on the fireplace breast, east of the clock |
+| `mansion.trophy.founder-west` | Booskibro, founder — Great Includer hall, west wall |
+| `mansion.trophy.founder-east` | The Shubenator, founder — Great Includer hall, east wall |
 | `mansion.lan.banner` | HOUSE RULES |
 | `mansion.vault.mark` | Estate Architectural Study |
 | `mansion.winter.shield` | Mountain Valley Sunset |

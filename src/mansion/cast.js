@@ -119,6 +119,7 @@ import { box, cylinder, group, mat } from '../world/build.js';
 import { createDressHelpSequence } from '../world/dress-help.js';
 import { createDressHelpFocus } from '../world/dress-help-focus.js';
 import { createDressHelpActorStaging } from '../world/dress-help-staging.js';
+import { attachDressGlue } from '../world/dress-glue.js';
 import { mountLilTomCruze } from './dog.js';
 import {
   createLanGamerMotion, createPoolTreadingMotion, createSeatedPerformerMotion,
@@ -310,10 +311,22 @@ const FACES = Object.freeze({
    * below), so a missing entry here looks exactly like a photo that has not
    * been delivered yet.
    *
-   * Everyone with a photo on disk is now in this table. Numbskull and the
-   * uniformed guards are still faceless because there is no photo of them. */
+   * Everyone with a photo on disk is now in this table. The uniformed guards
+   * are still faceless because there is no photo of them.
+   *
+   * And again, 2026-09-02, the same fault a third time: "I'm not seeing the
+   * new faces on the characters for Numbskull, Sauce." The faces branch
+   * landed four photographs (Lag, Numbskull, Sauce, Seff) as an asset-only
+   * drop, on the assumption every scene resolves faces through the index.
+   * This house does not -- it names them here -- so the four men kept the
+   * authored heads. Named now; `tests/faces-coverage.test.mjs` holds every
+   * per-scene table against the index so the next photo cannot do this. */
   snow: 'assets/faces/snow.png',
   gratin: 'assets/faces/gratin.png',
+  numbskull: 'assets/faces/numbskull.png',
+  sauce: 'assets/faces/sauce.png',
+  lag: 'assets/faces/lag.png',
+  seff: 'assets/faces/seff.png',
 });
 
 /**
@@ -1681,7 +1694,7 @@ export function mountMansionCast(scene, world = {}, {
   post('numbskull', {
     role: 'family_member',
     name: 'Numbskull',
-    model: NUMBSKULL,
+    model: withFace(NUMBSKULL, FACES.numbskull),
     x: numbAt.x,
     y: numbAt.y,
     z: numbAt.z,
@@ -1701,7 +1714,7 @@ export function mountMansionCast(scene, world = {}, {
   post('seff', {
     role: 'family_member',
     name: 'Seff',
-    model: familyModel(CHARACTER_IDS.SEFF),
+    model: withFace(familyModel(CHARACTER_IDS.SEFF), FACES.seff),
     job: 'work',
     x: conference.x - 7.15,
     y: conference.y,
@@ -1731,7 +1744,7 @@ export function mountMansionCast(scene, world = {}, {
   post('lag', {
     role: 'family_member',
     name: 'Lag',
-    model: familyModel(CHARACTER_IDS.LAG),
+    model: withFace(familyModel(CHARACTER_IDS.LAG), FACES.lag),
     bark: SEQUENCES.lagHello,
     onUse: () => {
       /* Holds on the last line rather than looping back to the first: a man
@@ -1771,7 +1784,7 @@ export function mountMansionCast(scene, world = {}, {
     post('sauce', {
       role: 'family_member',
       name: 'Sauce',
-      model: familyModel(CHARACTER_IDS.SAUCE),
+      model: withFace(familyModel(CHARACTER_IDS.SAUCE), FACES.sauce),
       job: 'work',
       x: ballroom.x + 6.4,
       y: ballroom.y,
@@ -2312,6 +2325,25 @@ export function mountMansionCast(scene, world = {}, {
     marker: secondDressMarker,
   });
   const secondDressCueLog = [];
+  /* THE GLUE. Owner, 2026-09-02: "For the dress game at the mansion we need
+   * to add the sound effects, the same one from the other dress games, and
+   * then the glue effect on the back after, before they return to the
+   * chair." The Bing's version of this beat (src/bing/performer-bathroom.js)
+   * plays the flat's recorded glue cues under the shared seven-pull rhythm
+   * -- pickup at the start, a squeeze under every hit, the tube giving at
+   * the finish -- and Margo's morning rig wears the blobs themselves
+   * (`setDressGlue` in src/world/dressing.js). Both land here: the same
+   * cues, and the same blob asset parented to her torso so it rides her
+   * back onto the lounger and stays there for the rest of the evening. */
+  const secondDressGlue = attachDressGlue(secondPoolGirl.parts);
+  /* Seconds she stays on all fours after the tube gives, while the mess
+   * arrives on her back, before she gets back on the chair. Measured against
+   * the flat's own ramp (`dt * 1.8`, so 0.56 s to full): the blobs are all
+   * in by 0.6 s and she holds the pose for a beat after so the player, who
+   * is looking straight at her back, sees them land before she turns. */
+  const SECOND_DRESS_GLUE_HOLD = 1.6;
+  let secondDressGlueHold = 0;
+  let secondDressGlueTarget = 0;
   const secondDressAudio = {
     position: () => secondPoolGirl.group.getWorldPosition(new THREE.Vector3()),
     play: (name, options) => {
@@ -2336,6 +2368,17 @@ export function mountMansionCast(scene, world = {}, {
         secondDressStrap.position.y = secondDressStart.y;
         secondDressStrap.rotation.z = secondDressStart.rotation;
         secondDressFocus.begin();
+        secondDressGlueTarget = 0;
+        secondDressGlueHold = 0;
+        secondDressGlue.set(0);
+        /* The tube comes out as she goes down -- same two cues, same
+         * volumes and the same 0.4 s stagger the Bing's beat authored. */
+        secondDressAudio.play('glue.pickup', {
+          volume: 0.5, position: secondDressAudio.position(),
+        });
+        secondDressAudio.play('glue.squeeze', {
+          volume: 0.45, rate: 0.94, delay: 0.4, position: secondDressAudio.position(),
+        });
         screen?.setInstruction?.('TIME THE PULL WITH E');
       },
       onHit({ index, total }) {
@@ -2344,6 +2387,13 @@ export function mountMansionCast(scene, world = {}, {
           secondDressStart.rotation, STRAP_SEATED_TILT, progress,
         );
         secondDressStrap.position.y = secondDressStart.y + progress * STRAP_PULL_RISE;
+        /* A squeeze under every pass, harder as the tube empties -- the
+         * escalation the flat's frame gag authored for these recordings. */
+        secondDressAudio.play('glue.squeeze', {
+          volume: 0.5 + progress * 0.38,
+          rate: 1.0 - progress * 0.2,
+          position: secondDressAudio.position(),
+        });
       },
       /* A miss lets it slip back OUT, toward fallen. It used to run toward
        * 0.28 -- which, from a start of -0.68, moved the strap the same way a
@@ -2355,16 +2405,23 @@ export function mountMansionCast(scene, world = {}, {
       },
       finish() {
         secondDressActorStaging.end();
-        posePoolRecliner(secondPoolGirl);
         secondDressFocus.end();
         screen?.setTiming?.(null);
         screen?.setInstruction?.(null);
+        /* She does NOT get back on the chair here. The tube gives, the
+         * glue lands on her back while she is still on all fours, and the
+         * cast tick below returns her to the lounger once the hold is up. */
+        secondDressGlueTarget = 1;
+        secondDressGlueHold = SECOND_DRESS_GLUE_HOLD;
       },
       reset() {
         secondDressActorStaging.end();
         secondDressFocus.end();
         secondDressStrap.position.y = secondDressStart.y;
         secondDressStrap.rotation.z = secondDressStart.rotation;
+        secondDressGlueTarget = 0;
+        secondDressGlueHold = 0;
+        secondDressGlue.set(0);
         /* Abandon hands the fixture pose back in a known frame; the bounded
          * recliner rest motion resumes on the next cast tick. */
         posePoolRecliner(secondPoolGirl);
@@ -2373,6 +2430,10 @@ export function mountMansionCast(scene, world = {}, {
     onComplete() {
       poolEvening.secondPhase = 'done';
       poolEvening.secondDressHelped = true;
+      /* The tube gives. Same cue, same delay, as the Bing's beat. */
+      secondDressAudio.play('glue.burst', {
+        volume: 0.7, delay: 0.15, position: secondDressAudio.position(),
+      });
       dialogue.play(SEQUENCES.poolGirlDressHelp);
       /* Either performer's finished strap is the same pool beat. */
       onEveningBeat('pool');
@@ -3429,7 +3490,7 @@ export function mountMansionCast(scene, world = {}, {
          * the lounger recline first and out of it again in the same frame is
          * work nobody sees, and it is the kind of double-write that survives
          * as a one-frame flicker the moment the ordering below changes. */
-        if (secondDressSequence.active && npc === secondPoolGirl) continue;
+        if ((secondDressSequence.active || secondDressGlueHold > 0) && npc === secondPoolGirl) continue;
         posePoolRecliner(npc);
       }
       for (const motion of seatedPerformerMotions) motion.update(dt);
@@ -3446,6 +3507,20 @@ export function mountMansionCast(scene, world = {}, {
          * once a frame for the length of the beat is the same as running it
          * once. */
         poseAllFours(secondPoolGirl, secondLounger.y);
+      }
+      /* The glue arrives on her back at the flat's own ramp while she holds
+       * the pose; when the hold runs out she gets back on the chair with it
+       * on, which is the joke, and the recliner loop takes her from there. */
+      if (secondDressGlue.amount < secondDressGlueTarget) {
+        secondDressGlue.set(Math.min(secondDressGlueTarget, secondDressGlue.amount + dt * 1.8));
+      }
+      if (secondDressGlueHold > 0) {
+        secondDressGlueHold = Math.max(0, secondDressGlueHold - dt);
+        if (secondDressGlueHold > 0) {
+          poseAllFours(secondPoolGirl, secondLounger.y);
+        } else {
+          posePoolRecliner(secondPoolGirl);
+        }
       }
       /* TimingBar deliberately retains its last view after stop so a caller
        * can inspect the seven landed hits. That snapshot is not an active HUD:
@@ -3538,6 +3613,9 @@ export function mountMansionCast(scene, world = {}, {
             clapStage: secondDressSequence.clapStage,
             view: secondDressSequence.debug.view,
             cues: [...secondDressCueLog],
+            glue: secondDressGlue.amount,
+            glueHold: secondDressGlueHold,
+            onAllFours: secondDressSequence.active || secondDressGlueHold > 0,
             focus: secondDressFocus.debug,
             actorStaging: secondDressActorStaging.debug,
           },

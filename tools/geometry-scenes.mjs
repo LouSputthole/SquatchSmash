@@ -2037,19 +2037,17 @@ function annotateNoWakeGeometry(scene) {
     });
   }
 
+  /* The east bank and the quarry wall left on 2026-09-02 -- starboard is
+   * open water now -- so the landform set is the west shore, the point and
+   * the headland, and a name missing here throws on purpose. */
   for (const name of [
-    'west channel shoreline', 'east channel shoreline', 'wooded point headland', 'inlet head land',
+    'west channel shoreline', 'wooded point headland', 'inlet head land',
   ]) {
     annotateNamedSceneObjects(scene, name, {
       assemblyId: 'no-wake-channel-landform',
       structural: true,
     });
   }
-  annotateNamedSceneObjects(scene, 'quarry wall', {
-    assemblyId: 'no-wake-channel-landform',
-    structural: true,
-    wall: false,
-  });
 
   const marker = annotateNamedSceneObjects(scene, 'NO WAKE channel marker', {
     assemblyId: 'no-wake-channel-marker',

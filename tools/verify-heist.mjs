@@ -863,7 +863,7 @@ try {
     }),
     numbskull: Object.freeze({
       height: 1.95, outfit: 'tee', gender: 'unspecified', bodyShape: 'average',
-      photoFace: false, proceduralFace: true, hair: false, beard: false, glasses: true,
+      photoFace: true, proceduralFace: false, hair: false, beard: false, glasses: false,
       plateCarrier: true, weapon: 'sidearm', weaponSling: true,
       maskPresent: false, maskVisible: false,
     }),
@@ -877,7 +877,7 @@ try {
       && state.geometry.floorZones > 0
       && state.presentation.crew.every((actor) => actor.facingDot > 0.65)
       && state.presentation.numbskullFace
-      && state.presentation.numbskullGlasses
+      && !state.presentation.numbskullGlasses
       && state.presentation.lockers === 3,
     JSON.stringify(state.presentation));
 

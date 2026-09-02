@@ -46,16 +46,14 @@
       <div class="track"><i class="win"></i><i class="mark"></i></div>
       <div class="pips"></div>
     </div>
-
-    <!-- The standing order, in the same place and the same idiom the starter
-         flat puts it: under the clock, top right. Present in the markup so
-         src/core/objective-panel.js ADOPTS it rather than injecting its own
-         upper-left default over the top of src/style.css's #objectives rules.
-         See the note at the head of that module. -->
-    <div id="objectives" class="hidden">
-      <div class="otitle"></div>
-      <ul class="olist"></ul>
-    </div>
+    <!-- No #objectives markup on purpose. src/core/objective-panel.js CREATES
+         the card when the page has none and styles it; an adopted div gets
+         neither the op-panel class nor the injected sheet. This page used to
+         carry one so the panel would adopt it "under the clock, top right",
+         but the style.css rules that placed it there were retired with the
+         starter flat's move to the shared card, and what was left was an
+         unstyled list in the top-left corner. Owner, 2026-09-02: "We have a
+         weird objective thing in the upper left." -->
   </div>
 
   <section id="luxury-game-panel" class="hidden" aria-live="polite" aria-atomic="true">

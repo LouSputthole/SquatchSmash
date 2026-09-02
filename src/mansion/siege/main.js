@@ -40,6 +40,7 @@ import { Player } from '../../core/player.js';
 import { createFirstPersonInput } from '../../core/first-person-input.js';
 import { InteractionSystem } from '../../core/interaction.js';
 import { AudioEngine } from '../../core/audio.js';
+import { createObjectivePanel } from '../../core/objective-panel.js';
 import { PostFX } from '../../core/postfx.js';
 import { attachPixelRatio } from '../../core/pixel-ratio.js';
 import { createPauseMenu } from '../../core/pause-menu.js';
@@ -109,10 +110,24 @@ const promptEl = $('prompt');
 const promptKeyEl = $('promptKey');
 const promptLabelEl = $('promptLabel');
 const promptHoldEl = $('promptHold');
-const objectiveEl = $('objective');
-const objectiveTextEl = $('objectiveText');
-const objectiveKickerEl = $('objectiveKicker');
-const objectiveHintEl = $('objectiveHint');
+/* THE ONE PANEL (src/core/objective-panel.js). This mission had its own
+ * top-centre card with a kicker, a line and a hint, which was the last
+ * bespoke objective widget in the mansion. Owner, 2026-09-02: "make sure we
+ * have our objective system that we've used throughout the rest of the
+ * game in every scene." The kicker is the panel's title, the hint is its
+ * hint, and the nudge borrows the hint line exactly as it did before. */
+const objectivePanel = createObjectivePanel({ parent: document.body });
+const objectiveHintEl = objectivePanel.element?.querySelector?.('.ohint') ?? null;
+/* What the panel is showing, kept here so the nudge can put it back. */
+const objectiveShown = { text: '', hint: '', done: false };
+function paintObjective() {
+  objectivePanel.setLine(objectiveShown.text, {
+    title: objectiveShown.done ? 'COMPLETE' : 'OBJECTIVE',
+    hint: objectiveShown.hint,
+    done: objectiveShown.done,
+  });
+  objectivePanel.element?.classList?.toggle?.('done', objectiveShown.done);
+}
 const waveCountEl = $('waveCount');
 const waveRemainingEl = $('waveRemaining');
 const waveLabelEl = $('waveLabel');
@@ -1855,20 +1870,15 @@ function recordSiegeCheckpoint(id) {
 const mission = new SiegeMission({
   damage,
   onObjective: (text, hint, done) => {
-    if (!objectiveEl) return;
     /* A new objective outranks a nudge that is still counting down: the
      * nudge corrects the OLD hint, and leaving it up would have it correcting
      * a sentence that is no longer on the screen. */
     nudgeTimer = 0;
     objectiveHintEl?.classList.remove('nudge');
-    objectiveEl.hidden = !text;
-    objectiveEl.classList.toggle('done', done === true);
-    if (objectiveKickerEl) objectiveKickerEl.textContent = done ? 'COMPLETE' : 'OBJECTIVE';
-    if (text) objectiveTextEl.textContent = text;
-    if (objectiveHintEl) {
-      objectiveHintEl.hidden = !hint;
-      objectiveHintEl.textContent = hint ?? '';
-    }
+    objectiveShown.text = text ?? '';
+    objectiveShown.hint = hint ?? '';
+    objectiveShown.done = done === true;
+    paintObjective();
   },
   onBeat: (beat) => {
     /* Fire permission belongs to the mission beat, not to how many seconds a
@@ -2409,9 +2419,14 @@ let huntAnnounced = false;
 
 function nudge(text, seconds = 4) {
   if (!objectiveHintEl) return false;
-  objectiveEl.hidden = false;
-  objectiveHintEl.hidden = false;
-  objectiveHintEl.textContent = text;
+  /* Through the panel, so its signature and visibility stay honest; the
+   * class is the only thing written to the DOM directly. */
+  objectivePanel.setLine(objectiveShown.text || ' ', {
+    title: objectiveShown.done ? 'COMPLETE' : 'OBJECTIVE',
+    hint: text,
+    done: objectiveShown.done,
+  });
+  objectivePanel.reveal();
   objectiveHintEl.classList.add('nudge');
   nudgeTimer = seconds;
   return true;
@@ -2423,9 +2438,8 @@ function clearNudge() {
   nudgeTimer = 0;
   objectiveHintEl?.classList.remove('nudge');
   if (!objectiveHintEl) return;
-  const hint = mission.hint;
-  objectiveHintEl.hidden = !hint;
-  objectiveHintEl.textContent = hint ?? '';
+  objectiveShown.hint = mission.hint ?? '';
+  paintObjective();
 }
 
 function updateNudge(dt) {
@@ -3493,8 +3507,9 @@ window.mansionSiege = {
   skipDialogue: () => dialogue.finish(),
   /** The HUD's own words, read off the DOM the player is looking at. */
   hud: () => ({
-    objective: objectiveEl?.hidden ? null : objectiveTextEl?.textContent ?? null,
-    hint: objectiveHintEl?.hidden ? null : objectiveHintEl?.textContent ?? null,
+    objective: objectivePanel.element?.classList?.contains?.('hidden') || !objectiveShown.text
+      ? null : objectivePanel.element?.querySelector?.('.olist li')?.textContent ?? null,
+    hint: objectiveHintEl?.classList?.contains?.('hidden') ? null : objectiveHintEl?.textContent || null,
     /* The correction, when one is up. Separate from `hint` so a verifier can
      * tell "the mission is telling him where to go" from "the mission is
      * telling him why the key he pressed did nothing". */

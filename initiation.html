@@ -47,13 +47,24 @@
   #hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; }
   #hud.visible { display: block; }
 
-  #objective {
-    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-    font-size: 19px; font-weight: 800; letter-spacing: 2px; color: var(--silver-bright);
-    text-shadow: 0 2px 6px rgba(0,0,0,.8); text-align: center; padding: 0 16px;
-    transition: opacity .4s;
+  /* The objective is the shared src/core/objective-panel.js card; the
+     top-centre line this page used to draw beside it retired 2026-09-02.
+     THE SHOT, in the hand: the same card the Bing shows for a drink
+     (src/core/hud.js `setHand`, #hand-item in src/style.css), copied here
+     because this page does not load the shared stylesheet. Owner,
+     2026-09-02: "the shot, we should have the proper shot information that
+     we've used in the past." */
+  #hands { position: absolute; right: 22px; bottom: 22px; }
+  #hand-item {
+    display: flex; align-items: center; gap: 11px; padding: 9px 14px 9px 9px;
+    background: rgba(11, 10, 8, .68); border: 1px solid rgba(255, 182, 72, .25);
+    border-radius: 6px; transition: opacity .25s ease, transform .25s ease;
   }
-  #objective .key { color: var(--ember); }
+  #hand-item.hidden { opacity: 0; transform: translateY(9px); }
+  #hand-item .icon { font-size: 26px; line-height: 1; }
+  #hand-item .meta { display: flex; flex-direction: column; gap: 2px; }
+  #hand-item .name { font-size: 13px; color: var(--silver-bright); }
+  #hand-item .hint { font-size: 11px; color: #9b917f; }
 
   #muteBtn {
     position: absolute; top: 16px; right: 18px; pointer-events: auto; cursor: pointer;
@@ -211,9 +222,17 @@
     position: relative; width: min(760px, 92vw); height: 100%; overflow: hidden;
     mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
   }
+  /* THE TRACK IS AS TALL AS ITS WORDS. It used to be pinned to the window
+     (`inset: 0`), so the percentage travel was two window heights over the
+     whole crawl -- one row took a minute and a half to cross the screen and
+     thirty-five of two hundred and sixty-four credits were ever seen.
+     Owner, 2026-09-02: "the credits come in kinda way too slow." Its top
+     starts at the bottom edge of the window and it travels its own height
+     plus the window, so the first row is on screen the moment the crawl
+     starts and the last row leaves at the end. */
   .credits-track {
-    position: absolute; inset: 0; padding: 0 16px; text-align: center;
-    transform: translateY(100%);
+    position: absolute; left: 0; right: 0; top: 100%; padding: 0 16px; text-align: center;
+    transform: translateY(0);
   }
   #credits.rolling .credits-track {
     animation: creditsCrawl var(--credits-duration, 212s) linear both;
@@ -266,8 +285,8 @@
   }
   #replay-anything-button:focus-visible { outline: 4px solid #fff1ca; outline-offset: 5px; }
   @keyframes creditsCrawl {
-    from { transform: translateY(100%); }
-    to { transform: translateY(-100%); }
+    from { transform: translateY(0); }
+    to { transform: translateY(calc(-100% - 100vh)); }
   }
   @media (prefers-reduced-motion: reduce) {
     #credits { transition: none; }
@@ -307,7 +326,7 @@
   <div id="banner"></div>
 
   <div id="hud">
-    <div id="objective"></div>
+    <div id="hands"><div id="hand-item" class="hidden"><span class="icon"></span><span class="meta"><span class="name"></span><span class="hint"></span></span></div></div>
     <button id="muteBtn">🔊</button>
     <div class="hp-wrap" id="hpWrap">
       <div class="hp-label">PROSPECT</div>

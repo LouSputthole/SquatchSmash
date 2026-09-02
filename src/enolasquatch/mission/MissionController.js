@@ -213,11 +213,19 @@ const CLIMB_TURN_BEAT_BY_HEADING = Object.freeze({
  * are counted, which is the "one to two minutes" the note asks for.
  */
 export const RETURN_WAVES = Object.freeze([
-  { at: 10, count: 1, delay: 0, aggression: 0.80, profiles: ['harass'], call: 'fighters.first' },
-  { at: 28, count: 2, delay: 2, aggression: 0.95, profiles: ['crossing', 'crossing'] },
-  { at: 44, count: 2, delay: 1, aggression: 1.05, profiles: ['highside', 'harass'] },
-  { at: 60, count: 3, delay: 1, aggression: 1.15, profiles: ['priority', 'crossing', 'highside'] },
-  { at: 76, count: 3, delay: 0, aggression: 1.25, profiles: ['crossing', 'highside', 'priority'] },
+  /* Owner, 2026-09-02: "make sure the fighters are coming in. This is a
+   * cool tail gun scene." The first wave used to be one `harass` fighter,
+   * which by its own rules holds off 700 to 1350 m for forty-five seconds
+   * and refuses to commit -- so the man handed the gun spent the whole
+   * first wave watching a dot. Every wave now has at least one `classic`,
+   * the one profile that sets up astern, above and off to a side, and
+   * comes down the tail turret's arc; the crossing, high-side and head-on
+   * profiles still mix in so no two waves read the same from the gun. */
+  { at: 10, count: 1, delay: 0, aggression: 0.80, profiles: ['classic'], call: 'fighters.first' },
+  { at: 28, count: 2, delay: 2, aggression: 0.95, profiles: ['classic', 'crossing'] },
+  { at: 44, count: 2, delay: 1, aggression: 1.05, profiles: ['highside', 'classic'] },
+  { at: 60, count: 3, delay: 1, aggression: 1.15, profiles: ['classic', 'crossing', 'highside'] },
+  { at: 76, count: 3, delay: 0, aggression: 1.25, profiles: ['crossing', 'classic', 'priority'] },
 ]);
 
 /**
@@ -898,7 +906,7 @@ export class MissionController {
       );
       return false;
     }
-    if (!this.autopilot.engaged && !this.autopilot.engage({})) {
+    if (!this.sasoleTakesTheAeroplane()) {
       this.dialogue.bark('autoRefused');
       this.hud?.say?.('<em>Not from here.</em> Nobody can leave the seat until the gyro will hold her — wings level, out of the stall, above the deck.', 3600);
       return false;
@@ -3010,14 +3018,44 @@ export class MissionController {
     if (this.gunOffered) return false;
     this.gunOffered = true;
     this.dialogue.play('fighters.sasoleTakesIt', { once: true });
-    // He is flying it, so the gyro really does fly it. A refusal is survivable:
-    // the player can still take the gun once he has her level.
-    if (!this.autopilot.engaged) this.autopilot.engage({});
+    /* He is flying it, so the gyro really does fly it -- HOME. Owner,
+     * 2026-09-02: "when you get on the back gun, Sasole should start flying
+     * it and at least aim it in the right direction." `engage({})` used to
+     * capture whatever heading the aeroplane was on when the first fighter
+     * showed, which after the break turn and the blast wave was anybody's
+     * guess, and Irish then nagged a man in the tail turret to correct it.
+     * The captain sets the gyro on the return heading and holds this
+     * height. A refusal is survivable: the player can still take the gun
+     * once he has her level. */
+    this.sasoleTakesTheAeroplane();
     this.armCombatInstruction(
       '<b>T — TAKE OVER TAIL GUN.</b> Captain Sasole has the aeroplane.', 10000,
     );
     this.setObjective(OBJECTIVES.TAIL_GUN);
     return true;
+  }
+
+  /**
+   * Captain Sasole has the aeroplane: the gyro on RETURN_HEADING, the height
+   * she is at. Engages it if it is off; steers an already-engaged one home.
+   *
+   * @returns {boolean} whether something is now flying her
+   */
+  sasoleTakesTheAeroplane() {
+    const p = this.physics;
+    if (!this.autopilot.engaged) {
+      return this.autopilot.engage({
+        heading: RETURN_HEADING,
+        altitude: Math.max(p?.position?.y ?? 0, 0) || null,
+      }) === true;
+    }
+    if (Number.isFinite(this.autopilot.targetHeading)) this.autopilot.targetHeading = RETURN_HEADING;
+    return true;
+  }
+
+  /** Whether the empty seat has a pilot in the fiction: Sasole, on the return leg. */
+  get captainHasHer() {
+    return this.gunOffered && this.autopilot.engaged;
   }
 
   updateLanding(dt) {
@@ -3323,7 +3361,12 @@ export class MissionController {
     if (this.defense?.damage.electrical) warn.add('electrical');
     if (this.defense?.state === 'active') warn.add('flak');
     if (this.interceptors.activeCount > 0) warn.add('fighters');
-    if (this.autopilot.engaged && this.gunner.manned) warn.add('unattended');
+    /* NOBODY FLYING is for a seat the player left with the gyro on and no
+     * captain to take it -- the outbound P. On the return leg Sasole has
+     * her (offerTailGun says so out loud), and the lamp saying otherwise
+     * was the owner's 2026-09-02 note: "it says nobody's flying, but it
+     * also tells you Captain Lou Sasole's taking over." */
+    if (this.autopilot.engaged && this.gunner.manned && !this.captainHasHer) warn.add('unattended');
     if (!this.payloadReleased && p.mass > AC_ENOLA.emptyMass + AC_ENOLA.payloadMass + AC_ENOLA.fuelMass * 0.85 && p.vspeed < 0.5 && p.agl < 300 && !p.onGround) {
       warn.add('overweight');
     }

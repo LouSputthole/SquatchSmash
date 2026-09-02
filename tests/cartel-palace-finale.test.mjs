@@ -63,7 +63,7 @@ function harness() {
     onMarkReturn: (options) => {
       log.returns.push(options);
       cast.activateMark({ armored: options.armored });
-      if (!options.armored) { cast.mark.actor.armor = 0; cast.mark.actor.health = 260; }
+      if (!options.armored) { cast.mark.actor.armor = 0; cast.mark.actor.health = 390; }
     },
     onMarkRetreat: () => { log.retreats++; cast.markScramblesAway(); },
     onWave: () => { log.waves++; cast.releaseWave(); },

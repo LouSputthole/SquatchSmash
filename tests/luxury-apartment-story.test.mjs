@@ -317,14 +317,34 @@ test('beat 27 rings in the luxury apartment and leaves for the existing pickup',
   assert.equal(campaign.state.story.timeEvents.filter(
     (id) => id === TIME_EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL,
   ).length, 1);
+  /* Owner, 2026-09-02: the suit first, then the wait, then Lag's text. */
+  const suit = story.tryLeave();
+  assert.equal(suit.kind, 'activity');
+  assert.equal(suit.id, 'special_meeting_suit');
+  assert.equal(suit.label, 'Put on the suit');
+  assert.equal(suit.takes.length, 3, 'the door still refuses in his own recorded voice');
+  assert.deepEqual(story.objectives().items[0], {
+    id: 'special_meeting_suit',
+    label: 'Put on the suit',
+    done: false,
+    required: true,
+  });
+  assert.equal(story.tryLeave({ carOutside: true }).kind, 'activity',
+    'the car cannot take a man who has not put the suit on');
+  assert.equal(story.dressedForMeeting(), false);
+  assert.equal(story.dressForMeeting(), true);
+  assert.equal(story.dressForMeeting(), false, 'the suit goes on exactly once');
+  assert.equal(campaign.state.story.timeEvents.filter(
+    (id) => id === TIME_EVENT_IDS.SPECIAL_MEETING_DRESSED,
+  ).length, 1);
   const waiting = story.tryLeave();
   assert.equal(waiting.kind, 'wait');
   assert.equal(waiting.id, 'special_meeting_car');
-  assert.equal(waiting.label, 'Wait in for Seff, Lag and Numbskull');
+  assert.equal(waiting.label, 'Wait in for the text');
   assert.equal(waiting.takes.length, 3);
   assert.deepEqual(story.objectives().items[0], {
     id: 'special_meeting_car',
-    label: 'Wait in for Seff, Lag and Numbskull',
+    label: 'Wait in for the text',
     done: false,
     required: true,
   });
@@ -334,6 +354,7 @@ test('beat 27 rings in the luxury apartment and leaves for the existing pickup',
 
   const reloaded = createLuxuryApartmentStory({ campaign: createCampaign({ storage }) });
   assert.equal(reloaded.pendingCall(), null, 'reload replayed the answered call');
+  assert.equal(reloaded.dressedForMeeting(), true, 'reload undressed him');
   assert.equal(reloaded.tryLeave().kind, 'wait', 'reload skipped the resumed car-arrival beat');
   assert.deepEqual(reloaded.tryLeave({ carOutside: true }), {
     kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING,

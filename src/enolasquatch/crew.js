@@ -26,9 +26,10 @@
  *    same gold subtitle colour. Big Uncle Lou is not on this aeroplane; his
  *    only lines are the telephone call at the front and the arrival at the end.
  *  - Irish and the Shubenator have their own photographs.
- *  - Numbskull has none (`assets/faces/index.json`), so he is procedural, the
- *    way `makeGuard`/`makeAssociate` figures are. Nobody else's photograph is
- *    borrowed for him — that is how a second identity gets minted by accident.
+ *  - Numbskull had none until 2026-09-01 and was procedural, the way
+ *    `makeGuard`/`makeAssociate` figures are; his own photograph is on the
+ *    index now and he wears it. Nobody else's photograph was ever borrowed
+ *    for him — that is how a second identity gets minted by accident.
  */
 import * as THREE from 'three';
 import {
@@ -302,12 +303,13 @@ export function createCrew() {
   irish.tag = nameTag('IRISH', COLOUR.IRISH);
   irish.group.add(irish.tag);
 
-  /* Numbskull: no photograph exists, so he is built rather than pasted. The
-   * loud coveralls and the wrench are the read — he is the man who did the
-   * bomb-bay bolts. */
+  /* Numbskull: the loud coveralls and the wrench are the read — he is the
+   * man who did the bomb-bay bolts — and since 2026-09-02 the face is his
+   * own photograph rather than the built head he wore while none existed. */
   const numbskull = makeFigure({
     name: 'numbskull',
     actorRole: 'crew',
+    face: 'assets/faces/numbskull.png',
     skin: 0xb07a4e,
     shirt: 0xb8a04a,
     jacket: 0x5a5a3a,          // grease-shiny coveralls
