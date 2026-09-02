@@ -591,8 +591,8 @@ test('every authored apartment iteration receives a coherent isolated campaign c
       },
     },
     {
-      variant: 'after-heist', spawn: 'front_door', chapter: 'post_heist', day: 4,
-      time: 17 * 60 + 20,
+      variant: 'after-heist', spawn: 'front_door', chapter: 'post_heist', day: 5,
+      time: 18 * 60 + 50,
       verify(state, campaign) {
         const heist = state.missions[MISSION_IDS.BANK_HEIST];
         assert.equal(heist.status, 'complete');
@@ -604,11 +604,16 @@ test('every authored apartment iteration receives a coherent isolated campaign c
           heist.operationalLoss + heist.familyShare + heist.crewShare + heist.prospectShare,
           heist.grossTake,
         );
+        assert.equal(heist.prospectShare, 300, 'the Prospect gets walking-around money');
         assert.equal(state.missions[MISSION_IDS.SILVER_CASE].status, 'available');
-        assert.equal(
-          createApartmentStory({ campaign }).tryLeave(state.activities).id,
-          'washed',
-        );
+        /* Beats 12 and 13 are still ahead of him: the owner reported going
+         * to bed here and waking to "leave for the new place" with no call
+         * and no round, because this seed used to complete the golf first. */
+        assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'pending');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
+        const story = createApartmentStory({ campaign });
+        assert.equal(story.tryLeave(state.activities).id, 'washed');
+        assert.deepEqual(story.sleep(), { ok: false, reason: 'new_space_call_pending' });
       },
     },
   ];

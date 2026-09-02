@@ -56,6 +56,31 @@ function flat(group, size, position, material, name = '') {
   return item;
 }
 
+/** Swap-yard dressing materials: cardboard, wool, canvas, case foam, plastic. */
+const SWAP_MAT = {
+  cardboard: new THREE.MeshStandardMaterial({ color: 0x8a7350, roughness: 0.95 }),
+  wool: new THREE.MeshStandardMaterial({ color: 0x262b36, roughness: 1 }),
+  canvas: new THREE.MeshStandardMaterial({ color: 0x4a4636, roughness: 0.96 }),
+  foam: new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 1 }),
+  rag: new THREE.MeshStandardMaterial({ color: 0x9c9a90, roughness: 1 }),
+  plastic: new THREE.MeshStandardMaterial({ color: 0x3b5c8a, roughness: 0.4 }),
+};
+
+/**
+ * Every part added to a swap-yard prop belongs to that prop's assembly.
+ *
+ * The bases are owned by `ownGeometry` further down; the parts under them
+ * take the same id so the gate reads a kit, a carton or a case as one thing
+ * rather than a base with strangers stacked on it.
+ */
+function stampSwapDetail(base) {
+  const assemblyId = base.userData.geometryGate?.assemblyId ?? `heist.driving.${base.name}`;
+  base.traverse((object) => {
+    if (object === base) return;
+    object.userData.geometryGate = { ...object.userData.geometryGate, assemblyId };
+  });
+}
+
 function ownGeometry(node, assemblyId, policy = {}) {
   node.userData.geometryGate = {
     ...node.userData.geometryGate,
@@ -2875,12 +2900,125 @@ function buildDriving() {
    * Measured after: 66 of 66. */
   const trunk = box(group, [1.4, 0.7, 0.2], [23.8, 0.82, -653.88], MAT.steel, 'swap-trunk');
   ownGeometry(trunk, 'heist.vehicle.clean-swap-car');
-  const bagsProp = box(group, [1.6, 0.7, 0.8], [17.7, 0.36, -652], MAT.darkConcrete, 'swap-bags');
+  /* THE SIX THINGS YOU UNLOAD INTO, DRAWN AS THE THINGS THEY ARE.
+   *
+   * Owner, playtest 2026-09-02: *"we just need a little more detail on all
+   * the objects you're unloading into so you can kinda see what they are.
+   * They're just, like, perfectly square boxes right now."* They were six
+   * unlabelled boxes on a bench and a tarp. Each keeps its name, its place
+   * and its footprint -- the interaction handlers and the checked-in
+   * geometry paths address them by name -- and grows the parts that say what
+   * it is: a pallet with the recovered bags on it, a white kit with a red
+   * cross, an open carton of balaclavas, a stack of folded jackets with the
+   * collars showing, a hard case open on a carbine, and a rag with the spray
+   * bottle beside it. Everything new sits ON its base rather than in it, so
+   * the geometry gate reads contact, not penetration. */
+  const bagsProp = box(group, [1.6, 0.14, 0.8], [17.7, 0.07, -652], MAT.wood, 'swap-bags');
+  ownGeometry(bagsProp, 'heist.driving.swap-bags');
+  {
+    // Deck boards: three slats proud of the pallet top, the way a pallet reads.
+    for (const z of [-0.28, 0, 0.28]) box(bagsProp, [1.56, 0.02, 0.16], [0, 0.08, z], MAT.richWood);
+    /* Four of the eight bags out of the sedan, in one layer -- a second layer
+     * would land on the first's straps, and the gate would call that a
+     * bag inside a bag. Bag bodies are 0.66 x 0.36 at this scale, so the
+     * 2 x 2 at +-0.38 / +-0.2 leaves 10 cm between them. */
+    for (const [x, z, yaw] of [[-0.38, -0.2, 0.06], [0.38, -0.2, -0.05], [-0.38, 0.2, -0.08], [0.38, 0.2, 0.04]]) {
+      const bag = makeCashBag({ full: true });
+      bag.scale.setScalar(1.5);
+      bag.position.set(x, 0.09 + 0.135 * 1.5, z);
+      bag.rotation.y = yaw;
+      bagsProp.add(bag);
+    }
+  }
   const aid = box(group, [0.62, 0.18, 0.42], [15.8, 0.89, -654], MAT.marble, 'swap-aid');
-  const masks = box(group, [0.72, 0.16, 0.48], [17.1, 0.88, -654], MAT.darkConcrete, 'swap-masks');
-  const jackets = box(group, [1.1, 0.28, 0.6], [18.5, 0.15, -657], MAT.wood, 'swap-jackets');
+  {
+    // The cross on the lid, a carry handle behind it, two latches on the front.
+    box(aid, [0.2, 0.008, 0.06], [-0.1, 0.094, 0.04], MAT.warning);
+    box(aid, [0.06, 0.008, 0.2], [-0.1, 0.094, 0.04], MAT.warning);
+    box(aid, [0.16, 0.03, 0.03], [0.16, 0.105, -0.1], MAT.steel);
+    for (const x of [-0.2, 0.2]) box(aid, [0.05, 0.05, 0.012], [x, 0.02, 0.216], MAT.steel);
+  }
+  const masks = box(group, [0.72, 0.16, 0.48], [17.1, 0.88, -654], SWAP_MAT.cardboard, 'swap-masks');
+  {
+    // An open carton: two flaps folded back off the long edges, three hoods on top.
+    for (const side of [-1, 1]) {
+      const flap = new THREE.Group();
+      flap.position.set(0, 0.08, side * 0.24);
+      flap.rotation.x = side * -0.6;
+      masks.add(flap);
+      box(flap, [0.7, 0.012, 0.2], [0, 0, side * 0.1], SWAP_MAT.cardboard);
+    }
+    for (const [x, yaw] of [[-0.22, 0.3], [0, -0.2], [0.22, 0.5]]) {
+      const hood = box(masks, [0.18, 0.1, 0.16], [x, 0.13, 0], MAT.tactical);
+      hood.rotation.y = yaw;
+    }
+  }
+  const jackets = box(group, [1.1, 0.28, 0.6], [18.5, 0.15, -657], SWAP_MAT.wool, 'swap-jackets');
+  {
+    // Two more folded on top of the pair the base already is, collars out.
+    const upper = box(jackets, [0.96, 0.07, 0.52], [0.02, 0.175, 0.01], SWAP_MAT.canvas);
+    upper.rotation.y = 0.08;
+    const top = box(jackets, [0.9, 0.07, 0.5], [-0.03, 0.245, -0.02], SWAP_MAT.wool);
+    top.rotation.y = -0.06;
+    box(jackets, [0.28, 0.02, 0.09], [0.3, 0.29, 0.14], SWAP_MAT.canvas);
+    box(jackets, [0.28, 0.02, 0.09], [-0.3, 0.29, -0.14], SWAP_MAT.canvas);
+  }
   const weapons = box(group, [1.7, 0.24, 0.62], [20.2, 0.16, -657], MAT.steel, 'swap-weapons');
-  const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.84, -654], MAT.marble, 'swap-wipe');
+  {
+    /* A hard case with its lid lifted off and set down on the tarp behind
+     * it, the carbine on the foam. The lid is NOT a child of the case, on
+     * purpose: a lid hinged open (80, 112 and 149 degrees were all tried)
+     * stretches the prop's bounding box up and back, and the ray probe in
+     * tests/heist-swap-evidence.test.mjs aims at that box's centre -- from
+     * the front and the sides all three aim heights sailed over a case whose
+     * body tops out at 0.28 m, and it was acquired from 152, 145 and 151 of
+     * 168 viewpoints against a 95 % floor. A lid on the ground beside it
+     * leaves the box the case's own, and the case is 168 of 168 again. */
+    box(weapons, [1.6, 0.02, 0.5], [0, 0.13, 0.03], SWAP_MAT.foam);
+    const lidStart = group.children.length;
+    box(group, [1.66, 0.02, 0.6], [20.2, 0.031, -657.63], MAT.steel, 'swap-weapons-lid');
+    box(group, [1.5, 0.03, 0.46], [20.2, 0.056, -657.63], SWAP_MAT.foam);
+    ownAddedChildren(group, lidStart, 'heist.driving.sorting-tarp');
+    for (const x of [-0.7, 0.7]) box(weapons, [0.06, 0.05, 0.04], [x, 0.025, 0.33], MAT.darkConcrete);
+    /* On its side, bore along the case, sights to the front: a carbine
+     * standing on its magazine has a barrel 13 cm off the foam, and the
+     * geometry gate reads a barrel 13 cm off the foam as floating. Lying
+     * flat, the whole length is in contact. The lowest part is measured off
+     * the built model rather than assumed, and the foam pads under the
+     * barrel and the stock are cut to whatever height those two parts
+     * actually lie at. */
+    const carbine = makeHeistCarbine();
+    carbine.name = 'swap-weapons-carbine';
+    carbine.quaternion
+      .setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2));
+    carbine.updateMatrixWorld(true);
+    const carbineBounds = new THREE.Box3().setFromObject(carbine);
+    carbine.position.set(0.1, 0.14 - carbineBounds.min.y + 0.002, 0.05);
+    weapons.add(carbine);
+    carbine.updateMatrixWorld(true);
+    weapons.updateMatrixWorld(true);
+    for (const partName of ['carbine-barrel', 'carbine-stock', 'carbine-buffer-tube', 'carbine-flash-hider']) {
+      const part = carbine.getObjectByName(partName);
+      if (!part) continue;
+      const partBounds = new THREE.Box3().setFromObject(part);
+      const centre = partBounds.getCenter(new THREE.Vector3());
+      weapons.worldToLocal(centre);
+      const bottom = weapons.worldToLocal(new THREE.Vector3(centre.x, partBounds.min.y, centre.z)).y;
+      const padTop = bottom - 0.004;
+      if (padTop - 0.14 < 0.03) continue;
+      const height = padTop - 0.14;
+      box(weapons, [0.12, height, 0.1], [centre.x, 0.14 + height / 2, centre.z], SWAP_MAT.foam);
+    }
+  }
+  const wipe = box(group, [0.6, 0.08, 0.42], [21.7, 0.84, -654], SWAP_MAT.rag, 'swap-wipe');
+  {
+    // The rag is the base; the spray bottle stands on the far corner of it.
+    box(wipe, [0.3, 0.02, 0.2], [-0.1, 0.05, -0.05], SWAP_MAT.rag);
+    const bottle = mesh(wipe, new THREE.CylinderGeometry(0.035, 0.04, 0.2, 12), SWAP_MAT.plastic, [0.2, 0.14, 0.08]);
+    bottle.name = 'swap-wipe-bottle';
+    box(wipe, [0.03, 0.05, 0.06], [0.2, 0.265, 0.08], MAT.darkConcrete);
+  }
   /* THE DRIVER'S DOOR OF THE CLEAN CAR, WHICH USED TO BE INSIDE THE CLEAN CAR.
    *
    * Owner, playtest 2026-08-26: *"the final car has no usable E zone"*. The
@@ -2910,6 +3048,11 @@ function buildDriving() {
   ownGeometry(jackets, 'heist.driving.sorting-tarp');
   ownGeometry(weapons, 'heist.driving.sorting-tarp');
   ownGeometry(depart, 'heist.driving.depart-proxy', { overlap: false, checkSupport: false });
+  /* After the bases are owned, so a kit and its cross, a case and its lid and
+   * carbine, are one assembly resting on the bench or the tarp. Stamped
+   * before ownership, the parts formed a second assembly whose lowest piece
+   * -- a latch on the case front -- hung 13 cm over the tarp on its own. */
+  for (const base of [bagsProp, aid, masks, jackets, weapons, wipe]) stampSwapDetail(base);
 
   const car = makeVehicleBody(group, [ESCAPE_START.x, 0, ESCAPE_START.z], 0x34393d, 'player-car');
   for (const z of [-0.58, 0.58]) {

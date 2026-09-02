@@ -238,33 +238,11 @@
       "text": "284a206d85c1",
       "source": "assumed"
     },
-    "heist.lou_home_order": {
-      "text": "417a919fdb98",
-      "source": "rendered",
-      "voice": "lou",
-      "voiceId": "M9UAxraM2w5tCjpOaIB0"
-    },
     "heist.lou_phone_home": {
       "text": "97480e73c444",
       "source": "rendered",
       "voice": "lou",
       "voiceId": "M9UAxraM2w5tCjpOaIB0"
-    },
-    "heist.lou_radio_lobby": {
-      "text": "c3ee63c814c2",
-      "source": "assumed"
-    },
-    "heist.lou_radio_open": {
-      "text": "2e08e433b7a5",
-      "source": "assumed"
-    },
-    "heist.lou_radio_street": {
-      "text": "0359272d49f4",
-      "source": "assumed"
-    },
-    "heist.lou_radio_vault": {
-      "text": "d8ced050212b",
-      "source": "assumed"
     },
     "heist.manager_delay": {
       "text": "7a9cb2b3f273",
@@ -7628,6 +7606,12 @@
     },
     "vo.door.refusal.cabin_message.1": {
       "text": "d1f83daa95f0",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "vo.door.refusal.campaign_complete.1": {
+      "text": "608671152eab",
       "source": "rendered",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"
@@ -18021,12 +18005,6 @@
     "vo.zyn.5": {
       "text": "8158ea6aa3a4",
       "source": "assumed"
-    },
-    "vo.door.refusal.campaign_complete.1": {
-      "text": "608671152eab",
-      "source": "rendered",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B"
     }
   }
 }

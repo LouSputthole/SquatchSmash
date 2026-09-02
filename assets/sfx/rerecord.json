@@ -32,6 +32,11 @@
       "cue": "vo.sf.opening.history.4",
       "retiredText": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
       "reason": "Owner, 2026-09-01: the accepted punch-up pick is the colostomy-bag line; the campaign-reconcile pass replaced it and the take on disk speaks the rewrite."
+    },
+    {
+      "cue": "vo.door.refusal.heist_cleanup.1",
+      "retiredText": "Not walking into the Bing wearing the bank. Clean up first.",
+      "reason": "Owner, 2026-09-02: nobody goes to the Bing after THE TAKE -- beat 12 is Lou's new-space call and beat 13 the course. The take on disk still names the Bing."
     }
   ],
   "retired": [

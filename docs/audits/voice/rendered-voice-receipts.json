@@ -1,18 +1,31 @@
 {
   "schema": "squatchsmash.rendered-voice-receipts.v2",
   "coverage": {
-    "authoredPlayable": 4102,
-    "currentDelivered": 4100,
-    "outstanding": 2,
+    "authoredPlayable": 4109,
+    "currentDelivered": 4094,
+    "outstanding": 15,
     "missing": [
+      "heist.death_debrief_people",
+      "heist.death_doors_first",
+      "heist.death_garage_hold",
+      "heist.death_lobby_wide",
+      "heist.death_van_dead",
+      "heist.death_vault_handles",
+      "heist.numb_vault_trolleys",
+      "heist.shubes_alarm_clock",
+      "heist.snow_lobby_floor",
+      "heist.snow_street_sirens",
+      "heist.snow_van_clock",
+      "heist.snow_vault_eight",
       "vo.wake.5"
     ],
     "rerecord": [
+      "vo.door.refusal.heist_cleanup.1",
       "vo.sf.opening.history.4"
     ],
     "recast": [],
-    "renderedExact": 544,
-    "assumedCurrent": 3556
+    "renderedExact": 543,
+    "assumedCurrent": 3551
   },
   "receipts": [
     {
@@ -38,19 +51,6 @@
       "voice": "heist-customer",
       "voiceId": "8Nfp0JhQpkjJB35HObeq",
       "durationSeconds": 4.18,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "heist.lou_home_order",
-      "file": "heist.lou_home_order.mp3",
-      "sha256": "5de5a63fd7d2dfcfd4f734cdc34ec398acad2e72f1096139a854ebb1dd019c12",
-      "bytes": 98264,
-      "indexVersion": "ca4ab7f54f",
-      "textHash": "417a919fdb98",
-      "voice": "lou",
-      "voiceId": "M9UAxraM2w5tCjpOaIB0",
-      "durationSeconds": 6.084,
       "sampleRate": 44100,
       "channels": 1
     },

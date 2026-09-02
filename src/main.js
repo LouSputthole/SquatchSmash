@@ -2181,10 +2181,17 @@ function lieOnBed() {
 function sleepInBed() {
   hud.setPosture(null);
   if (!game.inBed || game.passingOut) return;
+  const storySleep = apartmentStory.sleep();
+  /* The evening of THE TAKE ends with Lou's call, not with the bed. He is
+   * still lying there; the phone is what he is waiting on. */
+  if (!storySleep.ok && storySleep.reason === 'new_space_call_pending') {
+    hud.say('Not yet. Lou said stay by the phone, and you are not sleeping through that call.', 3600);
+    hud.setPosture('get up');
+    return;
+  }
   game.inBed = false;
   hud.hidePrompt();
   audio.say('sleep');
-  const storySleep = apartmentStory.sleep();
   // Commit the next chapter's physical dressing with its campaign checkpoint.
   // Reapplying it on wake remains idempotent and the blackout hides the swap.
   if (storySleep.ok) {
@@ -3597,7 +3604,15 @@ function installHeistApartmentInteractions() {
       enabled: () => piece.group.visible,
       onUse: () => {
         if (!apartmentStory.completeHeistCleanup(item.id)) return;
-        audio.play(`heist.apartment.${item.id}`, { volume: 0.7 });
+        /* The wash take on disk runs 30.07 s -- a shower, when the beat is a
+         * face and hands at the sink. Owner, playtest 2026-09-02: *"that
+         * sound effect just lasts way too long."* The synth stand-in for the
+         * same cue is 0.58 s (`src/core/audio.js`), so the recording is
+         * held to four seconds and faded out rather than re-rendered. */
+        audio.play(`heist.apartment.${item.id}`, {
+          volume: 0.7,
+          ...(item.id === 'washed' ? { duration: 4 } : {}),
+        });
         hud.toast(item.label, 'good');
         syncHeistApartmentProps();
         updateObjectives();

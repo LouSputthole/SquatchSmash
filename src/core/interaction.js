@@ -111,6 +111,12 @@ export class InteractionSystem {
     let found = null;
     let soft = null;
     for (const hit of hits) {
+      /* Aim volumes are for bullets, not for the crosshair. A combat scene
+       * wraps every person in an invisible person-sized box so a shot can find
+       * them; those boxes were also the first thing this ray met, so a dead
+       * officer lying beside THE TAKE's van ate the van's prompt with nothing
+       * visible on screen to explain it. */
+      if (hit.object.userData?.aimProxy) continue;
       const owner = this._ownerOf(hit.object);
       if (!owner) break;
       const desc = owner.userData.interact;

@@ -884,6 +884,20 @@ export class AudioEngine {
         playback.naturalEnd = endedAt >= when + expected - 0.06;
       };
       src.start(when);
+      /* `duration` caps a one-shot that is longer than the beat it scores:
+       * the level ramps to silence over the last third of a second and the
+       * source is stopped, so a thirty-second wash take can play as the four
+       * seconds the sink actually takes. Shorter than the take only; a cap
+       * past the natural end is a no-op. */
+      const capSeconds = Number(opts.duration);
+      if (Number.isFinite(capSeconds) && capSeconds > 0 && capSeconds < playback.seconds) {
+        const endAt = when + capSeconds;
+        const tail = Math.min(0.35, capSeconds * 0.4);
+        out.gain.setValueAtTime(volume, Math.max(when, endAt - tail));
+        out.gain.linearRampToValueAtTime(0, endAt);
+        src.stop(endAt + 0.02);
+        playback.cappedSeconds = capSeconds;
+      }
       const receipt = this._recordPlaybackReceipt(name, opts, {
         actual: name, source: 'buffer', started: true, scheduledAt: when,
         positionalSeed: seed,

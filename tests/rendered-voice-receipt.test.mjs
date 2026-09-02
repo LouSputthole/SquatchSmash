@@ -24,9 +24,10 @@ test('every exact rendered take has a current text, performer, index, hash, and 
    * take named six o'clock and Day One wakes at five PM now, so that file
    * was deleted rather than left to play an hour-wrong bark
    * (assets/sfx/rerecord.json `retired`); the campaign-complete door refusal
-   * landed with the motel audio-bed branch on 2026-09-02, so the count is
-   * back at 544. */
-  assert.equal(current.length, 544);
+   * landed with the motel audio-bed branch on 2026-09-02, and the same day
+   * THE TAKE retired Lou's four radio lines and the repeated go-home order
+   * with their takes (he is not on the job; Snow is), so 543. */
+  assert.equal(current.length, 543);
   assert.equal(RENDERED_VOICE_AUDIT_SAMPLE_RATE, 44_100,
     'browser decode receipts must not drift with the host audio device');
   assert.ok(evidence.receipts.every((row) => row.sampleRate === RENDERED_VOICE_AUDIT_SAMPLE_RATE));
@@ -38,13 +39,16 @@ test('every exact rendered take has a current text, performer, index, hash, and 
   assert.equal(coverage.currentDelivered,
     coverage.renderedExact + coverage.assumedCurrent,
     'legacy assumed takes must remain visible beside exact render receipts');
-  /* Two outstanding, each with a ledger entry the booth sheet shows:
-   * vo.wake.5 was retired with the five-PM start, and the Squatchfather's
-   * Booski line went back to the owner's accepted colostomy-bag pick and
-   * awaits its new take. */
-  assert.equal(coverage.outstanding, 2);
-  assert.equal(coverage.missing.length, 1);
-  assert.equal(coverage.rerecord.length, 1);
+  /* Fifteen outstanding, each with a ledger entry the booth sheet shows.
+   * Missing: vo.wake.5 (retired with the five-PM start) and the twelve THE
+   * TAKE lines authored 2026-09-02 -- Snow's four command beats that were
+   * Lou's, and eight for DeathMegatron, Numbskull and the Shubenator in the
+   * rooms they were quiet in. Re-record: the Squatchfather's Booski line
+   * (back to the owner's colostomy-bag pick) and the apartment's heist
+   * door refusal, which still names the Bing. */
+  assert.equal(coverage.outstanding, 15);
+  assert.equal(coverage.missing.length, 13);
+  assert.equal(coverage.rerecord.length, 2);
   assert.equal(coverage.recast.length, 0);
 });
 

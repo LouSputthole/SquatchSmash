@@ -94,7 +94,12 @@ export function poseHeistCrewGeometry({ level, crew, phase, assignAnchor = null 
       });
       actor.figure?.setIdleLook?.({ seed: index + 1, range: 0.68, hold: [0.9, 2.8] });
     } else {
-      if (actor.figure?.pose === 'seated') actor.figure.stand();
+      /* Back on his feet with the gun where he carries it -- `lowReady` when
+       * the figure was armed by `armCrewMember`, `stand` for anyone else. */
+      if (actor.figure?.pose === 'seated') {
+        if (actor.group.userData.weapon && actor.figure.lowReady) actor.figure.lowReady();
+        else actor.figure.stand();
+      }
       actor.figure?.setIdleLook?.(null);
     }
     anchors[actor.id] = anchor;

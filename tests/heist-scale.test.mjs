@@ -128,7 +128,12 @@ test('named heist crew keep their canonical bodies underneath the job gear', () 
     assert.ok(actor.figure.parts.body.getObjectByName('crew-plate-carrier'), `${id} lost the tactical carrier`);
     const weaponName = id === CHARACTER_IDS.SNOW || id === CHARACTER_IDS.DEATHMEGATRON
       ? 'crew-carbine' : 'crew-sidearm';
-    assert.ok(actor.figure.parts.body.getObjectByName(weaponName), `${id} lost the heist weapon overlay`);
+    /* In the firing hand, off the forearm, since the crew started holding
+     * their guns rather than wearing them (2026-09-02). */
+    const weapon = actor.figure.root.getObjectByName(weaponName);
+    assert.ok(weapon, `${id} lost the heist weapon`);
+    assert.equal(weapon.parent, actor.figure.parts.foreR, `${id} is not holding the ${weaponName}`);
+    assert.equal(actor.figure.pose, 'ready', `${id} is not carrying the ${weaponName} at the low ready`);
     assert.ok(actor.figure.parts.body.getObjectByName('crew-weapon-sling'), `${id} lost the weapon sling`);
     if (id === CHARACTER_IDS.NUMBSKULL) {
       assert.ok(actor.figure.parts.head.getObjectByName('person.glasses.bridge'),
@@ -258,16 +263,28 @@ test('lines written this pass are all in the pending bank with heist cues', () =
   }
 });
 
-test('Big Uncle Lou has a real presence on the job and owns the debrief', () => {
-  // He had exactly one cue in the whole mission — the old `heist.lou_call`, at the very
-  // end — which is part of why the debrief did not read as anything.
+test('Snow runs the job and Big Uncle Lou owns the telephone, once', () => {
+  /* Lou had exactly one cue in the whole mission, then a later pass put him
+   * on the radio for the robbery. Owner, 2026-09-02: he is not there -- Snow
+   * is -- and the handset said the verdict twice. So: no Lou line is playable
+   * anywhere but the call, the four command beats are Snow's, and the crew
+   * who ARE in the room have lines in the rooms they were quiet in. */
   const lou = Object.entries(HEIST_PENDING_DIALOGUE)
     .filter(([, entry]) => entry.speakerId === 'lou');
-  assert.ok(lou.length >= 10, `Lou still only has ${lou.length} new lines`);
-  assert.ok(lou.some(([, entry]) => entry.states?.includes('LOBBY_CONTROL')),
-    'Lou never speaks during the robbery itself');
-  assert.equal(lou.filter(([, entry]) => entry.states?.includes('DEBRIEF')).length >= 6, true,
-    'Lou does not carry the debrief');
+  assert.ok(lou.length >= 8, `Lou lost his verdict: ${lou.length} lines`);
+  for (const [id, entry] of lou) {
+    assert.deepEqual(entry.states, ['LOU_CALL_SAFEHOUSE'], `${id} plays somewhere other than the call`);
+  }
+  assert.equal(HEIST_PENDING_DIALOGUE.lou_home_order, undefined, 'the repeated go-home verdict is retired');
+  for (const id of ['snow_van_clock', 'snow_lobby_floor', 'snow_vault_eight', 'snow_street_sirens']) {
+    assert.equal(HEIST_PENDING_DIALOGUE[id]?.speakerId, 'snow', `${id} is not Snow's`);
+  }
+  for (const id of ['death_doors_first', 'death_lobby_wide', 'death_vault_handles', 'death_van_dead',
+    'death_garage_hold', 'death_debrief_people']) {
+    assert.equal(HEIST_PENDING_DIALOGUE[id]?.speakerId, 'deathmegatron', `${id} is not DeathMegatron's`);
+  }
+  assert.equal(HEIST_PENDING_DIALOGUE.numb_vault_trolleys?.speakerId, 'numbskull');
+  assert.equal(HEIST_PENDING_DIALOGUE.shubes_alarm_clock?.speakerId, 'shubenator');
   for (const [, entry] of lou) {
     assert.equal(entry.subtitleName, 'Big Uncle Lou');
     // lou1 is Big Uncle Lou Sputthole. lou2 is Captain Lou Sasole, a different
@@ -293,8 +310,8 @@ test('a dirty TAKE debrief never falls through to clean praise', () => {
 test('THE TAKE visibly occurs on Day Five and Lou sends the Prospect home by phone', () => {
   const html = readFileSync(new URL('../heist.html', import.meta.url), 'utf8');
   const closing = [
+    HEIST_PENDING_DIALOGUE.lou_debrief_verdict_good,
     HEIST_PENDING_DIALOGUE.lou_phone_home,
-    HEIST_PENDING_DIALOGUE.lou_home_order,
     HEIST_PENDING_DIALOGUE.prospect_phone_home,
   ];
   const words = closing.map((line) => line?.text ?? '').join(' ');

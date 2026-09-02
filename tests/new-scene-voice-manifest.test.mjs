@@ -346,11 +346,15 @@ test('the bank\'s own people are cast, and the two Lous stay apart', () => {
   assert.equal(byName.get('heist.hostage_plead_one').voice, 'heist-customer');
   assert.equal(byName.get('heist.guard_warning').voice, 'heist-guard');
   /* The heist casts Big Uncle Lou on `lou`, which is a different profile from
-   * `lou1` and a very different man from `lou2`. Landing 13 new cues for him
-   * must not quietly re-cast the one that was already recorded. */
+   * `lou1` and a very different man from `lou2`. He is the telephone and
+   * only the telephone since 2026-09-02 -- nine lines, the verdict and the
+   * go-home order -- and none of them may quietly re-cast. Snow carries the
+   * four command beats that were his. */
   assert.equal(byName.get('heist.lou_phone_home').voice, 'lou');
   const lou = [...byName.values()].filter((cue) => cue.voice === 'lou');
-  assert.ok(lou.length >= 14, `Lou is only cast on ${lou.length} lines`);
+  assert.equal(lou.length, 9, `Lou is cast on ${lou.length} lines`);
+  assert.equal(byName.has('heist.lou_radio_lobby'), false, 'Lou is not on the job radio');
+  assert.equal(byName.get('heist.snow_lobby_floor').voice, 'snow');
   assert.equal([...byName.values()].some((cue) => cue.voice === 'lou2'), false,
     'Captain Lou Sasole is not in this bank');
 });

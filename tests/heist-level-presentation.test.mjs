@@ -697,10 +697,12 @@ test('the crew ride the van sat on the benches, facing each other', () => {
   assert.equal(new Set(yaws).size, yaws.length,
     `all five heads point the same way: ${yaws.join(', ')}`);
 
-  // Out of the van, they stand back up.
+  // Out of the van, they stand back up -- at the low ready, guns in hand,
+  // which is how an armed crew stands since 2026-09-02 (`HeistFigure.lowReady`).
   poseHeistCrewGeometry({ level, crew, phase: 'bank' });
   for (const actor of crew.values()) {
-    assert.equal(actor.figure.pose, 'stand', `${actor.id} walked into the bank sitting down`);
+    assert.equal(actor.figure.pose, 'ready', `${actor.id} walked into the bank sitting down`);
+    assert.ok(actor.group.userData.weapon, `${actor.id} walked into the bank unarmed`);
   }
 });
 

@@ -37,6 +37,9 @@ function inferredOutcome(mission) {
   return 'barely_clean';
 }
 
+/** What a prospect is paid for a bank: enough for a cab and a sandwich. */
+export const PROSPECT_WALKING_AROUND_MONEY = 300;
+
 export function computeHeistSettlement(report = {}) {
   const grossTake = Math.max(0, integer(report.grossTake));
   const compromisedCash = Math.max(0, Math.min(grossTake, integer(report.compromisedCash)));
@@ -50,11 +53,22 @@ export function computeHeistSettlement(report = {}) {
       + injuryCost,
   );
   const distributable = Math.max(0, grossTake - compromisedCash - operationalLoss);
-  const familyShare = Math.floor(distributable * 0.5);
+  /* THE PROSPECT'S END IS THREE HUNDRED DOLLARS.
+   *
+   * It was ten per cent of the distributable -- $142,000 on a clean run --
+   * and the owner read the card and laughed at the wrong thing. Playtest
+   * 2026-09-02: *"cut down the prospect share at the very end. It's a
+   * hundred and forty two. Let's cut it down to a comical number, like
+   * three hundred dollars."* He is a prospect. He carried the bags. The
+   * Family takes what would have been his, the crew's forty stays the
+   * crew's, and the card prints $300 under a $1.47 M expected take, which is
+   * the joke. A take too small to cover it pays him what there is. */
   const crewShare = Math.floor(distributable * 0.4);
-  const prospectShare = distributable - familyShare - crewShare;
+  const prospectShare = Math.min(PROSPECT_WALKING_AROUND_MONEY, distributable - crewShare);
+  const familyShare = distributable - crewShare - prospectShare;
   return { operationalLoss, familyShare, crewShare, prospectShare };
 }
+
 
 /**
  * Narrow campaign Adapter for THE TAKE.

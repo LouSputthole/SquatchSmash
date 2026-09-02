@@ -1089,32 +1089,38 @@ try {
   await page.keyboard.press('KeyE');
   await page.waitForFunction(() => window.__heistDebug.state === 'BANK_ENTRY',
     null, { timeout: 30000, polling: 300 });
+  /* The record rides along now (owner, 2026-09-02: "keep the music going at
+   * least into the bank and the vault... just keep it low"): still the one
+   * streamed handle, lowered to the job level, and not retired until the
+   * street -- see the check after STREET_BLOCK_ONE below. */
   await page.waitForFunction(() => {
     const record = window.__heistDebug.snapshot().musicLifecycle.safehouseRecord;
-    return record.activeLoopCount === 0
-      && record.unreleasedStreamHandles === 0
-      && record.lastRetiredReleased;
+    return record.activeLoopCount === 1
+      && Number.isFinite(record.volume)
+      && record.volume <= record.jobVolume + 1e-6;
   }, null, { timeout: 30000, polling: 100 });
   safehouseRecordBeforeBank = await snapshot();
   const prepDuring = safehouseRecordDuringLine.musicLifecycle;
   const prepRestored = safehouseRecordAfterLine.musicLifecycle;
-  const prepRetired = safehouseRecordBeforeBank.musicLifecycle;
-  check('THE TAKE safehouse record starts once, ducks under dialogue, and tears down before the bank',
+  const prepInBank = safehouseRecordBeforeBank.musicLifecycle;
+  check('THE TAKE safehouse record starts once, ducks under dialogue, and follows the crew into the bank low',
     safehouseRecordDuringLine.voice.currentDialogue?.id === 'snow_arrival'
       && prepDuring.safehouseRecord.startCount === 1
       && prepDuring.safehouseRecord.activeLoopCount === 1
       && prepDuring.safehouseRecord.unreleasedStreamHandles === 1
+      && prepDuring.safehouseRecord.volume === prepDuring.safehouseRecord.prepVolume
       && prepDuring.loopKeys.filter((key) => key === 'heist.morning.radio').length === 1
       && prepDuring.streamedLoopKeys.filter((key) => key === 'heist.morning.radio').length === 1
       && prepDuring.duck.active
       && prepDuring.duck.ambience.ratio < 0.8
       && !prepRestored.duck.active
       && prepRestored.duck.ambience.ratio >= 0.95
-      && prepRetired.safehouseRecord.activeLoopCount === 0
-      && prepRetired.safehouseRecord.unreleasedStreamHandles === 0
-      && prepRetired.safehouseRecord.lastRetiredReleased
-      && !prepRetired.loopKeys.includes('heist.morning.radio')
-      && !prepRetired.streamedLoopKeys.includes('heist.morning.radio'),
+      && prepInBank.safehouseRecord.startCount === 1
+      && prepInBank.safehouseRecord.activeLoopCount === 1
+      && prepInBank.safehouseRecord.unreleasedStreamHandles === 1
+      && prepInBank.safehouseRecord.volume <= prepInBank.safehouseRecord.jobVolume + 1e-6
+      && prepInBank.safehouseRecord.volume < prepInBank.safehouseRecord.prepVolume
+      && prepInBank.loopKeys.filter((key) => key === 'heist.morning.radio').length === 1,
     JSON.stringify({
       duringLine: {
         line: safehouseRecordDuringLine.voice.currentDialogue?.id,
@@ -1122,7 +1128,7 @@ try {
         duck: prepDuring.duck.ambience,
       },
       restored: prepRestored.duck.ambience,
-      beforeBank: prepRetired.safehouseRecord,
+      inBank: prepInBank.safehouseRecord,
     }));
   check('the doors open from the seat too, once the mask is down',
     /van doors/i.test(doorPrompt ?? ''), String(doorPrompt));
@@ -1362,6 +1368,25 @@ try {
   await shot('07-downtown-firefight');
   await page.evaluate(() => window.__heistDebug.fail('browser_restore_probe'));
   await page.waitForFunction(() => window.__heistDebug.state === 'STREET_BLOCK_ONE', null, { timeout: 60000, polling: 400 });
+  /* The street is where the record goes: key retired AND the streamed media
+   * element released after its fade, which is the half a loop-map check
+   * cannot see. */
+  await page.waitForFunction(() => {
+    const record = window.__heistDebug.snapshot().musicLifecycle.safehouseRecord;
+    return record.activeLoopCount === 0
+      && record.unreleasedStreamHandles === 0
+      && record.lastRetiredReleased;
+  }, null, { timeout: 30000, polling: 100 });
+  const recordOnStreet = (await snapshot()).musicLifecycle;
+  check('THE TAKE safehouse record tears down on the street',
+    recordOnStreet.safehouseRecord.startCount === 1
+      && recordOnStreet.safehouseRecord.retiredCount === 1
+      && recordOnStreet.safehouseRecord.activeLoopCount === 0
+      && recordOnStreet.safehouseRecord.unreleasedStreamHandles === 0
+      && recordOnStreet.safehouseRecord.lastRetiredReleased
+      && !recordOnStreet.loopKeys.includes('heist.morning.radio')
+      && !recordOnStreet.streamedLoopKeys.includes('heist.morning.radio'),
+    JSON.stringify(recordOnStreet.safehouseRecord));
   state = await snapshot();
   check('failure tears down and rebuilds the checkpoint police wave',
     state.policeTotal === policeBeforeFailure && state.policeActive === policeBeforeFailure,
@@ -1618,17 +1643,16 @@ try {
    * selected branch is dropped. The old bank pushed all of it in one frame
    * into a four-deep queue and lost ten lines. */
   const debriefSaid = [...state.voice.spoken, ...state.voice.queued];
+  /* The room is the crew's; Lou's verdict moved to the handset (2026-09-02,
+   * owner: "merge that phone call into the final scene"). His five lines are
+   * checked on the call below, not here. */
   const expectedDirtyDebrief = [
     'snow_debrief_open',
+    'snow_debrief_people',
+    'death_debrief_people',
+    'snow_debrief_money',
     'numb_debrief_ledger',
     'death_debrief_count',
-    'lou_debrief_open',
-    'snow_debrief_people',
-    'lou_debrief_people_dirty',
-    'snow_debrief_money',
-    'lou_debrief_money_full',
-    'lou_debrief_souvenirs',
-    'lou_debrief_verdict_bad',
     'snow_debrief_ugly',
     'shubes_signature_cleanup',
     'shubes_defend',
@@ -1643,27 +1667,25 @@ try {
         position === 0 || index > dirtyDebriefIndexes[position - 1]
       )),
     JSON.stringify({ expectedDirtyDebrief, dirtyDebriefIndexes, queued: state.voice.queued }));
-  check('Big Uncle Lou frames the debrief and says both objective numbers back',
-    debriefSaid.includes('lou_debrief_open')
-      && debriefSaid.includes('lou_debrief_people_dirty')
-      && debriefSaid.some((id) => id.startsWith('lou_debrief_money'))
-      && debriefSaid.includes('lou_debrief_souvenirs')
-      && debriefSaid.includes('lou_debrief_verdict_bad'),
+  check('Lou stays off the safehouse floor: the verdict is the handset\'s, not the room\'s',
+    !debriefSaid.some((id) => id.startsWith('lou_')),
     JSON.stringify(debriefSaid.filter((id) => id.startsWith('lou_'))));
-  const louRadioScheduled = new Set([
+  const snowCommandsScheduled = new Set([
     ...state.voice.spoken,
     ...state.voice.busQueued,
     state.voice.busCurrent,
     ...state.voice.commandBacklog,
   ].filter(Boolean));
-  check('Lou is on the job as well as at the end of it',
-    ['lou_radio_open', 'lou_radio_lobby', 'lou_radio_vault', 'lou_radio_street']
-      .every((id) => louRadioScheduled.has(id)),
+  check('Snow runs the job: the van clock, the lobby floor, the trolley number and the sirens are hers',
+    ['snow_van_clock', 'snow_lobby_floor', 'snow_vault_eight', 'snow_street_sirens']
+      .every((id) => snowCommandsScheduled.has(id))
+      && !['lou_radio_open', 'lou_radio_lobby', 'lou_radio_vault', 'lou_radio_street']
+        .some((id) => snowCommandsScheduled.has(id)),
     JSON.stringify({
-      spoken: state.voice.spoken.filter((id) => id.startsWith('lou_radio')),
+      spoken: state.voice.spoken.filter((id) => /^(snow_(van_clock|lobby_floor|vault_eight|street_sirens)|lou_radio)/.test(id)),
       current: state.voice.busCurrent,
-      queued: state.voice.busQueued.filter((id) => id.startsWith('lou_radio')),
-      backlog: state.voice.commandBacklog.filter((id) => id.startsWith('lou_radio')),
+      queued: state.voice.busQueued,
+      backlog: state.voice.commandBacklog,
     }));
   await shot('11-safehouse-money-count');
   state = await snapshot();
@@ -1723,13 +1745,21 @@ try {
 
   await page.waitForFunction(() => window.__heistDebug.snapshot().missionCompleted, null, { timeout: 120000, polling: 300 });
   state = await snapshot();
-  const finalCallOrder = ['lou_phone_home', 'lou_home_order', 'prospect_phone_home']
-    .map((id) => state.voice.spoken.indexOf(id));
-  check('the shared phone handoff preserves all three authored lines in order',
+  /* The handset carries the whole verdict now: the frame, the two numbers,
+   * the souvenirs line (this run took personal cash), the bad verdict, then
+   * go home. Each thing once; `lou_home_order` is retired. */
+  const finalCallOrder = [
+    'lou_debrief_open', 'lou_debrief_people_dirty', 'lou_debrief_money_full',
+    'lou_debrief_souvenirs', 'lou_debrief_verdict_bad', 'lou_phone_home',
+    'prospect_phone_home',
+  ].map((id) => state.voice.spoken.indexOf(id));
+  check('the shared phone handoff says the verdict and the go-home order once, in order',
     finalCallOrder.every((index) => index >= 0)
-      && finalCallOrder[0] < finalCallOrder[1]
-      && finalCallOrder[1] < finalCallOrder[2],
-    JSON.stringify({ finalCallOrder, spoken: state.voice.spoken.slice(-8) }));
+      && finalCallOrder.every((index, position) => (
+        position === 0 || index > finalCallOrder[position - 1]
+      ))
+      && !state.voice.spoken.includes('lou_home_order'),
+    JSON.stringify({ finalCallOrder, spoken: state.voice.spoken.slice(-10) }));
   check('THE TAKE completes and writes an honest verdict into the campaign',
     state.state === 'SCENE_COMPLETE'
       && state.campaignMission.status === 'complete'
@@ -1849,7 +1879,7 @@ try {
       && answeredReload.campaignState.statistics.peopleKilled
         === statisticsBeforeDebrief.peopleKilled + 4
       && !answeredReload.voice.spoken.some((id) => [
-        'lou_phone_home', 'lou_home_order', 'prospect_phone_home',
+        'lou_debrief_open', 'lou_phone_home', 'prospect_phone_home',
       ].includes(id))
       && completionEvents === 1,
     JSON.stringify({

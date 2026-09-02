@@ -67,7 +67,7 @@ const RETRY_GAP = 10;
  * line to the sheet. Keep them stable.
  */
 export const DEPARTURE_REFUSALS = Object.freeze({
-  heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
+  heist_cleanup: 'Not walking out of here wearing the bank. Clean up first.',
   cabin_message: 'Lou sent somewhere to disappear. Read it before driving into the dark.',
   final_arc_locked: 'Bank’s done. Nobody’s called. And when nobody calls, you sit down.',
   initiation_locked: 'Lou said seven. The invitation still has to land.',
@@ -570,9 +570,15 @@ export const HEIST_PREPARATION_ITEMS = Object.freeze([
   Object.freeze({ id: 'duffel', label: 'Take the cash duffel' }),
 ]);
 
+/* Nobody goes to the Bing after THE TAKE. The old order sent him there; the
+ * bible's beat 12 is Lou's call about a new space and beat 13 is the course,
+ * and the label said "Change for the Bada Bing" for a month after the
+ * route moved (owner, 2026-09-02: *"the objective before was go to the
+ * Bing... make sure this is not missing something"*). It was not missing a
+ * scene. It was a stale sentence. */
 export const HEIST_CLEANUP_ITEMS = Object.freeze([
   Object.freeze({ id: 'washed', label: 'Wash the blood and dust off' }),
-  Object.freeze({ id: 'changed', label: 'Change for the Bada Bing' }),
+  Object.freeze({ id: 'changed', label: 'Change out of the bank clothes' }),
   Object.freeze({ id: 'gearSecured', label: 'Hide the heist gear' }),
 ]);
 
@@ -1559,6 +1565,14 @@ class ApartmentStory {
     }
     if (state.missions[step.requires].status !== 'complete') {
       return { ok: false, reason: step.incomplete };
+    }
+    /* BEAT 12 RINGS BEFORE THE LIGHTS GO OUT. The bed used to turn the page
+     * to the morning of the round whether or not Lou had called about it,
+     * and a player who lay down early woke to a door that said Silver Pines
+     * and a course that refused him (`GolfStory.begin` wants the call). The
+     * call is what makes the round available, so the night waits for it. */
+    if (step.from === 'post_heist' && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+      return { ok: false, reason: 'new_space_call_pending' };
     }
 
     this.campaign.update((next) => {

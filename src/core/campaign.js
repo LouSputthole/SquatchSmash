@@ -4222,9 +4222,15 @@ const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
     progress: 7, spawn: 'front_door', chapter: 'heist_day', day: 4,
     timeMinutes: 10 * 60 + 30,
   }),
+  /* Day 5, evening: home from the bank with the round unplayed and Lou's
+   * call still to come. THE TAKE's "RETURN TO APARTMENT" lands here in
+   * preview mode, and until 2026-09-02 this seed also walked the OLD ladder
+   * -- golf complete, new-space call answered -- so the flat sent the owner
+   * to bed and then straight to the luxury apartment with no course and no
+   * call. See `seedApartmentPreviewCampaign`. */
   'after-heist': Object.freeze({
-    progress: 8, spawn: 'front_door', chapter: 'post_heist', day: 4,
-    timeMinutes: 17 * 60 + 20,
+    progress: 8, spawn: 'front_door', chapter: 'post_heist', day: 5,
+    timeMinutes: 18 * 60 + 50,
   }),
 });
 
@@ -4392,7 +4398,15 @@ function seedApartmentPreviewCampaign(state, variant) {
     );
   }
 
-  if (checkpoint.progress >= 7) {
+  /* THE ROUND IS AFTER THE BANK. This ladder predates the bible's order --
+   * it still plays Silver Pines before THE TAKE -- and every variant that
+   * reaches progress 7 used to inherit a finished round and an answered
+   * new-space call. `after-heist` is the one variant a player actually lands
+   * on (it is where the heist's return goes in preview mode), and it must
+   * arrive with the round unplayed and the phone yet to ring, or the flat
+   * skips beats 12 and 13 and sends him to the new place from the bed. */
+  const roundPlayed = checkpoint.progress >= 7 && checkpoint.chapter !== 'post_heist';
+  if (roundPlayed) {
     state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
     seedCompletedGolfRound(golf);
     markTime(
@@ -4402,6 +4416,8 @@ function seedApartmentPreviewCampaign(state, variant) {
       TIME_EVENT_IDS.DEPART_SILVER_PINES,
       TIME_EVENT_IDS.COMPLETE_SILVER_PINES,
     );
+  }
+  if (checkpoint.progress >= 7) {
     state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'pending';
     bankHeist.status = 'locked';
   }
@@ -4431,9 +4447,9 @@ function seedApartmentPreviewCampaign(state, variant) {
       grossTake: 1_260_000,
       compromisedCash: 0,
       operationalLoss: 55_500,
-      familyShare: 602_250,
+      familyShare: 722_400,
       crewShare: 481_800,
-      prospectShare: 120_450,
+      prospectShare: 300,
       primaryVanLost: true,
       playerDroveEscape: true,
       vehicleDamage: 41,
@@ -4592,9 +4608,9 @@ function seedPreviewCompletedHeist(state, { cleanupComplete = true } = {}) {
     grossTake: 1_260_000,
     compromisedCash: 0,
     operationalLoss: 55_500,
-    familyShare: 602_250,
+    familyShare: 722_400,
     crewShare: 481_800,
-    prospectShare: 120_450,
+    prospectShare: 300,
     primaryVanLost: true,
     playerDroveEscape: true,
     vehicleDamage: 41,

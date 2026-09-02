@@ -8,10 +8,9 @@ import {
   SHUBENATOR,
   SNOW,
 } from '../core/wardrobe.js';
+import { WEAPON_IDS, buildWeaponModel, mountCharacterWeapon } from '../core/weapons/index.js';
 import { HeistFigure } from './people.js';
-import {
-  makeBalaclava, makeHeistCarbine, makeHeistSidearm, makePlateCarrier,
-} from './weapons.js';
+import { makeBalaclava, makePlateCarrier } from './weapons.js';
 
 /**
  * The five people Tony goes in with.
@@ -111,14 +110,32 @@ const ROLE_BY_ID = Object.freeze({
   [CHARACTER_IDS.NUMBSKULL]: 'control',
 });
 
-/** Slung across the chest, which is where a carbine lives between rooms. */
-function slingWeapon(figure, heavy) {
-  const weapon = heavy ? makeHeistCarbine({ sling: true }) : makeHeistSidearm();
-  weapon.name = heavy ? 'crew-carbine' : 'crew-sidearm';
-  weapon.scale.setScalar(heavy ? 1 : 1.15);
-  weapon.position.set(0.16, 1.14, 0.2);
-  weapon.rotation.set(0.1, -0.35, heavy ? -0.55 : -0.2);
-  figure.parts.body.add(weapon);
+/**
+ * A gun in the hands, not on the shirt.
+ *
+ * Owner, playtest 2026-09-02: *"our main ensemble cast is not holding their
+ * guns the right way. So let's just kinda fix the way they're holding their
+ * guns."* Measured, and they were not holding them at all: `slingWeapon` put
+ * the model on `parts.body` at a hand-authored Euler with no roll, so the
+ * carbine was a box on the sternum and the arms hung empty beside it -- the
+ * same class of thing as the Siege's *"upside down"* guns, one stage worse.
+ *
+ * The catalog models now go through the shared character mount (bore down the
+ * forearm, sights on the back of the hand, the real grip in the palm) exactly
+ * as every police officer in this scene already does, and `HeistFigure.lowReady`
+ * puts the arms where a gun is carried between rooms. The strap stays: a
+ * carbine on a sling is still on a sling when it is in the hands.
+ */
+function armCrewMember(figure, heavy) {
+  const weaponId = heavy ? WEAPON_IDS.CARBINE : WEAPON_IDS.PISTOL9;
+  const weapon = buildWeaponModel(weaponId);
+  const name = heavy ? 'crew-carbine' : 'crew-sidearm';
+  if (!mountCharacterWeapon(figure, weaponId, weapon, { name })) {
+    throw new Error(`${figure.root.name} cannot hold a ${weaponId}`);
+  }
+  figure.root.userData.weapon = weapon;
+  figure.root.userData.weaponId = weaponId;
+  figure.lowReady();
   // A strap over the shoulder, so the gun is carried rather than floating.
   const strap = new THREE.Mesh(
     new THREE.BoxGeometry(0.05, 0.62, 0.03),
@@ -173,7 +190,7 @@ export function buildHeistCrew(scene) {
       },
     });
     addPlateCarrier(figure, presentation.shirtDark);
-    slingWeapon(figure, id === CHARACTER_IDS.DEATHMEGATRON || id === CHARACTER_IDS.SNOW);
+    armCrewMember(figure, id === CHARACTER_IDS.DEATHMEGATRON || id === CHARACTER_IDS.SNOW);
     figure.root.userData.characterId = id;
     figure.root.userData.subtitleName = identity.subtitleName;
     if (presentation.proceduralFace) {

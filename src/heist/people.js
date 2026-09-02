@@ -3,7 +3,7 @@ import { markActor } from '../core/staging.js';
 import { makePerson } from '../bing/cast.js';
 import { Mouth } from '../core/mouth.js';
 import { WEAPON_IDS } from '../core/weapons/catalog.js';
-import { mountCharacterWeapon } from '../core/weapons/character-mount.js';
+import { mountCharacterWeapon, solveCharacterSupportHand } from '../core/weapons/character-mount.js';
 import { buildWeaponModel } from '../core/weapons/models.js';
 import { makePlateCarrier } from './weapons.js';
 
@@ -117,7 +117,7 @@ export const POSE_FLOOR_CONTACT_M = 0.004;
 /** THE TAKE's pose vocabulary, in the four words the staging marker knows. */
 const HEIST_ACTOR_POSTURES = Object.freeze({
   stand: 'stand', startled: 'stand', pleading: 'stand', bolting: 'stand',
-  alarm: 'stand', aiming: 'stand',
+  alarm: 'stand', aiming: 'stand', ready: 'stand',
   seated: 'sit',
   kneeling: 'kneel', restrained: 'kneel',
   prone: 'lie', fallen: 'lie',
@@ -679,6 +679,54 @@ export class HeistFigure {
     this.parts.armL.rotation.set(-1.2, 0, -0.34);
     this.parts.foreL.rotation.set(-0.3, 0.3, 0);
     this.pose = 'aiming';
+    this._poseFrom = null;
+    this._gaitPhase = 0;
+    return this;
+  }
+
+  /**
+   * A gun carried, not pointed: the low ready.
+   *
+   * Owner, playtest 2026-09-02: *"our main ensemble cast is not holding
+   * their guns the right way."* They were not holding them at all -- the
+   * carbine was a box glued to the sternum (see `armCrewMember` in
+   * ./cast.js). The gun hangs off the firing forearm now through the shared
+   * catalog mount, so this pose is what puts that forearm somewhere a gun is
+   * carried between rooms: firing hand in front of the belt, muzzle at the
+   * floor a few metres ahead, and for a long gun the support hand solved onto
+   * the fore-end by the same CCD the Siege uses, so it lands on Snow at 1.70
+   * and on DeathMegatron at 1.79 alike. A pistol is one-handed and the other
+   * arm hangs.
+   *
+   * The numbers are searched, not guessed. The left arm is 0.573 m straight,
+   * and the carbine's authored fore-end anchor sits 9 cm ahead of the grip,
+   * so a firing hand held out in front of the belt puts that anchor 0.59-0.72
+   * m from the left shoulder -- out of reach, and the first attempt left the
+   * support hand 200 mm short on both carbines. The upper arm has to come
+   * across the body (-1.1 rad about Z) and the forearm has to roll the gun
+   * back upright (-0.6 about its own Y, which is the bore). Measured on the
+   * built crew with these values: bore 26 degrees below the horizon, 10
+   * degrees inboard, sights up (world up-vector 0.82), support hand 0 mm and
+   * 1 mm off the anchor on Snow and DeathMegatron.
+   */
+  lowReady() {
+    this._clear();
+    const gun = this.root.userData.weapon ?? null;
+    const support = gun?.userData?.characterWeaponMount?.support ?? null;
+    if (gun && support) {
+      this.parts.armR.rotation.set(-0.15, 0.2, -1.1);
+      this.parts.foreR.rotation.set(-0.7, -0.6, 0.45);
+      this.parts.armL.rotation.set(-0.62, 0, -0.18);
+      this.parts.foreL.rotation.set(-0.9, 0.34, 0);
+      solveCharacterSupportHand(this, gun, support);
+    } else {
+      /* One hand, at the thigh, muzzle at the floor ahead: bore 41 degrees
+       * down and straight ahead (0.4 degrees inboard) on the built sidearms. */
+      this.parts.armR.rotation.set(-0.3, 0.12, -0.28);
+      this.parts.foreR.rotation.set(-0.5, -0.35, 0.18);
+      this.parts.armL.rotation.set(0.06, 0, -0.06);
+    }
+    this.pose = 'ready';
     this._poseFrom = null;
     this._gaitPhase = 0;
     return this;

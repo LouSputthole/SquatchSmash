@@ -81,6 +81,16 @@ const RETIRED_HEIST_DIALOGUE_CUES = Object.freeze([
   // Replaced by `heist.prospect_lobby_quiet`: the campaign no longer breaks
   // THE TAKE's straight-faced robbery tension with an unrelated game wink.
   'heist.prospect_counterstrike',
+  /* Owner, 2026-09-02: Lou is not on the job -- Snow is -- so the four radio
+   * lines are Snow's now (`heist.snow_van_clock`, `snow_lobby_floor`,
+   * `snow_vault_eight`, `snow_street_sirens`), and the handset no longer says
+   * the crew and the money back a second time after the verdict. The five
+   * takes came off the disk with their cues. */
+  'heist.lou_radio_open',
+  'heist.lou_radio_lobby',
+  'heist.lou_radio_vault',
+  'heist.lou_radio_street',
+  'heist.lou_home_order',
 ]);
 
 function voiceFor(entry) {

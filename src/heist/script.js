@@ -447,60 +447,102 @@ export const HEIST_PENDING_DIALOGUE = Object.freeze({
     'That was on purpose! He is trying to put us into a wall — go, go, do not let him line it up again.',
     P.WARNING, ['PLAYER_TAKES_WHEEL', 'CITY_PURSUIT', 'ROADBLOCK', 'INDUSTRIAL_ROUTE']),
 
-  /* ---- Big Uncle Lou ----
+  /* ---- the job's voice, and Big Uncle Lou's telephone ----
    *
-   * He had one cue in the entire mission — the old `heist.lou_call`, at the very end —
-   * which is a hole for the man whose job this is, and part of why the debrief
-   * did not read as anything: the person who decides what a day was worth
-   * never spoke. He is on the radio for the job and he is the last voice in the
-   * safehouse, and it is his lines that say the two numbers back to the player.
+   * Lou had one cue in the entire mission — the old `heist.lou_call`, at the
+   * very end — which was a hole for the man whose job this is. A later pass
+   * put him on the radio for the whole robbery, and the owner took him off it
+   * again: he is not there, Snow is. He is still the last voice of the day,
+   * on the handset, and it is his lines that say the two numbers back.
    *
-   * `lou1`. Big Uncle Lou Sputthole. Never Captain Lou Sasole.
+   * `lou`, the phone profile. Big Uncle Lou Sputthole. Never Captain Lou Sasole.
    */
-  lou_radio_open: line('lou_radio_open', CHARACTER_IDS.LOU,
-    'Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with.',
+  /* SNOW RUNS THE JOB. Lou is not in the van, the lobby or the vault.
+   *
+   * These four were Lou's radio lines. Owner, playtest 2026-09-02: *"replace
+   * all the Lou voice lines because he's not there. Snow is the one leading
+   * the mission."* Same beats, same moments, Snow's mouth: the clock at the
+   * van door, the floor in the lobby, the number at the trolley, the sirens
+   * on the way out. */
+  snow_van_clock: line('snow_van_clock', CHARACTER_IDS.SNOW,
+    'You are on my clock now, Prospect. Six of us get in this van. Six of us get out of the next one.',
     P.OBJECTIVE, ['BOARD_VAN', 'VAN_APPROACH']),
-  /* Wide state windows on the radio lines on purpose: they are sequenced
+  /* Wide state windows on the command lines on purpose: they are sequenced
    * behind the crew's own calls, and a player who moves fast through the lobby
-   * would otherwise walk out of the beat before Lou got to speak in it. */
-  lou_radio_lobby: line('lou_radio_lobby', CHARACTER_IDS.LOU,
-    'Those people on the floor are the bank’s problem, not yours. Do not make them yours.',
+   * would otherwise walk out of the beat before Snow got to speak in it. */
+  snow_lobby_floor: line('snow_lobby_floor', CHARACTER_IDS.SNOW,
+    'Those people on the floor are the bank’s problem, not ours. Do not make them ours.',
     P.OBJECTIVE, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS']),
-  lou_radio_vault: line('lou_radio_vault', CHARACTER_IDS.LOU,
-    'Eight bags on that trolley. Eight is the number. I do not want to hear a seven.',
+  snow_vault_eight: line('snow_vault_eight', CHARACTER_IDS.SNOW,
+    'Eight bags on that trolley. Eight is the number. Nobody says seven to me.',
     P.OBJECTIVE, ['CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
-  lou_radio_street: line('lou_radio_street', CHARACTER_IDS.LOU,
-    'I can hear the sirens from my office. Get off that street.',
+  snow_street_sirens: line('snow_street_sirens', CHARACTER_IDS.SNOW,
+    'Sirens. That is the whole city coming. Off this street, now.',
     P.WARNING, ['EXIT_ORDER', 'BANK_DOOR_CONTACT', 'STREET_BLOCK_ONE']),
+  /* THE REST OF THE CREW, IN THE ROOMS THEY WERE QUIET IN.
+   *
+   * Owner, same playtest: *"maybe add some more voice lines for Death
+   * Megatron and the other characters that are there."* Death Megatron had
+   * eleven lines and none between the doors and the trolley; Numbskull
+   * counted nothing in the vault he was standing in; Shubenator, who owns
+   * the alarm, never said what it meant. */
+  death_doors_first: line('death_doors_first', CHARACTER_IDS.DEATHMEGATRON,
+    'I go through first. I am the widest thing in that lobby and they should get used to it.',
+    P.BARK, ['BANK_ENTRY', 'LOBBY_CONTROL']),
+  death_lobby_wide: line('death_lobby_wide', CHARACTER_IDS.DEATHMEGATRON,
+    'Nobody is getting up. I can see all of you and I have a very long memory for faces.',
+    P.BARK, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT']),
+  death_vault_handles: line('death_vault_handles', CHARACTER_IDS.DEATHMEGATRON,
+    'Four handles each. If a bag is too heavy for you, it is the right bag.',
+    P.BARK, ['CASH_LOADING', 'ALARM_DISCOVERED']),
+  numb_vault_trolleys: line('numb_vault_trolleys', CHARACTER_IDS.NUMBSKULL,
+    'Trolley one, four bags. Trolley two, four bags. I am watching the trolleys, not you.',
+    P.BARK, ['CASH_LOADING', 'ALARM_DISCOVERED']),
+  shubes_alarm_clock: line('shubes_alarm_clock', CHARACTER_IDS.SHUBENATOR,
+    'Silent alarm went at the trolley. Response is four minutes on a good day, and this is not their good day.',
+    P.BARK, ['ALARM_DISCOVERED', 'EXIT_ORDER', 'BANK_DOOR_CONTACT']),
+  death_van_dead: line('death_van_dead', CHARACTER_IDS.DEATHMEGATRON,
+    'The van is dead. So is the man who parked it there. Keep moving.',
+    P.BARK, ['FALLBACK_ROUTE', 'STREET_BLOCK_TWO']),
+  death_garage_hold: line('death_garage_hold', CHARACTER_IDS.DEATHMEGATRON,
+    'The ramp is mine. Load the car and do not look at me while you do it.',
+    P.BARK, ['GARAGE_HOLD', 'SECONDARY_CAR_LOAD']),
+  death_debrief_people: line('death_debrief_people', CHARACTER_IDS.DEATHMEGATRON,
+    'Six went in and six sat down. The other number is on the board, and it is Lou’s to read.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  /* LOU IS THE TELEPHONE.
+   *
+   * The verdict lines below used to play in the room, then the handset rang
+   * and `lou_home_order` said the crew and the money back a second time. They
+   * are the call now -- the same takes, on the `lou` phone profile they were
+   * always cast on -- and `lou_home_order` is retired. See
+   * `louDebriefCallLines` in ./main.js for the order they are said in. */
   lou_debrief_open: line('lou_debrief_open', CHARACTER_IDS.LOU,
     'Sit down, all of you. I only ever ask two things after a day like this.',
-    P.OBJECTIVE, ['DEBRIEF']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_people_clean: line('lou_debrief_people_clean', CHARACTER_IDS.LOU,
     'First one. Everybody who walked into that lobby walked back out of it. That is the whole reason I use you and not somebody cheaper.',
-    P.OBJECTIVE, ['DEBRIEF']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_people_dirty: line('lou_debrief_people_dirty', CHARACTER_IDS.LOU,
     'First one, and you already know the answer. Somebody who came in to cash a cheque did not walk back out. That follows this family around for years.',
-    P.OBJECTIVE, ['DEBRIEF']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_money_full: line('lou_debrief_money_full', CHARACTER_IDS.LOU,
     'Second one. All eight bags, insured paper, nothing on anybody’s person. That is the number I wanted and that is the number I got.',
-    P.OBJECTIVE, ['DEBRIEF']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_money_short: line('lou_debrief_money_short', CHARACTER_IDS.LOU,
     'Second one. You left money on Mercer Street. It is insured, so nobody cries — but I asked for eight and I am counting less than eight.',
-    P.OBJECTIVE, ['DEBRIEF']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_souvenirs: line('lou_debrief_souvenirs', CHARACTER_IDS.LOU,
     'And there is money in that bag that came out of a man’s coat. Take it off the table. We are not muggers, and it is coming out of your end.',
-    P.OBJECTIVE, ['DEBRIEF']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_verdict_good: line('lou_debrief_verdict_good', CHARACTER_IDS.LOU,
     'Then it was a good day. Nobody hurt, everything counted, and tomorrow it is a paragraph nobody reads. Well done, kid.',
-    P.OBJECTIVE, ['DEBRIEF', 'LOU_CALL_SAFEHOUSE']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_debrief_verdict_bad: line('lou_debrief_verdict_bad', CHARACTER_IDS.LOU,
     'So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean.',
-    P.OBJECTIVE, ['DEBRIEF', 'LOU_CALL_SAFEHOUSE']),
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   lou_phone_home: line('lou_phone_home', CHARACTER_IDS.LOU,
     'Everybody breathing? Good. Prospect, go home, clean up, and stay by your phone. Nobody sees anybody tonight.',
-    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
-  lou_home_order: line('lou_home_order', CHARACTER_IDS.LOU,
-    'You came home with the crew and you came home with the money. That is what I needed to know. The rest can wait.',
     P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
   prospect_phone_home: line('prospect_phone_home', CHARACTER_IDS.PROSPECT,
     'Home. Stay by the phone. I got it.', P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),

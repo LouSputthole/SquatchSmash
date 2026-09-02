@@ -261,7 +261,9 @@ const EXPECTED_APARTMENT_STATES = Object.freeze({
   'after-silver-room': { chapter: 'date', spawn: 'front_door', meshes: 1196, envelopes: 147, cash: [4, 6, 7, 1], persistent: ['tammyDashboardMug'], margo: 'come-home-entry' },
   'day-four-wake': { chapter: 'golf_morning', spawn: 'wake', meshes: 1277, envelopes: 150, cash: [4, 6, 7, 1], persistent: ['tammyDashboardMug'], margo: 'wake-lying' },
   'after-golf': { chapter: 'heist_day', spawn: 'front_door', meshes: 1385, envelopes: 157, cash: [4, 6, 7, 1], persistent: ['tammyDashboardMug'], margo: 'hidden' },
-  'after-heist': { chapter: 'post_heist', spawn: 'front_door', meshes: 1300, envelopes: 153, cash: [4, 6, 8, 5], persistent: ['tammyDashboardMug'], margo: 'hidden' },
+  /* heistCut 5 -> 1 on 2026-09-02: the Prospect's end of THE TAKE is $300
+   * now (owner: "a comical number"), which is one bundle on the table. */
+  'after-heist': { chapter: 'post_heist', spawn: 'front_door', meshes: 1288, envelopes: 153, cash: [4, 6, 8, 1], persistent: ['tammyDashboardMug'], margo: 'hidden' },
 });
 
 test('Apartment geometry remains complete and clean across every public campaign preview state', async () => {

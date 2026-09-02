@@ -16,6 +16,7 @@ import {
   CHARACTER_WEAPON_MOUNT_ROLL,
   alignCharacterWeaponGrip,
   mountCharacterWeapon,
+  solveCharacterSupportHand,
 } from '../../core/weapons/character-mount.js';
 
 /**
@@ -51,16 +52,8 @@ export const SIEGE_WEAPON_MOUNTS = CHARACTER_WEAPON_MOUNTS;
 export const SIEGE_WEAPON_MOUNT_ROLL = CHARACTER_WEAPON_MOUNT_ROLL;
 
 const _grip = new THREE.Vector3();
-const _target = new THREE.Vector3();
-const _joint = new THREE.Vector3();
-const _hand = new THREE.Vector3();
-const _toHand = new THREE.Vector3();
-const _toTarget = new THREE.Vector3();
 const _bore = new THREE.Vector3();
-const _delta = new THREE.Quaternion();
 const _world = new THREE.Quaternion();
-const _parent = new THREE.Quaternion();
-const _local = new THREE.Quaternion();
 
 function configFor(weaponId) {
   const config = SIEGE_WEAPON_MOUNTS[weaponId];
@@ -98,44 +91,13 @@ function alignPrimaryGrip(figure, weaponId, gun) {
 /**
  * Move the left two-bone arm onto the authored fore-end point.
  *
- * CCD is used here because the wardrobe has several heights/builds. A fixed
- * Euler tuned on a 1.78 m body is exactly how the heavy gunner's hand ended up
- * floating. Eight two-joint passes converge below a millimetre on every
- * authored Siege body while retaining the braced pose as the starting bend.
+ * The solver itself now lives in `src/core/weapons/character-mount.js` as
+ * `solveCharacterSupportHand` -- same CCD, same eight passes, same 12 mm --
+ * so THE TAKE's crew can put a hand on a fore-end without a second copy.
+ * This wrapper keeps the Siege's call sites and their measured behaviour.
  */
-function solveSupportHand(figure, gun, support, {
-  passes = 8,
-  tolerance = 0.012,
-} = {}) {
-  const fore = figure.parts.foreL;
-  const upper = figure.parts.armL;
-  const hand = handMesh(fore);
-  if (!hand) return false;
-  const passLimit = Math.max(1, Math.min(8, Math.trunc(Number(passes) || 1)));
-  const wantedTolerance = Math.max(0.001, Number(tolerance) || 0.012);
-  figure.root.updateMatrixWorld(true);
-  _target.fromArray(support);
-  gun.localToWorld(_target);
-  hand.getWorldPosition(_hand);
-  if (_hand.distanceTo(_target) <= wantedTolerance) return true;
-
-  for (let pass = 0; pass < passLimit; pass++) {
-    for (const joint of [fore, upper]) {
-      figure.root.updateMatrixWorld(true);
-      joint.getWorldPosition(_joint);
-      hand.getWorldPosition(_hand);
-      _toHand.copy(_hand).sub(_joint);
-      _toTarget.copy(_target).sub(_joint);
-      if (_toHand.lengthSq() < 1e-8 || _toTarget.lengthSq() < 1e-8) continue;
-      _delta.setFromUnitVectors(_toHand.normalize(), _toTarget.normalize());
-      joint.getWorldQuaternion(_world);
-      joint.parent.getWorldQuaternion(_parent).invert();
-      _local.copy(_parent).multiply(_delta).multiply(_world).normalize();
-      joint.quaternion.copy(_local);
-    }
-  }
-  figure.root.updateMatrixWorld(true);
-  return hand.getWorldPosition(_hand).distanceTo(_target) <= wantedTolerance;
+function solveSupportHand(figure, gun, support, options = {}) {
+  return solveCharacterSupportHand(figure, gun, support, { side: 'L', ...options });
 }
 
 /** Attach a newly built catalog model and align its primary grip. */

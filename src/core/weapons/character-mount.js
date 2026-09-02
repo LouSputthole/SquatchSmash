@@ -174,6 +174,77 @@ export function alignCharacterWeaponGrip(figure, weaponId, gun, {
   return gun;
 }
 
+const _supportTarget = new THREE.Vector3();
+const _supportJoint = new THREE.Vector3();
+const _supportHand = new THREE.Vector3();
+const _supportToHand = new THREE.Vector3();
+const _supportToTarget = new THREE.Vector3();
+const _supportDelta = new THREE.Quaternion();
+const _supportWorld = new THREE.Quaternion();
+const _supportParent = new THREE.Quaternion();
+const _supportLocal = new THREE.Quaternion();
+
+/** The visible hand mesh under a forearm, by the shared rig's naming. */
+function visibleHandMesh(forearm) {
+  let hand = null;
+  forearm?.traverse?.((object) => {
+    if (!hand && object.isMesh && /(^|\.)hand$/.test(object.name ?? '')) hand = object;
+  });
+  return hand;
+}
+
+/**
+ * Move the left two-bone arm onto a mounted gun's authored fore-end point.
+ *
+ * Lifted out of Mansion Siege's `armed-pose.js` so THE TAKE's crew and any
+ * later adopter share one solver instead of one each. CCD rather than a fixed
+ * Euler because the wardrobe has several heights and builds: a support-hand
+ * angle tuned on a 1.78 m body is exactly how the Siege's heavy gunner's hand
+ * ended up floating. Eight two-joint passes converge below a millimetre on
+ * every authored body while keeping the caller's braced pose as the starting
+ * bend. `support` is the catalog anchor in gun-local metres, as stamped by
+ * `alignCharacterWeaponGrip` into `gun.userData.characterWeaponMount`.
+ */
+export function solveCharacterSupportHand(figure, gun, support, {
+  side = 'L',
+  passes = 8,
+  tolerance = 0.012,
+} = {}) {
+  const parts = partsOf(figure);
+  const suffix = String(side).toUpperCase() === 'R' ? 'R' : 'L';
+  const fore = parts?.[`fore${suffix}`];
+  const upper = parts?.[`arm${suffix}`];
+  const root = figure?.root ?? figure?.group ?? null;
+  if (!fore || !upper || !root || !gun?.isObject3D || !Array.isArray(support)) return false;
+  const hand = visibleHandMesh(fore);
+  if (!hand) return false;
+  const passLimit = Math.max(1, Math.min(8, Math.trunc(Number(passes) || 1)));
+  const wantedTolerance = Math.max(0.001, Number(tolerance) || 0.012);
+  root.updateMatrixWorld(true);
+  _supportTarget.fromArray(support);
+  gun.localToWorld(_supportTarget);
+  hand.getWorldPosition(_supportHand);
+  if (_supportHand.distanceTo(_supportTarget) <= wantedTolerance) return true;
+
+  for (let pass = 0; pass < passLimit; pass++) {
+    for (const joint of [fore, upper]) {
+      root.updateMatrixWorld(true);
+      joint.getWorldPosition(_supportJoint);
+      hand.getWorldPosition(_supportHand);
+      _supportToHand.copy(_supportHand).sub(_supportJoint);
+      _supportToTarget.copy(_supportTarget).sub(_supportJoint);
+      if (_supportToHand.lengthSq() < 1e-8 || _supportToTarget.lengthSq() < 1e-8) continue;
+      _supportDelta.setFromUnitVectors(_supportToHand.normalize(), _supportToTarget.normalize());
+      joint.getWorldQuaternion(_supportWorld);
+      joint.parent.getWorldQuaternion(_supportParent).invert();
+      _supportLocal.copy(_supportParent).multiply(_supportDelta).multiply(_supportWorld).normalize();
+      joint.quaternion.copy(_supportLocal);
+    }
+  }
+  root.updateMatrixWorld(true);
+  return hand.getWorldPosition(_supportHand).distanceTo(_supportTarget) <= wantedTolerance;
+}
+
 /** Attach a catalog model to the firing forearm and align its primary grip. */
 export function mountCharacterWeapon(figure, weaponId, gun, {
   name = null,

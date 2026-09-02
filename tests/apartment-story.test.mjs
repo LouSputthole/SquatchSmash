@@ -565,6 +565,12 @@ test('each chapter of sleep refuses until its own mission is finished', () => {
     state.missions[MISSION_IDS.BANK_HEIST].status = 'complete';
     state.story.chapter = 'post_heist';
   });
+  /* Beat 12 rings before the lights go out: the bed waits for Lou's
+   * new-space call, because the call is what opens the round. */
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'new_space_call_pending' });
+  campaign.update((state) => {
+    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+  });
   assert.equal(story.sleep().chapter, 'golf_morning');
   /* And the round is the last thing this flat is ever used for. */
   assert.deepEqual(story.sleep(), { ok: false, reason: 'already_golf_morning' });

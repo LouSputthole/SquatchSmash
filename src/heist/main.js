@@ -199,10 +199,31 @@ player.position.set(0, 1.66, 4);
  * simply never assigned, so the whole bank job played without a footstep.
  * Marble maps to the tile take exactly as the combat cadence does
  * (src/core/combat/audio.js): there is no footstep.marble recording, and an
- * unknown cue falls through to the synth's default tick. */
-player.onFootstep = (surface, intensity) => audio.footstep(
-  surface === 'marble' ? 'tile' : surface, intensity,
-);
+ * unknown cue falls through to the synth's default tick.
+ *
+ * ASPHALT IS THE MOTEL'S PAIR, NOT THE SHARED TAKE. Owner, playtest
+ * 2026-09-02, on the street outside the bank: *"this one is brutal. It
+ * sounds like scraping nails"*, and again at the swap yard. Measured in the
+ * browser (`decodeAudioData`, 4096-sample window at the loudest point):
+ * `footstep.asphalt` peaks at 0.94 with a spectral centroid of 6.7 kHz and
+ * 68 % of its energy above 4 kHz -- a scrape, and the loudest footstep in
+ * the bank at -19.7 dBFS RMS. The motel had the same note and answered it
+ * with `motel.footstep.asphalt.a/b` (centroid 570 Hz and 3.7 kHz, 2 % and
+ * 36 % above 4 kHz): a boot on a parking lot, not a fork on a plate. They
+ * alternate here at the motel's own weight (0.84-0.92 rate) and a level
+ * that sits with the other surfaces. */
+const STREET_STEP_TAKES = Object.freeze(['motel.footstep.asphalt.a', 'motel.footstep.asphalt.b']);
+let streetStepIndex = 0;
+player.onFootstep = (surface, intensity) => {
+  if (surface === 'asphalt') {
+    streetStepIndex = (streetStepIndex + 1) % STREET_STEP_TAKES.length;
+    return audio.play(STREET_STEP_TAKES[streetStepIndex], {
+      volume: 0.22 * intensity,
+      rate: 0.84 + Math.random() * 0.08,
+    });
+  }
+  return audio.footstep(surface === 'marble' ? 'tile' : surface, intensity);
+};
 const interaction = new InteractionSystem(camera, hud);
 const factionMatrix = new FactionMatrix();
 const playerActor = new CombatActor({
@@ -1718,8 +1739,12 @@ function debugSnapshot() {
         const dz = target.z - actor.group.position.z;
         const length = Math.max(0.001, Math.hypot(dx, dz));
         const { head, body, profile } = actor.figure.parts;
-        const physicalWeapon = body.getObjectByName('crew-carbine') ? 'carbine'
-          : body.getObjectByName('crew-sidearm') ? 'sidearm' : null;
+        /* Searched from the figure's root, not the torso: the gun hangs off
+         * the firing forearm now (see `armCrewMember` in ./cast.js), and only
+         * the sling strap is still on the body. */
+        const figureRoot = actor.figure.root;
+        const physicalWeapon = figureRoot.getObjectByName('crew-carbine') ? 'carbine'
+          : figureRoot.getObjectByName('crew-sidearm') ? 'sidearm' : null;
         const mask = head.getObjectByName('heist-mask');
         return {
           id: actor.id,
@@ -2307,6 +2332,26 @@ function placeCrew(phaseId) {
   window.__heistDebug.squadAnchors = anchors;
 }
 
+/**
+ * How far the safehouse record follows the crew.
+ *
+ * Owner, 2026-09-02: *"Let's keep the music going at least into the bank and
+ * the vault scene. Just keep it low."* Prep is the record at full level
+ * (`begin()` starts it there once, on a real fresh start). The van and the
+ * bank -- lobby, vault, the alarm -- carry it at `jobVolume`; a resume or a
+ * preview that lands straight in the bank starts it low rather than silent.
+ * The street is where it goes: the sirens own that block, and the escape
+ * score owns the car. Nothing brings it back for the debrief, which is the
+ * same room with the record off, and reads that way on purpose.
+ */
+function syncSafehouseRecord(phaseId) {
+  if (phaseId === 'van' || phaseId === 'bank') {
+    safehouseRecord.follow();
+  } else if (phaseId !== 'safehouse') {
+    safehouseRecord.stop();
+  }
+}
+
 function activatePhase(id, preservePlayer = false) {
   if (activePhase === id) return level.phases[id];
   const phase = level.activate(id);
@@ -2341,6 +2386,7 @@ function activatePhase(id, preservePlayer = false) {
   combat.setOccluders([phase.group]);
   window.__heistDebug.policeActive = activePoliceMeshes().length;
   setAudioZone(id);
+  syncSafehouseRecord(id);
   hud.setLobby(id === 'bank' ? {
     controlled: hostages.summary().controlled,
     total: hostages.hostages.length,
@@ -2445,11 +2491,10 @@ function recordCheckpoint(id, resumeState, facts = {}) {
 }
 
 function startVanRide() {
-  /* The morning needle-drop belongs to preparation, not to the van or the
-   * robbery. Retire its map key at the loading-bay threshold; the retained
-   * handle receipt below lets the browser gate also prove the streamed media
-   * element finishes its fade before the bank is entered. */
-  safehouseRecord.stop();
+  /* The morning needle-drop rides along. It used to be retired at the
+   * loading-bay threshold; the owner wanted it under the van and the bank
+   * ("just keep it low"), so `activatePhase('van')` below lowers it to the
+   * job level through `syncSafehouseRecord`, and the street retires it. */
   advanceTo('VAN_APPROACH');
   activatePhase('van');
   player.mode = 'walk';
@@ -2519,6 +2564,38 @@ function enterBank() {
   hud.setThreat(true, guardThreat.snapshot().remaining, guardThreat.windowSeconds);
   say('guard_warning');
   say('snow_guard');
+  say('death_doors_first');
+}
+
+/** The two states a player can be in on the avenue before the van beat. */
+const STREET_BLOCK_ONE_STATES = Object.freeze(['BANK_DOOR_CONTACT', 'STREET_BLOCK_ONE']);
+
+/** Off the bank steps and onto the avenue; idempotent, and cheap per frame. */
+function leaveBankSteps() {
+  if (machine.state === 'BANK_DOOR_CONTACT') advanceTo('STREET_BLOCK_ONE');
+}
+
+/**
+ * The van beat: the primary is dead, Rippinflow is hit, Snow calls Mercer.
+ *
+ * `skipSecondBlock` is the garage-door path above -- the beat is played for
+ * its story, but no fresh wave is put on a street the player has left.
+ */
+function reachVan({ skipSecondBlock = false } = {}) {
+  leaveBankSteps();
+  advanceTo('FALLBACK_ROUTE');
+  crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'moderate';
+  advanceTo('STREET_BLOCK_TWO');
+  if (skipSecondBlock) {
+    officersDown = officersNeeded();
+    sayInTurn('rippin_hit', 'snow_fallback');
+  } else {
+    officersDown = 0;
+    sayInTurn('rippin_van', 'rippin_hit', 'death_van_dead', 'snow_fallback');
+    spawnPolice('market_street', 4);
+  }
+  refreshObjective();
+  refreshInteractions();
 }
 
 function beginStreet() {
@@ -2690,13 +2767,35 @@ function scheduleDebriefCompletion({ waitForDialogue = true } = {}) {
   return true;
 }
 
+/**
+ * What Lou says on the handset: the two numbers, the verdict, and go home.
+ *
+ * The same recorded takes that used to play in the room, on the `lou` phone
+ * profile they were always cast on. `lou_home_order` -- the line that said
+ * the crew and the money back a second time -- is retired; the verdict now
+ * runs straight into the go-home order, and the call says each thing once.
+ */
+function louDebriefCallLines() {
+  const clean = ['professional', 'barely_clean'].includes(objective.grade());
+  return [
+    'lou_debrief_open',
+    objective.civilianCasualties === 0
+      ? 'lou_debrief_people_clean' : 'lou_debrief_people_dirty',
+    objective.bagsRecovered >= objective.totalBags
+      ? 'lou_debrief_money_full' : 'lou_debrief_money_short',
+    objective.personalCashTaken > 0 ? 'lou_debrief_souvenirs' : null,
+    clean ? 'lou_debrief_verdict_good' : 'lou_debrief_verdict_bad',
+    'lou_phone_home',
+  ];
+}
+
 /** Phone.onAnswered lands here only after its durable answer receipt exists. */
 function connectHeistDebriefPhone() {
   advanceTo('LOU_CALL_SAFEHOUSE');
   scriptedSpeech.length = 0;
   /* Preserve the authored cues, subtitles, speaker labels, and exact order.
    * Phone owns ring/answer/hang-up; DialogueArbiter remains Heist speech truth. */
-  sayInTurn('lou_phone_home', 'lou_home_order', 'prospect_phone_home');
+  sayInTurn(...louDebriefCallLines(), 'prospect_phone_home');
   scheduleDebriefCompletion();
   return true;
 }
@@ -2894,7 +2993,7 @@ function refreshInteractions() {
       if (!preparation.ready || machine.state !== 'LOADOUT') return;
       advanceTo('BOARD_VAN');
       say('prospect_ready');
-      sayCommand('lou_radio_open');
+      sayCommand('snow_van_clock');
       audio.play('heist.van.door');
       /* And the doors he just went through shut behind him. They stand open
        * in the bay while the crew loads — see `buildSafehouse` — and this is
@@ -3000,9 +3099,9 @@ function refreshInteractions() {
       }
       lobbyControlled = true;
       audio.play('heist.crowd.react');
-      sayCommand('lou_radio_lobby');
+      sayCommand('snow_lobby_floor');
       sayInTurn('numb_lobby_order', 'death_floor',
-        'civilian_please', 'snow_lobby_open');
+        'civilian_please', 'snow_lobby_open', 'death_lobby_wide');
       refreshObjective();
       refreshInteractions();
     }, { soft: true, enabled: () => machine.state === 'LOBBY_CONTROL' && !lobbyControlled });
@@ -3043,8 +3142,8 @@ function refreshInteractions() {
             alarmTriggered: true, bagsStaged: 0,
           });
           refreshObjective();
-          sayCommand('lou_radio_vault');
-          sayInTurn('snow_clock', 'snow_insured');
+          sayCommand('snow_vault_eight');
+          sayInTurn('snow_clock', 'numb_vault_trolleys', 'snow_insured', 'death_vault_handles');
           audio.play('heist.vault.open');
         }
       }, {
@@ -3103,8 +3202,8 @@ function refreshInteractions() {
           audio.startLoop('heist.bank.alarm', { volume: 0.34, ambience: true, fade: 0.15 });
           advanceTo('ALARM_DISCOVERED');
           advanceTo('EXIT_ORDER');
-          sayCommand('lou_radio_street');
-          sayInTurn('numb_signal', 'rippin_street', 'snow_exit');
+          sayCommand('snow_street_sirens');
+          sayInTurn('numb_signal', 'rippin_street', 'snow_exit', 'shubes_alarm_clock');
           refreshObjective();
         }
         refreshInteractions();
@@ -3135,20 +3234,32 @@ function refreshInteractions() {
 
   if (activePhase === 'street') {
     use(p.street.interactables.bankDoor, 'Move off the bank steps', () => {
-      if (machine.state === 'BANK_DOOR_CONTACT') advanceTo('STREET_BLOCK_ONE');
+      leaveBankSteps();
       refreshObjective();
     });
+    /* THE VAN, WHICH THE OWNER COULD NOT USE.
+     *
+     * Owner, playtest 2026-09-02: *"I can't complete this next part. It's
+     * 'contact at the van'. I hit E. Nothing happens. I killed everybody
+     * already."* Two things, and neither was the van. The handler wanted
+     * `STREET_BLOCK_ONE`, and the only thing in the scene that produced that
+     * state was pressing E on the BANK DOORS behind him -- a prompt nobody
+     * reads while five officers are arriving at the far end of the street --
+     * so a player who turned and fought was in `BANK_DOOR_CONTACT` at the van
+     * with the block cleared, and the press returned silently. The steps now
+     * advance the moment he walks off them (`leaveBankSteps`, from the frame
+     * loop) and the van accepts either state. The second thing was the ray:
+     * every dead officer still wore an invisible aim box, and one of them
+     * lying beside the van was the first thing the crosshair met -- see the
+     * `aimProxy` skip in `src/core/interaction.js`. The van itself is a
+     * fine target once the ray is honest: its collider holds the camera
+     * 1.4 m off the centre line, the cabin flank is 0.53 m from there at
+     * eye height, and the prompt reaches 2.7 m. */
     use(p.street.interactables.van, () => (blockCleared()
-      ? 'Reach Rippin at the van'
+      ? 'Regroup at the van'
       : `Police fire blocks the van — ${officersDown}/${officersNeeded()} down`), () => {
-      if (machine.state !== 'STREET_BLOCK_ONE' || !blockCleared()) return;
-      advanceTo('FALLBACK_ROUTE');
-      crew.get(CHARACTER_IDS.RIPPINFLOW).injury = 'moderate';
-      advanceTo('STREET_BLOCK_TWO');
-      officersDown = 0;
-      sayInTurn('rippin_van', 'rippin_hit', 'snow_fallback');
-      spawnPolice('market_street', 4);
-      refreshObjective();
+      if (!STREET_BLOCK_ONE_STATES.includes(machine.state) || !blockCleared()) return;
+      reachVan();
     });
     use(p.street.interactables.droppedBag, 'Recover the dropped bag', () => {
       if (machine.state !== 'STREET_BLOCK_TWO' || droppedBagDecision) return;
@@ -3162,8 +3273,20 @@ function refreshInteractions() {
       refreshInteractions();
     });
     use(p.street.interactables.garage, 'Enter Mercer garage', () => {
-      if (!['STREET_BLOCK_TWO', 'DROPPED_BAG_DECISION'].includes(machine.state)
-        || !blockCleared()) return;
+      if (!blockCleared()) return;
+      /* Owner: *"even if we skip the van and just hit E on the parking garage
+       * at the end, because I think people are gonna miss the van."* A player
+       * who clears the avenue and walks straight past the dead van gets the
+       * van beat folded into the door: Rippinflow is hit, Snow calls the
+       * fallback, and the street he already fought stands as the whole
+       * street -- the second wave is not spawned behind a man who is already
+       * in the garage. */
+      if (STREET_BLOCK_ONE_STATES.includes(machine.state)) {
+        reachVan({ skipSecondBlock: true });
+        enterGarage();
+        return;
+      }
+      if (!['STREET_BLOCK_TWO', 'DROPPED_BAG_DECISION'].includes(machine.state)) return;
       enterGarage();
     }, { enabled: () => blockCleared() });
     return;
@@ -3175,7 +3298,7 @@ function refreshInteractions() {
       : `Hold the garage entrance — ${officersDown}/${officersNeeded()} down`), () => {
       if (machine.state === 'GARAGE_ENTRY') advanceTo('GARAGE_HOLD');
       if (machine.state === 'GARAGE_HOLD' && blockCleared()) {
-        say('shubes_garage');
+        sayInTurn('shubes_garage', 'death_garage_hold');
         refreshObjective();
       }
     });
@@ -3307,25 +3430,27 @@ function refreshInteractions() {
       objective.syncHostages(hostages.summary());
       showDebriefBoard();
       advanceTo('DEBRIEF');
-      /* Lou frames it, because that is his job and because it is the only
-       * place the two objective numbers get said out loud to the player. The
-       * lines are chosen from what actually happened, not from a script, and
-       * they are sequenced rather than pushed, so all of them are heard. */
+      /* THE ROOM IS THE CREW'S. LOU IS THE TELEPHONE.
+       *
+       * Lou used to frame the two numbers here, in the safehouse, and then
+       * ring three minutes later and say them again. Owner, playtest
+       * 2026-09-02: *"the phone call comes in, and he kinda says the same
+       * thing... let's merge that phone call into the final scene, one
+       * thing, so we're not being repetitive."* And he is not in the room --
+       * nobody builds a Lou in this scene -- so the room reads the count and
+       * the verdict waits for the call: `louDebriefCallLines` below is what
+       * the handset says, chosen from what actually happened, and it is the
+       * only place the two numbers are said back to the player. Sequenced,
+       * not pushed, so all of it is heard. */
       const clean = ['professional', 'barely_clean'].includes(objective.grade());
       const closingLines = heistDebriefClosingLines(clean);
       sayInTurn(
         'snow_debrief_open',
+        'snow_debrief_people',
+        'death_debrief_people',
+        'snow_debrief_money',
         'numb_debrief_ledger',
         'death_debrief_count',
-        'lou_debrief_open',
-        'snow_debrief_people',
-        objective.civilianCasualties === 0
-          ? 'lou_debrief_people_clean' : 'lou_debrief_people_dirty',
-        'snow_debrief_money',
-        objective.bagsRecovered >= objective.totalBags
-          ? 'lou_debrief_money_full' : 'lou_debrief_money_short',
-        objective.personalCashTaken > 0 ? 'lou_debrief_souvenirs' : null,
-        clean ? 'lou_debrief_verdict_good' : 'lou_debrief_verdict_bad',
         clean ? 'snow_debrief_clean' : 'snow_debrief_ugly',
         'shubes_signature_cleanup',
         'shubes_defend',
@@ -4047,7 +4172,13 @@ function updatePoliceMovement(dt) {
  * lands somewhere true.
  */
 const POLICE_COMBAT = Object.freeze({
-  damage: 11,
+  /* 14, up from 11, and the standing accuracy up with it. Owner, playtest
+   * 2026-09-02: *"maybe the cops do slightly more damage to you here too.
+   * It's like they're shooting nothing."* At 11 a round was 4.95 off health
+   * behind the carrier and the whole first block cost the player about a
+   * third of a bar; at 14 with 0.40 standing accuracy the same block is a
+   * little over half, which is a fight you notice and still win. */
+  damage: 14,
   range: 48,
   /*
    * THE PAUSE BETWEEN BURSTS, not the gap between rounds.
@@ -4069,8 +4200,8 @@ const POLICE_COMBAT = Object.freeze({
    */
   cadence: Object.freeze([7.2, 9.9]),
   burst: HEIST_HOSTILE_BURST,
-  accuracyMoving: 0.18,
-  accuracyStill: 0.34,
+  accuracyMoving: 0.22,
+  accuracyStill: 0.40,
 });
 
 /**
@@ -4796,7 +4927,8 @@ async function begin() {
        * plus the board pair for the engine's out-of-zone default. Enumerated
        * rather than swept by prefix so the delivery gates never see an
        * undelivered footstep charged to this scene. */
-      'footstep.concrete', 'footstep.metal', 'footstep.asphalt',
+      'footstep.concrete', 'footstep.metal',
+      'motel.footstep.asphalt.a', 'motel.footstep.asphalt.b',
       'footstep.tile', 'footstep.wood.a', 'footstep.wood.b',
     ],
     prefixes: ['heist.'],
@@ -5415,6 +5547,10 @@ function animate() {
       player.moveScale = activePhase === 'van' ? 0 : (carryingBag ? 0.72 : 1);
       player.update(dt);
       constrainPlayerToPhase();
+      /* The steps are left by walking off them, not by pressing E on the
+       * doors behind you. z 27 is the kerb: the bottom step is at z 31.2 and
+       * the first parked car's bumper is at z 26. */
+      if (activePhase === 'street' && player.position.z < 27) leaveBankSteps();
       interaction.update(dt);
       updateBankSequence(dt);
       updateHostageAim(dt);

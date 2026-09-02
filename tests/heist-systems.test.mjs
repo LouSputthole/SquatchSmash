@@ -185,23 +185,23 @@ test('mission radio commands interrupt chatter and survive the next state transi
     states: ['LOBBY_CONTROL'],
   });
   dialogue.pushCommand({
-    id: 'lou_radio_lobby', priority: DIALOGUE_PRIORITY.OBJECTIVE,
+    id: 'snow_lobby_floor', priority: DIALOGUE_PRIORITY.OBJECTIVE,
     states: ['LOBBY_CONTROL'],
   });
-  assert.deepEqual(started, ['hostage_bark', 'lou_radio_lobby']);
-  assert.equal(dialogue.current?.id, 'lou_radio_lobby');
+  assert.deepEqual(started, ['hostage_bark', 'snow_lobby_floor']);
+  assert.equal(dialogue.current?.id, 'snow_lobby_floor');
   assert.equal(dialogue.current?.interruptible, false);
   dialogue.setState('GUARDS_SECURED');
-  assert.equal(dialogue.current?.id, 'lou_radio_lobby');
-  dialogue.pushCommand({ id: 'lou_radio_vault', states: ['CASH_LOADING'] });
-  dialogue.pushCommand({ id: 'lou_radio_street', states: ['EXIT_ORDER'] });
+  assert.equal(dialogue.current?.id, 'snow_lobby_floor');
+  dialogue.pushCommand({ id: 'snow_vault_eight', states: ['CASH_LOADING'] });
+  dialogue.pushCommand({ id: 'snow_street_sirens', states: ['EXIT_ORDER'] });
   assert.deepEqual(dialogue.queue.map((line) => line.id), [
-    'lou_radio_vault', 'lou_radio_street',
+    'snow_vault_eight', 'snow_street_sirens',
   ]);
   dialogue.finish();
   dialogue.finish();
   assert.deepEqual(started, [
-    'hostage_bark', 'lou_radio_lobby', 'lou_radio_vault', 'lou_radio_street',
+    'hostage_bark', 'snow_lobby_floor', 'snow_vault_eight', 'snow_street_sirens',
   ]);
 });
 

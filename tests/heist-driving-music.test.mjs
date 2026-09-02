@@ -47,7 +47,11 @@ test('THE TAKE drive music is quiet, non-diegetic, looped, and voice-duckable', 
   assert.equal(audio.started[0].options.bus, 'music');
   assert.equal(audio.started[0].options.ambience, false);
   assert.equal(audio.started[0].options.loop, true);
-  assert.ok(audio.started[0].options.volume > 0 && audio.started[0].options.volume <= 0.18);
+  /* 0.42 since the owner asked for the drive record "much louder" (2026-09-02):
+   * clear of the engine bed and the sirens, still under a shouted line once
+   * the voice duck takes it to 0.45x. The ceiling here is the point past
+   * which it would drown the calls the drive is built on. */
+  assert.ok(audio.started[0].options.volume >= 0.35 && audio.started[0].options.volume <= 0.5);
   assert.equal('position' in audio.started[0].options, false);
   assert.equal(score.snapshot().active, true);
   assert.equal(score.snapshot().startCount, 1);
@@ -90,7 +94,13 @@ test('the live heist starts, stops, restores, and tears down the drive score', a
   const source = await readFile(new URL('../src/heist/main.js', import.meta.url), 'utf8');
   assert.match(source, /const safehouseRecord = new HeistSafehouseRecord\(audio\)/);
   assert.match(source, /const driveScore = new HeistDrivingScore\(audio\)/);
-  assert.match(source, /function startVanRide\(\) \{[\s\S]{0,500}safehouseRecord\.stop\(\)/);
+  /* The record follows the crew now (owner, 2026-09-02: "keep the music
+   * going at least into the bank and the vault... just keep it low"): the
+   * van and the bank lower it through `syncSafehouseRecord`, and the street
+   * is what retires it. */
+  assert.match(source, /function syncSafehouseRecord\(phaseId\) \{[\s\S]{0,200}safehouseRecord\.follow\(\)[\s\S]{0,200}safehouseRecord\.stop\(\)/);
+  assert.match(source, /setAudioZone\(id\);\s*syncSafehouseRecord\(id\);/);
+  assert.doesNotMatch(source, /function startVanRide\(\) \{[\s\S]{0,500}safehouseRecord\.stop\(\)/);
   assert.match(source, /function beginDriving\([\s\S]{0,1400}driveScore\.start\(\{ restart: true \}\)/);
   assert.match(source, /function reachSwap\([\s\S]{0,500}driveScore\.stop\(/);
   assert.match(source, /function failMission\([\s\S]{0,300}driveScore\.stop\(/);
@@ -103,7 +113,9 @@ test('the live heist starts, stops, restores, and tears down the drive score', a
 test('the real-browser gate names both complete THE TAKE music ownership receipts', async () => {
   const verifier = await readFile(new URL('../tools/verify-heist.mjs', import.meta.url), 'utf8');
   assert.match(verifier,
-    /THE TAKE safehouse record starts once, ducks under dialogue, and tears down before the bank/);
+    /THE TAKE safehouse record starts once, ducks under dialogue, and follows the crew into the bank low/);
+  assert.match(verifier,
+    /THE TAKE safehouse record tears down on the street/);
   assert.match(verifier,
     /THE TAKE escape score starts once, ducks under dialogue, and tears down at the final handoff/);
 });

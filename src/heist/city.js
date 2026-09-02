@@ -530,6 +530,262 @@ function buildBarrier(group, barrier) {
   return g;
 }
 
+/* ------------------------------------------------------------------ */
+/* Infill: the ground, the alleys, the second row, the skyline           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * WHAT WAS BETWEEN THE BUILDINGS: NOTHING.
+ *
+ * Owner, playtest 2026-09-02: *"there's just gaps in between the buildings
+ * that are just empty into the void... add a little more detail so it's not
+ * so obvious."* Measured off `BLOCKS`: Market Street's ten blocks sit 10 m
+ * apart, Warehouse Row's 15-18 m, and every one of the forty-one brought its
+ * own 0.2 m footing and not a metre more, so a gap was ten metres of
+ * background colour straight down to the camera's far plane. The driving
+ * phase also thins the fog to 0.0045/m to make the turns readable, which is
+ * exactly what made the gaps readable too.
+ *
+ * Four things, all on the shared unit box and Lambert, appended AFTER
+ * everything else in the group so the geometry gate's `type=Mesh#n` paths
+ * for the checked-in city stay where they were:
+ *
+ *   1. a ground plane under the whole field, 20 cm below every footing;
+ *   2. an alley in every gap between two neighbours on a kerb line: a floor
+ *      at street level, a blind wall closing the far end, a dumpster and a
+ *      caged bulb -- so a gap is a place, and the car cannot leave the
+ *      city through it;
+ *   3. a second row of plain shells behind the first, where there is room,
+ *      so the roofline behind a low warehouse is another building;
+ *   4. a ring of tall silhouettes 60-100 m outside the field, which the
+ *      fog turns into a skyline instead of a horizon.
+ */
+const INFILL = {
+  ground: new THREE.MeshLambertMaterial({ color: 0x15181b }),
+  alley: new THREE.MeshLambertMaterial({ color: 0x25282b }),
+  party: new THREE.MeshLambertMaterial({ color: 0x3a3134 }),
+  dumpster: new THREE.MeshLambertMaterial({ color: 0x2f4a33 }),
+  backdrop: [
+    new THREE.MeshLambertMaterial({ color: 0x3f3a38 }),
+    new THREE.MeshLambertMaterial({ color: 0x45484c }),
+    new THREE.MeshLambertMaterial({ color: 0x3a3f46 }),
+  ],
+  skyline: new THREE.MeshLambertMaterial({ color: 0x252a31 }),
+};
+
+/** Deterministic, so the same drive is built every time and the gate can pin it. */
+function infillRandom(seed) {
+  let state = (seed * 9301 + 49297) % 233280;
+  return () => {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+}
+
+/** Road corridors plus a sidewalk-and-a-half of margin. */
+function inRoad(x, z, w, d, margin = 6) {
+  return ROUTE_ROADS.some((road) => (
+    Math.abs(x - road.x) < w / 2 + road.w / 2 + margin
+      && Math.abs(z - road.z) < d / 2 + road.d / 2 + margin
+  ));
+}
+
+function overlaps(a, b, margin = 1) {
+  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 + margin
+    && Math.abs(a.z - b.z) < (a.d + b.d) / 2 + margin;
+}
+
+/** The road a block fronts, and which side of the block that road is on. */
+function frontage([x, z, w, d]) {
+  let best = null;
+  for (const road of ROUTE_ROADS) {
+    const along = road.axis === 'z';
+    const across = along ? Math.abs(x - road.x) : Math.abs(z - road.z);
+    const within = along
+      ? Math.abs(z - road.z) <= road.d / 2 + d
+      : Math.abs(x - road.x) <= road.w / 2 + w;
+    if (!within) continue;
+    if (!best || across < best.across) best = { road, across, along };
+  }
+  if (!best) return null;
+  const { road, along } = best;
+  /* `side` is the unit direction from the block towards its road, on the
+   * axis that crosses the road. */
+  return along
+    ? { axis: 'x', side: Math.sign(road.x - x) || 1 }
+    : { axis: 'z', side: Math.sign(road.z - z) || 1 };
+}
+
+function buildInfill(group) {
+  const solids = [];
+  const placed = BLOCKS.map(([x, z, w, d]) => ({ x, z, w, d }));
+  const random = infillRandom(41);
+
+  /* 1. The ground. Its top is at -0.2, which is the underside of every road
+   * slab and building footing, so it touches all of them and enters none. */
+  const groundStart = group.children.length;
+  const ground = box(group, [640, 0.2, 880], [-225, -0.3, -270], INFILL.ground, 'route-ground');
+  ground.userData.kind = 'route-ground';
+  ownAddedChildren(group, groundStart, 'heist.route-ground', {
+    structural: true,
+    fixedSupportAnchor: true,
+  });
+
+  /* 2. The alleys. Two blocks on one kerb line, close enough to be
+   * neighbours, get the gap between them dressed. */
+  let alleyIndex = 0;
+  for (let i = 0; i < BLOCKS.length; i++) {
+    for (let j = i + 1; j < BLOCKS.length; j++) {
+      const a = BLOCKS[i];
+      const b = BLOCKS[j];
+      const front = frontage(a);
+      if (!front || front.axis !== frontage(b)?.axis) continue;
+      // Same kerb line: same position across the road, same depth back from it.
+      const crossAxis = front.axis === 'x' ? 0 : 1;
+      const rowAxis = 1 - crossAxis;
+      if (a[crossAxis] !== b[crossAxis] || a[2 + crossAxis] !== b[2 + crossAxis]) continue;
+      const rowSize = (block) => block[2 + rowAxis];
+      const [near, far] = a[rowAxis] < b[rowAxis] ? [a, b] : [b, a];
+      const gap = (far[rowAxis] - rowSize(far) / 2) - (near[rowAxis] + rowSize(near) / 2);
+      if (gap < 4 || gap > 24) continue;
+      // Only true neighbours: nothing else on this kerb line sits in the gap.
+      const centre = near[rowAxis] + rowSize(near) / 2 + gap / 2;
+      const crossHalf = a[2 + crossAxis] / 2;
+      const footprint = crossAxis === 0
+        ? { x: a[0], z: centre, w: a[2], d: gap }
+        : { x: centre, z: a[1], w: gap, d: a[3] };
+      if (placed.some((other) => other !== placed[i] && other !== placed[j]
+        && overlaps(other, footprint, 0))) continue;
+      if (inRoad(footprint.x, footprint.z, footprint.w, footprint.d, 0)) continue;
+
+      const firstChild = group.children.length;
+      alleyIndex += 1;
+      const floorSize = crossAxis === 0 ? [a[2], 0.2, gap - 0.04] : [gap - 0.04, 0.2, a[3]];
+      box(group, floorSize, [footprint.x, -0.1, footprint.z], INFILL.alley, `route-alley-floor-${alleyIndex}`);
+      // The blind wall at the back of the alley, two storeys, the whole gap wide.
+      const wallHeight = STOREY * 2;
+      const back = a[crossAxis] - front.side * (crossHalf - 0.3);
+      const wallSize = crossAxis === 0 ? [0.5, wallHeight, gap - 0.06] : [gap - 0.06, wallHeight, 0.5];
+      const wallPos = crossAxis === 0
+        ? [back, wallHeight / 2, footprint.z]
+        : [footprint.x, wallHeight / 2, back];
+      const wall = box(group, wallSize, wallPos, INFILL.party, `route-alley-wall-${alleyIndex}`);
+      wall.userData.kind = 'route-alley-wall';
+      solids.push(crossAxis === 0
+        ? { x: back, z: footprint.z, w: 0.5, d: gap }
+        : { x: footprint.x, z: back, w: gap, d: 0.5 });
+      // A caged bulb on the wall's alley face, 2 cm proud of it.
+      const bulbOffset = front.side * (0.25 + 0.02 + 0.08);
+      box(group, [0.16, 0.16, 0.16], crossAxis === 0
+        ? [back + bulbOffset, 3.2, footprint.z]
+        : [footprint.x, 3.2, back + bulbOffset], EMISSIVE.practical);
+      // The dumpster, against the wall, off to one side of the alley.
+      const dumpsterAlong = centre - gap / 2 + 1.5;
+      const dumpsterCross = back + front.side * (0.25 + 0.05 + 0.55);
+      const dumpsterPos = crossAxis === 0
+        ? [dumpsterCross, 0.65, dumpsterAlong]
+        : [dumpsterAlong, 0.65, dumpsterCross];
+      const dumpsterSize = crossAxis === 0 ? [1.1, 1.3, 1.8] : [1.8, 1.3, 1.1];
+      box(group, dumpsterSize, dumpsterPos, INFILL.dumpster, `route-alley-dumpster-${alleyIndex}`);
+      box(group, crossAxis === 0 ? [1.1, 0.06, 1.8] : [1.8, 0.06, 1.1],
+        [dumpsterPos[0], 1.33, dumpsterPos[2]], MAT.darkSteel);
+      solids.push(crossAxis === 0
+        ? { x: dumpsterCross, z: dumpsterAlong, w: 1.1, d: 1.8 }
+        : { x: dumpsterAlong, z: dumpsterCross, w: 1.8, d: 1.1 });
+      ownAddedChildren(group, firstChild, `heist.route-alley.${alleyIndex}`);
+      // The floor is a footing: it holds the wall and the dumpster up.
+      group.children[firstChild].userData.geometryGate = {
+        ...group.children[firstChild].userData.geometryGate,
+        structural: true,
+        fixedSupportAnchor: true,
+      };
+      placed.push(footprint);
+    }
+  }
+
+  /* 3. The second row: a plain shell eight metres behind each block that has
+   * the room, on its own footing, windows on the face the street can see. */
+  let backdropIndex = 0;
+  for (const [index, block] of BLOCKS.entries()) {
+    const front = frontage(block);
+    if (!front) continue;
+    const [x, z, w, d] = block;
+    const depth = 20;
+    const shell = front.axis === 'x'
+      ? { x: x - front.side * (w / 2 + 8 + depth / 2), z, w: depth, d }
+      : { x, z: z - front.side * (d / 2 + 8 + depth / 2), w, d: depth };
+    if (inRoad(shell.x, shell.z, shell.w, shell.d, 4)) continue;
+    if (placed.some((other) => overlaps(other, shell, 1))) continue;
+    if (BARRIERS.some((barrier) => overlaps(barrier, shell, 2))) continue;
+    backdropIndex += 1;
+    const storeys = 3 + Math.floor(random() * 6);
+    const height = storeys * STOREY;
+    const firstChild = group.children.length;
+    const footing = box(group, [shell.w, 0.2, shell.d], [shell.x, -0.1, shell.z], MAT.asphalt,
+      `route-backdrop-foundation-${backdropIndex}`);
+    footing.userData.geometryGate = {
+      assemblyId: `heist.route-backdrop-foundation.${backdropIndex}`,
+      structural: true,
+      fixedSupportAnchor: true,
+    };
+    const body = box(group, [shell.w, height, shell.d], [shell.x, height / 2, shell.z],
+      INFILL.backdrop[index % INFILL.backdrop.length], `route-backdrop-${backdropIndex}`);
+    body.userData.kind = 'route-backdrop';
+    // Window bands on the face towards the street, every second storey.
+    for (let level = 1; level < storeys; level += 2) {
+      const y = level * STOREY + 1.6;
+      const material = (index + level) % 2 ? EMISSIVE.warm : EMISSIVE.cool;
+      if (front.axis === 'x') {
+        box(group, [0.08, 0.5, Math.max(1.8, shell.d * 0.7)],
+          [shell.x + front.side * (shell.w / 2 + 0.06), y, shell.z], material);
+      } else {
+        box(group, [Math.max(1.8, shell.w * 0.7), 0.5, 0.08],
+          [shell.x, y, shell.z + front.side * (shell.d / 2 + 0.06)], material);
+      }
+    }
+    ownAddedChildren(group, firstChild + 1, `heist.route-backdrop.${backdropIndex}`);
+    placed.push(shell);
+    solids.push(shell);
+  }
+
+  /* 4. The skyline: towers around the outside of the field, far enough out
+   * that the fog does the drawing. */
+  const ring = [];
+  for (let x = -520; x <= 60; x += 46) { ring.push([x, 212]); ring.push([x + 18, -742]); }
+  for (let z = -700; z <= 170; z += 48) { ring.push([-602, z]); ring.push([152, z + 20]); }
+  for (const [index, [x, z]] of ring.entries()) {
+    const w = 18 + Math.floor(random() * 14);
+    const d = 18 + Math.floor(random() * 14);
+    const storeys = 7 + Math.floor(random() * 14);
+    const shell = { x, z, w, d };
+    if (placed.some((other) => overlaps(other, shell, 2))) continue;
+    const height = storeys * STOREY;
+    const firstChild = group.children.length;
+    const footing = box(group, [w, 0.2, d], [x, -0.1, z], MAT.asphalt,
+      `route-skyline-foundation-${index + 1}`);
+    footing.userData.geometryGate = {
+      assemblyId: `heist.route-skyline-foundation.${index + 1}`,
+      structural: true,
+      fixedSupportAnchor: true,
+    };
+    const tower = box(group, [w, height, d], [x, height / 2, z], INFILL.skyline,
+      `route-skyline-${index + 1}`);
+    tower.userData.kind = 'route-skyline';
+    // One lit stairwell column on the two faces that look into the field.
+    const towardsX = x < -225 ? 1 : -1;
+    const towardsZ = z < -270 ? 1 : -1;
+    box(group, [0.08, height * 0.82, 1.4], [x + towardsX * (w / 2 + 0.06), height * 0.5, z + d * 0.2], EMISSIVE.cool);
+    box(group, [1.4, height * 0.82, 0.08], [x - w * 0.2, height * 0.5, z + towardsZ * (d / 2 + 0.06)], EMISSIVE.warm);
+    if (storeys >= 14) {
+      box(group, [0.3, 0.3, 0.3], [x + w * 0.2, height + 0.15, z - d * 0.2], EMISSIVE.signalRed);
+    }
+    ownAddedChildren(group, firstChild + 1, `heist.route-skyline.${index + 1}`);
+    placed.push(shell);
+  }
+
+  return solids;
+}
+
 /**
  * Build the whole route into `group`.
  *
@@ -583,6 +839,8 @@ export function buildEscapeCity(group, vehicleFactory) {
     buildBarrier(group, barrier);
     obstacles.push({ x: barrier.x, z: barrier.z, w: barrier.w, d: barrier.d });
   }
+
+  for (const solid of buildInfill(group)) obstacles.push(solid);
 
   /* Overhead lighting for the junctions: what makes a turn readable a hundred
    * metres out at sixty miles an hour. Four of them, not eight — every extra
