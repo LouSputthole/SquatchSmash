@@ -16,6 +16,8 @@ let userVolume = 1;
 
 // Ambience nodes (started once, gain-tweened by tension)
 let amb = null;
+/** Resolves once `SAMPLE_CUES` has finished decoding. Tests await it. */
+export let samplesReady = Promise.resolve();
 let tension = 0;         // 0..1, drives the bass pulse and the room falling away
 let musicTimer = null;
 let musicStep = 0;
@@ -53,7 +55,11 @@ export function init(options = {}) {
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-  loadSamples(SAMPLE_CUES);
+  /* `startAmbience()` is called three lines after this one and these files are
+   * still in flight, so the beds cannot simply be read out of `samples` there.
+   * Hold the promise: the room starts on its oscillators and upgrades itself
+   * to the recordings the moment they decode. */
+  samplesReady = loadSamples(SAMPLE_CUES);
   loadVoiceIndex(options.priorityVoice || []);
 }
 
@@ -101,6 +107,14 @@ const SAMPLE_CUES = [...new Set([
   'swing.whiff', 'tunnel.crawl', 'tv.implode', 'tv.static',
   'ui.achievement', 'ui.objective', 'vacuum.pack.handle', 'window.slide',
   'wood.break',
+  /* The nine briefs that had no code hook until now — see tools/sound-queue. */
+  'cleaver.swipe', 'curtain.rip', 'jerky.bend', 'wax.seal.break', 'sealer.run',
+  'fan.click', 'ac.drip', 'vending.bump',
+  /* The ambience beds. Four of these replace an oscillator arm below; the
+   * other four are places the room has always had and never made a noise. */
+  'ambience.motel.neon', 'ambience.motel.ac', 'ambience.motel.night',
+  'ambience.motel.tension', 'ambience.motel.room', 'ambience.motel.tv',
+  'ambience.motel.pool', 'ambience.motel.alley',
   ...WEAPON_CUES,
 ])];
 
@@ -196,6 +210,23 @@ function loadSamples(names) {
   return Promise.all(waits);
 }
 
+function makePanner(position, ref, maxDist) {
+  if (!ctx?.createPanner) return null;
+  const p = ctx.createPanner();
+  p.panningModel = 'HRTF';
+  p.distanceModel = 'inverse';
+  p.refDistance = ref;
+  p.maxDistance = maxDist;
+  if (p.positionX) {
+    p.positionX.value = position.x;
+    p.positionY.value = position.y ?? 0;
+    p.positionZ.value = position.z;
+  } else {
+    p.setPosition(position.x, position.y ?? 0, position.z);
+  }
+  return p;
+}
+
 function playSample(name, {
   volume = 1, rate = 1, position = null, ref = 3, maxDist = 55,
 } = {}) {
@@ -209,23 +240,9 @@ function playSample(name, {
   /* `ref`/`maxDist` are the shared weapon system's names for a panner's
    * reference and maximum distance, so a cue routed through `weaponAudio`
    * lands here already carrying a gunshot's falloff rather than a prop's. */
-  if (position && listenerPlaced && ctx.createPanner) {
-    const p = ctx.createPanner();
-    p.panningModel = 'HRTF';
-    p.distanceModel = 'inverse';
-    p.refDistance = ref;
-    p.maxDistance = maxDist;
-    if (p.positionX) {
-      p.positionX.value = position.x;
-      p.positionY.value = position.y ?? 0;
-      p.positionZ.value = position.z;
-    } else {
-      p.setPosition(position.x, position.y ?? 0, position.z);
-    }
-    src.connect(g).connect(p).connect(master);
-  } else {
-    src.connect(g).connect(master);
-  }
+  const p = position && listenerPlaced ? makePanner(position, ref, maxDist) : null;
+  if (p) src.connect(g).connect(p).connect(master);
+  else src.connect(g).connect(master);
   src.start();
   return true;
 }
@@ -588,7 +605,110 @@ export function startAmbience() {
   lfo.connect(lfoAmt).connect(pulseGain.gain);
   lfo.start(now);
 
-  amb = { hum, humGain, acGain, airGain, pulseGain, lfo, lfoAmt, nodes: [hum, acSrc, rattle, airSrc, pulse, lfo] };
+  amb = {
+    hum, humGain, acSrc, rattle, acGain, airSrc, airGain, pulse, pulseGain, lfo, lfoAmt,
+    tensionSrc: null, recorded: false,
+    nodes: [hum, acSrc, rattle, airSrc, pulse, lfo],
+  };
+  /* The beds are still downloading when this runs (see `init`). Start on the
+   * oscillators, then take the recordings the moment they decode. A settled
+   * promise lands on the next microtask, so a restarted scene upgrades at
+   * once rather than waiting for a second fetch. */
+  samplesReady.then(() => upgradeAmbience());
+}
+
+/**
+ * Beds that belong to a place rather than to the whole room.
+ *
+ * There is no oscillator arm under these four: the bottom of the drained pool,
+ * the rear alley, room twelve's own tone and the television through the wall
+ * of room eleven have all been drawn since the scene was built and none of
+ * them has ever made a sound. The panner is the zone system -- no phase, no
+ * trigger volume, no state to get wrong. Walk closer and the bed comes up.
+ */
+const AMBIENCE_PLACES = Object.freeze([
+  ['ambience.motel.room', { x: 0, y: 1.5, z: -10 }, 0.16, 5, 14],
+  ['ambience.motel.tv', { x: -7.5, y: 1.5, z: -10 }, 0.12, 3, 11],
+  ['ambience.motel.pool', { x: 22, y: -2, z: 13 }, 0.2, 5, 20],
+  ['ambience.motel.alley', { x: 0, y: 1.2, z: -19.5 }, 0.18, 6, 22],
+]);
+
+/**
+ * Start a recording looping, or answer null if we do not have that file.
+ *
+ * Pass `gain` to feed an existing node -- that is how a recorded bed takes
+ * over from an oscillator without anything downstream noticing: the same gain
+ * keeps being the handle `setTension` tweens.
+ */
+function loopSample(name, {
+  volume = 1, position = null, gain = null, ref = 6, maxDist = 26,
+} = {}) {
+  const buf = samples.get(name);
+  if (!buf || !ctx) return null;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  if (gain) {
+    src.connect(gain);
+    src.start();
+    return { src, gain };
+  }
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  /* Unlike `playSample`, a bed is panned whether or not the listener has been
+   * placed yet. A one-shot fired against an unset ear is a lie that lasts a
+   * fifth of a second; a bed flattened for the same reason is a lie that lasts
+   * the whole scene, and `setListenerPose` runs every frame regardless. */
+  const p = position ? makePanner(position, ref, maxDist) : null;
+  if (p) src.connect(g).connect(p).connect(master);
+  else src.connect(g).connect(master);
+  src.start();
+  return { src, gain: g };
+}
+
+/**
+ * Swap the recorded beds in over the oscillators, once they have decoded.
+ *
+ * Each swap feeds the gain node its oscillator was feeding and then stops the
+ * oscillator, so the graph below this function is unchanged and `setTension`
+ * goes on tweening the same four handles. A bed with no file on disk keeps its
+ * oscillator and nobody hears the difference except in the good direction.
+ */
+function upgradeAmbience() {
+  if (!ctx || !amb || amb.recorded) return;
+  amb.recorded = true;
+
+  const swap = (name, gain, ...oscillators) => {
+    const loop = loopSample(name, { gain });
+    if (!loop) return null;
+    for (const osc of oscillators) {
+      if (!osc) continue;
+      try { osc.stop(); } catch { /* already stopped */ }
+    }
+    amb.nodes.push(loop.src);
+    return loop.src;
+  };
+
+  swap('ambience.motel.neon', amb.humGain, amb.hum);
+  /* The loose panel rattles inside the recording, so the tremolo LFO that was
+   * standing in for it goes out with the noise buffer it was modulating. */
+  swap('ambience.motel.ac', amb.acGain, amb.acSrc, amb.rattle);
+  swap('ambience.motel.night', amb.airGain, amb.airSrc);
+  /* The suspense bed is the one arm that loses something real to a recording:
+   * a sine's pulse could speed up with the suspicion meter and a rendered one
+   * cannot. `setTension` drives `playbackRate` instead, which is the same
+   * promise the brief made -- "a low pulse that speeds up as the room turns". */
+  const tensionSrc = swap('ambience.motel.tension', amb.pulseGain, amb.pulse, amb.lfo);
+  if (tensionSrc) {
+    amb.tensionSrc = tensionSrc;
+    amb.lfo = null;
+    amb.lfoAmt = null;
+  }
+
+  for (const [name, position, volume, ref, maxDist] of AMBIENCE_PLACES) {
+    const loop = loopSample(name, { volume, position, ref, maxDist });
+    if (loop) amb.nodes.push(loop.src);
+  }
 }
 
 export function stopAmbience() {
@@ -605,8 +725,13 @@ export function setTension(k) {
   if (!amb || !ctx) return;
   const t = ctx.currentTime;
   amb.pulseGain.gain.setTargetAtTime(0.02 + tension * 0.1, t, 0.4);
-  amb.lfoAmt.gain.setTargetAtTime(0.03 + tension * 0.06, t, 0.4);
-  amb.lfo.frequency.setTargetAtTime(1.0 + tension * 1.6, t, 0.6); // heartbeat speeds up
+  /* Two arms, one heartbeat. The oscillator bed speeds up by moving its LFO;
+   * the recorded bed speeds up by playing faster. Whichever is in, the other
+   * one's handles are null -- unguarded, this threw a TypeError on every
+   * suspicion write, which is a thing `setTension`'s callers would never see. */
+  if (amb.lfoAmt) amb.lfoAmt.gain.setTargetAtTime(0.03 + tension * 0.06, t, 0.4);
+  if (amb.lfo) amb.lfo.frequency.setTargetAtTime(1.0 + tension * 1.6, t, 0.6);
+  if (amb.tensionSrc) amb.tensionSrc.playbackRate.setTargetAtTime(0.92 + tension * 0.3, t, 0.6);
   amb.airGain.gain.setTargetAtTime(0.035 * (1 - tension * 0.8), t, 0.8);
   amb.acGain.gain.setTargetAtTime(0.05 * (1 - tension * 0.55), t, 0.8);
 }
@@ -1108,6 +1233,84 @@ export function sting() {
   [110, 138.6, 164.8, 220].forEach((f, i) => {
     tone(t + i * 0.13, { type: 'sawtooth', from: f, to: f, dur: 0.4, peak: 0.12 });
   });
+}
+
+// ---------- The props that were drawn but never heard ----------
+//
+// Nine briefs in `assets/audio/sound-queue.json` carried no `call` for as long
+// as the queue has existed. Every one of them is built in `src/motel/level.js`
+// -- a butcher's cleaver, a shower curtain on a rod, a wax seal, the counter
+// sealer, the uneven ceiling fan, eight dripping air conditioners, the vending
+// machine and the second car in the lot -- and every one of them was either
+// silent or borrowed somebody else's sound. `sfx.packaging()` was standing in
+// for tearing a curtain off a wall.
+//
+// Five of them are recordings only, and deliberately so: the sealer, the fan,
+// the drip, the vending machine and the lot car were silent before this, so a
+// missing file puts them back exactly where they already were and writing five
+// oscillator arms would be inventing fallbacks for sounds that never had one.
+//
+// The other four are NOT in that position, and the difference matters. The
+// cleaver, the curtain and the two inspection checks each REPLACED a call that
+// always made a noise -- `punch()` and `packaging()` -- and `loadSamples`
+// deletes a cue on any fetch or decode failure, so recording-only would have
+// turned an offline reload into a butcher whose cleaver lands in silence.
+// They fall back to the sound they took the place of. See the module header:
+// every caller keeps a fallback, and that promise is older than these cues.
+
+export function cleaverSwipe(position = null) {
+  if (playSample('cleaver.swipe', { volume: 0.8, position })) return;
+  punch(true);
+}
+
+export function curtainRip(position = null) {
+  if (playSample('curtain.rip', { volume: 0.75, position })) return;
+  packaging();
+}
+
+export function jerkyBend() {
+  if (playSample('jerky.bend', { volume: 0.8 })) return;
+  packaging();
+}
+
+export function waxSeal() {
+  if (playSample('wax.seal.break', { volume: 0.8 })) return;
+  packaging();
+}
+
+export function sealerRun(position = null) {
+  playSample('sealer.run', { volume: 0.4, position, ref: 2.5, maxDist: 16 });
+}
+
+export function fanClick(position = null) {
+  playSample('fan.click', { volume: 0.25, position, ref: 2, maxDist: 12 });
+}
+
+export function acDrip(position = null) {
+  playSample('ac.drip', { volume: 0.35, position, ref: 2, maxDist: 18 });
+}
+
+export function vendingBump(position = null) {
+  playSample('vending.bump', { volume: 0.4, position, ref: 3, maxDist: 22 });
+}
+
+/**
+ * The second car in the lot, idling with nobody in it.
+ *
+ * `car.engine.idle` is already that recording, already seamless, and already
+ * in this scene's sample list. The brief gets the code hook it was missing
+ * rather than a second idle nobody could pick out of a line-up next to the
+ * first. Idempotent: the lot has one second car, so it starts once and stops
+ * with the rest of the ambience.
+ */
+export function engineIdle(position = null) {
+  if (!amb || amb.lotIdle) return;
+  const loop = loopSample('car.engine.idle', {
+    volume: 0.22, position, ref: 5, maxDist: 30,
+  });
+  if (!loop) return;
+  amb.lotIdle = loop.src;
+  amb.nodes.push(loop.src);
 }
 
 // ---------- Music ----------

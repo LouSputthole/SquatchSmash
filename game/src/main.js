@@ -369,6 +369,7 @@ function confirmQuit() {
    * menu (standalone) or the reveal (on the desk). */
   $('shutdown').classList.remove('hidden');
   sfx.stopMusic?.();
+  sfx.stopAmbience?.();
   const host = apartmentHost();
   window.setTimeout(() => {
     if (host?.quitSquatchSmash) host.quitSquatchSmash();
@@ -408,6 +409,7 @@ function togglePause() {
   if (state === 'playing') {
     state = 'paused';
     sfx.stopMusic();
+    sfx.stopAmbience();
     $('pauseStats').innerHTML =
       `Score: <b>${score.toLocaleString()}</b><br>` +
       `Kills: <b>${campersSmashed + rangersSmashed}</b> · Wrecked: <b>${destroyed} / ${smashableCount}</b><br>` +
@@ -458,6 +460,7 @@ sharedPauseMenu = createPauseMenu({
     state = 'paused';
     keys.clear();
     sfx.stopMusic();
+    sfx.stopAmbience();
   },
   onResume: () => {
     state = 'playing';
@@ -629,6 +632,7 @@ function startGame() {
   hudEl.classList.add('visible');
   sfx.roar();
   sfx.startMusic();
+  sfx.startAmbience();
   campers.panicNear(player.position, 14);
   rangers.spawn(2);
   shake = 0.4;
@@ -648,6 +652,7 @@ const TYPE_LABELS = {
 function endGame(clearedEverything) {
   state = 'over';
   sfx.stopMusic();
+  sfx.stopAmbience();
   hudEl.classList.remove('visible');
   vignetteEl.classList.remove('rage');
   tranqTintEl.classList.remove('on');
@@ -1429,6 +1434,12 @@ function tick() {
     return;
   }
   const dt = Math.min(clock.getDelta(), 0.05);
+
+  /* The bed is still downloading when `startGame` asks for it, so ask again.
+   * `startAmbience` is idempotent and returns immediately once it is running,
+   * and this is also what brings the bed back after a pause -- every stop
+   * shadows `stopMusic`, and this is the matching start. */
+  if (state === 'playing') sfx.startAmbience();
 
   // Hit-stop: a few frozen frames to sell the biggest impacts
   if (hitStop > 0) {

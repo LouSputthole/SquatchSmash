@@ -91,8 +91,8 @@ test('they are scenery, not a second foursome', () => {
 
 test('a member with no face photo yet wears his authored head instead of a 404', () => {
   /* `assets/faces/index.json` exists so nothing probes for a PNG that has not
-   * landed. Numbskull has no photograph, and asking for one is a console
-   * error on every round and a failed no-console-errors gate. */
+   * landed, because asking for one is a console error on every round and a
+   * failed no-console-errors gate. */
   const build = terrain.slice(terrain.indexOf('function buildGallery('), terrain.indexOf('function buildClubhouse('));
   assert.match(build, /faces\.has\(member\.photo\)/);
   assert.match(build, /: null/);
@@ -100,11 +100,18 @@ test('a member with no face photo yet wears his authored head instead of a 404',
   const index = JSON.parse(fs.readFileSync(new URL('../assets/faces/index.json', import.meta.url), 'utf8'));
   const have = new Set(index.files || []);
   const byId = Object.fromEntries(FAMILY.map((member) => [member.id, member]));
-  const unphotographed = GALLERY.filter((mark) => !have.has(byId[mark.id]?.photo));
-  // Not an error — just the state of the art pass. This asserts the guard is
-  // load-bearing rather than decorative.
+  /* Every face in the GALLERY is photographed now that Lag and Numbskull have
+   * landed, so a gap in the gallery can no longer be what proves this. The
+   * guard is shared with the Bing and the Special Meeting and the roster still
+   * has three men waiting on a picture, so it is load-bearing there instead —
+   * and the two structural matches above are what prove `buildGallery`
+   * consults the index at all, which is the part that must never rot.
+   *
+   * Not an error when this fires. It means the art pass finished: keep the
+   * guard, and retire this half of the test rather than inventing a gap. */
+  const unphotographed = FAMILY.filter((member) => !have.has(member.photo));
   assert.ok(unphotographed.length >= 1,
-    'every gallery photo now exists; keep the guard anyway, but this test is no longer proving it');
+    'every roster photo now exists; keep the guard anyway, but this test is no longer proving it');
 });
 
 test('the gallery lives on the hole group so a hole change disposes it', () => {

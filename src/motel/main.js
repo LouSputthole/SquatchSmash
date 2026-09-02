@@ -2001,7 +2001,7 @@ addInteract({
       say('Prospect', 'Wear it.', 2);
       toast('TANGLED', '', `${foe.name} is wrapped in motel plastic`);
     }
-    sfx.packaging();
+    sfx.curtainRip({ x: 4.0, y: 1.2, z: -12.9 });
   },
 });
 
@@ -2738,7 +2738,12 @@ function runInspection(id) {
   const firstTest = !S.sampleChecked;
   S.sampleChecked = true;
   completeObjective('inspect');
-  sfx.packaging();
+  /* Six of the eight checks are somebody turning the packet over, which is
+   * what `packaging` is. Two are not: bending the strip until the edge cracks,
+   * and breaking the numbered wax seal to get at a sample. */
+  if (id === 'bend') sfx.jerkyBend();
+  else if (id === 'taste') sfx.waxSeal();
+  else sfx.packaging();
   const inspectionHold = say('*', res.line, 4.2);
   renderInspection();
 
@@ -3094,7 +3099,8 @@ function resolvePlayerHit(st) {
     hitAny = true;
     const dmg = st.dmg * (S.weapon === 'fists' ? 1.25 : 1);
     const down = a.damage(dmg, st.lethal, pos.x, pos.z);
-    sfx.punch(st.dmg > 30);
+    if (S.weapon === 'cleaver') sfx.cleaverSwipe(a.position);
+    else sfx.punch(st.dmg > 30);
     debris.puff(new THREE.Vector3(a.position.x, 1.4, a.position.z), 0x7a3a3a, 3);
     shake = Math.max(shake, 0.25);
     if (down) onActorDown(a, st.lethal);
@@ -3337,6 +3343,9 @@ function enemyMelee(a) {
   damagePlayer(st.dmg * 0.55, a.name);
   if (st.stun) stunT = Math.max(stunT, st.stun);
   if (a.weapon === 'prod') sfx.prod();
+  /* The butcher has carried a cleaver since the roster was written and it has
+   * been landing as a bare-knuckle punch the whole time. */
+  else if (a.weapon === 'cleaver') sfx.cleaverSwipe(a.position);
   else sfx.punch(false);
 }
 
@@ -4851,6 +4860,14 @@ function startDrive() {
   S.snowSeated = false;
   player.group.scale.setScalar(PLAYER_SCALE);
   phase = 'drive';
+  /* The getaway renders a different world with the listener in a moving car,
+   * and `syncListenerPose` keeps feeding it the drive camera. The motel's beds
+   * are pinned to motel coordinates -- room twelve, the alley, the drained
+   * pool, the second car in the lot -- so leaving them running put a swimming
+   * pool ten metres off the hood for the whole escape. When they were four
+   * oscillator textures that read as generic hum and nobody noticed; they are
+   * location-specific recordings now and it is unmistakable. */
+  sfx.stopAmbience();
   driveHudEl.classList.add('show');
   metersEl.classList.remove('show');
   sfx.setMusic('chase');
@@ -5147,6 +5164,11 @@ function playEndingVoices(lines) {
 let barkT = 6;
 let ambientT = 0;
 
+const TAU = Math.PI * 2;
+/** Under the ceiling fan in room twelve — where `effects.explosion` puts the
+ *  sparks when the switch gets knocked. */
+const FAN_POS = { x: 0, y: 3.1, z: -10.4 };
+
 function updateAmbient(dt) {
   ambientT += dt;
 
@@ -5161,7 +5183,15 @@ function updateAmbient(dt) {
   }
 
   // Ceiling fan, palms in the warm wind
+  const fanWas = refs.fan.group.rotation.y;
   refs.fan.group.rotation.y += dt * refs.fan.speed * (1 + Math.sin(ambientT * 3) * 0.12);
+  /* One tick per rotation, which is what an unbalanced fan does and what the
+   * brief asked for. Reading it off the rotation rather than off a timer means
+   * the click stays married to the blade: knock the switch and the fan runs at
+   * 14 rad/s, and the ticking goes frantic on its own with nothing to update. */
+  if (Math.floor(refs.fan.group.rotation.y / TAU) !== Math.floor(fanWas / TAU)) {
+    sfx.fanClick(FAN_POS);
+  }
   for (const p of refs.palms) {
     p.crown.rotation.z = Math.sin(ambientT * 1.2 + p.phase) * 0.06;
     p.crown.rotation.x = Math.cos(ambientT * 0.9 + p.phase) * 0.05;
@@ -5176,6 +5206,36 @@ function updateAmbient(dt) {
   if (Math.random() < dt * 0.08) sfx.iceDrop();
   if (Math.random() < dt * 0.06) sfx.plumbing();
   if (Math.random() < dt * 0.03) sfx.siren(true);
+
+  /* The props that were drawn and silent. Positional, so distance decides
+   * whether you hear them -- but `updateAmbient` runs in EVERY phase, outside
+   * the guarded block above, and the last two phases are a car chase and an
+   * end card. Distance cannot save a cue whose coordinates stopped meaning
+   * anything, so the phase has to. (The older ice/plumbing/siren lines below
+   * are flat, not panned, and are left as they were.) */
+  const atMotel = phase !== 'drive' && phase !== 'end';
+  if (atMotel && Math.random() < dt * 0.5 && refs.acUnits.length) {
+    const unit = refs.acUnits[Math.floor(Math.random() * refs.acUnits.length)];
+    /* `refs.acUnits` holds the UPPER units, seven metres up. The drip is heard
+     * where it lands, not where it leaves -- on the walkway underneath, which
+     * is also the only place a player is ever standing to hear it. */
+    if (!unit.dropped) sfx.acDrip({ x: unit.x, y: 0.2, z: unit.z });
+  }
+  if (atMotel && Math.random() < dt * 0.035) {
+    sfx.vendingBump({ x: refs.vending.x, y: 1.2, z: refs.vending.z });
+  }
+  /* The counter sealer runs a bag while the deal is still a deal. Once the
+   * room turns, nobody is packing anything. */
+  if (phase === 'room' && Math.random() < dt * 0.06) {
+    sfx.sealerRun({ x: refs.sealer.x, y: 1.3, z: refs.sealer.z });
+  }
+  /* Idempotent, and deliberately called every frame: the recording is still
+   * downloading for the first second or so of the scene, and this is what
+   * retries until it lands. It starts once and stops with the ambience, so the
+   * drive already silences it -- but the guard is here rather than left to
+   * that, because "somebody else nulls the thing I early-return on" is an
+   * invariant in another module and this is one boolean. */
+  if (atMotel) sfx.engineIdle(refs.secondCar.group.position);
 
   // Chatter
   barkT -= dt;

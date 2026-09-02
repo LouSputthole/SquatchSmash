@@ -12868,271 +12868,6 @@
       "prompt": "a billiard ball dropping into a pocket, a ball leaving the cloth and falling into a net and wooden channel, one soft leathery thud then a short low wooden roll away underneath the table, close interior, no voice, no music"
     },
     {
-      "name": "door.knock.motel",
-      "duration": 1.2,
-      "prompt": "three heavy slow knuckle knocks on a hollow-core motel door, close mic, dry interior corridor, no voice"
-    },
-    {
-      "name": "door.open.motel",
-      "duration": 1,
-      "prompt": "cheap interior door opening on a dry unoiled hinge, thin security chain rattling against the frame, close, no voice"
-    },
-    {
-      "name": "door.slam",
-      "duration": 0.8,
-      "prompt": "lightweight interior door slammed hard, sharp wooden crack and the frame rattling afterwards, small room, no voice"
-    },
-    {
-      "name": "door.splinter",
-      "duration": 1.4,
-      "prompt": "a door torn out of its frame, wood splintering and screws tearing free, heavy weight following it to the floor, no voice"
-    },
-    {
-      "name": "window.slide",
-      "duration": 1,
-      "prompt": "a small aluminium bathroom window sliding open a few inches on gritty runners and stopping hard, close mic, no voice"
-    },
-    {
-      "name": "punch.light",
-      "duration": 0.5,
-      "prompt": "a bare fist landing flat on a human torso, close and dull with a soft cloth impact, no music, no voice"
-    },
-    {
-      "name": "punch.heavy",
-      "duration": 0.7,
-      "prompt": "an enormous full-weight punch connecting with a body, deep low thud with a dry wooden crack inside it, no music, no voice"
-    },
-    {
-      "name": "swing.whiff",
-      "duration": 0.5,
-      "prompt": "a heavy arm swinging fast through still humid air and hitting nothing, low airy whoosh, close, no voice"
-    },
-    {
-      "name": "body.fall.carpet",
-      "duration": 0.9,
-      "prompt": "a large adult body dropping limp onto thin motel carpet over concrete, dull heavy thud with a small fabric rustle, no voice"
-    },
-    {
-      "name": "slicer.spin",
-      "duration": 1.6,
-      "prompt": "a commercial deli meat slicer motor spinning up, blade whine rising then holding steady, tiled room, no voice"
-    },
-    {
-      "name": "stunprod.arc",
-      "duration": 0.6,
-      "prompt": "a stun prod arcing, dry high-voltage electrical snapping and crackling in short bursts, close, no voice"
-    },
-    {
-      "name": "grapple.struggle",
-      "duration": 2.5,
-      "prompt": "two heavy bodies wrestling and shoving against each other, clothing scuffing, strained breathing, feet dragging on carpet"
-    },
-    {
-      "name": "spice.throw",
-      "duration": 0.8,
-      "prompt": "a glass jar of dry ground spice thrown open, powder bursting into the air in a dry hiss, glass jar clattering away, no voice"
-    },
-    {
-      "name": "glass.settle",
-      "duration": 1.2,
-      "prompt": "the last broken window shards sliding loose and tinkling down onto concrete, sparse and delicate, no voice"
-    },
-    {
-      "name": "wood.break",
-      "duration": 0.9,
-      "prompt": "a cheap pine table leg snapping under weight, single dry splintering crack with a short debris rattle, no voice"
-    },
-    {
-      "name": "tv.implode",
-      "duration": 1.5,
-      "prompt": "an old CRT television destroyed, thick glass tube imploding into a muffled inward whump, sparks and plastic casing cracking, no voice"
-    },
-    {
-      "name": "fan.sparks",
-      "duration": 2,
-      "prompt": "an overspeeding ceiling fan motor whining and spitting electrical sparks, intermittent bright snaps over a straining hum, no voice"
-    },
-    {
-      "name": "neon.short",
-      "duration": 2.2,
-      "prompt": "a neon motel sign shorting out, sharp electrical bang then the transformer hum falling away to silence, exterior night, no voice"
-    },
-    {
-      "name": "vacuum.pack.handle",
-      "duration": 0.9,
-      "prompt": "a stiff vacuum-sealed foil food pouch being turned over and gripped in large hands, crisp plastic crackling, close mic, no voice"
-    },
-    {
-      "name": "jerky.chew",
-      "duration": 1.4,
-      "prompt": "someone chewing a tough piece of dried meat, wet muffled mastication, close and unglamorous, no voice"
-    },
-    {
-      "name": "jerky.bite",
-      "duration": 1.2,
-      "prompt": "one deliberate bite tearing through a strip of dried jerky, dry fibrous rip then slow chewing, close mic, no voice"
-    },
-    {
-      "name": "shipment.burn",
-      "duration": 3,
-      "prompt": "vacuum-sealed plastic packaging catching fire and shrivelling, then fat rendering and meat spitting into an open flame, no voice"
-    },
-    {
-      "name": "tv.static",
-      "duration": 1.4,
-      "prompt": "an old television tuned to dead air, harsh white noise static swelling as the volume is turned up, small room, no voice"
-    },
-    {
-      "name": "knife.tap",
-      "duration": 1.2,
-      "prompt": "the flat of a kitchen knife tapping slowly and evenly on a cheap laminate table, unhurried, close mic, no voice"
-    },
-    {
-      "name": "alarm.counter",
-      "duration": 2.6,
-      "prompt": "a cheap battery-powered under-counter panic alarm, insistent shrill repeating electronic buzz, small office, no voice"
-    },
-    {
-      "name": "siren.distant",
-      "duration": 4,
-      "prompt": "a single police siren several streets away at night, thin and reverberant between buildings, no traffic, no voice"
-    },
-    {
-      "name": "siren.close",
-      "duration": 4,
-      "prompt": "a police siren arriving fast and close, loud wailing with engine noise underneath, exterior parking lot, no voice"
-    },
-    {
-      "name": "footstep.asphalt",
-      "duration": 0.5,
-      "prompt": "one heavy barefoot step on warm asphalt parking lot, soft tacky slap with loose grit, exterior, no voice"
-    },
-    {
-      "name": "land.heavy",
-      "duration": 0.8,
-      "prompt": "an enormous heavy body landing from a two storey drop onto concrete, deep impact thud with a low rumble tail, no voice"
-    },
-    {
-      "name": "tunnel.crawl",
-      "duration": 3,
-      "prompt": "a large body crawling through a wet concrete drainage tunnel, hands and knees in shallow water, close confined echo, no voice"
-    },
-    {
-      "name": "ui.objective",
-      "duration": 0.6,
-      "prompt": "a short soft two-note electronic confirmation tone, clean and quiet, notification style, no music bed"
-    },
-    {
-      "name": "ui.achievement",
-      "duration": 1.2,
-      "prompt": "a brief warm brass fanfare flourish, three notes, pleased with itself, dry and small, no reverb tail"
-    },
-    {
-      "name": "sting.scene.end",
-      "duration": 2.4,
-      "prompt": "a short minor-key orchestral sting, humid and unresolved, low strings with a muted brass swell that stops without landing"
-    },
-    {
-      "name": "smash.structure",
-      "duration": 0.8,
-      "prompt": "an enormous double-fisted slam into a wooden building, timber and panelling caving in, debris scattering, outdoor, no voice"
-    },
-    {
-      "name": "structure.crack",
-      "duration": 0.5,
-      "prompt": "wooden wall panelling cracking and buckling under a heavy blow without collapsing, single dry split, outdoor, no voice"
-    },
-    {
-      "name": "swing.whiff.outdoor",
-      "duration": 0.5,
-      "prompt": "huge arms swinging through open outdoor air and hitting nothing, broad low whoosh, forest clearing, no voice"
-    },
-    {
-      "name": "fist.on.rock",
-      "duration": 0.5,
-      "prompt": "a heavy fist striking solid granite boulder, dull stone impact with a sharp rock chip crack, outdoor, no voice"
-    },
-    {
-      "name": "ground.stomp",
-      "duration": 1,
-      "prompt": "both enormous feet slamming down on packed forest dirt together, deep shockwave thud with soil and gravel scattering, no voice"
-    },
-    {
-      "name": "camper.squish",
-      "duration": 0.6,
-      "prompt": "a wet heavy crushing impact, short and blunt, damp organic squelch, outdoor, no voice, no scream"
-    },
-    {
-      "name": "vehicle.explosion",
-      "duration": 2,
-      "prompt": "a car fuel tank exploding, sharp ignition crack into a deep booming fireball with metal debris raining down, outdoor, no voice"
-    },
-    {
-      "name": "footstep.forest",
-      "duration": 0.5,
-      "prompt": "one heavy footfall on dry pine needles and forest dirt, soft crunch with twigs snapping underneath, outdoor, no voice"
-    },
-    {
-      "name": "camper.scream",
-      "duration": 1.2,
-      "prompt": "a panicked adult screaming and running away at speed, voice dopplering off into the distance, forest, terrified"
-    },
-    {
-      "name": "sasquatch.roar",
-      "duration": 1.6,
-      "prompt": "an enormous ape creature roaring, deep chest resonance with a gravelly torn edge and a mournful falling tail, outdoor forest"
-    },
-    {
-      "name": "bee.swarm",
-      "duration": 2,
-      "prompt": "an angry swarm of hundreds of bees, dense chaotic buzzing rising and moving past the listener, outdoor, no voice"
-    },
-    {
-      "name": "tranq.fire",
-      "duration": 0.5,
-      "prompt": "a compressed air tranquiliser rifle firing, sharp pneumatic thump and hiss, no gunpowder bang, outdoor, no voice"
-    },
-    {
-      "name": "tranq.hit",
-      "duration": 0.5,
-      "prompt": "a tranquiliser dart thudding into thick fur and muscle, soft dull puncture with a small feathered flick, no voice"
-    },
-    {
-      "name": "ui.time.bonus",
-      "duration": 0.8,
-      "prompt": "a bright ascending three-note chime, clean and golden, arcade reward tone, dry, no music bed"
-    },
-    {
-      "name": "ui.powerup",
-      "duration": 0.6,
-      "prompt": "a short rising electronic power-up sweep, bright and synthetic, arcade pickup, dry, no music bed"
-    },
-    {
-      "name": "ui.goal.complete",
-      "duration": 0.8,
-      "prompt": "a single bright confirmation ding with a short bell tail, cutting and readable over noise, arcade style, no music bed"
-    },
-    {
-      "name": "ui.final.frenzy",
-      "duration": 1.2,
-      "prompt": "an urgent repeating arcade alarm jingle, bright synth stabs over a klaxon pulse, escalating, exciting, no voice"
-    },
-    {
-      "name": "sting.run.end",
-      "duration": 2,
-      "prompt": "a short descending orchestral end-of-round sting, brass and low strings resolving downward, dry and brief"
-    },
-    {
-      "name": "boss.hit",
-      "duration": 0.7,
-      "prompt": "a heavy armoured body absorbing a huge blow, dense padded impact with body armour plates knocking together, no voice"
-    },
-    {
-      "name": "boss.down",
-      "duration": 1.4,
-      "prompt": "an armoured body collapsing to the ground, plates and webbing clattering, followed by a short bright victory accent"
-    },
-    {
       "_comment": "FIRST_EXPLORATION — After the first property stop",
       "name": "vo.cabin.dungeon.explore_first.tony.1",
       "voice": "player",
@@ -25977,6 +25712,365 @@
       "name": "vo.door.refusal.campaign_complete.1",
       "voice": "player",
       "say": "The week is over. Nobody is calling tonight, and that suits me fine."
+    },
+    {
+      "name": "door.knock.motel",
+      "duration": 1.2,
+      "prompt": "three heavy slow knuckle knocks on a hollow-core motel door, close mic, dry interior corridor, no voice"
+    },
+    {
+      "name": "door.open.motel",
+      "duration": 1,
+      "prompt": "cheap interior door opening on a dry unoiled hinge, thin security chain rattling against the frame, close, no voice"
+    },
+    {
+      "name": "door.slam",
+      "duration": 0.8,
+      "prompt": "lightweight interior door slammed hard, sharp wooden crack and the frame rattling afterwards, small room, no voice"
+    },
+    {
+      "name": "door.splinter",
+      "duration": 1.4,
+      "prompt": "a door torn out of its frame, wood splintering and screws tearing free, heavy weight following it to the floor, no voice"
+    },
+    {
+      "name": "window.slide",
+      "duration": 1,
+      "prompt": "a small aluminium bathroom window sliding open a few inches on gritty runners and stopping hard, close mic, no voice"
+    },
+    {
+      "name": "punch.light",
+      "duration": 0.5,
+      "prompt": "a bare fist landing flat on a human torso, close and dull with a soft cloth impact, no music, no voice"
+    },
+    {
+      "name": "punch.heavy",
+      "duration": 0.7,
+      "prompt": "an enormous full-weight punch connecting with a body, deep low thud with a dry wooden crack inside it, no music, no voice"
+    },
+    {
+      "name": "swing.whiff",
+      "duration": 0.5,
+      "prompt": "a heavy arm swinging fast through still humid air and hitting nothing, low airy whoosh, close, no voice"
+    },
+    {
+      "name": "body.fall.carpet",
+      "duration": 0.9,
+      "prompt": "a large adult body dropping limp onto thin motel carpet over concrete, dull heavy thud with a small fabric rustle, no voice"
+    },
+    {
+      "name": "slicer.spin",
+      "duration": 1.6,
+      "prompt": "a commercial deli meat slicer motor spinning up, blade whine rising then holding steady, tiled room, no voice"
+    },
+    {
+      "name": "stunprod.arc",
+      "duration": 0.6,
+      "prompt": "a stun prod arcing, dry high-voltage electrical snapping and crackling in short bursts, close, no voice"
+    },
+    {
+      "name": "grapple.struggle",
+      "duration": 2.5,
+      "prompt": "two heavy bodies wrestling and shoving against each other, clothing scuffing, strained breathing, feet dragging on carpet"
+    },
+    {
+      "name": "spice.throw",
+      "duration": 0.8,
+      "prompt": "a glass jar of dry ground spice thrown open, powder bursting into the air in a dry hiss, glass jar clattering away, no voice"
+    },
+    {
+      "name": "glass.settle",
+      "duration": 1.2,
+      "prompt": "the last broken window shards sliding loose and tinkling down onto concrete, sparse and delicate, no voice"
+    },
+    {
+      "name": "wood.break",
+      "duration": 0.9,
+      "prompt": "a cheap pine table leg snapping under weight, single dry splintering crack with a short debris rattle, no voice"
+    },
+    {
+      "name": "tv.implode",
+      "duration": 1.5,
+      "prompt": "an old CRT television destroyed, thick glass tube imploding into a muffled inward whump, sparks and plastic casing cracking, no voice"
+    },
+    {
+      "name": "fan.sparks",
+      "duration": 2,
+      "prompt": "an overspeeding ceiling fan motor whining and spitting electrical sparks, intermittent bright snaps over a straining hum, no voice"
+    },
+    {
+      "name": "neon.short",
+      "duration": 2.2,
+      "prompt": "a neon motel sign shorting out, sharp electrical bang then the transformer hum falling away to silence, exterior night, no voice"
+    },
+    {
+      "name": "vacuum.pack.handle",
+      "duration": 0.9,
+      "prompt": "a stiff vacuum-sealed foil food pouch being turned over and gripped in large hands, crisp plastic crackling, close mic, no voice"
+    },
+    {
+      "name": "jerky.chew",
+      "duration": 1.4,
+      "prompt": "someone chewing a tough piece of dried meat, wet muffled mastication, close and unglamorous, no voice"
+    },
+    {
+      "name": "jerky.bite",
+      "duration": 1.2,
+      "prompt": "one deliberate bite tearing through a strip of dried jerky, dry fibrous rip then slow chewing, close mic, no voice"
+    },
+    {
+      "name": "shipment.burn",
+      "duration": 3,
+      "prompt": "vacuum-sealed plastic packaging catching fire and shrivelling, then fat rendering and meat spitting into an open flame, no voice"
+    },
+    {
+      "name": "tv.static",
+      "duration": 1.4,
+      "prompt": "an old television tuned to dead air, harsh white noise static swelling as the volume is turned up, small room, no voice"
+    },
+    {
+      "name": "knife.tap",
+      "duration": 1.2,
+      "prompt": "the flat of a kitchen knife tapping slowly and evenly on a cheap laminate table, unhurried, close mic, no voice"
+    },
+    {
+      "name": "alarm.counter",
+      "duration": 2.6,
+      "prompt": "a cheap battery-powered under-counter panic alarm, insistent shrill repeating electronic buzz, small office, no voice"
+    },
+    {
+      "name": "siren.distant",
+      "duration": 4,
+      "prompt": "a single police siren several streets away at night, thin and reverberant between buildings, no traffic, no voice"
+    },
+    {
+      "name": "siren.close",
+      "duration": 4,
+      "prompt": "a police siren arriving fast and close, loud wailing with engine noise underneath, exterior parking lot, no voice"
+    },
+    {
+      "name": "footstep.asphalt",
+      "duration": 0.5,
+      "prompt": "one heavy barefoot step on warm asphalt parking lot, soft tacky slap with loose grit, exterior, no voice"
+    },
+    {
+      "name": "land.heavy",
+      "duration": 0.8,
+      "prompt": "an enormous heavy body landing from a two storey drop onto concrete, deep impact thud with a low rumble tail, no voice"
+    },
+    {
+      "name": "tunnel.crawl",
+      "duration": 3,
+      "prompt": "a large body crawling through a wet concrete drainage tunnel, hands and knees in shallow water, close confined echo, no voice"
+    },
+    {
+      "name": "ui.objective",
+      "duration": 0.6,
+      "prompt": "a short soft two-note electronic confirmation tone, clean and quiet, notification style, no music bed"
+    },
+    {
+      "name": "ui.achievement",
+      "duration": 1.2,
+      "prompt": "a brief warm brass fanfare flourish, three notes, pleased with itself, dry and small, no reverb tail"
+    },
+    {
+      "name": "sting.scene.end",
+      "duration": 2.4,
+      "prompt": "a short minor-key orchestral sting, humid and unresolved, low strings with a muted brass swell that stops without landing"
+    },
+    {
+      "name": "smash.structure",
+      "duration": 0.8,
+      "prompt": "an enormous double-fisted slam into a wooden building, timber and panelling caving in, debris scattering, outdoor, no voice"
+    },
+    {
+      "name": "structure.crack",
+      "duration": 0.5,
+      "prompt": "wooden wall panelling cracking and buckling under a heavy blow without collapsing, single dry split, outdoor, no voice"
+    },
+    {
+      "name": "swing.whiff.outdoor",
+      "duration": 0.5,
+      "prompt": "huge arms swinging through open outdoor air and hitting nothing, broad low whoosh, forest clearing, no voice"
+    },
+    {
+      "name": "fist.on.rock",
+      "duration": 0.5,
+      "prompt": "a heavy fist striking solid granite boulder, dull stone impact with a sharp rock chip crack, outdoor, no voice"
+    },
+    {
+      "name": "ground.stomp",
+      "duration": 1,
+      "prompt": "both enormous feet slamming down on packed forest dirt together, deep shockwave thud with soil and gravel scattering, no voice"
+    },
+    {
+      "name": "camper.squish",
+      "duration": 0.6,
+      "prompt": "a wet heavy crushing impact, short and blunt, damp organic squelch, outdoor, no voice, no scream"
+    },
+    {
+      "name": "vehicle.explosion",
+      "duration": 2,
+      "prompt": "a car fuel tank exploding, sharp ignition crack into a deep booming fireball with metal debris raining down, outdoor, no voice"
+    },
+    {
+      "name": "footstep.forest",
+      "duration": 0.5,
+      "prompt": "one heavy footfall on dry pine needles and forest dirt, soft crunch with twigs snapping underneath, outdoor, no voice"
+    },
+    {
+      "name": "camper.scream",
+      "duration": 1.2,
+      "prompt": "a panicked adult screaming and running away at speed, voice dopplering off into the distance, forest, terrified"
+    },
+    {
+      "name": "sasquatch.roar",
+      "duration": 1.6,
+      "prompt": "an enormous ape creature roaring, deep chest resonance with a gravelly torn edge and a mournful falling tail, outdoor forest"
+    },
+    {
+      "name": "bee.swarm",
+      "duration": 2,
+      "prompt": "an angry swarm of hundreds of bees, dense chaotic buzzing rising and moving past the listener, outdoor, no voice"
+    },
+    {
+      "name": "tranq.fire",
+      "duration": 0.5,
+      "prompt": "a compressed air tranquiliser rifle firing, sharp pneumatic thump and hiss, no gunpowder bang, outdoor, no voice"
+    },
+    {
+      "name": "tranq.hit",
+      "duration": 0.5,
+      "prompt": "a tranquiliser dart thudding into thick fur and muscle, soft dull puncture with a small feathered flick, no voice"
+    },
+    {
+      "name": "ui.time.bonus",
+      "duration": 0.8,
+      "prompt": "a bright ascending three-note chime, clean and golden, arcade reward tone, dry, no music bed"
+    },
+    {
+      "name": "ui.powerup",
+      "duration": 0.6,
+      "prompt": "a short rising electronic power-up sweep, bright and synthetic, arcade pickup, dry, no music bed"
+    },
+    {
+      "name": "ui.goal.complete",
+      "duration": 0.8,
+      "prompt": "a single bright confirmation ding with a short bell tail, cutting and readable over noise, arcade style, no music bed"
+    },
+    {
+      "name": "ui.final.frenzy",
+      "duration": 1.2,
+      "prompt": "an urgent repeating arcade alarm jingle, bright synth stabs over a klaxon pulse, escalating, exciting, no voice"
+    },
+    {
+      "name": "sting.run.end",
+      "duration": 2,
+      "prompt": "a short descending orchestral end-of-round sting, brass and low strings resolving downward, dry and brief"
+    },
+    {
+      "name": "boss.hit",
+      "duration": 0.7,
+      "prompt": "a heavy armoured body absorbing a huge blow, dense padded impact with body armour plates knocking together, no voice"
+    },
+    {
+      "name": "boss.down",
+      "duration": 1.4,
+      "prompt": "an armoured body collapsing to the ground, plates and webbing clattering, followed by a short bright victory accent"
+    },
+    {
+      "name": "cleaver.swipe",
+      "duration": 0.7,
+      "prompt": "a heavy meat cleaver swung fast through air and chopping into wooden furniture, sharp whoosh into a deep splitting thunk, close, no voice"
+    },
+    {
+      "name": "curtain.rip",
+      "duration": 1,
+      "prompt": "a plastic shower curtain torn off its rings and the metal rod clattering down onto a tiled bathroom floor, no voice"
+    },
+    {
+      "name": "jerky.bend",
+      "duration": 0.6,
+      "prompt": "a stiff cured strip of dried meat bent slowly until its outer edge cracks, dry fibrous crackle, close mic, no voice"
+    },
+    {
+      "name": "wax.seal.break",
+      "duration": 0.5,
+      "prompt": "a hard wax seal cracked and broken off a package, short brittle snap with small fragments falling away, close mic, no voice"
+    },
+    {
+      "name": "sealer.run",
+      "duration": 2.6,
+      "prompt": "a countertop vacuum food sealer running one cycle, pump drawing air down with a rising whine, heat bar clunking, latch clicking open, no voice"
+    },
+    {
+      "name": "fan.click",
+      "duration": 0.5,
+      "prompt": "one dry plastic tick from an unbalanced ceiling fan as a blade passes its mount, single close click in a quiet room, no voice"
+    },
+    {
+      "name": "ac.drip",
+      "duration": 0.5,
+      "prompt": "a single drop of condensate falling from a window air-conditioner onto wet concrete below, small wet plink with a little open-air reverb, exterior night, no voice"
+    },
+    {
+      "name": "vending.bump",
+      "duration": 1.6,
+      "prompt": "a vending machine compressor kicking in, dull relay clunk then a low motor hum settling in underneath, empty corridor, no voice"
+    },
+    {
+      "name": "ambience.motel.neon",
+      "duration": 22,
+      "prompt": "a large neon motel sign buzzing at night, steady mains hum with a thin electrical harmonic over it and an occasional flicker tick, exterior, no voice, no music",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.ac",
+      "duration": 22,
+      "prompt": "a cheap through-wall air conditioner running badly, motor drone with a loose panel rattling irregularly against the housing, close interior, no voice, no music",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.night",
+      "duration": 22,
+      "prompt": "a warm humid night beside a distant highway, far-off traffic passing, cicadas and crickets, dry wind moving through palm fronds, no voice, no music",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.room",
+      "duration": 22,
+      "prompt": "the room tone of a cheap motel room at night, fan turning overhead, a television murmuring low through the wall, plumbing ticking in the walls, no voice, no music",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.tv",
+      "duration": 22,
+      "prompt": "a late-night television heard through a thin motel wall, muffled indistinct speech and canned laughter with no word readable, no music bed",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.pool",
+      "duration": 20,
+      "prompt": "the bottom of a drained concrete swimming pool at night, enclosed dead boxy reverb, slow water dripping into a corner, faint wind over the lip, no voice, no music",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.alley",
+      "duration": 20,
+      "prompt": "a rear service alley at night, a kitchen extractor fan droning, a metal dumpster ticking as it cools, distant road, no voice, no music",
+      "loop": true
+    },
+    {
+      "name": "ambience.motel.tension",
+      "duration": 22,
+      "prompt": "a low sustained suspense drone, dark synth bass pulsing slowly and evenly, uneasy and patient, no melody, no drums, no voice",
+      "loop": true
+    },
+    {
+      "name": "ambience.campground.day",
+      "duration": 22,
+      "prompt": "a wooded campground on a summer afternoon, songbirds calling, wind moving through pine tops, a small petrol generator running far away, no voice, no music",
+      "loop": true
     }
   ]
 }

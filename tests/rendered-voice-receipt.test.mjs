@@ -20,11 +20,13 @@ test('every exact rendered take has a current text, performer, index, hash, and 
   const coverage = await currentVoiceCoverage(current.length);
   assert.equal(await validateEvidence(current, evidence, coverage), current.length);
   /* The five rewritten Margo cabin-call lines and the missing pickup are now
-   * delivered, stamped, indexed and back in current evidence. 543 rather
-   * than 544 since 2026-09-01: vo.wake.5's take named six o'clock and Day
-   * One wakes at five PM now, so the file was deleted rather than left to
-   * play an hour-wrong bark (assets/sfx/rerecord.json `retired`). */
-  assert.equal(current.length, 543);
+   * delivered, stamped, indexed and back in current evidence. vo.wake.5's
+   * take named six o'clock and Day One wakes at five PM now, so that file
+   * was deleted rather than left to play an hour-wrong bark
+   * (assets/sfx/rerecord.json `retired`); the campaign-complete door refusal
+   * landed with the motel audio-bed branch on 2026-09-02, so the count is
+   * back at 544. */
+  assert.equal(current.length, 544);
   assert.equal(RENDERED_VOICE_AUDIT_SAMPLE_RATE, 44_100,
     'browser decode receipts must not drift with the host audio device');
   assert.ok(evidence.receipts.every((row) => row.sampleRate === RENDERED_VOICE_AUDIT_SAMPLE_RATE));
@@ -36,12 +38,12 @@ test('every exact rendered take has a current text, performer, index, hash, and 
   assert.equal(coverage.currentDelivered,
     coverage.renderedExact + coverage.assumedCurrent,
     'legacy assumed takes must remain visible beside exact render receipts');
-  /* Three outstanding, each with a ledger entry the booth sheet shows:
-   * the campaign-complete refusal was never recorded, vo.wake.5 was retired
-   * with the five-PM start, and the Squatchfather's Booski line went back to
-   * the owner's accepted colostomy-bag pick and awaits its new take. */
-  assert.equal(coverage.outstanding, 3);
-  assert.equal(coverage.missing.length, 2);
+  /* Two outstanding, each with a ledger entry the booth sheet shows:
+   * vo.wake.5 was retired with the five-PM start, and the Squatchfather's
+   * Booski line went back to the owner's accepted colostomy-bag pick and
+   * awaits its new take. */
+  assert.equal(coverage.outstanding, 2);
+  assert.equal(coverage.missing.length, 1);
   assert.equal(coverage.rerecord.length, 1);
   assert.equal(coverage.recast.length, 0);
 });

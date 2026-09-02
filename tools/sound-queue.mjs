@@ -22,6 +22,13 @@ const OUT = join(root, 'assets', 'audio', 'sound-queue.json');
 // ---------------------------------------------------------------------------
 // The queue. `call` is the audio-module export the asset replaces; entries with
 // no `call` are sounds the design asks for that nothing triggers yet.
+//
+// That column used to have nine holes in it -- a cleaver, a shower curtain, a
+// wax seal, a vacuum sealer, a ceiling fan, a dripping air conditioner, a
+// vending machine and the second car in the lot. Every one of them is drawn in
+// `src/motel/level.js`, and every one of them was silent. They are hooked now;
+// a brief with no `call` is a brief nothing plays, and this file is the only
+// place that difference is visible.
 // ---------------------------------------------------------------------------
 
 const sfx = [
@@ -43,10 +50,10 @@ const sfx = [
   ['motel', 'combat', 'dryFire', 'dry_fire', 'Hammer on an empty chamber.', 0.3, 1],
   ['motel', 'combat', 'sliceWhir', 'meat_slicer_spin', 'Commercial meat slicer spinning up in a bathroom. Never reassuring.', 1.6, 2],
   ['motel', 'combat', 'prod', 'stun_prod', 'Stun prod arcing — dry electrical snap.', 0.6, 2],
-  [null, 'combat', null, 'cleaver_swipe', 'Cleaver through air, ending in a chop into furniture.', 0.7, 2],
+  [null, 'combat', 'cleaverSwipe', 'cleaver_swipe', 'Cleaver through air, ending in a chop into furniture.', 0.7, 2],
   ['motel', 'combat', 'grapple', 'grapple_struggle', 'Two heavy bodies wrestling, fabric and breath.', 2.5, 2, true],
   ['motel', 'combat', 'spice', 'spice_throw', 'A jar of classified seasoning thrown into somebody\'s eyes.', 0.8, 2],
-  [null, 'combat', null, 'curtain_rip', 'Shower curtain and rod coming down over a man.', 1.0, 2],
+  [null, 'combat', 'curtainRip', 'curtain_rip', 'Shower curtain and rod coming down over a man.', 1.0, 2],
   ['motel', 'combat', 'bodyFall', 'trip_fall', 'Somebody catching the sealer cord and hitting the floor.', 0.9, 2],
 
   // ---- Scene two: breaking things ----
@@ -62,20 +69,20 @@ const sfx = [
   ['motel', 'jerky', 'packaging', 'vacuum_pack_handle', 'Vacuum-sealed foil being turned over in big hands.', 0.9, 4],
   ['motel', 'jerky', 'chew', 'jerky_chew', 'Somebody chewing evidence.', 1.4, 3],
   ['motel', 'jerky', 'bite', 'jerky_bite', 'One deliberate bite of the Reserve. The last sound of the scene.', 1.2, 2],
-  [null, 'jerky', null, 'jerky_bend', 'A cured strip bent until the outer edge cracks.', 0.6, 3],
+  [null, 'jerky', 'jerkyBend', 'jerky_bend', 'A cured strip bent until the outer edge cracks.', 0.6, 3],
   ['motel', 'jerky', 'caseLatch', 'case_latches', 'Suitcase latches popping, lid lifting.', 1.0, 2],
-  [null, 'jerky', null, 'wax_seal_break', 'A numbered wax seal broken off a package.', 0.5, 2],
+  [null, 'jerky', 'waxSeal', 'wax_seal_break', 'A numbered wax seal broken off a package.', 0.5, 2],
   ['motel', 'jerky', 'fire', 'shipment_burn', 'Vacuum-sealed contraband meeting an open flame. Plastic first, then meat.', 3.0, 2],
-  [null, 'jerky', null, 'vacuum_sealer_run', 'The counter sealer running a bag: pump, heat, click.', 2.6, 1],
+  [null, 'jerky', 'sealerRun', 'vacuum_sealer_run', 'The counter sealer running a bag: pump, heat, click.', 2.6, 1],
 
   // ---- Scene two: motel soundscape one-shots ----
   ['motel', 'motel', 'tvStatic', 'tv_static', 'Television volume going up on nothing in particular.', 1.4, 2],
   ['motel', 'motel', 'iceDrop', 'ice_machine_drop', 'Ice machine dropping a load of cubes at the worst moment.', 1.8, 3],
   ['motel', 'motel', 'plumbing', 'plumbing_knock', 'Motel plumbing: a faucet running, then stopping too suddenly.', 2.4, 3],
   ['motel', 'motel', 'knifeTap', 'knife_tap', 'A knife tapping a laminate table, unhurried.', 1.2, 2],
-  [null, 'motel', null, 'ceiling_fan_click', 'Uneven ceiling fan clicking once per rotation.', 0.4, 3, true],
-  [null, 'motel', null, 'ac_drip', 'Air-conditioning unit dripping onto the walkway.', 0.5, 3],
-  [null, 'motel', null, 'vending_hum_bump', 'Vending machine compressor kicking in.', 1.6, 2],
+  [null, 'motel', 'fanClick', 'ceiling_fan_click', 'Uneven ceiling fan clicking once per rotation.', 0.4, 3, true],
+  [null, 'motel', 'acDrip', 'ac_drip', 'Air-conditioning unit dripping onto the walkway.', 0.5, 3],
+  [null, 'motel', 'vendingBump', 'vending_hum_bump', 'Vending machine compressor kicking in.', 1.6, 2],
   ['motel', 'motel', 'alarm', 'office_alarm', 'The clerk\'s under-counter alarm. Cheap, insistent, effective.', 2.6, 1, true],
 
   // ---- Scene two: vehicles and outside ----
@@ -84,7 +91,7 @@ const sfx = [
   ['motel', 'vehicles', 'siren', 'siren_distant', 'A siren somewhere else, getting interested.', 4.0, 2],
   ['motel', 'vehicles', 'siren', 'siren_close', 'The same siren, no longer somewhere else.', 4.0, 2],
   ['motel', 'vehicles', 'carDoor', 'car_door', 'Heavy car door opening and shutting.', 0.8, 3],
-  [null, 'vehicles', null, 'engine_idle', 'The second car idling in the lot with nobody in it.', 6.0, 1, true],
+  [null, 'vehicles', 'engineIdle', 'engine_idle', 'The second car idling in the lot with nobody in it.', 6.0, 1, true],
   ['motel', 'vehicles', 'crash', 'car_ram', 'Two cars trading paint at speed.', 1.8, 3],
 
   // ---- Scene two: movement ----
