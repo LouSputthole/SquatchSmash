@@ -14,6 +14,7 @@ const TEST_MODULES = [
   './campaign.test.mjs',
   './campaign-finale.test.mjs',
   './campaign-stats.test.mjs',
+  './run-code.test.mjs',
   './campaign-finale-wiring.test.mjs',
   './campaign-marathon.test.mjs',
   './campaign-flow-consistency.test.mjs',

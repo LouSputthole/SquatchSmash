@@ -512,6 +512,7 @@ kbd.key, .controls kbd {
 .finale-credits-track > div { margin: 24px 0; }
 .finale-credit-mark { margin: 0 0 44px; color: var(--amber); font-size: 20px; letter-spacing: 4px; }
 .finale-credit-role { display: block; margin-bottom: 4px; color: #7f7667; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; }
+.finale-run-code { font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace; letter-spacing: 1.5px; user-select: text; -webkit-user-select: text; cursor: text; }
 .finale-credits-track strong { color: #e8decc; font-size: 14px; font-weight: 600; }
 @keyframes finaleCreditsRoll { from { transform: translateY(88%); } to { transform: translateY(-102%); } }
 

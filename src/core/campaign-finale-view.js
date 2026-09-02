@@ -52,7 +52,9 @@ export function createCampaignFinaleView({ documentRef = globalThis.document } =
       for (const item of recap.stats) {
         const row = documentRef.createElement('div');
         appendTextElement(documentRef, row, 'dt', '', item.label);
-        appendTextElement(documentRef, row, 'dd', '', item.value);
+        // The run code is meant to be copied out, so it is set in a hand
+        // that keeps 0 and O apart and stays selectable under the overlay.
+        appendTextElement(documentRef, row, 'dd', item.code ? 'finale-run-code' : '', item.value);
         stats.appendChild(row);
       }
 

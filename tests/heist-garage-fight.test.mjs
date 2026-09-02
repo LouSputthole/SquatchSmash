@@ -164,28 +164,33 @@ test('a garage officer can actually find somewhere to move to', () => {
   }
 });
 
-test('nothing spawns inside the ramp', () => {
+test('everybody arrives at the top of the ramp, nobody in the player\'s lap', () => {
   /* Mirrors WAVE_ENTRY.mercer_garage and BLOCK_CONTACT.mercer_garage. Kept as
-   * literals so the test fails loudly if either table moves back onto the
-   * slope rather than silently following it there. */
-  const waveEntry = [[-2.4, 12.6], [2.4, 12.6], [-1.1, 14.4], [1.1, 13.8], [0, 11.2]];
-  const blockContact = [[-8, 11.2], [8, 11.2], [-5.6, 6.2], [5.6, 6.2], [0, 8.4]];
+   * literals so the test fails loudly if either table moves back down the
+   * slope rather than silently following it there.
+   *
+   * Owner, playtest 2026-09-02: *"the ramp as you come into the garage, the
+   * cops spawn in it."* The opening contact used to stage on the hold plate
+   * and either side of the spawn (z 6.2-8.4, a player at z 6.4), and the
+   * waves halfway down the slope (z 11-14). Both come in through the mouth
+   * now, at z 15.2-16.8 under the lintel, nine to ten metres out and 1.3-1.7
+   * m above the floor, and walk down to the pillar line through the fire
+   * positions. */
+  const waveEntry = [[-2.4, 16.6], [2.4, 16.6], [-1.2, 15.8], [1.2, 16.4], [0, 15.4]];
+  const blockContact = [[-2.2, 16.2], [2.2, 16.2], [-1.1, 15.2], [1.1, 16.8], [0, 15.6]];
 
-  /* The opening contact holds the room, so nothing there may be on the slope. */
-  assert.deepEqual(blockContact.filter(([x, z]) => onRamp(x, z)), [],
-    'the opening contact stages officers on the sloping ramp');
-
-  /* Reinforcements DO come down the ramp -- that is the only way in, and the
-   * believable one. What matters is that they arrive on its surface rather
-   * than at floor height, and far enough out not to appear on top of anybody. */
   const surfaceAt = (z) => Math.max(0, 0.866 + (z - 13) * 0.2182);
   const player = { x: 0, z: 6.4 };
-  for (const [x, z] of waveEntry) {
-    assert.equal(onRamp(x, z), true,
-      `a reinforcement at (${x}, ${z}) is not coming in through the ramp`);
-    assert.ok(surfaceAt(z) > 0.3,
-      'a spawn this close to the foot gains nothing from the slope');
-    assert.ok(Math.hypot(x - player.x, z - player.z) > 4.0,
-      `(${x}, ${z}) puts a man in the player's lap`);
+  for (const [label, table] of [['a reinforcement', waveEntry], ['the opening contact', blockContact]]) {
+    for (const [x, z] of table) {
+      assert.equal(onRamp(x, z), true,
+        `${label} at (${x}, ${z}) is not coming in through the ramp`);
+      assert.ok(Math.abs(x) <= 2.6, `${label} at (${x}, ${z}) is in a kerb wall`);
+      assert.ok(z <= 16.8, `${label} at (${x}, ${z}) is off the street end of the slab`);
+      assert.ok(surfaceAt(z) >= 1.3,
+        `${label} at (${x}, ${z}) is not at the top of the slope (${surfaceAt(z).toFixed(2)} m)`);
+      assert.ok(Math.hypot(x - player.x, z - player.z) >= 8.5,
+        `(${x}, ${z}) puts a man in the player's lap`);
+    }
   }
 });

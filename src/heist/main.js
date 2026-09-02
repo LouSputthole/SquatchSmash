@@ -3556,11 +3556,19 @@ function spawnPolice(block, count, { wave = false } = {}) {
       block,
       phaseId: activePhase,
       position: (() => {
-        const [px, pz] = entry
+        let [px, pz] = entry
           ? [entry[0] + (Math.random() - 0.5) * 1.6, entry[1] + (Math.random() - 0.5) * 2.4]
           : (contact
             ? [contact[0], contact[1]]
             : [(i % 2 ? -1 : 1) * (4 + i), baseZ - i * 5]);
+        /* Every garage arrival is on the ramp: between its kerb walls (x
+         * ±3.35 inside faces, a body's half-width in from that) and short of
+         * its street end at z 17, past which `groundYAt` is the floor and a
+         * man would stand 1.7 m under the slab he is meant to be on. */
+        if (activePhase === 'garage') {
+          px = Math.max(-2.6, Math.min(2.6, px));
+          pz = Math.max(GARAGE_RAMP.minZ + 0.6, Math.min(GARAGE_RAMP.maxZ - 0.3, pz));
+        }
         return [px, groundYAt(px, pz), pz];
       })(),
       recycle: wave,
@@ -3626,12 +3634,18 @@ const WAVE_ENTRY = Object.freeze({
   // Block two: he leaves the van at z 14 and falls back to the garage at −35.
   market_street: [[-6.6, -18], [6.6, -21], [-5.4, -25], [5.8, -27], [0, -30]],
   /* The garage is a defence, and its entry is the ramp he is told to hold.
-   * These stand ON the ramp on purpose, which is only possible now that
-   * `groundYAt` puts them on its surface instead of at floor height -- the
-   * old `(0, 14)` sat a man chest-deep in concrete. Coming down the slope is
-   * the believable entrance the owner asked for, and it keeps every arrival
-   * five to eight metres from where he holds rather than on top of him. */
-  mercer_garage: [[-2.4, 12.6], [2.4, 12.6], [-1.1, 14.4], [1.1, 13.8], [0, 11.2]],
+   * These stand at the TOP of the ramp, in the mouth under the lintel, which
+   * is only possible because `groundYAt` puts them on its surface -- the old
+   * `(0, 14)` sat a man chest-deep in concrete. They used to arrive halfway
+   * down it, z 11-14, which is three to eight metres from a player who has
+   * just walked down the same slope; owner, playtest 2026-09-02: *"the ramp
+   * as you come into the garage, the cops spawn in it."* At z 15.4-16.8
+   * they are nine to ten metres out and above him, and the movement layer
+   * brings them down to the ramp-mouth and pillar slots from there, so the
+   * slope is something they come down rather than something they stand in.
+   * `spawnPolice` clamps the jitter to the ramp so nobody lands off its
+   * street end or in a kerb wall. */
+  mercer_garage: [[-2.4, 16.6], [2.4, 16.6], [-1.2, 15.8], [1.2, 16.4], [0, 15.4]],
 });
 
 /**
@@ -3646,11 +3660,15 @@ const WAVE_ENTRY = Object.freeze({
 const BLOCK_CONTACT = Object.freeze({
   bank_avenue: [[5.5, 19.9], [-5.5, 21.1], [1.9, 15.6], [5.5, 14.1], [-1.9, 8.6]],
   market_street: [[-5.5, -1.1], [5.5, -8.1], [1.9, -12.4], [-5.5, -15.1], [-1.9, -19.4]],
-  /* Three of these -- (-2.4, 12.2), (2.4, 12.2) and (0, 11.4) -- used to sit
-   * inside the ramp footprint, which is why the opening contact was a row of
-   * men standing waist-deep in the slope doing nothing. They hold the pillar
-   * line and the lane mouths instead, which is cover they can actually use. */
-  mercer_garage: [[-8, 11.2], [8, 11.2], [-5.6, 6.2], [5.6, 6.2], [0, 8.4]],
+  /* These were the pillar line and the lane mouths -- (0, 8.4) was ON the
+   * hold plate, and (±5.6, 6.2) stood either side of the spawn at z 6.4, so
+   * the opening contact was four men materialising around a player who had
+   * just come down the ramp (owner, 2026-09-02: *"the cops spawn in it"*).
+   * The contact opens at the top of the ramp now, like the waves, and comes
+   * down to the pillar line through the same fire positions; the slots at
+   * (±8, 11.2), (±5.6, 6.2) and the pillars are where they end up, not
+   * where they start. */
+  mercer_garage: [[-2.2, 16.2], [2.2, 16.2], [-1.1, 15.2], [1.1, 16.8], [0, 15.6]],
 });
 
 let waveClock = 4.5;

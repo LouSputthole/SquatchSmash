@@ -1,5 +1,6 @@
 import { MISSION_IDS, TIME_EVENT_IDS } from './campaign.js';
 import { buildProspectsRecord } from './campaign-stats.js';
+import { encodeRunCode } from './run-code.js';
 
 export const CAMPAIGN_FINALE_STATUS = Object.freeze({
   LOCKED: 'locked',
@@ -43,15 +44,25 @@ export function shouldPresentCampaignFinale(state) {
 export function buildCampaignCareerRecap(state) {
   if (!isCampaignFinaleEligible(state)) return null;
   const record = buildProspectsRecord(state.statistics);
+  /* The run code is the record above, packed: nineteen characters that
+   * `node tools/decode-run-code.mjs` turns back into this same table. Owner,
+   * 2026-09-02: everyone gets a code, and he plugs it in to see their stats.
+   * See `src/core/run-code.js` for the layout. */
+  const runCode = encodeRunCode(state.statistics);
   const highlights = [
     'One campaign. One line. No mission grades.',
     'The figures above were banked at durable scene and mission boundaries.',
+    `Your run code is ${runCode}. Send it to Lou; the Family reads the whole record off it.`,
   ];
 
   return Object.freeze({
     title: record.title,
     subtitle: `${campaignClock(state.story)} · The campaign is complete.`,
-    stats: record.rows,
+    stats: Object.freeze([
+      ...record.rows,
+      Object.freeze({ label: 'Run code', value: runCode, code: true }),
+    ]),
+    runCode,
     highlights: Object.freeze(highlights.slice(0, 4)),
     credits: CAMPAIGN_CREDITS,
   });

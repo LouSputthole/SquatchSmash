@@ -60,7 +60,10 @@ test('Initiation completion makes one durable recap ready at the Apartment', () 
 
   const recap = buildCampaignCareerRecap(campaign.state);
   assert.equal(recap.title, "THE PROSPECT'S RECORD");
-  assert.equal(recap.stats.length, 9);
+  /* Nine rows of the record, plus the run code that packs them. */
+  assert.equal(recap.stats.length, 10);
+  assert.match(recap.stats.at(-1).value, /^SQ-[0-9A-Z]{5}-[0-9A-Z]{5}-[0-9A-Z]{5}-[0-9A-Z]{4}$/);
+  assert.equal(recap.runCode, recap.stats.at(-1).value);
   assert.equal(recap.stats.find(({ label }) => label === 'Cabin execution').value,
     'Not recorded');
   assert.equal(recap.credits.at(-1).name, 'Thanks for playing');
