@@ -935,10 +935,12 @@ try {
       && state.presentation.armorVisible
       && state.presentation.carbineVisible,
     JSON.stringify(state.inventory));
+  /* 163 since 2026-09-02: 156, less Lou's four radio lines and the repeated
+   * go-home order, plus Snow's four command beats and eight for the crew. */
   check('the expanded heist dialogue bank is wired and recorded lines drive real timing',
     state.voice.authored >= 55
       && state.voice.decoded === state.voice.authored
-      && state.voice.authored + state.voice.pending === 156
+      && state.voice.authored + state.voice.pending === 163
       && state.voice.longest > 0
       && state.voice.lastPlayback?.duration > 0
       && state.voice.subtitleRemaining > 0,
