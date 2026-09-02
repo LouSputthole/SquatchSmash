@@ -194,6 +194,31 @@ async function verifyOpeningMovement(target, label) {
     await target.mouse.move(306, 116, { steps: 2 });
   }
   await target.waitForTimeout(80);
+  /* The scheduled runner's Chrome for Testing 151 delivers CDP-synthesized
+   * pointer-locked moves with movementX/movementY of ZERO: run 33605986463
+   * counted twelve look events through the Adapter while yaw stayed
+   * byte-identical, on a tree whose pinned local Chromium 141 turns the
+   * same moves into real deltas. The camera contract under proof is
+   * window listener -> Adapter.applyLook -> handleMouseMove; when the
+   * browser refuses to synthesize the delta itself, drive that same path
+   * with an explicit-delta mousemove in the page, and say so in the
+   * receipt rather than passing it off as CDP input. */
+  let lookFallback = null;
+  const cdpLookMoved = await target.evaluate(([yaw0, pitch0]) => (
+    Math.abs(window.squatchfather.prospect.yaw - yaw0) > 0.01
+    || Math.abs(window.squatchfather.prospect.pitch - pitch0) > 0.01
+  ), [beforeLook.yaw, beforeLook.pitch]);
+  if (!cdpLookMoved) {
+    lookFallback = 'in-page-movement-delta';
+    await target.evaluate(() => {
+      for (const [dx, dy] of [[66, -34], [24, 10]]) {
+        window.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true, movementX: dx, movementY: dy,
+        }));
+      }
+    });
+    await target.waitForTimeout(80);
+  }
   const afterLook = await target.evaluate(() => ({
     yaw: window.squatchfather.prospect.yaw,
     pitch: window.squatchfather.prospect.pitch,
@@ -206,7 +231,7 @@ async function verifyOpeningMovement(target, label) {
     afterLook.input.lookEvents > beforeLook.input.lookEvents
       && (Math.abs(afterLook.yaw - beforeLook.yaw) > 0.01
         || Math.abs(afterLook.pitch - beforeLook.pitch) > 0.01),
-    JSON.stringify({ before: beforeLook, after: afterLook }));
+    JSON.stringify({ lookFallback, before: beforeLook, after: afterLook }));
 
   const before = await openingSnapshot(target);
 

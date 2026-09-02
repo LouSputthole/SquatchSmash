@@ -784,6 +784,15 @@ try {
     JSON.stringify(fatalBlondAim));
   let preGrowth = null;
   for (let wanted = 1; wanted <= 7; wanted += 1) {
+    /* The tenderizer's authored two-bark exchange (useTenderizer ->
+     * tenderizerGratin) holds 6.6 s of game time, longer when the recorded
+     * takes run, and a click inside an active node belongs to the dialogue,
+     * exactly as the player's would: scheduled run 33605986463 landed the
+     * fifth click and both re-clicks inside the Gratin bark and recorded
+     * swings:0 with hits pinned at 4. So every counted impact waits for the
+     * dialogue floor first -- the one-click-one-hit assertion below is
+     * untouched, because the click that counts happens with no node open. */
+    await waitForDialogue({ active: false });
     await clickCanvas(wanted === 7 ? 0.38 : 0.7);
     let hit = await facts();
     /* A starved hosted runner can land a click on the frame the Gratin bark
@@ -793,6 +802,7 @@ try {
      * so the assertion this check exists for -- one click, one hit, never
      * two -- is untouched: a double-count still fails on the first click. */
     for (let retry = 0; retry < 2 && hit.hits < wanted; retry += 1) {
+      await waitForDialogue({ active: false });
       await clickCanvas(0.5);
       hit = await facts();
     }

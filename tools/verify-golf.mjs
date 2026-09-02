@@ -294,6 +294,20 @@ check('1d. Tab returns control to the round',
 /* Shared HUD visibility fades in; assert the settled player-facing state,
  * not an arbitrary point inside its 400 ms presentation transition. */
 await page.waitForTimeout(450);
+/* The real animation frame owns the first-person camera, and a wall-clock
+ * wait can contain zero of them under SwiftShader: scheduled run
+ * 33605986463 sampled camera/bag alignment at 0.74 against the 0.75 floor
+ * while the same tree passes locally. Two real frames guarantee the camera
+ * matrix reflects the settled player state; the 10 s timer only keeps a
+ * renderer that never frames again from hanging the gate silently. */
+const settleRealFrames = () => page.evaluate(() => new Promise((resolve) => {
+  const timer = setTimeout(resolve, 10000);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    clearTimeout(timer);
+    resolve();
+  }));
+}));
+await settleRealFrames();
 const openingGuide = await page.evaluate(() => {
   const g = window.__golf;
   g.camera.updateMatrixWorld();
@@ -1577,9 +1591,11 @@ check('20a. live throttle input moves the player cart before the mission can adv
   JSON.stringify(cartEvidence));
 await page.setViewportSize({ width: 1280, height: 720 });
 /* The verification stepper owns game state, while the real animation frame
- * owns the first-person camera. Let one frame apply the cart view before
- * inspecting and capturing it. */
-await page.waitForTimeout(120);
+ * owns the first-person camera. 120 ms of wall clock held zero frames on
+ * the scheduled runner (run 33605986463: forwardDot 0.86, radio a full
+ * screen below the stale view), so wait for two real frames to apply the
+ * cart view before inspecting and capturing it. */
+await settleRealFrames();
 const cartView = await page.evaluate(() => {
   const g = window.__golf;
   const forward = g.camera.getWorldDirection(g.player.position.clone());
