@@ -858,7 +858,11 @@ try {
         game.world.channel.root.traverse((o) => {
           if (!o.isMesh || !o.geometry?.parameters) return;
           const name = o.name || '';
-          if (!/shoreline|headland|head land|quarry|wall|island shore/.test(name)) return;
+          /* The landforms themselves -- not the shoreline houses (whose
+           * names carry "shoreline" and "walls"), and not the destination
+           * island, which the owner keeps and which straddles the centreline
+           * a kilometre past the inlet. */
+          if (!/channel shoreline|wooded point headland|inlet head land|quarry/.test(name)) return;
           const p = o.geometry.parameters;
           const v = o.getWorldPosition(o.position.clone());
           found.push({
