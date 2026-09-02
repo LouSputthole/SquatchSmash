@@ -49,7 +49,7 @@ import { createResidencyBanks } from '../core/residency-banks.js';
 import { PostFX } from '../core/postfx.js';
 import { createObjectivePanel } from '../core/objective-panel.js';
 import { createPauseMenu } from '../core/pause-menu.js';
-import { Radio } from '../core/radio.js';
+import { Radio, radioHudWithinRange } from '../core/radio.js';
 import {
   Tv, CHANNELS, TV_AUDIO_SPATIAL_PROFILE, videoChannel,
 } from '../core/tv.js';
@@ -857,10 +857,23 @@ const radioSets = [
  * must stay exact. */
 const HOUSE_RADIO_HOUR = Math.min(23, Math.max(18,
   Math.floor((mansionRecoveryCampaign?.state?.story?.timeMinutes ?? 21 * 60) / 60)));
-const houseRadio = new Radio(audio, {
-  setRadio: () => {},
+/* A station card, like every other receiver's. The house tuner used to hand
+ * the Radio two no-ops, so the player never saw what was on -- a report
+ * could air with nothing on screen to say so. `hudVisible` is the same
+ * twenty-metre gate the apartments use, measured to whichever set is lit. */
+const radioOsd = document.getElementById('radio-osd');
+const houseRadioHud = {
+  setRadio(state) {
+    if (!radioOsd) return;
+    if (!state) { radioOsd.classList.add('hidden'); return; }
+    radioOsd.querySelector('.rtitle span').textContent = state.station ?? '';
+    radioOsd.querySelector('.rtrack').textContent = state.track ?? '';
+    radioOsd.classList.remove('hidden');
+  },
   toast: () => {},
-}, { hour: HOUSE_RADIO_HOUR }, {
+};
+const houseRadio = new Radio(audio, houseRadioHud, { hour: HOUSE_RADIO_HOUR }, {
+  hudVisible: () => radioHudWithinRange(camera?.position, activeRadioSet?.speakerPos),
   venue: 'mansion',
   state: createCampaignRadioAdapter(mansionRecoveryCampaign, {
     /* The billiard-bay and pool-deck cabinets are two speaker sets on the

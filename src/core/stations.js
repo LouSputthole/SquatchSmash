@@ -61,10 +61,21 @@ export const MEETING_NOTICE = [
  *
  * `when` reads the durable campaign save and nothing else: each gate is a
  * mission's own completed state, so a segment cannot air before its event, on
- * any receiver, ever. The radio does the scheduling (see `_refill` in
- * radio.js): a fresh segment airs soon after the player is back in the
- * apartment, is marked heard through the shared bulletin history, and then
- * settles into one low-frequency slot in the running order.
+ * any receiver, ever. The radio does the scheduling (see `newsDesk` in
+ * radio.js): a segment airs ONCE, at the top of the entry packet of the
+ * first news-carrying hub the player reaches after the event, is marked
+ * heard through the shared bulletin history, and is never queued again on
+ * any receiver. Owner, 2026-09-02: *"I don't want to repeat news
+ * announcements once you hear them once... You hear them first when you
+ * drop into the next HUB. Then they don't repeat."* The order of this array
+ * is the recording order (the cue ledger is keyed on it); `day` is the
+ * campaign day the event happened, and the desk reads two fresh reports
+ * oldest first by it.
+
+ * A segment that has not been heard when its packet is over -- the radio
+ * was off, or he left the room -- still airs on the next news-carrying
+ * receiver he switches on: the generic rotation (`_refill`) plays unheard
+ * segments a block or two in and nothing else.
  *
  * The desk plays it dead straight -- see docs/TONE-AND-PARODY.md. The comedy
  * is the wire's usual comedy: what officials will not say, said officially.
@@ -73,6 +84,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* The Bada Bing incident night: a man gone after a closed party. */
     id: 'news.segment.bing_night',
+    day: 4,
     when: (state) => state?.missions?.bada_bing_two?.status === 'complete',
     lines: [
       'ANNOUNCER: The news at the top of the hour. Police are asking for information about a man reported missing after a private party at a nightclub on the east side.',
@@ -84,6 +96,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* The Jerky Motel: the county road, the cargo, the smell. */
     id: 'news.segment.motel',
+    day: 5,
     when: (state) => state?.missions?.jerky_motel?.status === 'complete',
     lines: [
       'ANNOUNCER: An update from the county road, where police spent the morning at a roadside motel and will not say why.',
@@ -95,6 +108,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* NO WAKE: a boating accident on the lake, one missing. */
     id: 'news.segment.lake',
+    day: 7,
     when: (state) => state?.missions?.no_wake?.status === 'complete',
     lines: [
       'ANNOUNCER: From the lake — the search has been suspended after a boating incident left one man unaccounted for.',
@@ -106,6 +120,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* THE TAKE: the big one. Brazen, daylight, and every hostage fine. */
     id: 'news.segment.heist',
+    day: 5.5,
     when: (state) => state?.missions?.bank_heist?.status === 'complete',
     lines: [
       'ANNOUNCER: Our top story remains the daylight robbery at Cumberland Fidelity, where an armed crew emptied the vault and shot their way out of downtown.',
@@ -118,6 +133,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* The mansion siege: an armed assault on a private estate, repelled. */
     id: 'news.segment.estate',
+    day: 9,
     when: (state) => state?.missions?.mansion_siege?.status === 'complete',
     lines: [
       'ANNOUNCER: Police have confirmed an armed assault overnight on a private estate outside the city, repelled before officers arrived.',
@@ -129,6 +145,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* The Enola Squatch: somebody bombed a city and nobody knows who. */
     id: 'news.segment.detonation',
+    day: 9.5,
     when: (state) => state?.missions?.enola_squatch?.status === 'complete',
     lines: [
       'ANNOUNCER: International news. Authorities overseas are investigating a large unexplained detonation outside a coastal city late last night.',
@@ -140,6 +157,7 @@ export const NEWS_SEGMENTS = Object.freeze([
   {
     /* The cartel palace: a succession, reported at a careful distance. */
     id: 'news.segment.compound',
+    day: 12,
     when: (state) => state?.missions?.cartel_palace?.status === 'complete',
     lines: [
       'ANNOUNCER: Overseas again — officials are investigating an outbreak of violence at a fortified private compound south of the border.',
@@ -155,6 +173,7 @@ export const NEWS_SEGMENTS = Object.freeze([
      * scientists actually being lost, because families only ring the station
      * about people who did not come home. */
     id: 'news.segment.scientists',
+    day: 8,
     when: (state) => state?.missions?.silent_squatch?.status === 'complete'
       && (state?.missions?.silent_squatch?.scientistsLost ?? 0) > 0,
     lines: [
@@ -162,6 +181,37 @@ export const NEWS_SEGMENTS = Object.freeze([
       'ANNOUNCER: Their employer cannot be reached either. Calls to the listed number reach a man who says there is no listed number.',
       'ANNOUNCER: The scientists were last seen leaving for a private contract at an undisclosed residence. That is the entire sentence we have been given.',
       'ANNOUNCER: Police are not treating the matter as suspicious, on the grounds that they have not been told about it.',
+    ],
+  },
+].map((segment) => Object.freeze({ ...segment, lines: Object.freeze(segment.lines) })));
+
+/**
+ * WRITTEN, NOT ON AIR: reports waiting for their takes.
+ *
+ * Owner, 2026-09-02: the Squatchfather shooting should be news in the first
+ * hub after the restaurant and nowhere else. The desk had no report of it at
+ * all. It is authored here, but the radio only airs what is recorded and
+ * transcribed -- `npm test` holds every spoken radio cue to a delivered MP3
+ * with a hash-bound Scribe receipt (tests/radio-content-audit.test.mjs), and
+ * no key was available when this was written. To land it: move the entry
+ * into NEWS_SEGMENTS above (first, so it airs first), run
+ * `npm run radio:cues`, render the four lines with `npm run sfx:vo`, then
+ * `./tools/verify-radio-content.ps1` for the receipts. The once-only rule
+ * and the cabin's news desk take it from there.
+ */
+export const PENDING_NEWS_SEGMENTS = Object.freeze([
+  {
+    /* The Squatchfather: a restaurant on the east side, and the man at his
+     * usual table. Day One's job, so it is the first thing the desk has, and
+     * the cabin is the first receiver that can carry it. */
+    id: 'news.segment.squatchfather',
+    day: 1,
+    when: (state) => state?.missions?.squatchfather?.status === 'complete',
+    lines: [
+      'ANNOUNCER: Our top story. Police are investigating a shooting last night at a restaurant on the east side, where a well-known local businessman was found dead at his usual table.',
+      'ANNOUNCER: Diners describe a quiet evening, a very large gentleman who was seated and then was not, and a car that left before anybody thought to read the plate.',
+      'ANNOUNCER: The restaurant says the victim was a regular, a generous tipper, and a man about whom it has no further comment.',
+      'ANNOUNCER: Police say they are pursuing several lines of inquiry. They declined to say in which direction.',
     ],
   },
 ].map((segment) => Object.freeze({ ...segment, lines: Object.freeze(segment.lines) })));

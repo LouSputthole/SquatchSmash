@@ -70,7 +70,18 @@ export const CAMPAIGN_RADIO_BEATS = frozen({
 /* Existing, delivered material arranged into a long entry packet. Talk
  * blocks select the next not-yet-used exchange from the hour's real show.
  * Their progress advances only after the final recording in the exchange
- * finishes, so leaving a room mid-line resumes that block on the next set. */
+ * finishes, so leaving a room mid-line resumes that block on the next set.
+ *
+ * THE NEWS DESK IS THIRD, ON EVERY PACKET. Owner, 2026-09-02: *"You hear
+ * them first when you drop into the next HUB. Then they don't repeat."*
+ * The desk block reads every eligible report the player has not heard yet,
+ * in campaign order, straight after the show intro, and marks each heard as
+ * it airs; on a receiver that cannot carry campaign news, or a packet with
+ * nothing new, the block is skipped. The per-packet `editorial` slot is what
+ * it always was -- Day One's meeting notice, or a link -- and no packet
+ * names a report any more, because naming one is how three of them were
+ * never scheduled and the rest were scheduled behind four talk blocks and a
+ * record. */
 function hubPacket({
   id,
   beatId,
@@ -83,6 +94,7 @@ function hubPacket({
   const blocks = [
     block('ident', 'ident'),
     block('show-intro', 'showIntro'),
+    block('news-desk', 'newsDesk'),
     block('talk-01', 'talk', { ordinal: 0 }),
     block('talk-02', 'talk', { ordinal: 1 }),
     block('talk-03', 'talk', { ordinal: 2 }),
@@ -129,19 +141,21 @@ export const RADIO_PROGRAMS = frozen([
   hubPacket({
     id: 'H-APT-02', beatId: 'return_to_old_apartment', receiverId: 'apartment',
     showHour: 12,
-    songs: ['through-the-night', 'good-ole-days'],
-    editorial: { type: 'news', newsId: 'news.segment.motel' }, adId: 'dealership',
+    songs: ['through-the-night', 'good-ole-days'], adId: 'dealership',
   }),
   hubPacket({
     id: 'H-APT-03', beatId: 'new_space_call', receiverId: 'apartment',
     showHour: 18,
-    songs: ['cosmic-drift', 'good-ole-days'],
-    editorial: { type: 'news', newsId: 'news.segment.heist' }, adId: 'jerky',
+    songs: ['cosmic-drift', 'good-ole-days'], adId: 'jerky',
   }),
+  /* `cosmic-drift` is tagged `venue: apartment` in assets/music/manifest.json
+   * -- the starter flat's own record -- and the luxury receiver's playlist
+   * filter drops it, so two of these packets used to lose their second
+   * record to a silent `missing-song` skip. Unscoped records here. */
   hubPacket({
     id: 'H-LUX-01', beatId: 'luxury_apartment_intro', receiverId: 'luxury_apartment',
     showHour: 12,
-    songs: ['good-ole-days', 'cosmic-drift'], adId: 'station.morning',
+    songs: ['good-ole-days', 'through-the-night'], adId: 'station.morning',
   }),
   hubPacket({
     id: 'H-LUX-02', beatId: 'margo_stayover', receiverId: 'luxury_apartment',
@@ -151,13 +165,12 @@ export const RADIO_PROGRAMS = frozen([
   hubPacket({
     id: 'H-LUX-03', beatId: 'luxury_apartment_morning', receiverId: 'luxury_apartment',
     showHour: 7,
-    songs: ['good-ole-days', 'cosmic-drift'], adId: 'station.morning',
+    songs: ['good-ole-days', '10-drunk-cigarettes'], adId: 'station.morning',
   }),
   hubPacket({
     id: 'H-LUX-04', beatId: 'luxury_apartment_return', receiverId: 'luxury_apartment',
     showHour: 17,
-    songs: ['good-ole-days', 'through-the-night'],
-    editorial: { type: 'news', newsId: 'news.segment.lake' }, adId: 'attorney',
+    songs: ['good-ole-days', 'through-the-night'], adId: 'attorney',
   }),
   hubPacket({
     id: 'H-MAN-01', beatId: 'silver_case_mansion', receiverId: 'mansion_house',
@@ -167,14 +180,12 @@ export const RADIO_PROGRAMS = frozen([
   hubPacket({
     id: 'H-MAN-02', beatId: 'mansion_return', receiverId: 'mansion_house',
     showHour: 18,
-    songs: ['daydream-diner-2', 'through-the-night'],
-    editorial: { type: 'news', newsId: 'news.segment.detonation' }, adId: 'dealership',
+    songs: ['daydream-diner-2', 'through-the-night'], adId: 'dealership',
   }),
   hubPacket({
     id: 'H-LUX-05', beatId: 'special_meeting_call', receiverId: 'luxury_apartment',
     showHour: 20,
-    songs: ['nehoo-with-a-guu', 'through-the-night'],
-    editorial: { type: 'news', newsId: 'news.segment.compound' }, adId: 'station.evening',
+    songs: ['nehoo-with-a-guu', 'through-the-night'], adId: 'station.evening',
   }),
 ]);
 

@@ -109,3 +109,45 @@ test('the audit sheet is generated directly from the RadioProgram manifest', () 
   assert.match(first['Block order'], /^ident:ident → show-intro:showIntro/);
   assert.equal(first['Song IDs'], 'good-ole-days → cosmic-drift');
 });
+
+test('every packet reads the news desk straight after the show intro, and names no report of its own', () => {
+  /* Owner, 2026-09-02: "You hear them first when you drop into the next HUB.
+   * Then they don't repeat." A named `news` editorial is how three reports
+   * were never scheduled at all and the rest sat behind four talk blocks and
+   * a record; the desk block carries whatever is unheard, third in every
+   * packet, and the once-only rule lives in the radio. */
+  for (const program of RADIO_PROGRAMS) {
+    assert.equal(program.blocks[0].type, 'ident', program.id);
+    assert.equal(program.blocks[1].type, 'showIntro', program.id);
+    assert.deepEqual(program.blocks[2], { id: 'news-desk', type: 'newsDesk' }, program.id);
+    assert.equal(program.blocks.some((entry) => entry.type === 'news'), false,
+      `${program.id} still names a report instead of leaving it to the desk`);
+  }
+});
+
+test('every packet record is one its receiver can actually play', async () => {
+  /* `cosmic-drift` is tagged `venue: apartment`; two luxury packets asked for
+   * it, the luxury playlist filter dropped it, and the block was silently
+   * skipped as `missing-song`. The venue each receiver is built with lives in
+   * its scene's `new Radio(..., { venue })` call. */
+  const { readFile } = await import('node:fs/promises');
+  const manifest = JSON.parse(await readFile(new URL('../assets/music/manifest.json', import.meta.url), 'utf8'));
+  const tracks = new Map(manifest.tracks.map((track) => [track.id, track]));
+  const venueOf = {
+    apartment: 'apartment',
+    countryside_cabin: 'countryside_cabin',
+    luxury_apartment: 'luxury_apartment',
+    mansion_house: 'mansion',
+  };
+  for (const program of RADIO_PROGRAMS) {
+    const venue = venueOf[program.receiverId];
+    assert.ok(venue, `${program.receiverId} has no venue in this test's table`);
+    for (const entry of program.blocks.filter((block) => block.type === 'song')) {
+      const track = tracks.get(entry.songId);
+      assert.ok(track, `${program.id}: ${entry.songId} is not in the music manifest`);
+      assert.equal(Boolean(track.cue), false, `${program.id}: ${entry.songId} is a scripted cue, not programming`);
+      assert.ok(!track.venue || track.venue === venue,
+        `${program.id}: ${entry.songId} is scoped to ${track.venue}, and the ${program.receiverId} receiver plays ${venue}`);
+    }
+  }
+});

@@ -50,6 +50,16 @@ const SEGMENT_GAP = 1.4;
  * waiting at the door with a report on you. */
 const NEWS_AFTER = 2;
 
+/** One report as queue segments: the sting on the first line, then the read. */
+function newsLines(segment) {
+  return segment.lines.map((line, index) => ({
+    line,
+    cue: index === 0 ? 'radio.jingle' : null,
+    news: true,
+    newsId: index === 0 ? segment.id : null,
+  }));
+}
+
 /* Records are played as a excerpt rather than end to end. A full track is
  * three or four minutes of an eighteen-minute game, which is most of a
  * playthrough spent on one song, and the station stops being a station. */
@@ -662,17 +672,18 @@ export class Radio {
       return;
     }
 
-    /* A FRESH news segment -- eligible, never yet heard anywhere -- jumps the
-     * running order the first chance it decently can, so coming home after a
-     * job means hearing about the job within a block or two of switching on.
-     * It is marked heard on air through the shared bulletin history, after
-     * which it only comes round again in the cycle's own low-frequency news
-     * slot below. The gap guard keeps a priority segment off the back of one
-     * the cycle just played. */
+    /* An UNHEARD news segment -- eligible, never yet heard anywhere -- jumps
+     * the running order the first chance it decently can, so switching on
+     * after a job means hearing about the job within a block or two. It is
+     * marked heard on air through the shared bulletin history, and that is
+     * the last time it airs on any receiver: the cycle below has no news
+     * slot. Owner, 2026-09-02: *"once you hear them once... they don't
+     * repeat."* This path is the safety net for a hub whose entry packet is
+     * already spent, or a segment that became eligible mid-stay; the packet's
+     * news desk (`_refillProgram`) is where a report is normally heard. The
+     * gap guard keeps two reports off each other's backs. */
     if (st.notices && this._blocks >= NEWS_AFTER && this._newsGapClear()) {
-      const fresh = this._eligibleNews().find(
-        (segment) => !this.hasHeardBulletin(segment.id),
-      );
+      const fresh = this._unheardNews()[0];
       if (fresh) { this._queueNews(fresh); return; }
     }
 
@@ -685,10 +696,11 @@ export class Radio {
      * points, so a show is always a proper stretch of show and a record is
      * always introduced.
      */
-    /* `news` sits after `notice` rather than mid-cycle so the notice keeps
-     * its long-standing position in the order; the two are never eligible on
-     * the same day (the notice is Day One's, the news only exists once jobs
-     * have happened), so nothing ever airs them adjacent. */
+    /* No `news` slot. There used to be one after `notice`, once per cycle
+     * over everything the campaign had made eligible, which is exactly the
+     * repeat the owner did not want. A report airs once, above, and the
+     * running order is talk, links, records, the ad, the tape and the
+     * notice. */
     const CYCLE = [
       'talk', 'link', 'song',
       'talk', 'talk', 'link', 'song',
@@ -696,7 +708,7 @@ export class Radio {
       'talk', 'link', 'song',
       'talk', 'tape',
       'talk', 'talk', 'link', 'song',
-      'talk', 'notice', 'news',
+      'talk', 'notice',
     ];
     const noMusic = !this.playlist.length;
 
@@ -745,16 +757,6 @@ export class Radio {
         this._queue.push(...MEETING_NOTICE.filter((segment) => !segment.bulletinId
           || !this.hasHeardBulletin(segment.bulletinId)));
         this._persist();
-        return;
-      }
-      if (slot === 'news') {
-        /* The rotation slot: once a segment has had its fresh airing it comes
-         * round here, once per cycle, deterministic coverage over everything
-         * the campaign has made eligible. Never straight after another news
-         * block -- two reports in a row is a news station, and this is not. */
-        const eligible = this._eligibleNews();
-        if (!eligible.length || !this._newsGapClear()) continue;
-        this._queueNews(this._pick(`${st.id}:news`, eligible));
         return;
       }
       // talk: a whole exchange, which is the point of the whole rewrite.
@@ -821,13 +823,28 @@ export class Radio {
           || !this.hasHeardBulletin(segment.bulletinId));
         if (enqueue(segments)) return true;
       } else if (entry.type === 'news') {
-        const segment = this._eligibleNews().find(({ id }) => id === entry.newsId);
-        if (segment && enqueue(segment.lines.map((line, index) => ({
-          line,
-          cue: index === 0 ? 'radio.jingle' : null,
-          news: true,
-          newsId: index === 0 ? segment.id : null,
-        })))) return true;
+        /* A named report, and only while it is still unheard: a packet
+         * resumed after the desk already read it must not read it twice. */
+        const segment = this._unheardNews().find(({ id }) => id === entry.newsId);
+        if (segment && enqueue(newsLines(segment))) return true;
+      } else if (entry.type === 'newsDesk') {
+        /* THE TOP OF THE HOUR. Every eligible report the player has not
+         * heard yet, in campaign order, straight after the show intro -- so
+         * dropping into the next hub after a job means hearing about the job
+         * before the hosts get going, and hearing about it once. Each report
+         * is marked heard on its first line (`_pump`), so a second visit,
+         * a reload, or the same report in a later hub's packet finds
+         * nothing here and the block is skipped. */
+        const fresh = this._unheardNews();
+        if (fresh.length && enqueue(fresh.flatMap((segment) => newsLines(segment)))) {
+          return true;
+        }
+        this._recordProgramReceipt(programme, {
+          kind: 'newsDesk', requested: 'unheard-news', actual: null,
+          source: 'nothing-new', started: false,
+        });
+        this._completeProgramBlock(programme, { skipped: true, reason: 'nothing-new' });
+        continue;
       } else if (entry.type === 'ad') {
         const ad = (this.station.commercials ?? []).find(({ id, live }) => live && id === entry.adId);
         if (ad && enqueue([...ad.segments, { reaction: 'ad' }])) return true;
@@ -915,6 +932,13 @@ export class Radio {
         || !this.hasHeardBulletin(segment.bulletinId));
   }
 
+  /** Eligible reports the player has never heard, on any receiver, oldest event first. */
+  _unheardNews() {
+    return this._eligibleNews()
+      .filter((segment) => !this.hasHeardBulletin(segment.id))
+      .sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
+  }
+
   /** The news segments whose events have happened, per the scene's gate. */
   _eligibleNews() {
     try {
@@ -940,12 +964,7 @@ export class Radio {
   /** Queue one whole segment: sting on the first line, then the read. */
   _queueNews(segment) {
     if (!segment?.lines?.length) return;
-    segment.lines.forEach((line, i) => this._queue.push({
-      line,
-      cue: i === 0 ? 'radio.jingle' : null,
-      news: true,
-      newsId: i === 0 ? segment.id : null,
-    }));
+    this._queue.push(...newsLines(segment));
     this._persist();
   }
 
@@ -981,8 +1000,8 @@ export class Radio {
       this.onNotice?.();
     }
     /* A news line remembers its block so the next news block keeps its
-     * distance, and the segment's first line retires it from the priority
-     * queue -- heard once anywhere, it is rotation material everywhere. */
+     * distance, and the segment's first line retires it for good -- heard
+     * once anywhere, it never airs again anywhere. */
     if (s.news) {
       this._lastNewsBlock = this._blocks;
       if (s.newsId) this.markBulletinHeard(s.newsId);

@@ -655,3 +655,130 @@ test('an entry-packet song with no media playback path skips once instead of rec
     skipped: true,
   }]);
 });
+
+/* ------------------------------------------------------------------ */
+/* The news desk: heard once, in the next hub, never again             */
+/* ------------------------------------------------------------------ */
+
+async function newsDeskFixture(campaign, receiverId, heard) {
+  const { Radio } = await import('../src/core/radio.js');
+  const { campaignRadioContext } = await import('../src/core/radio-program.js');
+  const audio = {
+    ready: true, ctx: { currentTime: 0 }, play() { return null; },
+    startLoop() {}, stopLoop() {}, setLoopVolume() {},
+  };
+  const state = {
+    load: () => ({
+      volume: 0.7, cursor: 0, cycle: 0, selections: {}, songCursors: {},
+      programProgress: {}, songReactionCursor: 0, adReactionCursor: 0, power: true,
+    }),
+    save() {},
+    context: () => campaignRadioContext(campaign, receiverId),
+    campaignState: () => campaign,
+    hasHeardBulletin: (id) => heard.has(id),
+    markBulletinHeard: (id) => { heard.add(id); return true; },
+  };
+  return new Radio(audio, { setRadio() {}, toast() {} }, { hour: 12 }, { state });
+}
+
+/** Air one packet block: refill it, pump every segment, complete it. */
+function airBlock(radio) {
+  assert.equal(radio._refillProgram(), true, 'the packet has nothing left');
+  const aired = [];
+  while (radio._queue.length) {
+    aired.push(radio._queue[0]);
+    radio._pump();
+  }
+  radio._completeProgramBlock(aired.at(-1)._program);
+  return aired;
+}
+
+test('the news desk reads every unheard report once, third in the packet, oldest first', async () => {
+  const heard = new Set();
+  const campaign = {
+    scene: { id: 'apartment', spawn: 'front_door' }, story: {}, events: {},
+    missions: {
+      bada_bing_two: { status: 'complete' }, jerky_motel: { status: 'complete' },
+      bank_heist: { status: 'locked' }, silver_pines: { status: 'locked' },
+    },
+  };
+  const radio = await newsDeskFixture(campaign, 'apartment', heard);
+  radio._programContext = radio.state.context();
+  assert.equal(radio._programContext.programId, 'H-APT-02');
+
+  assert.equal(airBlock(radio).at(-1)._program.blockId, 'ident');
+  assert.equal(airBlock(radio).at(-1)._program.blockId, 'show-intro');
+  assert.equal(radio._refillProgram(), true);
+  /* Two events have happened since the last news-carrying hub: the Bing
+   * night (Day 4) and the motel (Day 5). Both, in that order, and nothing
+   * else, before the hosts get going. */
+  assert.deepEqual(radio._queue.filter((segment) => segment.newsId).map((segment) => segment.newsId),
+    ['news.segment.bing_night', 'news.segment.motel']);
+  assert.equal(radio._queue.every((segment) => segment.news), true);
+  assert.equal(radio._queue[0]._program.blockId, 'news-desk');
+  const desk = [];
+  while (radio._queue.length) { desk.push(radio._queue[0]); radio._pump(); }
+  radio._completeProgramBlock(desk.at(-1)._program);
+  assert.deepEqual([...heard].sort(), ['news.segment.bing_night', 'news.segment.motel']);
+
+  /* The rest of the packet carries no news, and the generic rotation after
+   * it never brings either report back. */
+  const rest = [];
+  while (radio._programContext.program) {
+    if (!radio._refillProgram()) break;
+    while (radio._queue.length) { rest.push(radio._queue[0]); radio._pump(); }
+    radio._completeProgramBlock(rest.at(-1)._program);
+  }
+  assert.equal(rest.some((segment) => segment.news), false);
+  radio._lastNewsBlock = -10;
+  for (let i = 0; i < 24; i++) {
+    radio._refill();
+    assert.equal(radio._queue.some((segment) => segment.news), false, `block ${i} re-aired a report`);
+    while (radio._queue.length) radio._pump();
+  }
+});
+
+test('a later hub skips the desk when there is nothing new, and reads only what has happened since', async () => {
+  const heard = new Set(['news.segment.bing_night', 'news.segment.motel']);
+  const campaign = {
+    scene: { id: 'luxury_apartment', spawn: 'arrival' }, story: {}, events: {},
+    missions: {
+      bada_bing_two: { status: 'complete' }, jerky_motel: { status: 'complete' },
+      bank_heist: { status: 'locked' }, silver_room: { status: 'locked' },
+      no_wake: { status: 'locked' }, cartel_palace: { status: 'locked' },
+    },
+  };
+  const radio = await newsDeskFixture(campaign, 'luxury_apartment', heard);
+  radio._programContext = radio.state.context();
+  assert.equal(radio._programContext.programId, 'H-LUX-01');
+  airBlock(radio);
+  airBlock(radio);
+  /* Nothing new: the desk block is completed as skipped and the packet
+   * moves straight on to the hosts. */
+  assert.equal(radio._refillProgram(), true);
+  assert.equal(radio._queue.some((segment) => segment.news), false);
+  assert.equal(radio._queue[0]._program.blockId, 'talk-01');
+  const progress = radio._programProgress['H-LUX-01'];
+  assert.deepEqual(progress.completedBlockIds, ['ident', 'show-intro', 'news-desk']);
+  const deskReceipt = radio.playbackReceipts.find((receipt) => receipt.blockId === 'news-desk');
+  assert.equal(deskReceipt.skipped, true);
+  assert.equal(deskReceipt.reason, 'nothing-new');
+  while (radio._queue.length) radio._pump();
+
+  /* THE TAKE happens while he is out. Back on this receiver, the report is
+   * the next thing on, once. */
+  campaign.missions.bank_heist.status = 'complete';
+  radio._programContext = { ...radio._programContext, program: null, programId: null };
+  radio._blocks = 6;
+  radio._lastNewsBlock = -10;
+  radio._refill();
+  assert.deepEqual(radio._queue.filter((segment) => segment.newsId).map((segment) => segment.newsId),
+    ['news.segment.heist']);
+  while (radio._queue.length) radio._pump();
+  assert.equal(heard.has('news.segment.heist'), true);
+  for (let i = 0; i < 12; i++) {
+    radio._refill();
+    assert.equal(radio._queue.some((segment) => segment.news), false, `block ${i} re-aired THE TAKE`);
+    while (radio._queue.length) radio._pump();
+  }
+});
