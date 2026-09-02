@@ -4501,7 +4501,12 @@ function playMessages() {
  * point, and this is weather.
  */
 function playNews(station, { onStart = null } = {}) {
-  const bulletin = apartmentStory.news()?.[station];
+  const chapter = apartmentStory.news();
+  /* A chapter whose story the 97.8 desk owns (`desk` in CHAPTER_NEWS) is
+   * not read here, on either box: the desk airs it once, first hub after
+   * the event, and the flat telling it again is the repeat the owner heard. */
+  if (chapter?.desk) return false;
+  const bulletin = chapter?.[station];
   if (!bulletin || radio.hasHeardBulletin(bulletin.vo)) return false;
   setTimeout(() => {
     if (station === 'radio' && !radio.on) return;

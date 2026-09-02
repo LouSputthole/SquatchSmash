@@ -1183,7 +1183,19 @@ export const CHAPTER_MESSAGES = Object.freeze({
  * same story worse. Both are chapter-keyed and both are optional.
  */
 export const CHAPTER_NEWS = Object.freeze({
+  /* DESK-OWNED. Owner, 2026-09-02: *"There's an announcement about the
+   * shooting in the restaurant after the squatchfather scene... so don't
+   * duplicate."* The take is still authored here -- this table is the cue
+   * ledger's source for `vo.news.radio.day_two.1` -- but the flat no longer
+   * reads it on its own: 97.8's news desk (NEWS_SEGMENTS in core/stations.js)
+   * plays this exact recording once, at the first news-carrying receiver
+   * after the restaurant, and the shared heard-bulletin ledger keeps it off
+   * every later room. `desk` names the segment that owns it; `playNews` in
+   * src/main.js leaves such a chapter alone, television included, because
+   * the same story told twice in two voices is the duplicate the owner
+   * heard. */
   day_two: Object.freeze({
+    desk: 'news.segment.squatchfather',
     radio: Object.freeze({
       vo: 'news.radio.day_two',
       voice: 'announcer',
@@ -1256,7 +1268,11 @@ export const CHAPTER_NEWS = Object.freeze({
         + 'nine, and the city says the construction outside will not affect customers.',
     }),
   }),
+  /* Desk-owned too: `news.segment.heist` reads the robbery in the same
+   * evening's packet (H-APT-03), five lines to this one, so the wire's own
+   * take stays on the ledger and off the air. */
   post_heist: Object.freeze({
+    desk: 'news.segment.heist',
     radio: Object.freeze({
       vo: 'news.radio.post_heist',
       voice: 'announcer',

@@ -55,6 +55,9 @@ function newsLines(segment) {
   return segment.lines.map((line, index) => ({
     line,
     cue: index === 0 ? 'radio.jingle' : null,
+    /* A report can name its recorded take outright (`clips`), the way a
+     * tape does, when the take lives under another owner's cue. */
+    clip: segment.clips?.[index] ?? null,
     news: true,
     newsId: index === 0 ? segment.id : null,
   }));
@@ -338,7 +341,10 @@ export class Radio {
          * news ledger is most of a season of radio, and the point of this
          * method is not decoding things that cannot air. */
         for (const segment of this._eligibleNews()) {
-          for (const line of segment.lines) addLine(line);
+          segment.lines.forEach((line, index) => {
+            if (segment.clips?.[index]) cues.add(segment.clips[index]);
+            else addLine(line);
+          });
         }
       }
     }

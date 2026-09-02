@@ -82,6 +82,26 @@ export const MEETING_NOTICE = [
  */
 export const NEWS_SEGMENTS = Object.freeze([
   {
+    /* The Squatchfather: the restaurant on the east side, Day One's job.
+     *
+     * This is the flat's own Day Two wire line, recorded as
+     * `vo.news.radio.day_two.1` and owned by CHAPTER_NEWS in
+     * core/apartment-story.js -- the owner's "the announcer even says the
+     * owner isn't asking questions". The flat used to read it on its own,
+     * on whichever morning `day_two` happened to be, which on the bible's
+     * route is Day 5, three days and two jobs late. The desk owns it now:
+     * `clips` names the recorded take line by line, so nothing is minted or
+     * re-recorded, and it airs once at the first news-carrying receiver
+     * after the restaurant -- the cabin on Day 2 -- and never again. */
+    id: 'news.segment.squatchfather',
+    day: 1,
+    when: (state) => state?.missions?.squatchfather?.status === 'complete',
+    lines: [
+      'And in the community wire — a disturbance last night at a family restaurant on the east side. No arrests. The owner says he did not see anything and would like everybody to stop asking.',
+    ],
+    clips: ['vo.news.radio.day_two.1'],
+  },
+  {
     /* The Bada Bing incident night: a man gone after a closed party. */
     id: 'news.segment.bing_night',
     day: 4,
@@ -183,38 +203,11 @@ export const NEWS_SEGMENTS = Object.freeze([
       'ANNOUNCER: Police are not treating the matter as suspicious, on the grounds that they have not been told about it.',
     ],
   },
-].map((segment) => Object.freeze({ ...segment, lines: Object.freeze(segment.lines) })));
-
-/**
- * WRITTEN, NOT ON AIR: reports waiting for their takes.
- *
- * Owner, 2026-09-02: the Squatchfather shooting should be news in the first
- * hub after the restaurant and nowhere else. The desk had no report of it at
- * all. It is authored here, but the radio only airs what is recorded and
- * transcribed -- `npm test` holds every spoken radio cue to a delivered MP3
- * with a hash-bound Scribe receipt (tests/radio-content-audit.test.mjs), and
- * no key was available when this was written. To land it: move the entry
- * into NEWS_SEGMENTS above (first, so it airs first), run
- * `npm run radio:cues`, render the four lines with `npm run sfx:vo`, then
- * `./tools/verify-radio-content.ps1` for the receipts. The once-only rule
- * and the cabin's news desk take it from there.
- */
-export const PENDING_NEWS_SEGMENTS = Object.freeze([
-  {
-    /* The Squatchfather: a restaurant on the east side, and the man at his
-     * usual table. Day One's job, so it is the first thing the desk has, and
-     * the cabin is the first receiver that can carry it. */
-    id: 'news.segment.squatchfather',
-    day: 1,
-    when: (state) => state?.missions?.squatchfather?.status === 'complete',
-    lines: [
-      'ANNOUNCER: Our top story. Police are investigating a shooting last night at a restaurant on the east side, where a well-known local businessman was found dead at his usual table.',
-      'ANNOUNCER: Diners describe a quiet evening, a very large gentleman who was seated and then was not, and a car that left before anybody thought to read the plate.',
-      'ANNOUNCER: The restaurant says the victim was a regular, a generous tipper, and a man about whom it has no further comment.',
-      'ANNOUNCER: Police say they are pursuing several lines of inquiry. They declined to say in which direction.',
-    ],
-  },
-].map((segment) => Object.freeze({ ...segment, lines: Object.freeze(segment.lines) })));
+].map((segment) => Object.freeze({
+  ...segment,
+  lines: Object.freeze(segment.lines),
+  clips: segment.clips ? Object.freeze(segment.clips) : undefined,
+})));
 
 /**
  * The segments whose events have happened, in campaign order. Pure: reads the
@@ -1047,7 +1040,13 @@ function buildVoiceIndex() {
      * is a runtime question, the clip ledger is not. */
     if (st.notices) {
       for (const segment of NEWS_SEGMENTS) {
-        for (const line of segment.lines) add(line, 'announcer');
+        /* A line with a `clips` entry already has its take under another
+         * owner's cue (the flat's wire, for the restaurant); minting a
+         * radio.vo cue for the same words would ask for a second recording
+         * of a line that is on disk. */
+        segment.lines.forEach((line, index) => {
+          if (!segment.clips?.[index]) add(line, 'announcer');
+        });
       }
     }
     for (const line of st.lines ?? []) add(line, 'announcer');

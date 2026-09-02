@@ -702,6 +702,7 @@ test('the news desk reads every unheard report once, third in the packet, oldest
   const campaign = {
     scene: { id: 'apartment', spawn: 'front_door' }, story: {}, events: {},
     missions: {
+      squatchfather: { status: 'complete' },
       bada_bing_two: { status: 'complete' }, jerky_motel: { status: 'complete' },
       bank_heist: { status: 'locked' }, silver_pines: { status: 'locked' },
     },
@@ -713,17 +714,23 @@ test('the news desk reads every unheard report once, third in the packet, oldest
   assert.equal(airBlock(radio).at(-1)._program.blockId, 'ident');
   assert.equal(airBlock(radio).at(-1)._program.blockId, 'show-intro');
   assert.equal(radio._refillProgram(), true);
-  /* Two events have happened since the last news-carrying hub: the Bing
-   * night (Day 4) and the motel (Day 5). Both, in that order, and nothing
-   * else, before the hosts get going. */
+  /* Three events have happened and none has been heard: the restaurant
+   * (Day 1), the Bing night (Day 4) and the motel (Day 5). All three, oldest
+   * first, and nothing else, before the hosts get going. */
   assert.deepEqual(radio._queue.filter((segment) => segment.newsId).map((segment) => segment.newsId),
-    ['news.segment.bing_night', 'news.segment.motel']);
+    ['news.segment.squatchfather', 'news.segment.bing_night', 'news.segment.motel']);
   assert.equal(radio._queue.every((segment) => segment.news), true);
   assert.equal(radio._queue[0]._program.blockId, 'news-desk');
+  /* The restaurant report is the flat's own recorded wire line, named as a
+   * clip rather than minted as a new radio cue -- the owner's "don't
+   * duplicate". */
+  assert.equal(radio._queue[0].clip, 'vo.news.radio.day_two.1');
+  assert.equal(radio._queue.filter((segment) => segment.clip).length, 1);
   const desk = [];
   while (radio._queue.length) { desk.push(radio._queue[0]); radio._pump(); }
   radio._completeProgramBlock(desk.at(-1)._program);
-  assert.deepEqual([...heard].sort(), ['news.segment.bing_night', 'news.segment.motel']);
+  assert.deepEqual([...heard].sort(),
+    ['news.segment.bing_night', 'news.segment.motel', 'news.segment.squatchfather']);
 
   /* The rest of the packet carries no news, and the generic rotation after
    * it never brings either report back. */
@@ -743,10 +750,11 @@ test('the news desk reads every unheard report once, third in the packet, oldest
 });
 
 test('a later hub skips the desk when there is nothing new, and reads only what has happened since', async () => {
-  const heard = new Set(['news.segment.bing_night', 'news.segment.motel']);
+  const heard = new Set(['news.segment.squatchfather', 'news.segment.bing_night', 'news.segment.motel']);
   const campaign = {
     scene: { id: 'luxury_apartment', spawn: 'arrival' }, story: {}, events: {},
     missions: {
+      squatchfather: { status: 'complete' },
       bada_bing_two: { status: 'complete' }, jerky_motel: { status: 'complete' },
       bank_heist: { status: 'locked' }, silver_room: { status: 'locked' },
       no_wake: { status: 'locked' }, cartel_palace: { status: 'locked' },
@@ -784,5 +792,23 @@ test('a later hub skips the desk when there is nothing new, and reads only what 
     radio._refill();
     assert.equal(radio._queue.some((segment) => segment.news), false, `block ${i} re-aired THE TAKE`);
     while (radio._queue.length) radio._pump();
+  }
+});
+
+test('the restaurant report is the flat\'s recorded wire line, owned by the desk and read nowhere else', async () => {
+  const { NEWS_SEGMENTS, voiceCues } = await import('../src/core/stations.js');
+  const { CHAPTER_NEWS } = await import('../src/core/apartment-story.js');
+  const report = NEWS_SEGMENTS.find(({ id }) => id === 'news.segment.squatchfather');
+  assert.deepEqual(report.clips, ['vo.news.radio.day_two.1']);
+  assert.equal(report.lines[0], CHAPTER_NEWS.day_two.radio.line,
+    'the desk must read the exact words the take on disk says');
+  assert.equal(voiceCues().some((cue) => cue.say === report.lines[0]), false,
+    'a clip-backed line must not mint a second cue for the same words');
+  /* The flat hands both desk-owned stories to 97.8 and reads neither. */
+  assert.equal(CHAPTER_NEWS.day_two.desk, 'news.segment.squatchfather');
+  assert.equal(CHAPTER_NEWS.post_heist.desk, 'news.segment.heist');
+  for (const [chapter, entry] of Object.entries(CHAPTER_NEWS)) {
+    if (!entry.desk) continue;
+    assert.ok(NEWS_SEGMENTS.some(({ id }) => id === entry.desk), `${chapter} names a desk report that does not exist`);
   }
 });
