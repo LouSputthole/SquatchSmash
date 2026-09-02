@@ -26,6 +26,17 @@ the manifest to mark every track that belongs in the club set.
 
 With no tracks listed the radio still turns on — it just plays static.
 
+## The credits song
+
+The owner's pick is **Down at the Bada Bing** (2026-09-02). The file has not
+been delivered yet, so the crawl stays deliberately silent. To land it: drop
+`down-at-the-bada-bing.mp3` in this folder and move the
+`_credits_row_when_delivered` object in `manifest.json` into `tracks`.
+`resolveCreditsMusicSrc` (src/core/campaign-credits-view.js) finds the row by
+`credits: true` and the ending plays it; `cue: true` keeps it off 97.8's
+rotation. Never list a file that is not on disk — a missing src turns the
+intentionally silent ending into a production 404.
+
 ## Signature cues
 
 Some songs belong to a person or a moment rather than to a station. These are

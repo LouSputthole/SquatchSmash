@@ -25,6 +25,7 @@ import { CHARACTER_REGISTRY } from '../src/core/characters.js';
 import {
   buildCreditsTrack,
   createCampaignCreditsView,
+  resolveCreditsMusicSrc,
 } from '../src/core/campaign-credits-view.js';
 
 test('Lou is credited two hundred and forty separate times', () => {
@@ -161,4 +162,51 @@ test('opening the roll focuses the credits dialog instead of the Space-activatab
   } finally {
     view.end();
   }
+});
+
+/* THE SONG SLOT IS DATA. Owner, 2026-09-02: "Add the down at the bada bing
+ * as the credits song." The file has not been delivered, so the shipped
+ * manifest carries no `credits: true` row and the ending stays deliberately
+ * silent; the moment the row lands beside its file, the resolver finds it.
+ * Never point the crawl at a file that is not on disk. */
+test('the credits song resolves from a delivered manifest row, and only from one', async () => {
+  const delivered = await resolveCreditsMusicSrc({
+    load: async () => ({
+      tracks: [
+        { id: 'sallie-j', file: 'sallie-j.mp3' },
+        {
+          id: 'down-at-the-bada-bing', file: 'down-at-the-bada-bing.mp3',
+          title: 'Down at the Bada Bing', credits: true, cue: true,
+        },
+      ],
+    }),
+  });
+  assert.equal(delivered, 'assets/music/down-at-the-bada-bing.mp3');
+
+  const undelivered = await resolveCreditsMusicSrc({
+    load: async () => ({ tracks: [{ id: 'sallie-j', file: 'sallie-j.mp3' }] }),
+  });
+  assert.equal(undelivered, null);
+
+  const unreachable = await resolveCreditsMusicSrc({
+    load: async () => { throw new Error('offline'); },
+  });
+  assert.equal(unreachable, null);
+});
+
+test('the shipped music manifest has no credits row until the file exists', async () => {
+  const fs = await import('node:fs');
+  const manifest = JSON.parse(
+    fs.readFileSync(new URL('../assets/music/manifest.json', import.meta.url), 'utf8'),
+  );
+  const rows = manifest.tracks.filter((row) => row.credits === true);
+  for (const row of rows) {
+    assert.ok(
+      fs.existsSync(new URL(`../assets/music/${row.file}`, import.meta.url)),
+      `credits row ${row.id} lists ${row.file}, which is not on disk — the ending would 404`,
+    );
+  }
+  /* The staged row waits outside `tracks` with the delivery instructions. */
+  assert.equal(manifest._credits_row_when_delivered?.credits, true);
+  assert.equal(manifest._credits_row_when_delivered?.cue, true);
 });

@@ -21,6 +21,7 @@
  */
 
 import { campaignCreditRoll } from './campaign-credits.js';
+import { loadJson } from './assets.js';
 
 /**
  * Where the owner's track goes.
@@ -28,8 +29,35 @@ import { campaignCreditRoll } from './campaign-credits.js';
  * Deliberately outside the sfx manifest: the manifest is cues the game fires
  * during play, all of them ours, and a licensed song is neither. Set this to
  * the delivered asset path only when that file actually exists.
+ *
+ * The slot is now DATA-DRIVEN by preference: the owner picked the song
+ * (2026-09-02: "Add the down at the bada bing as the credits song"), and the
+ * moment its file lands in assets/music/ with a manifest row carrying
+ * `credits: true`, `resolveCreditsMusicSrc` below finds it and the crawl
+ * plays it. This constant stays the static fallback — null, and null until a
+ * delivered file exists, because a src pointing at a missing asset turns an
+ * intentionally silent ending into a production 404.
  */
 export const CREDITS_MUSIC_SRC = null;
+
+/**
+ * The manifest-listed credits track, if one has been delivered.
+ *
+ * A row in assets/music/manifest.json is the delivery contract for every
+ * song in the game ("drop the file AND list it" — assets/music/README.md),
+ * so a listed row is a file that exists and this never requests a missing
+ * asset. The row should also carry `cue: true` so the radio's programming
+ * filter keeps the ending's song off the airwaves.
+ */
+export async function resolveCreditsMusicSrc({ load = loadJson } = {}) {
+  try {
+    const manifest = await load('assets/music/', 'manifest.json');
+    const track = manifest?.tracks?.find?.((row) => row?.credits === true && row?.file);
+    return track ? `assets/music/${track.file}` : CREDITS_MUSIC_SRC;
+  } catch {
+    return CREDITS_MUSIC_SRC;
+  }
+}
 
 /** How long the whole crawl takes, in seconds. Roughly the length of a song. */
 export const CREDITS_DURATION_S = 212;
@@ -76,12 +104,22 @@ export function buildCreditsTrack(documentRef, track, roll = campaignCreditRoll(
 
 export function createCampaignCreditsView({
   documentRef = globalThis.document,
-  musicSrc = CREDITS_MUSIC_SRC,
+  musicSrc,
   duration = CREDITS_DURATION_S,
 } = {}) {
   const screen = required(documentRef, 'credits');
   const track = required(documentRef, 'credits-track');
   const skip = required(documentRef, 'credits-skip');
+
+  /* Undefined means "look the song up": the manifest fetch starts now and
+   * has long resolved by the time anybody finishes the campaign. An explicit
+   * null (the tests, a deliberately silent build) stays silent, and a
+   * resolver that never answers degrades to the silent ending it always
+   * was — the crawl waits on nothing. */
+  let resolvedMusicSrc = musicSrc === undefined ? CREDITS_MUSIC_SRC : musicSrc;
+  if (musicSrc === undefined) {
+    resolveCreditsMusicSrc().then((src) => { resolvedMusicSrc = src; }).catch(() => {});
+  }
 
   let music = null;
   let onDone = null;
@@ -150,9 +188,9 @@ export function createCampaignCreditsView({
         if (!running) return;
         crawlTimer = null;
         screen.classList.add('rolling');
-        if (musicSrc && typeof globalThis.Audio === 'function') {
+        if (resolvedMusicSrc && typeof globalThis.Audio === 'function') {
           try {
-            music = new globalThis.Audio(musicSrc);
+            music = new globalThis.Audio(resolvedMusicSrc);
             music.volume = 0.85;
             /* An autoplay refusal is a rejected promise, not an exception, and
              * an unhandled one is a console error on the ending screen. */
