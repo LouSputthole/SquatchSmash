@@ -16,7 +16,7 @@ test('every generated radio/music owner has one exact named active-play receipt'
   const owners = uniqueAuditedRadioOwners(timeline);
   const coverage = summarizeRadioActivePlayCoverage(timeline);
 
-  assert.equal(owners.size, 31);
+  assert.equal(owners.size, 32);
   assert.equal(coverage.total, owners.size);
   assert.equal(coverage.covered, owners.size);
   assert.equal(coverage.complete, true);
@@ -51,13 +51,13 @@ test('the generated revamp separates mechanical ownership coverage from owner li
   assert.match(lifecycle.Status, /SOURCE \+ MAPPING CONTRACT GREEN/);
   assert.doesNotMatch(lifecycle.Status, /RERUN DUE|PENDING/,
     'the generated audit still describes the mapped source receipts as unfinished');
-  assert.match(lifecycle.Problem, /31\/31/);
+  assert.match(lifecycle.Problem, /32\/32/);
   assert.match(mix.Status, /OWNER AUDIBLE MIX REVIEW/);
   assert.match(orphans.Status, /OWNER — LEGACY IDENTITY CUES/);
 
   const receiptPlan = data.rows['Revamp Plan'].find((row) => row.Order === 4);
   const finalPlan = data.rows['Revamp Plan'].find((row) => row.Order === 9);
-  assert.match(receiptPlan.Status, /^DONE — 31\/31 OWNERS MAPPED; SOURCE RECEIPTS GREEN$/);
+  assert.match(receiptPlan.Status, /^DONE — 32\/32 OWNERS MAPPED; SOURCE RECEIPTS GREEN$/);
   assert.match(finalPlan.Status,
     /^RELEASE-CANDIDATE LEDGERS \+ MAPPED RECEIPTS GREEN — FINAL HOSTED RECEIPT EXTERNAL$/);
   assert.doesNotMatch(`${receiptPlan.Status}\n${finalPlan.Status}`,

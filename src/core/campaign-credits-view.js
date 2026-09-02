@@ -276,5 +276,15 @@ export function createCampaignCreditsView({
     },
 
     end: finish,
+
+    /** What the ending is playing, for the certification gate and nothing else. */
+    music() {
+      return Object.freeze({
+        src: resolvedMusicSrc,
+        started: music !== null,
+        volume: music ? Number(music.volume) : null,
+        rolling: running,
+      });
+    },
   });
 }

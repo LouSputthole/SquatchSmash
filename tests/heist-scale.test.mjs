@@ -136,8 +136,15 @@ test('named heist crew keep their canonical bodies underneath the job gear', () 
     assert.equal(actor.figure.pose, 'ready', `${id} is not carrying the ${weaponName} at the low ready`);
     assert.ok(actor.figure.parts.body.getObjectByName('crew-weapon-sling'), `${id} lost the weapon sling`);
     if (id === CHARACTER_IDS.NUMBSKULL) {
-      assert.ok(actor.figure.parts.head.getObjectByName('person.glasses.bridge'),
-        'Numbskull lost his documented round-glasses face treatment');
+      /* His photograph landed 2026-09-01 and he wears it since 2026-09-02;
+       * the drawn round glasses went with the drawn head. A photograph is an
+       * <img>, so under node --test the builder gives him the authored head
+       * instead -- the presentation row is the proof here, and the browser
+       * gate (tools/verify-heist.mjs) proves the photo skull itself. */
+      assert.equal(HEIST_CREW_PRESENTATION[id].face, 'assets/faces/numbskull.png',
+        'Numbskull is not wearing his photograph');
+      assert.equal(actor.figure.parts.head.getObjectByName('person.glasses.bridge'), undefined,
+        'Numbskull still has the procedural glasses');
     }
   }
 });

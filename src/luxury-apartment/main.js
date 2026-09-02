@@ -367,17 +367,17 @@ loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions
 
 /** Rebuild the held inbox from the same durable campaign truth as every hub. */
 function syncPhoneThreads() {
-  const threads = phoneThreadsForCampaign(campaign.state);
+  phone.setThreads(phoneThreadsForCampaign(campaign.state));
   /* Lag's "Outside." is not campaign state -- the car is a live thing in
-   * this room -- so it is appended here, unread, and only while it stands. */
+   * this room -- so it goes onto the held handset's own copy of the family
+   * thread, unread, and only while it stands. */
   if (specialMeetingText) {
-    const family = threads.find((thread) => thread.id === 'family');
+    const family = phone.threads.find((thread) => thread.id === 'family');
     if (family) {
-      family.messages = [...family.messages, { them: true, who: specialMeetingText.from, text: specialMeetingText.text }];
+      family.messages.push({ them: true, who: specialMeetingText.from, text: specialMeetingText.text });
       family.unread = true;
     }
   }
-  phone.setThreads(threads);
 }
 /* Taking the call is what commits it. The story adapter owns what each one
  * unlocks; this only tells it the receiver came off the hook. */

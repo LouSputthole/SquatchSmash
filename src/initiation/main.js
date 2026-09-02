@@ -3644,6 +3644,8 @@ tick();
 window.INITIATION = {
   get player() { return player; },
   get input() { return input; },
+  /** The ending's song, for the certification gate. */
+  get credits() { return campaignCreditsView.music(); },
   members,
   prospects,
   boosk,

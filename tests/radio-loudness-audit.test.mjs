@@ -14,7 +14,7 @@ test('every long-form music master has one current hash-bound loudness receipt',
   assert.equal(evidence.schema, SCHEMA);
   assert.deepEqual(evidence.algorithm, ALGORITHM);
   assert.equal(await validateEvidence(tracks, evidence), tracks.length);
-  assert.equal(evidence.measurements.length, 28);
+  assert.equal(evidence.measurements.length, 29);
   assert.equal(new Set(evidence.measurements.map(({ file }) => file)).size, tracks.length);
 
   for (const row of evidence.measurements) {
@@ -35,14 +35,14 @@ test('every long-form music master has one current hash-bound loudness receipt',
 test('the generated radio inventory publishes measurements without claiming normalization', async () => {
   const data = await buildAuditData();
   const musicRows = data.rows['Cue Inventory'].filter((row) => /^(music|track):/.test(row['Cue ID']));
-  assert.equal(musicRows.length, 28);
-  assert.equal(musicRows.filter((row) => String(row['Loudness issue']).startsWith('Measured:')).length, 28);
-  assert.equal(data.summary.measuredMasters, 28);
-  assert.equal(data.summary.musicMasters, 28);
+  assert.equal(musicRows.length, 29);
+  assert.equal(musicRows.filter((row) => String(row['Loudness issue']).startsWith('Measured:')).length, 29);
+  assert.equal(data.summary.measuredMasters, 29);
+  assert.equal(data.summary.musicMasters, 29);
 
   const loudnessFinding = data.rows['Problems and Decisions']
     .find((row) => row['Station or cue'] === 'Mix / loudness');
-  assert.match(loudnessFinding.Problem, /28\/28/);
+  assert.match(loudnessFinding.Problem, /29\/29/);
   assert.match(loudnessFinding.Status, /MEASURED/);
   assert.doesNotMatch(loudnessFinding.Evidence, /normalized/i);
   assert.match(data.revampMarkdown, /does \*\*not\*\* claim.*normalized/s);

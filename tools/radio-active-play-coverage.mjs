@@ -207,6 +207,13 @@ const RECEIPTS = [
     'the Enola escape score starts once after the silent aftermath on a real streamed media handle',
   ),
   receipt(
+    'initiation.html',
+    'Campaign credits song',
+    'music.credits',
+    'tools/verify-initiation.mjs',
+    'the credits song starts once on the crawl while the cabin stereo stays silent',
+  ),
+  receipt(
     'mansion.html?visit=return',
     'Physical 97.8 receiver · mansion_house',
     'station:squatch',

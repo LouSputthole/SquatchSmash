@@ -1665,6 +1665,29 @@ try {
       && inducted.cabinMusic.silenceCommitted,
     JSON.stringify(inducted));
 
+  /* THE SONG. Owner, 2026-09-02: "I don't hear the song ... I want that song
+   * to fire off, or fade in, when the credits come up." The crawl starts
+   * after the 2.4 s fade to black and the delivered record starts with it,
+   * fading in; the cabin stereo committed to silence at the oath and stays
+   * there. Headless Chromium may refuse autoplay, so the receipt is the
+   * element and its source, not audible output. */
+  await page.waitForFunction(
+    () => window.INITIATION.credits?.started === true,
+    null,
+    { timeout: 30000 },
+  ).catch(() => {});
+  const creditsSong = await page.evaluate(() => ({
+    ...window.INITIATION.credits,
+    cabinMusic: window.INITIATION.cabinMusic,
+  }));
+  check('the credits song starts once on the crawl while the cabin stereo stays silent',
+    creditsSong.started === true
+      && /down-at-the-bada-bing\.mp3$/.test(creditsSong.src ?? '')
+      && creditsSong.rolling === true
+      && creditsSong.cabinMusic.state === 'silent'
+      && !creditsSong.cabinMusic.loopActive,
+    JSON.stringify(creditsSong));
+
   const completionPointer = await page.evaluate(() => {
     const button = document.querySelector('#credits-skip');
     const rect = button.getBoundingClientRect();

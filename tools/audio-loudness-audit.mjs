@@ -254,7 +254,15 @@ async function performMeasurements(tracks, { headed = false } = {}) {
   let browser;
   try {
     const baseUrl = await listen(server);
-    browser = await chromium.launch({ headless: !headed });
+    /* The same executable resolution every browser gate uses, so a pinned
+     * Playwright whose headless shell is not installed still measures with
+     * the Chromium that is. */
+    browser = await chromium.launch({
+      headless: !headed,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM
+        || (process.env.PLAYWRIGHT_BROWSERS_PATH
+          ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
+    });
     const page = await browser.newPage();
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
     const measurements = [];

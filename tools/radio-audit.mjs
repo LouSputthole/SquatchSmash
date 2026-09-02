@@ -475,6 +475,17 @@ const DEDICATED_PROGRAMS = Object.freeze([
     priority: 'Authored environmental music', risk: 'LOW — oath/end are hard silence boundaries',
     status: 'LIVE', notes: 'Purpose-built stereo bed; not station programming.',
   },
+  {
+    beats: ['initiation'], source: 'Campaign credits song', station: 'Non-diegetic score',
+    cue: 'music.credits', files: ['down-at-the-bada-bing.mp3'],
+    trigger: 'The credit roll starts, after the pull-back and the fade to black',
+    start: 'Fades in over 2.5 s from the frame the crawl moves',
+    stop: 'Natural end, Skip, or the replay portal', loop: 'One-shot',
+    duration: 'Full length; the crawl stretches to cover it', volume: '0.85 after the fade-in',
+    duck: 'Nothing speaks over the credits', priority: 'The ending',
+    risk: 'LOW — the cabin stereo is already committed silent', status: 'LIVE',
+    notes: 'Owner-delivered 2026-09-02; `credits: true` in the music manifest, `cue: true` keeps it off the air.',
+  },
 ]);
 
 /* Scripted, missing, and deliberately inert media surfaces have no active
