@@ -149,8 +149,8 @@ export const FOOTSTEP_AUDITION_GROUPS = Object.freeze([
     id: 'outdoors',
     name: 'Outdoors',
     note: 'The forest floor is a rotation — dirt, leaf crunch, a pitched-up twig crack, grass — '
-      + 'not one file. Golf bunkers ask for sand and NO sand recording exists: '
-      + 'every bunker step today is a synth tick.',
+      + 'not one file. Sand landed 2026-09-02; the bunkers played pitched-down gravel '
+      + 'until then, and a synth tick before that.',
     candidates: Object.freeze([
       step('gravel', 'Gravel',
         ['footstep.gravel.mp3'],
@@ -168,6 +168,12 @@ export const FOOTSTEP_AUDITION_GROUPS = Object.freeze([
         ['footstep.leaves.mp3'],
         ['Cabin — the woodland floor', 'Initiation — the woodland', 'Forest rotation — two legs (crunch + fast twig crack)'],
         'Dry litter; the twig-crack leg plays this pitched up.'),
+      step('sand', 'Bunker sand',
+        ['footstep.sand.mp3'],
+        ['Silver Pines — every bunker'],
+        'Soft dry grain. The bunkers had no sand at all until this: an unknown cue '
+        + 'does not 404, it falls through to the synth’s 800 Hz tick, so every '
+        + 'bunker step was a beep until a pitched-down gravel take stood in for it.'),
       step('puddle', 'Standing water',
         ['footstep.puddle.mp3'],
         ['Cabin — the creek corridor', 'Silver Pines — the water hazard'],

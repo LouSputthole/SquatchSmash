@@ -51,9 +51,11 @@ const NO_WAKE_AUDIO_CUE_SET = new Set(NO_WAKE_AUDIO_CUE_NAMES);
 /**
  * Swept up by the `footstep.` prefix but never NO WAKE's to load: the scene
  * walks boards and nothing else (the dock and the whole boat are `wood`, plus
- * the one authored `boat.board.step`). `footstep.sand` is golf's bunker grain
- * and sits on the generation ledger until recorded; without this exclusion the
- * zero-pending delivery gate reported it as a NO WAKE pickup.
+ * the one authored `boat.board.step`). `footstep.sand` is golf's bunker grain,
+ * recorded 2026-09-02 and still none of this scene's business; without this
+ * exclusion the delivery gate reported it as a NO WAKE pickup. The recording
+ * changes nothing here -- a boat that never touches a bunker should not be
+ * preloading one either way.
  */
 const NO_WAKE_AUDIO_EXCLUDED = new Set(['footstep.sand']);
 

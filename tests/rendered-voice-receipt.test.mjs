@@ -26,8 +26,9 @@ test('every exact rendered take has a current text, performer, index, hash, and 
    * (assets/sfx/rerecord.json `retired`); the campaign-complete door refusal
    * landed with the motel audio-bed branch on 2026-09-02, and the same day
    * THE TAKE retired Lou's four radio lines and the repeated go-home order
-   * with their takes (he is not on the job; Snow is), so 543. */
-  assert.equal(current.length, 543);
+   * with their takes (he is not on the job; Snow is), so 543 -- and then the
+   * fifteen the next paragraph used to be waiting on were recorded, so 558. */
+  assert.equal(current.length, 558);
   assert.equal(RENDERED_VOICE_AUDIT_SAMPLE_RATE, 44_100,
     'browser decode receipts must not drift with the host audio device');
   assert.ok(evidence.receipts.every((row) => row.sampleRate === RENDERED_VOICE_AUDIT_SAMPLE_RATE));
@@ -39,16 +40,25 @@ test('every exact rendered take has a current text, performer, index, hash, and 
   assert.equal(coverage.currentDelivered,
     coverage.renderedExact + coverage.assumedCurrent,
     'legacy assumed takes must remain visible beside exact render receipts');
-  /* Fifteen outstanding, each with a ledger entry the booth sheet shows.
-   * Missing: vo.wake.5 (retired with the five-PM start) and the twelve THE
-   * TAKE lines authored 2026-09-02 -- Snow's four command beats that were
+  /* Nothing outstanding: every authored playable line has a delivered take.
+   *
+   * The fifteen that stood here were recorded on 2026-09-02. Thirteen were
+   * missing -- vo.wake.5, reworded for the five-PM start, and the twelve THE
+   * TAKE lines authored that day: Snow's four command beats that used to be
    * Lou's, and eight for DeathMegatron, Numbskull and the Shubenator in the
-   * rooms they were quiet in. Re-record: the Squatchfather's Booski line
-   * (back to the owner's colostomy-bag pick) and the apartment's heist
-   * door refusal, which still names the Bing. */
-  assert.equal(coverage.outstanding, 15);
-  assert.equal(coverage.missing.length, 13);
-  assert.equal(coverage.rerecord.length, 2);
+   * rooms they were quiet in. Two were re-records whose takes on disk spoke
+   * retired words: the Squatchfather's Booski line, back to the owner's
+   * colostomy-bag pick, and the apartment's heist door refusal, which still
+   * named the Bing after the route stopped going there. Both were cleared
+   * out of `lines` in assets/sfx/rerecord.json once the replacements indexed,
+   * which is that file's own documented last step.
+   *
+   * Zero is the interesting number to hold. `authoredPlayable ===
+   * currentDelivered` only while it stays zero, and the assertion above is
+   * what notices the day it does not. */
+  assert.equal(coverage.outstanding, 0);
+  assert.equal(coverage.missing.length, 0);
+  assert.equal(coverage.rerecord.length, 0);
   assert.equal(coverage.recast.length, 0);
 });
 

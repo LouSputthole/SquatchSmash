@@ -7240,9 +7240,7 @@
     {
       "name": "vo.sf.opening.history.4",
       "voice": "player",
-      "say": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so.",
-      "needsRerecord": true,
-      "rerecordReason": "Owner, 2026-09-01: the accepted punch-up pick is the colostomy-bag line; the campaign-reconcile pass replaced it and the take on disk speaks the rewrite."
+      "say": "You shot Booski. In the stomach. Four times. He's forty-one and he shits in a bag now, so."
     },
     {
       "name": "vo.sf.opening.5",
@@ -8206,7 +8204,7 @@
       "prompt": "single footstep landing in a shallow standing puddle, sharp water splash and slop with the sole lifting out wet, outdoors on pavement, no voice, no music"
     },
     {
-      "_comment": "Golf bunkers emit surface 'sand' and had no recording -- every bunker step fell through to the synth's default 800 Hz tick. src/golf/audio.js plays a pitched-down gravel stand-in until this lands; swap the mapping back to footstep.sand the day it is generated.",
+      "_comment": "Golf bunkers emit surface 'sand' and had no recording -- every bunker step fell through to the synth's default 800 Hz tick, then to a pitched-down gravel stand-in. Recorded 2026-09-02; src/golf/audio.js plays it directly at the ordinary footstep level and pitch.",
       "name": "footstep.sand",
       "duration": 0.6,
       "prompt": "one footstep sinking into soft dry bunker sand on a golf course, muffled granular crunch and a fine grain shift as the sole settles, no voice, no music"
@@ -13885,9 +13883,7 @@
     {
       "name": "vo.door.refusal.heist_cleanup.1",
       "voice": "player",
-      "say": "Not walking out of here wearing the bank. Clean up first.",
-      "needsRerecord": true,
-      "rerecordReason": "Owner, 2026-09-02: nobody goes to the Bing after THE TAKE -- beat 12 is Lou's new-space call and beat 13 the course. The take on disk still names the Bing."
+      "say": "Not walking out of here wearing the bank. Clean up first."
     },
     {
       "name": "vo.door.refusal.cabin_message.1",

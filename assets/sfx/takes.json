@@ -7649,8 +7649,10 @@
       "source": "assumed"
     },
     "vo.door.refusal.heist_cleanup.1": {
-      "text": "efeeae9c4e3f",
-      "source": "assumed"
+      "text": "6305dc10db1b",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
     },
     "vo.door.refusal.heist_kit.1": {
       "text": "832236da10c6",
@@ -13801,7 +13803,7 @@
       "voiceId": "iP95p4xoKVk53GoZ742B"
     },
     "vo.sf.opening.history.4": {
-      "text": "3aaefc4280b9",
+      "text": "ef4511ee7e31",
       "source": "rendered",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"
@@ -18001,6 +18003,84 @@
     "vo.zyn.5": {
       "text": "8158ea6aa3a4",
       "source": "assumed"
+    },
+    "vo.wake.5": {
+      "text": "1575b66f9121",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "heist.snow_van_clock": {
+      "text": "d90b15749a4c",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "heist.snow_lobby_floor": {
+      "text": "498a1beaff86",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "heist.snow_vault_eight": {
+      "text": "65c212d0816a",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "heist.snow_street_sirens": {
+      "text": "ea4f00ef15b5",
+      "source": "rendered",
+      "voice": "snow",
+      "voiceId": "OhisAd2u8Q6qSA4xXAAT"
+    },
+    "heist.death_doors_first": {
+      "text": "fef3de3a743a",
+      "source": "rendered",
+      "voice": "deathmegatron",
+      "voiceId": "bD9maNcCuQQS75DGuteM"
+    },
+    "heist.death_lobby_wide": {
+      "text": "d7925b012ea4",
+      "source": "rendered",
+      "voice": "deathmegatron",
+      "voiceId": "bD9maNcCuQQS75DGuteM"
+    },
+    "heist.death_vault_handles": {
+      "text": "9e479f325473",
+      "source": "rendered",
+      "voice": "deathmegatron",
+      "voiceId": "bD9maNcCuQQS75DGuteM"
+    },
+    "heist.numb_vault_trolleys": {
+      "text": "6c245ab6a41c",
+      "source": "rendered",
+      "voice": "numbskull",
+      "voiceId": "R4Zv8YQNcHyNDZl0ViUG"
+    },
+    "heist.shubes_alarm_clock": {
+      "text": "f5ce992a44f9",
+      "source": "rendered",
+      "voice": "shubenator",
+      "voiceId": "vpPOiJgwc09J0uCYqE35"
+    },
+    "heist.death_van_dead": {
+      "text": "d5a16dbabc1c",
+      "source": "rendered",
+      "voice": "deathmegatron",
+      "voiceId": "bD9maNcCuQQS75DGuteM"
+    },
+    "heist.death_garage_hold": {
+      "text": "81d21e3c7c41",
+      "source": "rendered",
+      "voice": "deathmegatron",
+      "voiceId": "bD9maNcCuQQS75DGuteM"
+    },
+    "heist.death_debrief_people": {
+      "text": "d8ce6f626ed4",
+      "source": "rendered",
+      "voice": "deathmegatron",
+      "voiceId": "bD9maNcCuQQS75DGuteM"
     }
   }
 }
