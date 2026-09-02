@@ -28,14 +28,15 @@ With no tracks listed the radio still turns on — it just plays static.
 
 ## The credits song
 
-The owner's pick is **Down at the Bada Bing** (2026-09-02). The file has not
-been delivered yet, so the crawl stays deliberately silent. To land it: drop
-`down-at-the-bada-bing.mp3` in this folder and move the
-`_credits_row_when_delivered` object in `manifest.json` into `tracks`.
-`resolveCreditsMusicSrc` (src/core/campaign-credits-view.js) finds the row by
-`credits: true` and the ending plays it; `cue: true` keeps it off 97.8's
-rotation. Never list a file that is not on disk — a missing src turns the
-intentionally silent ending into a production 404.
+**Down at the Bada Bing** — `down-at-the-bada-bing.mp3`, delivered by the owner
+on 2026-09-02 and listed in `tracks` with `credits: true`.
+`resolveCreditsMusicSrc` (src/core/campaign-credits-view.js) finds that one
+row; the ending fades the song in over its first bars, plays it in full and
+stretches the crawl to its length. `cue: true` keeps it off 97.8's rotation.
+The Front & Center opener stays exactly what it was: the first twenty-seven
+seconds of Big Feet on the Dance Floor, and nothing to do with the credits.
+Never list a file that is not on disk — a missing src turns an intentionally
+silent ending into a production 404.
 
 ## Signature cues
 

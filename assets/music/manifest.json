@@ -1,6 +1,6 @@
 {
   "_comment": "Music catalog for the one live station, 97.8 THE SQUATCH, plus direct scene cues. Runtime playlist selection uses `cue` and exact `venue`; unscoped non-cue tracks enter 97.8's record pool. Historical `station` values (`uncle` / `ksqch`) are retained only as unresolved legacy metadata and do not create dial positions or filter playback. Do not revive or remove those identities until the owner decides their future.",
-  "_credits_comment": "THE CREDITS SONG is Big Feet on the Dance Floor, the Front & Center opener, in full — owner's ruling of 2026-09-02, which replaced the earlier 'Down at the Bada Bing' pick (that file never landed; its staged row stays below as the delivery example). resolveCreditsMusicSrc (src/core/campaign-credits-view.js) finds the one `credits: true` row and the crawl plays it; `cue: true` keeps it off 97.8's rotation. Never list a file that is not on disk.",
+  "_credits_comment": "THE CREDITS SONG is Down at the Bada Bing, delivered by the owner on 2026-09-02 and listed in `tracks` below with `credits: true`. resolveCreditsMusicSrc (src/core/campaign-credits-view.js) finds that one row and the crawl plays it in full; `cue: true` keeps it off 97.8's rotation. The staged copy below is the delivery example the row was written from. Never list a file that is not on disk.",
   "_credits_row_when_delivered": { "id": "down-at-the-bada-bing", "file": "down-at-the-bada-bing.mp3", "title": "Down at the Bada Bing", "artist": "Silver Sasquatches", "credits": true, "cue": true },
   "tracks": [
     {
@@ -199,8 +199,7 @@
       "start": 0,
       "cutAt": 27,
       "cue": true,
-      "credits": true,
-      "_note": "The first 27 seconds only in Front & Center, immediately after the band's opening joke; it fades directly into Bananaphone. ALSO THE CREDITS SONG, in full -- owner, 2026-09-02: \"It's the same song we use in the opening of the Front and Center mission when the band goes on stage. I just want the full song.\" The credits view (src/core/campaign-credits-view.js) plays the file straight through on `credits: true`; `cutAt` is the supper club's edit and does not apply there, and the crawl stretches to the song's length."
+      "_note": "The first 27 seconds only, immediately after the band's opening joke; it fades directly into Bananaphone. It stood in as the credits song for an hour on 2026-09-02 until the owner delivered Down at the Bada Bing; the credits are that track's now."
     },
     {
       "id": "initiation-cabin-stereo",
@@ -227,6 +226,15 @@
       "duration": 148.2,
       "cue": true,
       "_note": "Non-diegetic escape score. It starts only after the explosion and its authored silent aftermath have landed."
+    },
+    {
+      "id": "down-at-the-bada-bing",
+      "file": "down-at-the-bada-bing.mp3",
+      "title": "Down at the Bada Bing",
+      "artist": "Silver Sasquatches",
+      "credits": true,
+      "cue": true,
+      "_note": "THE CREDITS SONG, delivered 2026-09-02 (owner: \"Heres the song, use this song for the credits\"). The credits view (src/core/campaign-credits-view.js) plays it in full, fades it in over the first bars and stretches the crawl to its length. `cue: true` keeps it off 97.8's rotation. No station and no venue -- a cue, not programming."
     }
   ]
 }
