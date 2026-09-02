@@ -32,6 +32,14 @@ export const PROSPECT_BASE = Object.freeze({
   hairColour: 0x261b16,
   bandana: false,
   castShadow: false,
+  /* The Squatchfather head standard, brought home. Owner, 2026-09-01: "We
+   * have a lot of detail in the prospect from the squatchfather. We can
+   * probably take that as far as the face and stuff and replicate it for
+   * the home hub scenes." Whites-and-pupil eyes, arched brows, bridge and
+   * upper lip — and the amber iris the restaurant mirror authored, instead
+   * of a colour drawn per page load. */
+  faceDetail: true,
+  iris: 0x4a3418,
 });
 
 /** Stable cross-scene appearance IDs; all colours are authored, never random. */
@@ -73,7 +81,13 @@ export const PROSPECT_OUTFITS = Object.freeze({
     belt: 'leather',
     tie: true,
     tieColour: 0x49354e,
-    pocketSquare: false,
+    /* The tailoring the owner asked after ("the outfit ... just a little
+     * bit more detail"): a cream square in the breast pocket, chalk on the
+     * suit's own cloth, and a watch — all authored options the Bing cast
+     * already wears, none of them new geometry systems. */
+    pocketSquare: 0xe4d8c2,
+    pinstripe: true,
+    watch: 'silver',
   }),
   cream_cashmere: Object.freeze({
     ...PROSPECT_BASE,
@@ -83,6 +97,7 @@ export const PROSPECT_OUTFITS = Object.freeze({
     trim: false,
     tie: false,
     neckline: 'open',
+    watch: 'gold',
   }),
   cabin_workshirt: Object.freeze({
     ...PROSPECT_BASE,

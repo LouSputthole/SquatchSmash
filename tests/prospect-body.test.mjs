@@ -23,6 +23,10 @@ test('one canonical Prospect table serves every mirror scene', () => {
     assert.equal(outfit.height, 1.80, `${id} is the same 1.80 m man`);
     assert.equal(outfit.skin, 0xc9936d, `${id} keeps his skin tone`);
     assert.equal(outfit.castShadow, false, `${id} stays a reflection-only body`);
+    /* The Squatchfather head standard in every mirror (owner, 2026-09-01),
+     * and one authored amber iris rather than a colour drawn per load. */
+    assert.equal(outfit.faceDetail, true, `${id} wears the detailed face`);
+    assert.equal(outfit.iris, 0x4a3418, `${id} keeps the authored iris`);
   }
 });
 

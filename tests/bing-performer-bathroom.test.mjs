@@ -147,6 +147,48 @@ test('the bathroom Adapter reuses the seven-hit dress-help sequence and restores
   assert.ok(BING_PERFORMER_BATHROOM_CUES.every((cue) => (
     fixture.played.includes(cue) || fixture.loops.some(([, , name]) => name === cue)
   )));
+  /* The glue application actually sounded: pickup at the start, a squeeze
+   * under every pass, and the tube giving at the end (owner, 2026-09-01:
+   * "I want the glue to go on the back like we had"). */
+  assert.ok(fixture.played.includes('glue.pickup'));
+  assert.ok(fixture.played.filter((cue) => cue === 'glue.squeeze').length >= 7);
+  assert.ok(fixture.played.includes('glue.burst'));
+});
+
+test('she gets on all fours facing away, and walks back to the stage after', () => {
+  const fixture = runtimeFixture();
+  const beat = createBingPerformerBathroom({ ...fixture, timingBar: TimingBar });
+  beat.invite(3);
+  beat.update(30);
+  beat.start();
+
+  /* All fours, facing away from the player at the door (owner, 2026-09-01:
+   * "She should get on in all fours and face away from you"): pitched
+   * forward, dropped toward the floor, and yawed east — the player marker
+   * is due west of hers. */
+  beat.update(0.05);
+  assert.equal(fixture.actor.group.rotation.y, Math.PI / 2);
+  assert.ok(fixture.actor.group.rotation.x > 0.5, 'the figure pitches forward');
+  assert.ok(fixture.actor.group.position.y < 0.5, 'she is down at the floor');
+
+  const bar = beat.debug.sequence.bar;
+  for (let hit = 0; hit < 7; hit++) {
+    bar.pos = 0.8;
+    beat.press();
+  }
+  /* Earned, and immediately on her way out — the objective must not wait on
+   * the commute. */
+  assert.equal(beat.state, 'returning');
+  assert.equal(beat.complete, true);
+  assert.equal(fixture.actor.group.rotation.x, 0, 'the pose clears before she stands');
+  assert.equal(fixture.door.open, true, 'the door opens for the walk out');
+
+  beat.update(30);
+  assert.equal(beat.state, 'complete');
+  /* Back on her captured stage life: same mark, same job. */
+  assert.deepEqual(fixture.actor.group.position.toArray(), [-12, 0.62, -2.9]);
+  assert.equal(fixture.actor.job, 'dance');
+  assert.equal(fixture.actor.baseY, 0.62);
 });
 
 test('the pure geometry stage is stable and does not depend on browser systems', () => {

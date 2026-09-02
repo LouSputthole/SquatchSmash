@@ -9,12 +9,12 @@
  * THE TRICK, AND WHY IT IS NOT A TRICK. There is no fake. `ScreenOverlay`
  * already lays the real Squatch Smash page onto the monitor's screen mesh by
  * projecting that mesh's four corners through the camera every frame. So if
- * the camera is parked hard against the monitor -- close enough that the
- * screen quad covers the viewport -- the homography puts the genuine game
- * genuinely full screen, at correct perspective, with the keyboard and mouse
- * going straight to it. The reveal is then only a camera move: dolly back to
- * where a man sitting at that desk would have his head, and the game shrinks
- * onto the monitor because it was always on the monitor.
+ * the camera is parked close against the monitor -- close enough that the
+ * screen quad fits the viewport edge to edge -- the homography puts the
+ * genuine game genuinely full screen, at correct perspective, with the
+ * keyboard and mouse going straight to it. The reveal is then only a camera
+ * move: dolly back to where a man sitting at that desk would have his head,
+ * and the game shrinks onto the monitor because it was always on the monitor.
  *
  * Nothing is composited, nothing is scaled by hand, and no second copy of
  * Squatch Smash exists. The apartment is live behind it the whole time.
@@ -27,21 +27,25 @@
 const RAD = Math.PI / 180;
 
 /**
- * How far from a screen the camera has to sit for that screen to COVER the
+ * How far from a screen the camera has to sit for that screen to FIT the
  * viewport.
  *
- * Cover, not fit: at the fitting distance the screen exactly touches the top
- * and bottom and leaves the game letterboxed inside the page, which is
- * precisely the tell that would give the whole thing away. Taking the smaller
- * of the two distances overflows the other axis instead, so the player sees
- * screen and nothing else.
+ * This used to COVER instead — overflow the loose axis so the player saw
+ * screen and nothing else — on the theory that a letterbox was the tell.
+ * The owner overruled it from a playtest (2026-09-01): *"The opening is too
+ * full screen. You almost can't hit the resume button ... make sure that
+ * it's a little bit more in line with the browser."* Cover crops whatever
+ * UI lands near the overflowed edges, and a game with slim bars around it
+ * reads as a game with slim bars — every windowed game has them. Fit takes
+ * the LARGER of the two distances so both axes land inside the frustum,
+ * with the tight axis a margin short of the border.
  *
  * Pure numbers in, one number out, so the framing can be tested without a
- * renderer -- and so the "does it actually fill it" question has an answer
+ * renderer -- and so the "does it actually fit" question has an answer
  * that is not somebody's eye on one monitor.
  */
 export function monitorFillDistance({
-  screenW, screenH, fovDeg, aspect, overscan = 1.04,
+  screenW, screenH, fovDeg, aspect, margin = 1.03,
 } = {}) {
   if (!(screenW > 0 && screenH > 0)) throw new RangeError('The screen needs a size');
   if (!(fovDeg > 0 && fovDeg < 180)) throw new RangeError('The camera needs a field of view');
@@ -49,10 +53,10 @@ export function monitorFillDistance({
   const halfV = Math.tan(fovDeg * RAD / 2);
   const distanceForHeight = (screenH / 2) / halfV;
   const distanceForWidth = (screenW / 2) / (aspect * halfV);
-  /* Dividing by the overscan brings it CLOSER, which grows the screen past
-   * the frustum edge. A value of 1 would put the edge exactly on the border
-   * and let a pixel of room show on a rounding error. */
-  return Math.min(distanceForHeight, distanceForWidth) / overscan;
+  /* Multiplying by the margin backs the camera off, which shrinks the screen
+   * inside the frustum edge. A value of 1 would put the tight axis exactly
+   * on the border and let a rounding error crop a pixel of the game. */
+  return Math.max(distanceForHeight, distanceForWidth) * margin;
 }
 
 /** The beats, in order. */

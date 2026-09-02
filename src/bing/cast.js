@@ -358,6 +358,13 @@ export function makePerson(o = {}) {
     bandana = false, chain = false, beard = false, glasses = false,
     gender = 'unspecified', bodyShape = 'average', adult = true,
     castShadow = true, face = null, faceCrop = FACE_CROP,
+    /* Face fidelity, opted into by whoever the camera holds close. `iris`
+     * pins an authored eye colour (the default draws one so a background
+     * body costs nothing); `faceDetail` builds the Squatchfather head
+     * standard in this rig's own slab language — whites and pupils, two
+     * arched brows, a nose bridge and an upper lip. The mirror Prospect
+     * wears it; a crowd should not. */
+    iris: irisColour = null, faceDetail = false,
     /* `chain` is false, true/'gold', or 'silver'; `pendant` is whether it
      * ends in a medallion. Lou's is the heavy gold one with the disc on it.
      * Rippinflow wears a thin silver line and nothing hanging off it, which
@@ -2473,20 +2480,38 @@ export function makePerson(o = {}) {
      * so there is still an eye colour when somebody leans in close. */
     for (const sx of [-1, 1]) {
       const side = sx < 0 ? 'left' : 'right';
+      /* With faceDetail the slab is the WHITE of the eye rather than a dark
+       * socket, which is what makes the iris and pupil read as an eye at
+       * mirror distance instead of a hole. */
       head.add(box({
         name: `person.face.eye.${side}`,
         size: [0.042, 0.03, 0.014], pos: [sx * 0.036, 0.181, 0.103],
-        mat: mat({ color: 0x1a1410, roughness: 0.5 }),
+        mat: mat({ color: faceDetail ? 0xd8d2c4 : 0x1a1410, roughness: 0.5 }),
       }));
       const iris = box({
         name: `person.face.iris.${side}`,
         size: [0.018, 0.017, 0.01], pos: [sx * 0.036, 0.1815, 0.111],
         mat: mat({
-          color: pick([0x3a2a18, 0x2a3a4a, 0x2a4a2a]), roughness: 0.35,
+          color: irisColour ?? pick([0x3a2a18, 0x2a3a4a, 0x2a4a2a]), roughness: 0.35,
         }),
       });
       head.add(iris);
       eyes.push(iris);
+      if (faceDetail) {
+        head.add(box({
+          name: `person.face.pupil.${side}`,
+          size: [0.009, 0.009, 0.006], pos: [sx * 0.036, 0.1815, 0.117],
+          mat: mat({ color: 0x131008, roughness: 0.3 }),
+        }));
+        /* Two arched brows in the hair's colour over the skin ridge — outer
+         * ends up, the Squatchfather figures' own browTilt. */
+        head.add(box({
+          name: `person.face.browline.${side}`,
+          size: [0.058, 0.016, 0.02], pos: [sx * 0.038, 0.2085, 0.104],
+          rotZ: sx * 0.09,
+          mat: mat({ color: (hairColour & 0xfefefe) >> 1, roughness: 0.85 }),
+        }));
+      }
     }
     head.add(box({
       name: 'person.face.nose',
@@ -2498,6 +2523,21 @@ export function makePerson(o = {}) {
       mat: mat({ color: 0x8a4a48, roughness: 0.6 }),
     });
     head.add(mouth);
+    if (faceDetail) {
+      /* The two-part nose and the upper lip from the Squatchfather standard:
+       * a bridge running up between the eyes, and a skin-dark lip over the
+       * driven mouth so it reads as lips, not a painted line. The mouth mesh
+       * itself stays the animation's — only the dressing is new. */
+      head.add(box({
+        name: 'person.face.nose.bridge',
+        size: [0.022, 0.042, 0.024], pos: [0, 0.188, 0.105], mat: skinMat,
+      }));
+      head.add(box({
+        name: 'person.face.lip.upper',
+        size: [0.05, 0.009, 0.014], pos: [0, 0.1215, 0.1135],
+        mat: mat({ color: 0x9a6050, roughness: 0.65 }),
+      }));
+    }
   }
 
   if (hair !== 'bald' && !face) {

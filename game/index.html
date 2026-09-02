@@ -369,6 +369,10 @@
   #pauseStats { font-size: 20px; color: #c4cde0; line-height: 2; margin-bottom: 24px; }
   #giveUpBtn { margin-top: 14px; font-size: 18px; padding: 10px 30px;
     background: linear-gradient(180deg, #e05a4a, #a02a2a); box-shadow: 0 4px 0 #6a1414, 0 8px 18px rgba(0,0,0,.5); }
+  /* The end card's quit: under SMASH AGAIN, quieter than it, same door as
+     the pause menu's QUIT. */
+  #endQuitBtn { margin-top: 14px; font-size: 18px; padding: 10px 30px;
+    background: linear-gradient(180deg, #5a6070, #363b48); box-shadow: 0 4px 0 #23262e, 0 8px 18px rgba(0,0,0,.5); }
 
   /* ---------- Touch controls ---------- */
   #touchUI { display: none; }
@@ -580,6 +584,11 @@
       <ol id="endBoard" class="lb"></ol>
     </div>
     <button id="restartBtn" class="btn">SMASH AGAIN</button>
+    <!-- Owner, 2026-09-01: "We should have a button that just says quit
+         underneath play again." It takes the same confirm-then-shutdown door
+         as the pause menu's QUIT — on the apartment desk that door IS the
+         reveal (src/core/cold-open.js). -->
+    <button id="endQuitBtn" class="btn">QUIT</button>
   </div>
 
   <script type="importmap">

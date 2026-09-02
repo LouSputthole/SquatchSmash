@@ -332,15 +332,28 @@ function quitConfirmOpen() {
  * resuming would put the campground back in motion under a box asking whether
  * to close it, and would restart the music over the top.
  */
+/* Where cancelQuit puts the player back. The end card sits LATER in the DOM
+ * than the confirm and shutdown overlays, so at equal z-index it paints over
+ * both — asking to quit from it has to hide it, and cancelling has to bring
+ * it back rather than conjuring a pause menu the player never opened. */
+let quitAskedFromEnd = false;
+
 function askToQuit() {
   if (state === 'playing') togglePause();
   sharedPauseMenu?.root?.classList.add('hidden');
   $('pause').classList.add('hidden');
+  quitAskedFromEnd = state === 'over';
+  if (quitAskedFromEnd) $('end').classList.add('hidden');
   $('quitConfirm').classList.remove('hidden');
 }
 
 function cancelQuit() {
   $('quitConfirm').classList.add('hidden');
+  if (quitAskedFromEnd) {
+    quitAskedFromEnd = false;
+    $('end').classList.remove('hidden');
+    return;
+  }
   /* Back to whichever menu he came from, still paused. */
   if (sharedPauseMenu?.isPaused?.()) sharedPauseMenu.root.classList.remove('hidden');
   else $('pause').classList.remove('hidden');
@@ -348,6 +361,10 @@ function cancelQuit() {
 
 function confirmQuit() {
   $('quitConfirm').classList.add('hidden');
+  /* The end card would paint over the shutdown flicker for the same DOM-order
+   * reason it painted over the confirm; a Q pressed on the end card during
+   * the cold open comes through here without askToQuit, so hide it here. */
+  $('end').classList.add('hidden');
   /* It looks like it is closing. Half a second of that, and then either the
    * menu (standalone) or the reveal (on the desk). */
   $('shutdown').classList.remove('hidden');
@@ -360,6 +377,7 @@ function confirmQuit() {
 }
 
 $('quitBtn').addEventListener('click', askToQuit);
+$('endQuitBtn').addEventListener('click', askToQuit);
 $('quitYes').addEventListener('click', confirmQuit);
 $('quitNo').addEventListener('click', cancelQuit);
 $('giveUpBtn').addEventListener('click', () => {

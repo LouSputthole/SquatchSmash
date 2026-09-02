@@ -34,33 +34,39 @@ const extents = (distance, fovDeg, aspect) => {
   return { halfH, halfW: halfH * aspect };
 };
 
-test('the monitor covers the viewport, on every shape of screen', () => {
+test('the monitor fits inside the viewport, on every shape of screen', () => {
+  /* Fit, not cover, since 2026-09-01 — owner: "The opening is too full
+   * screen. You almost can't hit the resume button." Cover cropped edge UI;
+   * fit keeps every pixel of the game clickable, with the tight axis close
+   * to the border so it still reads as full screen. */
   const screenW = 0.62;
   const screenH = 0.35;
   for (const aspect of [4 / 3, 16 / 10, 16 / 9, 21 / 9, 1, 0.6]) {
     for (const fovDeg of [55, 70, 85]) {
       const d = monitorFillDistance({ screenW, screenH, fovDeg, aspect });
       const { halfW, halfH } = extents(d, fovDeg, aspect);
-      assert.ok(screenW / 2 >= halfW, `screen too narrow at ${aspect}/${fovDeg}`);
-      assert.ok(screenH / 2 >= halfH, `screen too short at ${aspect}/${fovDeg}`);
+      assert.ok(screenW / 2 <= halfW, `screen cropped horizontally at ${aspect}/${fovDeg}`);
+      assert.ok(screenH / 2 <= halfH, `screen cropped vertically at ${aspect}/${fovDeg}`);
+      const tight = Math.max((screenW / 2) / halfW, (screenH / 2) / halfH);
+      assert.ok(tight > 0.9, `the tight axis stays near the border at ${aspect}/${fovDeg}`);
     }
   }
 });
 
-test('and it is not absurdly close: the overscan is a margin, not a shove', () => {
+test('and it is not absurdly far: the margin is a margin, not a retreat', () => {
   const d = monitorFillDistance({ screenW: 0.62, screenH: 0.35, fovDeg: 70, aspect: 16 / 9 });
   const exact = monitorFillDistance({
-    screenW: 0.62, screenH: 0.35, fovDeg: 70, aspect: 16 / 9, overscan: 1,
+    screenW: 0.62, screenH: 0.35, fovDeg: 70, aspect: 16 / 9, margin: 1,
   });
-  assert.ok(d < exact, 'overscan brings the camera closer');
-  assert.ok(d > exact * 0.9, 'but only a little: 4% is a margin for rounding');
+  assert.ok(d > exact, 'the margin backs the camera off');
+  assert.ok(d < exact * 1.1, 'but only a little: 3% keeps it reading as full screen');
 });
 
-test('a portrait viewport is covered by width rather than height', () => {
+test('a portrait viewport is fitted by width rather than height', () => {
   /* The tall-and-narrow case is the one a naive "fit the height" gets wrong. */
   const d = monitorFillDistance({ screenW: 0.62, screenH: 0.35, fovDeg: 70, aspect: 0.5 });
   const { halfW, halfH } = extents(d, 70, 0.5);
-  assert.ok(0.62 / 2 >= halfW && 0.35 / 2 >= halfH);
+  assert.ok(0.62 / 2 <= halfW && 0.35 / 2 <= halfH);
 });
 
 test('it refuses nonsense rather than returning a camera position', () => {

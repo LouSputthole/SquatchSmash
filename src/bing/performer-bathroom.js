@@ -11,6 +11,13 @@ export const BING_PERFORMER_BATHROOM_CUES = Object.freeze([
   ...DRESS_HELP_CUES,
   'ui.select',
   'door.bathroom.close',
+  /* The glue. Owner, 2026-09-01: "I want the glue to go on the back like we
+   * had." The application rides the shared seven-hit rhythm through the rig
+   * callbacks below — pickup at the start, a squeeze under every hit, the
+   * tube giving at the finish. Same recorded cues the flat's frame gag owns. */
+  'glue.pickup',
+  'glue.squeeze',
+  'glue.burst',
 ]);
 
 const marker = (x, y, z, yaw = 0) => Object.freeze({ x, y, z, yaw });
@@ -89,12 +96,35 @@ function applyWalkPose(actor, seconds) {
   if (actor.parts?.armR?.rotation) actor.parts.armR.rotation.x = swing * 0.65;
 }
 
-function applyStrapPose(actor, progress = 0) {
-  const lift = 0.82 + Math.min(1, progress) * 0.18;
-  actor.parts?.armL?.rotation?.set?.(-0.52, 0, -lift);
-  actor.parts?.foreL?.rotation?.set?.(-1.18, 0, -0.08);
-  actor.parts?.armR?.rotation?.set?.(-0.44, 0, lift);
-  actor.parts?.foreR?.rotation?.set?.(-1.02, 0, 0.08);
+/**
+ * All fours, facing away from the player at the door. Owner, 2026-09-01:
+ * "She should get on in all fours and face away from you. And I want the
+ * glue to go on the back."
+ *
+ * The rig has no waist joint, so the quadruped read is composed: the whole
+ * figure pitches forward, drops toward the floor, the legs fold into a kneel
+ * against the pitch, and the arms run straight down to stand on. `progress`
+ * settles her slightly as the seam takes the glue.
+ */
+function applyAllFoursPose(actor, progress = 0) {
+  const settle = Math.min(1, progress) * 0.05;
+  actor.group.rotation.x = 0.82;
+  actor.group.position.y = 0.34 - settle;
+  actor.parts?.legL?.rotation?.set?.(-1.42, 0, 0);
+  actor.parts?.legR?.rotation?.set?.(-1.42, 0, 0);
+  actor.parts?.armL?.rotation?.set?.(-1.58, 0, -0.12);
+  actor.parts?.armR?.rotation?.set?.(-1.58, 0, 0.12);
+  actor.parts?.foreL?.rotation?.set?.(0, 0, 0);
+  actor.parts?.foreR?.rotation?.set?.(0, 0, 0);
+}
+
+/** Undo the composed pose so a walk or a stand starts from neutral. */
+function clearAllFoursPose(actor) {
+  actor.group.rotation.x = 0;
+  for (const part of ['legL', 'legR', 'armL', 'armR', 'foreL', 'foreR']) {
+    actor.parts?.[part]?.rotation?.set?.(0, 0, 0);
+  }
+  actor.stand?.();
 }
 
 export function createBingPerformerBathroom({
@@ -143,13 +173,29 @@ export function createBingPerformerBathroom({
         actor.job = 'stand';
         actor.stand?.();
         focus.begin();
-        applyStrapPose(actor);
+        /* Facing AWAY from the player at the door — the glue goes on the
+         * back, so the back is what he gets. The player marker is due west
+         * of hers; +PI/2 points her east. */
+        actor.group.rotation.y = Math.PI / 2;
+        actor.targetYaw = Math.PI / 2;
+        applyAllFoursPose(actor);
+        audio.play('glue.pickup', { volume: 0.5, position: actor.group.position });
+        audio.play('glue.squeeze', {
+          volume: 0.45, rate: 0.94, delay: 0.4, position: actor.group.position,
+        });
         hud?.hidePrompt?.();
-        hud?.setPosture?.('helping with the strap');
+        hud?.setPosture?.('gluing the seam');
       },
       onHit({ index, total }) {
         progress = index / total;
-        applyStrapPose(actor, progress);
+        applyAllFoursPose(actor, progress);
+        /* A squeeze under every pass, harder as the tube empties — the same
+         * escalation the flat's frame gag authored for these recordings. */
+        audio.play('glue.squeeze', {
+          volume: 0.5 + progress * 0.38,
+          rate: 1.0 - progress * 0.2,
+          position: actor.group.position,
+        });
         if (index !== total) hud?.toast?.(`${index}/${total}`, index >= total - 1 ? 'good' : '');
       },
       finish() {
@@ -157,26 +203,38 @@ export function createBingPerformerBathroom({
         hud?.setPosture?.(null);
         focus.end();
         staging.end();
+        clearAllFoursPose(actor);
         stageBingBathroomPerformer(actor);
       },
       reset() {
         progress = 0;
         hud?.setTiming?.(null);
         hud?.setPosture?.(null);
+        clearAllFoursPose(actor);
         focus.end();
       },
     },
     onProgress: ({ progress: next }) => { progress = next; },
     onComplete: (event) => {
-      state = 'complete';
       completion = { ...event };
-      hud?.toast?.('Strap sorted', 'good');
-      hud?.say?.('Seven pulls, one stubborn clasp. She checks it in the mirror and gives you a satisfied nod.', 5200);
+      audio.play('glue.burst', {
+        volume: 0.7, delay: 0.15, position: actor.group.position,
+      });
+      hud?.toast?.('Seam glued', 'good');
+      hud?.say?.('Seven passes down the seam and the tube finally gives. She checks the hem in the mirror, nods, and heads back to work.', 5200);
+      /* And back to the stage — she has a shift on. Owner, 2026-09-01:
+       * "after, she needs to return back to the stage." The walk out takes
+       * the authored route in reverse; arrival restores her captured stage
+       * job, so she picks up exactly the life she left. */
+      state = 'returning';
+      routeAt = BING_PERFORMER_BATHROOM_ROUTE.length - 1;
+      walkSeconds = 0;
+      openDoorForRoute();
       onComplete?.(completion);
     },
     onAbandon: () => {
       state = 'ready';
-      hud?.say?.('She catches the strap before it slips. <em>Try again when you’re ready.</em>', 3600);
+      hud?.say?.('She holds the hem where it was. <em>Try again when you’re ready.</em>', 3600);
     },
   });
 
@@ -191,7 +249,7 @@ export function createBingPerformerBathroom({
     stageBingBathroomPerformer(actor);
     state = 'ready';
     onReady?.();
-    hud?.say?.('She leans toward the mirror and reaches back for the strap.<br><em>“Give us a hand, sweetheart.”</em>', 5200);
+    hud?.say?.('She checks the loose hem in the mirror and presses a tube of glue into your hand.<br><em>“Down the back seam, sweetheart. All of it.”</em>', 5200);
   }
 
   function updateFollowing(dt) {
@@ -208,6 +266,40 @@ export function createBingPerformerBathroom({
       if (distance <= 0.035) {
         actor.group.position.set(target.x, target.y, target.z);
         routeAt++;
+        continue;
+      }
+      const step = Math.min(distance, travel);
+      actor.group.position.x += dx / distance * step;
+      actor.group.position.y += dy / distance * step;
+      actor.group.position.z += dz / distance * step;
+      const yaw = Math.atan2(dx, dz);
+      actor.group.rotation.y = yaw;
+      actor.targetYaw = yaw;
+      travel -= step;
+    }
+    applyWalkPose(actor, walkSeconds);
+  }
+
+  /* The same authored route, walked back out to the runway. Arrival restores
+   * the actor snapshot captured at construction, so she resumes the exact
+   * stage job, mark and idle she was pulled from. */
+  function updateReturning(dt) {
+    let travel = Math.max(0, dt) * 1.35;
+    walkSeconds += Math.max(0, dt);
+    while (travel > 0 && state === 'returning') {
+      if (routeAt < 0) {
+        restoreActor(actor, origin);
+        state = 'complete';
+        return;
+      }
+      const target = BING_PERFORMER_BATHROOM_ROUTE[routeAt];
+      const dx = target.x - actor.group.position.x;
+      const dy = target.y - actor.group.position.y;
+      const dz = target.z - actor.group.position.z;
+      const distance = Math.hypot(dx, dy, dz);
+      if (distance <= 0.035) {
+        actor.group.position.set(target.x, target.y, target.z);
+        routeAt--;
         continue;
       }
       const step = Math.min(distance, travel);
@@ -244,16 +336,17 @@ export function createBingPerformerBathroom({
           position: door.pivot?.position ?? door.position ?? null,
         });
       }
-      hud?.say?.('The clasp keeps catching. <em>Time it and pull.</em>', 4200);
+      hud?.say?.('The nozzle has gone half solid. <em>Time it and squeeze.</em>', 4200);
       return true;
     },
     press: () => state === 'active' && sequence.press(),
     abandon: () => state === 'active' && sequence.abandon(),
     update(dt) {
       if (state === 'following') updateFollowing(dt);
+      if (state === 'returning') updateReturning(dt);
       if (state === 'active') {
         hud?.setTiming?.(sequence.update(dt));
-        applyStrapPose(actor, progress);
+        applyAllFoursPose(actor, progress);
       }
       return state;
     },
@@ -274,7 +367,9 @@ export function createBingPerformerBathroom({
     get state() { return state; },
     get ready() { return state === 'ready'; },
     get active() { return state === 'active'; },
-    get complete() { return state === 'complete'; },
+    /* Earned the moment the seam is glued: the walk back to the stage is
+     * presentation, and no objective should wait on her commute. */
+    get complete() { return state === 'complete' || state === 'returning'; },
     get debug() {
       return {
         state, routeAt, progress,
