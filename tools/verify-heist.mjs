@@ -461,13 +461,18 @@ async function verifyEscapeScoreReloadOwnership() {
      * shared music-bus release from the main run's still-draining command
      * backlog while keeping the real start button, real AudioEngine and real
      * `rippin_drive` take. */
-    await scorePage.waitForFunction(() => {
+    /* The snapshot IS the poll that passed. Taken as a second round-trip it
+     * arrived up to 100 ms later, which on a short line is into the 0.55 s
+     * release: the poll saw 0.65 on the way back up and the evidence said
+     * 0.81, and the check that reads the evidence failed a duck that had
+     * happened. */
+    const duringLine = await scorePage.waitForFunction(() => {
       const snap = window.__heistDebug?.snapshot();
       return snap?.voice.currentDialogue?.id === 'rippin_drive'
         && snap.musicLifecycle.duck.active
-        && snap.musicLifecycle.duck.music.ratio < 0.7;
-    }, null, { timeout: 60000, polling: 50 });
-    const duringLine = await scorePage.evaluate(() => window.__heistDebug.snapshot());
+        && snap.musicLifecycle.duck.music.ratio < 0.7
+        ? snap : null;
+    }, null, { timeout: 60000, polling: 50 }).then((handle) => handle.jsonValue());
     await scorePage.waitForFunction(() => {
       const mix = window.__heistDebug?.snapshot().musicLifecycle;
       return mix && !mix.duck.active && mix.duck.music.ratio >= 0.95;
@@ -733,13 +738,14 @@ try {
   /* The safehouse record is owned by the real fresh-prep route. Observe the
    * shared ambience-bus duck while Snow's actual arrival take is playing,
    * then observe the same bus return to its authored resting level. */
-  await page.waitForFunction(() => {
+  // Captured in the poll that passed, for the reason given at the drive line.
+  const safehouseRecordDuringLine = await page.waitForFunction(() => {
     const snap = window.__heistDebug?.snapshot();
     return snap?.voice.currentDialogue?.id === 'snow_arrival'
       && snap.musicLifecycle.duck.active
-      && snap.musicLifecycle.duck.ambience.ratio < 0.8;
-  }, null, { timeout: 60000, polling: 50 });
-  const safehouseRecordDuringLine = await snapshot();
+      && snap.musicLifecycle.duck.ambience.ratio < 0.8
+      ? snap : null;
+  }, null, { timeout: 60000, polling: 50 }).then((handle) => handle.jsonValue());
   await page.waitForFunction(() => {
     const mix = window.__heistDebug?.snapshot().musicLifecycle;
     return mix && !mix.duck.active && mix.duck.ambience.ratio >= 0.95;
