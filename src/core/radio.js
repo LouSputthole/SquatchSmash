@@ -281,15 +281,12 @@ export class Radio {
   preloadCueNames({ hours = null, startupOnly = false } = {}) {
     const requestedHours = Array.isArray(hours) && hours.length
       ? [...hours] : [this.time?.hour ?? 9];
-    /* THE PACKET'S OWN HOUR, NOT JUST THE CLOCK'S. A hub packet is pinned to
-     * a show hour (`showHour` in radio-program.js) so the same beat always
-     * opens on the same hosts, but the startup bank was cut to the story
-     * clock alone. Day One wakes at five PM now and H-APT-01 is a seven AM
-     * show, so the packet's second block -- the Lou & Lou intro -- played
-     * out of `synth()` on a page with the take on disk, and the browser
-     * proof (tools/verify-radio-program.mjs) read `source: synth` for it. */
-    const programHour = this._programContext?.program?.showHour
-      ?? this._safeContext()?.program?.showHour;
+    /* A campaign packet may pin a show hour that is not the wall clock
+     * (`showAt(station, program.showHour ?? hour)` in _playProgramme), and a
+     * preload that only covers the current hour then decodes the wrong
+     * show's announcer intro -- the aired one falls to the synth. Whatever
+     * programme this receiver would air, its show belongs in the slice. */
+    const programHour = (this._programContext ?? this.state?.context?.())?.program?.showHour;
     if (Number.isFinite(programHour) && !requestedHours.includes(programHour)) {
       requestedHours.push(programHour);
     }
@@ -942,11 +939,6 @@ export class Radio {
     return this.canPlayNotice()
       && MEETING_NOTICE.some((segment) => !segment.bulletinId
         || !this.hasHeardBulletin(segment.bulletinId));
-  }
-
-  /** The receiver's campaign context, or null when the adapter cannot say. */
-  _safeContext() {
-    try { return this.state?.context?.() ?? null; } catch { return null; }
   }
 
   /** Eligible reports the player has never heard, on any receiver, oldest event first. */

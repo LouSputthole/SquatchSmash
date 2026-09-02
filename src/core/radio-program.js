@@ -118,7 +118,12 @@ function hubPacket({
 export const RADIO_PROGRAMS = frozen([
   hubPacket({
     id: 'H-APT-01', beatId: 'first_apartment', receiverId: 'apartment',
-    showHour: 7,
+    /* Day One wakes at 5:04 PM now (owner, 2026-09-02: "have it be five
+     * PM"), so the flat's packet airs the 17:00 show instead of the old
+     * breakfast slot -- a morning-drive intro over an evening window was
+     * the wart, and it also meant the preloaded show never matched the
+     * aired one, which is how the announcer intro fell to the synth. */
+    showHour: 17,
     songs: ['good-ole-days', 'cosmic-drift'],
     editorial: { type: 'notice', noticeId: 'notice.meeting.day_one' },
     adId: 'station.morning',

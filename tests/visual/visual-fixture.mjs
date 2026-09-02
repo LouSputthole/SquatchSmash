@@ -236,13 +236,14 @@ export async function freezeRenderedFrame(page, frames = 1) {
   expect(stepped.snapshot).toMatchObject({ frozen: true, nativePending: 0 });
 }
 
-export async function captureVisual(page, name, readiness = {}, { frames = 1 } = {}) {
+export async function captureVisual(page, name, readiness = {}, { frames = 1, maxDiffPixelRatio } = {}) {
   await page.evaluate(({ shot, state }) => {
     window.__SQUATCH_VISUAL_TEST__.shot = shot;
     window.__SQUATCH_VISUAL_TEST__.state = state;
   }, { shot: name, state: readiness });
   await freezeRenderedFrame(page, frames);
-  await expect(page).toHaveScreenshot(`${name}.png`);
+  await expect(page).toHaveScreenshot(`${name}.png`,
+    maxDiffPixelRatio === undefined ? {} : { maxDiffPixelRatio });
 }
 
 export function assertNoVisualErrors(page) {

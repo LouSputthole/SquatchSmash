@@ -9,8 +9,18 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CAMPAIGN_VERSION } from '../src/core/campaign.js';
-import { isApartmentPreloadCue } from '../src/core/apartment-audio.js';
+import { ensureDomShim, ensureThreeShim } from './three-shim.mjs';
+
+/* apartment-audio.js reaches `three` through core/audio.js, and the scheduled
+ * scene runner's `npm ci` wipes the local shim package a previous `npm test`
+ * leaves behind -- which is the only reason a static import ever resolved
+ * locally. Run 33605986463's day-one job died on exactly that
+ * ERR_MODULE_NOT_FOUND before a single check ran, so the shim goes in before
+ * anything from src/ is linked. */
+ensureThreeShim();
+ensureDomShim();
+const { CAMPAIGN_VERSION } = await import('../src/core/campaign.js');
+const { isApartmentPreloadCue } = await import('../src/core/apartment-audio.js');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5201;
@@ -135,14 +145,17 @@ try {
   check('Bada Bing starts locked', initial.mission === 'locked', initial.mission);
   check('the apartment revolver is absent before Lou’s first package',
     initial.gunVisible === false, String(initial.gunVisible));
-  check('Day One starts at the authored 6:04 AM checkpoint',
-    initial.timeMinutes === 6 * 60 + 4 && initial.liveMinutes === 6 * 60 + 4,
+  /* Owner, 2026-09-02: "have it be five PM" -- there is no reason to be
+   * waking at six in the morning for a job that starts at a quarter to
+   * midnight. The authored checkpoint moved with the route. */
+  check('Day One starts at the authored 5:04 PM checkpoint',
+    initial.timeMinutes === 17 * 60 + 4 && initial.liveMinutes === 17 * 60 + 4,
     JSON.stringify(initial));
-  check('the first view outside is committed dawn rather than a night dissolve',
-    initial.phase === 'dawn'
-      && initial.skyFrom === 'dawn'
-      && initial.skyTo === 'dawn'
-      && initial.dayness >= 0.18,
+  check('the first view outside is committed late daylight rather than a night dissolve',
+    initial.phase === 'day'
+      && initial.skyFrom === 'day'
+      && initial.skyTo === 'dusk'
+      && initial.dayness >= 0.5,
     JSON.stringify(initial));
 
   const coffee = await page.evaluate(() => {
@@ -361,7 +374,7 @@ try {
     JSON.stringify(reply.callerPlayback));
   check('the answered call unlocks Bada Bing', answered.mission === 'available', answered.mission);
   check('answering Lou advances the saved and displayed clock by three minutes',
-    answered.timeMinutes === 6 * 60 + 7 && answered.liveMinutes === 6 * 60 + 7,
+    answered.timeMinutes === 17 * 60 + 7 && answered.liveMinutes === 17 * 60 + 7,
     JSON.stringify(answered));
 
 
@@ -393,10 +406,13 @@ try {
     return { items: plan.items, drawn, hidden: document.getElementById('objectives')?.classList.contains('hidden') };
   });
   const optional = panel.items.filter((i) => !i.required);
+  /* emailChecked came off the panel entirely (owner, 2026-09-02: "remove
+   * check email from the objectives") -- the inbox still works, it is just
+   * not a listed beat any more. */
   check('Day One lists its optional tutorial beats as optional',
-    optional.some((i) => i.id === 'emailChecked')
-      && optional.some((i) => i.id === 'pcUsed')
+    optional.some((i) => i.id === 'pcUsed')
       && optional.some((i) => i.id === 'playedGame')
+      && !panel.items.some((i) => i.id === 'emailChecked')
       && panel.items.filter((i) => i.required).length >= 5,
     JSON.stringify(panel.items.map((i) => `${i.id}${i.required ? '!' : '?'}`)));
   check('the optional beats say how to skip the wait for the Bing',

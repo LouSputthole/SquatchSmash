@@ -1646,7 +1646,13 @@ try {
     return !sc.cast.deke.alive
       && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell')
       && Boolean(window.__chesterSubtitleReceipt);
-  }, null, { timeout: 5000 });
+    /* 20 s, not 5: the scene loop is rAF-driven and SwiftShader on the
+     * scheduled runner renders under one frame per second, so the shot
+     * resolution plus Chester's scheduled take can legitimately take more
+     * wall clock than a loaded local box ever shows (run 33605986463 timed
+     * out here at 5 s with every prior check green). The predicate is
+     * unchanged -- a card that never shows still fails, just honestly. */
+  }, null, { timeout: 20000 });
   const chesterSubtitleReceipt = await page.evaluate(() => window.__chesterSubtitleReceipt);
   /* A wall-clock sleep is not a game-frame guarantee under SwiftShader. The
    * old 120 ms pause could contain no rendered update, then sample Chester at
@@ -1663,7 +1669,8 @@ try {
     const dy = chester.group.position.y - reaction.origin.y;
     const dz = chester.group.position.z - reaction.origin.z;
     return dx * reaction.away.x + dy * reaction.away.y + dz * reaction.away.z > 0.015;
-  }, null, { timeout: 5000 });
+    /* Same starved-runner allowance as the subtitle wait above. */
+  }, null, { timeout: 20000 });
   const chesterImmediateReaction = await page.evaluate(() => {
     const sc = window.silvercase;
     const line = [...sc.dialogue.voiceLog].reverse()

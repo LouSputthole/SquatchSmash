@@ -411,7 +411,15 @@ try {
     position: window.HOTDOG_INCIDENT.player.position.toArray(),
   }));
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(650);
+  /* 650 ms of wall clock can hold zero rendered frames under SwiftShader --
+   * scheduled run 33605986463 measured spawnMoveDelta 0 with walk mode
+   * active and the key down the whole time. Keep W held until the
+   * simulation has actually stepped the player, bounded; a spawn that
+   * really cannot move still fails, at the timeout instead of instantly. */
+  await page.waitForFunction(([x0, z0]) => {
+    const position = window.HOTDOG_INCIDENT.player.position;
+    return Math.hypot(position.x - x0, position.z - z0) > 0.08;
+  }, [movementBefore.position[0], movementBefore.position[2]], { timeout: 15000 }).catch(() => {});
   await page.keyboard.up('KeyW');
   const movementAfter = await page.evaluate(() => ({
     mode: window.HOTDOG_INCIDENT.player.mode,
@@ -852,6 +860,16 @@ try {
   /* The mouse must survive the cinematic. A hard lookAt() during the beating
    * meant the player could not watch the room react to it, which is most of
    * what there is to look at. The shot still chooses where they stand. */
+  /* Player.handleMouseMove drops the delta silently while the player is
+   * disabled or frozen, so on a starved runner this staged shot can sample
+   * a camera nobody is allowed to steer yet: run 33605986463 recorded
+   * centred, swung and pinned byte-identical. Wait for the scene to hand
+   * over control before staging the shot, and carry the player's gate
+   * state in the receipt so the next red names the reason. */
+  await page.waitForFunction(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    return incident.player.enabled && incident.player.mode !== 'frozen';
+  }, null, { timeout: 20000 }).catch(() => {});
   const cinematicLook = await page.evaluate(() => {
     const incident = window.HOTDOG_INCIDENT;
     const { camera, player, state } = incident;
@@ -884,6 +902,7 @@ try {
     incident.releaseCinematic(releasePosition);
     const released = forward();
     return {
+      playerEnabled: player.enabled, playerMode: player.mode,
       centred, swung, pinned, released, eyeAtCentre, eyeAfterSwing,
       swingAngle: Math.acos(Math.min(1, Math.max(-1,
         centred[0] * swung[0] + centred[1] * swung[1] + centred[2] * swung[2]))),

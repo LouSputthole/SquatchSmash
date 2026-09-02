@@ -562,14 +562,23 @@ try {
    * trips put runner scheduling between keydown and keyup, and a starved
    * hosted runner stretched the 120 ms gap past the exit hold — scheduled
    * run 33488181465 failed with the tap read as a hold (osMode desktop)
-   * while the same tree passes locally. One evaluate, one in-page timer. */
-  await campground.evaluate(() => new Promise((resolve) => {
+   * while the same tree passed locally. One evaluate with an in-page timer
+   * was not enough either: the campground renders whole seconds per frame
+   * under a software rasteriser, a queued timer waits behind the frame, and
+   * the hold clock in webapp.js reads wall time at listener execution —
+   * measured 973 ms keydown-to-keyup for a setTimeout(0) keyup on a healthy
+   * local box (2026-09-02), run 33605986463 the same way in CI. A real
+   * human tap survives those stalls because both physical events queue
+   * during the stall and dispatch back to back in one wake; dispatching
+   * both synchronously is that same shape, and _beginHold/_releaseHold see
+   * scheduling noise instead of a rendered frame. */
+  await campground.evaluate(() => {
     const fire = (eventType) => window.dispatchEvent(new KeyboardEvent(eventType, {
       code: 'Tab', key: 'Tab', bubbles: true, cancelable: true,
     }));
     fire('keydown');
-    setTimeout(() => { fire('keyup'); resolve(); }, 120);
-  }));
+    fire('keyup');
+  });
   await page.waitForTimeout(200);
   const smashAfterTap = await computerState();
   check('a tap of Tab inside Squatch Smash is left to the game',

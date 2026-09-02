@@ -78,8 +78,16 @@ try {
   /* SwiftShader can render the Apartment below one frame per second under
    * CI load. Step the real radio clock exactly as the scene loop does; audio
    * still travels through the live browser AudioEngine and its receipts. */
-  await apartment.evaluate(() => {
+  await apartment.evaluate(async () => {
     const radio = window.__squatch.radio;
+    /* The check below demands source:'buffer', and the hub packet airs its
+     * ident and announcer intro from whatever is decoded at that moment. On
+     * a starved runner the background fill has not reached the radio slice
+     * when radio.on lands -- scheduled run 33605986463 recorded
+     * radio.vo.announcer.15n90um airing source:'synth', completed:false.
+     * The station's own bounded preload slice is the honest wait: decode
+     * exactly what the current hour can air, then step the clock. */
+    await radio.audio.loadAdditional({ names: radio.preloadCueNames({ startupOnly: true }) });
     for (let second = 0; second < 12; second += 1) radio.update(1);
   });
   await apartment.waitForFunction(() => {

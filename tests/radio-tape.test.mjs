@@ -603,8 +603,12 @@ test('a completed entry-packet block resumes at the next block on another receiv
   resumed.turnOn();
   assert.equal(resumed.playbackReceipts[0].blockId, 'show-intro');
   assert.equal(resumed.playbackReceipts[0].kind, 'voice');
+  /* The packet pins its own show hour (17:00 since the five-PM Day One),
+   * and _playProgramme airs showAt(station, program.showHour) regardless of
+   * the receiver's wall clock -- so the pin follows the declaration rather
+   * than hardcoding either an hour or a cue id. */
   assert.equal(resumed.playbackReceipts[0].requested,
-    voiceOf(showIntroLine(showAt(resumed.station, 9))).cue);
+    voiceOf(showIntroLine(showAt(resumed.station, program.showHour))).cue);
 });
 
 test('an entry-packet song with no media playback path skips once instead of recursing', async () => {
