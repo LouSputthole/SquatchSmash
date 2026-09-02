@@ -120,7 +120,7 @@ const RECEIPTS = [
     'THE TAKE safehouse record',
     'heist.morning.radio',
     'tools/verify-heist.mjs',
-    'THE TAKE safehouse record starts once, ducks under dialogue, and tears down before the bank',
+    'THE TAKE safehouse record starts once, ducks under dialogue, and follows the crew into the bank low',
   ),
   receipt(
     'heist.html',
