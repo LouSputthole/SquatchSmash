@@ -210,3 +210,93 @@ test('the shipped music manifest has no credits row until the file exists', asyn
   assert.equal(manifest._credits_row_when_delivered?.credits, true);
   assert.equal(manifest._credits_row_when_delivered?.cue, true);
 });
+
+test('a delivered song stretches the crawl to its full length, and never shrinks it', async () => {
+  /* Owner, 2026-09-02: "i want the full song for the credits." */
+  const nodes = new Map();
+  let documentRef;
+  const styles = new Map();
+  const element = (id = '') => {
+    const classes = new Set();
+    const node = {
+      id,
+      textContent: '',
+      children: [],
+      style: { setProperty: (k, v) => styles.set(k, v) },
+      classList: {
+        add: (...names) => names.forEach((name) => classes.add(name)),
+        remove: (...names) => names.forEach((name) => classes.delete(name)),
+        contains: (name) => classes.has(name),
+      },
+      setAttribute() {},
+      appendChild(child) { node.children.push(child); return child; },
+      append(...children) { node.children.push(...children); },
+      addEventListener() {},
+      focus() {},
+    };
+    if (id) nodes.set(id, node);
+    return node;
+  };
+  element('credits');
+  element('credits-track');
+  element('credits-skip');
+  documentRef = {
+    activeElement: null,
+    getElementById: (id) => nodes.get(id) ?? null,
+    createElement: () => element(),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+
+  const audios = [];
+  const RealAudio = globalThis.Audio;
+  globalThis.Audio = class {
+    constructor(src) {
+      this.src = src;
+      this.volume = 1;
+      this.duration = NaN;
+      this.listeners = new Map();
+      audios.push(this);
+    }
+
+    addEventListener(type, handler) { this.listeners.set(type, handler); }
+    play() { return Promise.resolve(); }
+    pause() {}
+  };
+  try {
+    const view = createCampaignCreditsView({
+      documentRef,
+      musicSrc: 'assets/music/down-at-the-bada-bing.mp3',
+      duration: 212,
+      fade: 0.001,
+    });
+    view.roll({ roll: [] });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(audios.length, 1);
+    assert.equal(styles.get('--credits-duration'), '212s');
+
+    /* The record is longer than the authored crawl: the crawl stretches to
+     * the song plus its tail, so nothing cuts the last bar off. */
+    audios[0].duration = 300;
+    audios[0].listeners.get('loadedmetadata')?.();
+    assert.equal(styles.get('--credits-duration'), '301.5s');
+    view.end();
+
+    /* A shorter record ends inside the crawl; the crawl does not rush. */
+    const view2 = createCampaignCreditsView({
+      documentRef,
+      musicSrc: 'assets/music/down-at-the-bada-bing.mp3',
+      duration: 212,
+      fade: 0.001,
+    });
+    view2.roll({ roll: [] });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    audios[1].duration = 100;
+    audios[1].listeners.get('loadedmetadata')?.();
+    assert.equal(styles.get('--credits-duration'), '212s');
+    view2.end();
+  } finally {
+    if (RealAudio === undefined) delete globalThis.Audio;
+    else globalThis.Audio = RealAudio;
+  }
+});

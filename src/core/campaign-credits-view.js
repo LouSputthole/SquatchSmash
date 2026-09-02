@@ -62,6 +62,14 @@ export async function resolveCreditsMusicSrc({ load = loadJson } = {}) {
 /** How long the whole crawl takes, in seconds. Roughly the length of a song. */
 export const CREDITS_DURATION_S = 212;
 
+/**
+ * Breathing room after the song's last note before the screen tears down.
+ * Owner, 2026-09-02: "i want the full song for the credits" — when a track
+ * is delivered, the crawl stretches to cover its whole length plus this
+ * tail, so the ending never cuts the record off mid-bar.
+ */
+export const CREDITS_SONG_TAIL_S = 1.5;
+
 /** The fade to black, before anything moves. Seconds. */
 export const CREDITS_FADE_S = 2.4;
 
@@ -106,6 +114,8 @@ export function createCampaignCreditsView({
   documentRef = globalThis.document,
   musicSrc,
   duration = CREDITS_DURATION_S,
+  /* Injectable for tests only: the fade is authored, not tunable. */
+  fade = CREDITS_FADE_S,
 } = {}) {
   const screen = required(documentRef, 'credits');
   const track = required(documentRef, 'credits-track');
@@ -188,23 +198,50 @@ export function createCampaignCreditsView({
         if (!running) return;
         crawlTimer = null;
         screen.classList.add('rolling');
+        const rolledAt = Date.now();
         if (resolvedMusicSrc && typeof globalThis.Audio === 'function') {
           try {
             music = new globalThis.Audio(resolvedMusicSrc);
             music.volume = 0.85;
+            /* THE FULL SONG PLAYS. Owner, 2026-09-02: "i want the full song
+             * for the credits." Once the delivered track reports its real
+             * length, the crawl stretches to cover it plus a short tail, so
+             * the record is never cut off by the authored duration. It only
+             * ever stretches -- a track shorter than the crawl simply ends
+             * inside it -- and a track whose metadata never arrives changes
+             * nothing: the ending still runs on its own fixed clock, which
+             * is the rule that keeps a broken audio element from holding the
+             * ending hostage. Metadata loads even when autoplay is refused,
+             * so a muted browser gets the longer crawl and no music, which
+             * reads as a slow ending rather than a stuck one. */
+            music.addEventListener?.('loadedmetadata', () => {
+              if (!running) return;
+              const songSeconds = Number(music?.duration);
+              if (!Number.isFinite(songSeconds) || songSeconds <= 0) return;
+              const total = songSeconds + CREDITS_SONG_TAIL_S;
+              if (total <= duration) return;
+              track.style.setProperty('--credits-duration', `${total}s`);
+              if (finishTimer !== null) globalThis.clearTimeout?.(finishTimer);
+              /* Re-armed from the crawl's own start, not from now, so the
+               * seconds already rolled are not served twice. */
+              finishTimer = globalThis.setTimeout?.(
+                finish,
+                Math.max(0, rolledAt + total * 1000 - Date.now()),
+              );
+            });
             /* An autoplay refusal is a rejected promise, not an exception, and
              * an unhandled one is a console error on the ending screen. */
             music.play?.()?.catch?.(() => {});
           } catch { music = null; }
         }
-      }, CREDITS_FADE_S * 1000);
+      }, fade * 1000);
 
       /* The animation clock, not the music file, owns completion. Missing
        * music and reduced-motion layouts still arrive at a clean ending, and
        * a player who puts the controller down is never trapped in the crawl. */
       finishTimer = globalThis.setTimeout?.(
         finish,
-        (CREDITS_FADE_S * 1000) + (duration * 1000),
+        (fade * 1000) + (duration * 1000),
       );
 
       documentRef.addEventListener('keydown', onKey);
