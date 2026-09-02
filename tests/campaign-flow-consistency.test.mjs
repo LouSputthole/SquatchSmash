@@ -1070,15 +1070,28 @@ test('every hub state on the fresh-save route agrees with its own front door', (
   assert.equal(luxury.phase(), 'special_meeting');
   assert.equal(homeFromThePalace.door.id, EVENT_IDS.BOOSKI_SPECIAL_MEETING_CALL);
   assert.equal(luxury.callAnswered(SPECIAL_MEETING_BOOSKI_CALL), true);
+  /* Owner, 2026-09-02: the suit first, then the wait for Lag's text, then
+   * the lift. The car cannot take a man who has not put the suit on. */
+  const somethingDecent = flow.stop('put on something decent, he said', upstairs({ carOutside: true }));
+  flow.advanced(homeFromThePalace, somethingDecent);
+  assert.equal(somethingDecent.door.kind, 'activity');
+  assert.equal(somethingDecent.door.id, 'special_meeting_suit');
+  assert.equal(luxury.dressForMeeting(), true);
+  const waitingOnTheText = flow.stop('suited, waiting on the text', upstairs());
+  flow.advanced(somethingDecent, waitingOnTheText);
+  assert.equal(waitingOnTheText.door.kind, 'wait');
+  assert.equal(waitingOnTheText.door.id, 'special_meeting_car');
   const carDownstairs = flow.stop('a special one, he said', upstairs({ carOutside: true }));
-  flow.advanced(homeFromThePalace, carDownstairs);
+  flow.advanced(waitingOnTheText, carDownstairs);
   assert.deepEqual(carDownstairs.door, { kind: 'go', destination: SCENE_IDS.SPECIAL_MEETING });
   /* And nothing on this panel names what he is going to. */
-  assert.equal(
-    carDownstairs.items.some((row) => /initiation|ceremony|special meeting/i.test(row.label)),
-    false,
-    'the flat told him what the meeting is',
-  );
+  for (const stop of [somethingDecent, waitingOnTheText, carDownstairs]) {
+    assert.equal(
+      stop.items.some((row) => /initiation|ceremony|special meeting/i.test(row.label)),
+      false,
+      'the flat told him what the meeting is',
+    );
+  }
   flow.end();
 
   /* A walk that stopped early proves nothing, so the count is asserted. */
