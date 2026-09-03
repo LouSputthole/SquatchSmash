@@ -428,10 +428,20 @@ export function createObjectivePanel({
     visibility.changed();
   }
 
-  /** The common case: one standing order, optionally with a direction. */
-  function setLine(label, { title: heading = 'Objective', hint: direction = '', done = false } = {}) {
+  /** The common case: one standing order, optionally with a direction.
+   *
+   * `retire: false` keeps a finished order on the card as a result ("The
+   * house is held") instead of retiring it into an empty panel -- the one
+   * line a scene has is not an errand list. */
+  function setLine(label, {
+    title: heading = 'Objective', hint: direction = '', done = false, retire = true,
+  } = {}) {
     if (!label) return set(null);
-    return set({ title: heading, hint: direction, items: [{ label, done, required: true }] });
+    return set({
+      title: heading,
+      hint: direction,
+      items: [{ label, done, required: true, ...(retire === false ? { retire: false } : {}) }],
+    });
   }
 
   return {

@@ -121,10 +121,15 @@ const objectiveHintEl = objectivePanel.element?.querySelector?.('.ohint') ?? nul
 /* What the panel is showing, kept here so the nudge can put it back. */
 const objectiveShown = { text: '', hint: '', done: false };
 function paintObjective() {
+  /* A finished order stays on the card as the result -- "The house is held"
+   * -- the way the retired bespoke widget showed it. The shared panel retires
+   * done rows by default, which left the aftermath with a blank card and the
+   * gate reading null for the sentence the mission had just set. */
   objectivePanel.setLine(objectiveShown.text, {
     title: objectiveShown.done ? 'COMPLETE' : 'OBJECTIVE',
     hint: objectiveShown.hint,
     done: objectiveShown.done,
+    retire: false,
   });
   objectivePanel.element?.classList?.toggle?.('done', objectiveShown.done);
 }
@@ -2425,6 +2430,7 @@ function nudge(text, seconds = 4) {
     title: objectiveShown.done ? 'COMPLETE' : 'OBJECTIVE',
     hint: text,
     done: objectiveShown.done,
+    retire: false,
   });
   objectivePanel.reveal();
   objectiveHintEl.classList.add('nudge');

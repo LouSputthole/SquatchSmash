@@ -338,3 +338,23 @@ test('a scene that opts back in still gets one fade window, without tick resets'
   panel.reveal();
   assert.equal(panel.element.classList.contains('hidden'), false);
 });
+
+test('setLine keeps a finished order on the card when told not to retire it', () => {
+  /* The siege's last line is a result, not an errand: "The house is held"
+   * used to retire into an empty card the moment it was done, and
+   * verify:mansion-siege read null for the sentence the mission had just
+   * set. `retire: false` is the same narrow exception `set()` already
+   * honours for a persistent tally. */
+  const doc = fakeDoc();
+  const panel = createObjectivePanel({ doc });
+  panel.setLine('The house is held', { title: 'COMPLETE', done: true, retire: false });
+  assert.equal(panel.element.classList.contains('hidden'), false);
+  const rows = panel.element.querySelector('.olist').children;
+  assert.equal(rows.length, 1);
+  assert.equal(words(rows[0]), 'The house is held');
+  assert.ok(rows[0].className.split(/\s+/).includes('done'));
+
+  panel.setLine('The house is held', { done: true });
+  assert.equal(panel.element.classList.contains('hidden'), true,
+    'a done line still retires by default');
+});
