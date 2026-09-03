@@ -390,12 +390,51 @@ export function buildHotDogCleanupProps() {
   serviceGuide.visible = false;
   g.add(serviceGuide);
 
+  /* THE GROUND HE HAS TO CLEAN, CIRCLED.
+   *
+   * Owner, 2026-09-03: *"need to highlight the ground where you need to
+   * clean in the hotdog incident people seem to miss it."* The sweep is a
+   * hold on three near-black decals (0x32080a at 0.82) lying on dark boards
+   * in a club lit for a party, and the only thing that told a player where
+   * to kneel was a HUD line. Same vocabulary as the cufflink and the lapel
+   * pin -- circle the thing on the ground -- one size up, because the thing
+   * is a pool 2.4 m across rather than a cufflink: a ring round the whole
+   * splatter and a faint fill inside it. The fill is also what the ray hits,
+   * so aiming anywhere in the circle is aiming at the sweep; a ring alone
+   * has a hole in the middle and the blood under it is 6 mm thick.
+   *
+   * Shown only while the sweep is the standing order (see `syncSweepMarker`
+   * in hotdog-main.js), which is the one stretch of the night where it is
+   * the answer to "where do I go". */
+  const sweepMarker = group('sweep-marker');
+  const sweepFill = new THREE.Mesh(
+    new THREE.CircleGeometry(1.45, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0xffc34e, transparent: true, opacity: 0.1, depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  sweepFill.name = 'sweep-marker.fill';
+  sweepFill.rotation.x = -Math.PI / 2;
+  sweepFill.position.set(-15.85, 0.01, -0.5);
+  sweepFill.renderOrder = 3;
+  sweepFill.castShadow = false;
+  sweepFill.receiveShadow = false;
+  sweepMarker.add(sweepFill);
+  const sweepRing = floorCircle('sweep-marker.ring', -15.85, -0.5, 0xffc34e, 1.45);
+  sweepMarker.add(sweepRing);
+  sweepMarker.userData.fill = sweepFill;
+  sweepMarker.userData.ring = sweepRing;
+  sweepMarker.visible = false;
+  g.add(sweepMarker);
+
   return {
     group: g, kit, cufflink, lapel, blood, brokenStool, wrap,
     evidenceMarkers,
     bathroomPads: { mens: mensPad },
     loadPad,
     serviceGuide,
+    sweepMarker,
   };
 }
 

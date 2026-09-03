@@ -80,12 +80,18 @@ const BING_STATE_IDS = Object.freeze([
  * records on every state alike — the uniform-delta signature of clothing on
  * a cast present in all five, with nothing placed by hand moved. Measured
  * with tools/verify-geometry-worker.mjs per state. */
+/* MOVED 2026-09-03, same protocol, when the sweep circle landed. Owner: "need
+ * to highlight the ground where you need to clean in the hotdog incident
+ * people seem to miss it." The marker is a group with a fill disc and a ring
+ * round the blood, lit by `showHotDogCleanupGuidesGeometry` in the cleanup
+ * and graveyard poses and hidden everywhere else -- so cleanup and graveyard
+ * move by exactly +3 and the other three states do not move at all. */
 const EXPECTED_RECORDS = Object.freeze({
   'bing:visit-one': 6097,
   'bing:party': 4759,
   'bing:attack': 4759,
-  'bing:cleanup': 4681,
-  'bing:graveyard': 4609,
+  'bing:cleanup': 4684,
+  'bing:graveyard': 4612,
 });
 
 function snapshotFor(built) {

@@ -1148,10 +1148,13 @@ interaction.register(party.extra.lou.group, {
       if (!mission.debriefLou()) return;
       state.debriefed = true;
       repaintObjectives();
-      /* THE SWEEP IS BORN HERE. Not on the frame Billy hit the boards. */
+      /* THE SWEEP IS BORN HERE. Not on the frame Billy hit the boards. The
+       * circle on the floor is lit on this press, not on the next frame, so a
+       * receipt read straight after the order sees it. */
+      showSweepMarker();
       speakThenNote(
         HOTDOG_STAGED_LINES.louSweepOrder,
-        'The boards where he fell, and everything the pool reached.',
+        'The boards where he fell, and everything the pool reached. The circle on the floor by the bar.',
         4200,
       );
       return;
@@ -1167,7 +1170,7 @@ interaction.register(party.extra.lou.group, {
  * was two men talking. He orders it; the Prospect does it, on his knees, on
  * the boards Billy bled into, with Stove's kit already fetched.
  */
-interaction.register(party.cleanup.blood, {
+const sweepTheFloor = {
   label: 'Hold to <b>sweep the floor</b> with Stove\'s Cleaning Kit',
   hold: 2.2,
   enabled: () => state.phase === 'active'
@@ -1177,13 +1180,44 @@ interaction.register(party.cleanup.blood, {
   onUse: () => {
     if (!completeCleanupTask('final_sweep')) return;
     state.finalSwept = true;
+    party.cleanup.sweepMarker.visible = false;
     restoreHotDogCleanupPresentation(party, mission.cleanup);
     clearStrikeSplats();
     audio.play('cloth.suit.movement', { volume: 0.6, position: party.cleanup.blood.position });
     bankTheClub();
     beginEndingCutscene();
   },
-});
+};
+interaction.register(party.cleanup.blood, sweepTheFloor);
+/* The circle on the boards is the same job. Owner, 2026-09-03: *"need to
+ * highlight the ground where you need to clean in the hotdog incident people
+ * seem to miss it."* Registering the marker under the same descriptor means
+ * the ray finds the sweep anywhere inside the ring, not only on the three
+ * decals the ring is drawn round -- see `sweep-marker` in hotdog-party.js. */
+interaction.register(party.cleanup.sweepMarker, sweepTheFloor);
+
+/** Lou has handed out the sweep: light the boards. Also what a resume reads. */
+function showSweepMarker() {
+  party.cleanup.sweepMarker.visible = mission.state === 'sweep' && !state.finalSwept;
+}
+
+/**
+ * The circle is on while the sweep is the standing order, and it breathes.
+ *
+ * Visibility is re-derived every frame from the mission rather than latched
+ * on the button press alone, so a save resumed after Lou's order lights the
+ * boards without anybody pressing anything. The pulse is what makes a flat
+ * ring on a dark floor read across a room: 0.35 to 0.75 on the ring, 0.06 to
+ * 0.18 on the fill, about once every two seconds.
+ */
+function syncSweepMarker() {
+  const marker = party.cleanup.sweepMarker;
+  showSweepMarker();
+  if (!marker.visible) return;
+  const pulse = 0.5 + 0.5 * Math.sin(state.elapsed * 3.2);
+  marker.userData.ring.material.opacity = 0.35 + 0.4 * pulse;
+  marker.userData.fill.material.opacity = 0.06 + 0.12 * pulse;
+}
 
 interaction.register(party.extra.hotdog.group, {
   label: 'Hold to <b>wrap Billy HotDog</b> with Rippin and Aubbie',
@@ -1826,6 +1860,7 @@ function animate(now) {
      * what eventually gets the Shubenator to shout about the stage controls;
      * it was never called here, so that nudge could not fire at all. */
     mission.update(dt);
+    syncSweepMarker();
     chatter.update(dt);
     shotBeat.update(dt);
     updateCarry(dt);

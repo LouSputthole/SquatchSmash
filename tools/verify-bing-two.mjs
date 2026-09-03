@@ -1086,10 +1086,22 @@ try {
     /* Report to Lou. THE SWEEP IS BORN HERE, not on the frame Billy fell. */
     incident.party.extra.lou.group.userData.interact.onUse();
     const debriefed = incident.mission.state === 'sweep' && incident.state.debriefed;
+    /* Owner, 2026-09-03: "need to highlight the ground where you need to
+     * clean in the hotdog incident people seem to miss it." The circle is lit
+     * on Lou's order, sits on the pool, and is the sweep's own ray target. */
+    const sweepMarker = incident.party.cleanup.sweepMarker;
+    const sweepMarkerLit = sweepMarker?.visible === true;
+    const ring = sweepMarker?.userData.ring;
+    const pool = incident.party.cleanup.blood.children[0];
+    const sweepMarkerOnPool = !!ring && !!pool
+      && Math.hypot(ring.position.x - pool.position.x, ring.position.z - pool.position.z) < 0.4
+      && ring.geometry.parameters.outerRadius >= 1.4;
+    const sweepMarkerIsTheSweep = sweepMarker?.userData.interact === incident.party.cleanup.blood.userData.interact;
     const sweepObjective = incident.mission.objectives
       .find((objective) => objective.id === 'cleanup.final_sweep')?.text;
     incident.party.cleanup.blood.userData.interact.onUse();
     const swept = incident.mission.cleanup.has('final_sweep') && incident.state.finalSwept;
+    const sweepMarkerAfter = sweepMarker?.visible === true;
     const banked = incident.campaignState.missions.bada_bing_two.checkpoint === 'body_loaded';
 
     // The authored handoff remains the thing that exposes the route button.
@@ -1106,6 +1118,7 @@ try {
     return {
       completed, sweptTooEarly, wrapped, carried, assigned, debriefed, swept, banked,
       guideAfterWrap, guideAfterLoad, loadObjective, carryObjective, sweepObjective,
+      sweepMarkerLit, sweepMarkerOnPool, sweepMarkerIsTheSweep, sweepMarkerAfter,
     };
   }, CLEANUP_TASKS.filter((task) => task !== 'final_sweep'));
   check('the cleanup runs floor, wrap, carry, load, report and sweep in that order',
@@ -1127,6 +1140,19 @@ try {
       && /service door/i.test(cleanup.loadObjective || '')
       && /sweep/i.test(cleanup.sweepObjective || ''),
     JSON.stringify(cleanup));
+  check('the boards to sweep are circled on Lou\'s order, aimable anywhere inside, and dark again after',
+    cleanup.sweepMarkerLit === true
+      && cleanup.sweepMarkerOnPool === true
+      && cleanup.sweepMarkerIsTheSweep === true
+      && cleanup.sweepMarkerAfter === false
+      && /circled/i.test(cleanup.sweepObjective || ''),
+    JSON.stringify({
+      lit: cleanup.sweepMarkerLit,
+      onPool: cleanup.sweepMarkerOnPool,
+      sameInteraction: cleanup.sweepMarkerIsTheSweep,
+      after: cleanup.sweepMarkerAfter,
+      objective: cleanup.sweepObjective,
+    }));
 
   /* AND THEN HE HAS TO WALK OUT.
    *

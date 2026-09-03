@@ -12,6 +12,8 @@ export function restoreHotDogCleanupPresentation(party, cleanupTasks = []) {
     marker.visible = !evidenceDone;
   }
   if (completed.has('final_sweep')) {
+    // The circle round the pool has done its job with the pool.
+    if (party.cleanup.sweepMarker) party.cleanup.sweepMarker.visible = false;
     party.banner.visible = false;
     party.food.group.visible = false;
     party.cleanup.brokenStool.visible = false;
