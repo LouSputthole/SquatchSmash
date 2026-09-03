@@ -115,13 +115,19 @@ function mark(stage) {
  * one closes Chromium first and reports the last live production stage. */
 /* 300s: the 2026-08-19 playtest added the staged execution beat (draw, shot,
  * slump, the call for Snow) to BOTH completing routes, and reloads between
- * routes carry a full teardown — see the goto note in `enterFreshRoom`. */
+ * routes carry a full teardown — see the goto note in `enterFreshRoom`.
+ *
+ * 480s since 2026-09-03: every counted tenderizer impact now waits out the
+ * active bark chain first (waitForDialogue steps real game time through
+ * 6.6+ s of held captions, per impact, on both routes), which is the honest
+ * cost of clicking when a player could. Scheduled run 33731301150 printed
+ * its final check OK and was then killed by this very watchdog at 304 s. */
 const watchdog = setTimeout(() => {
-  console.error(`License to Grill verifier exceeded 300s at: ${currentStage}`);
+  console.error(`License to Grill verifier exceeded 480s at: ${currentStage}`);
   void browser.close().catch(() => {});
   server.close();
   setTimeout(() => process.exit(2), 1500);
-}, 300000);
+}, 480000);
 
 /** Run the same production systems the live frame owns, without SwiftShader wall time. */
 async function step(seconds = 0.1, dt = 0.05) {

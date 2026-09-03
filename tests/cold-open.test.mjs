@@ -6,10 +6,11 @@
  * game."* Two things have to be true for that, and both are checkable without
  * a browser:
  *
- *   1. The monitor COVERS the viewport. Not fits -- covers. A screen that
- *      exactly fits leaves the embedded page letterboxed inside the viewport,
- *      and a black band round the edge of "the game" is the one tell that
- *      gives the whole thing away before it starts.
+ *   1. The monitor FITS the viewport. It covered it until the owner's
+ *      2026-09-02 playtest ("The opening is too full screen. You almost
+ *      can't hit the resume button") -- overscan cropped the game's own
+ *      edge UI, so the contract flipped: nothing cropped, the tight axis
+ *      close against the border so it still reads as full screen.
  *   2. The phone does not ring during the reveal. The silence after the pull
  *      back is the beat the joke needs, and a call landing inside it steps on
  *      all of it.

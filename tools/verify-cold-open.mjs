@@ -347,11 +347,17 @@ try {
   check('SquatchOS never shows him it booted',
     opening.osMode === 'app', `os mode ${opening.osMode}`);
 
-  /* THE CHECK THE WHOLE OPENING RESTS ON. */
-  check('the monitor COVERS the viewport — no room visible around the game',
+  /* THE CHECK THE WHOLE OPENING RESTS ON. The contract changed with the
+   * owner's 2026-09-02 playtest ("it's too full screen... you can't hit the
+   * resume button"): the monitor FITS the viewport now -- nothing cropped
+   * past +-1, limiting axis against the edge -- instead of overscanning.
+   * Run 33731301150 failed here against the old past-+-1 pin with the fit
+   * already shipped and its unit tests already re-pinned. */
+  check('the monitor FITS the viewport — edge to edge, nothing cropped',
     opening.covers,
     `quad ndc x[${opening.cover.minX?.toFixed(2)}, ${opening.cover.maxX?.toFixed(2)}] `
-    + `y[${opening.cover.minY?.toFixed(2)}, ${opening.cover.maxY?.toFixed(2)}] (needs to pass ±1)`);
+    + `y[${opening.cover.minY?.toFixed(2)}, ${opening.cover.maxY?.toFixed(2)}] `
+    + '(needs to stay inside ±1 with the limiting axis ≥ 1.8 across)');
 
   check('the real Squatch Smash page is the thing on screen',
     (await page.locator('iframe').count()) > 0

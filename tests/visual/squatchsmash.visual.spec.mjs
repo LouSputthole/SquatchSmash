@@ -432,7 +432,14 @@ test('Enola cockpit carries the subtle wrong-city instrument clue', async ({ pag
   expect(clue).toMatchObject({
     order: 'THE DESERT COMPOUND', navigation: 'SQUATCHBOURG', visible: true,
   });
-  await captureVisual(page, 'enola-wrong-city-instrument', clue, { frames: 0 });
+  /* Same cross-browser allowance as the cabin mirror, measured the same way:
+   * the pinned local Chromium 141 that authored this baseline and the
+   * scheduled runner's Chrome for Testing 151 rasterize the night city seen
+   * through the cockpit glazing differently — run 33731301150 measured the
+   * identical 12,215-pixel diff (2.4% of 960x540) on both attempts while
+   * the shot matches its baseline byte-for-byte locally. 3.5% carries the
+   * measured delta plus headroom; a staging change moves far more. */
+  await captureVisual(page, 'enola-wrong-city-instrument', clue, { frames: 0, maxDiffPixelRatio: 0.035 });
   assertNoVisualErrors(page);
 });
 

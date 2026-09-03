@@ -294,20 +294,26 @@ check('1d. Tab returns control to the round',
 /* Shared HUD visibility fades in; assert the settled player-facing state,
  * not an arbitrary point inside its 400 ms presentation transition. */
 await page.waitForTimeout(450);
-/* The real animation frame owns the first-person camera, and a wall-clock
- * wait can contain zero of them under SwiftShader: scheduled run
- * 33605986463 sampled camera/bag alignment at 0.74 against the 0.75 floor
- * while the same tree passes locally. Two real frames guarantee the camera
- * matrix reflects the settled player state; the 10 s timer only keeps a
- * renderer that never frames again from hanging the gate silently. */
-const settleRealFrames = () => page.evaluate(() => new Promise((resolve) => {
-  const timer = setTimeout(resolve, 10000);
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    clearTimeout(timer);
-    resolve();
-  }));
-}));
-await settleRealFrames();
+/* The camera eases toward its authored facing over rendered frames with a
+ * clamped dt, so the tween's finish line is measured in FRAMES, not wall
+ * clock — and the scheduled runner renders about one a second. Two real
+ * rAFs (the previous fix) still sampled mid-ease: runs 33605986463 and
+ * 33731301150 both measured alignment 0.74 against the 0.75 floor while a
+ * local box reports a settled 1.00. So wait, bounded, for the settled
+ * facing itself; a camera that never reaches it still fails below, at the
+ * timeout, with the true value in the receipt. */
+await page.waitForFunction(() => {
+  const g = window.__golf;
+  g.camera.updateMatrixWorld();
+  const forward = new g.player.position.constructor();
+  g.camera.getWorldDirection(forward);
+  const toBag = new g.player.position.constructor(
+    g.LAYOUT.lot.bag.x - g.camera.position.x,
+    0,
+    g.LAYOUT.lot.bag.z - g.camera.position.z,
+  ).normalize();
+  return forward.dot(toBag) > 0.75;
+}, null, { timeout: 45000 }).catch(() => {});
 const openingGuide = await page.evaluate(() => {
   const g = window.__golf;
   g.camera.updateMatrixWorld();
@@ -1591,11 +1597,20 @@ check('20a. live throttle input moves the player cart before the mission can adv
   JSON.stringify(cartEvidence));
 await page.setViewportSize({ width: 1280, height: 720 });
 /* The verification stepper owns game state, while the real animation frame
- * owns the first-person camera. 120 ms of wall clock held zero frames on
- * the scheduled runner (run 33605986463: forwardDot 0.86, radio a full
- * screen below the stale view), so wait for two real frames to apply the
- * cart view before inspecting and capturing it. */
-await settleRealFrames();
+ * owns the first-person camera — and the cart view eases in over rendered
+ * frames, about one a second on the scheduled runner. Two real frames (the
+ * previous fix) still sampled mid-ease: runs 33605986463 and 33731301150
+ * both measured forwardDot 0.86 with the radio a full screen below the
+ * view, against a settled local 1.00. Wait, bounded, for the settled cart
+ * facing; a view that never gets there still fails below with the truth. */
+await page.waitForFunction(() => {
+  const g = window.__golf;
+  g.camera.updateMatrixWorld();
+  const forward = g.camera.getWorldDirection(g.player.position.clone());
+  const cartForward = g.player.position.clone().set(0, 0, 1)
+    .applyQuaternion(g.carts.lead.group.quaternion).normalize();
+  return forward.dot(cartForward) > 0.94;
+}, null, { timeout: 45000 }).catch(() => {});
 const cartView = await page.evaluate(() => {
   const g = window.__golf;
   const forward = g.camera.getWorldDirection(g.player.position.clone());

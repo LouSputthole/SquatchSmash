@@ -1119,9 +1119,13 @@ async function boot() {
           if (!el || el.classList.contains('hidden')) return null;
           return el.textContent?.replace(/\s+/g, ' ').trim() || null;
         })(),
-        /* Normalised device coordinates run -1..1, so covering the viewport
-         * means the quad reaches past -1 and +1 on both axes. */
-        covers: cover.minX <= -1 && cover.maxX >= 1 && cover.minY <= -1 && cover.maxY >= 1,
+        /* Normalised device coordinates run -1..1. The opening's contract
+         * changed with the owner's 2026-09-02 playtest ("it's too full
+         * screen... you can't hit the resume button"): the monitor now FITS
+         * the viewport -- nothing cropped past +-1, with the limiting axis
+         * close against the edge -- instead of overscanning past it. */
+        covers: cover.minX >= -1 && cover.maxX <= 1 && cover.minY >= -1 && cover.maxY <= 1
+          && Math.max(cover.maxX - cover.minX, cover.maxY - cover.minY) >= 1.8,
         cover,
         cameraToMonitor: monitor ? camera.position.distanceTo(monitor) : null,
         cameraToSeat: camera.position.distanceTo(apartment.deskPose.position),

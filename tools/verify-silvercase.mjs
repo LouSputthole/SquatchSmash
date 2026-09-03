@@ -1368,6 +1368,27 @@ try {
   });
   await page.mouse.move(480, 300);
   await page.mouse.move(550, 265, { steps: 2 });
+  /* The scheduled runner's Chrome for Testing 151 delivers CDP-synthesized
+   * pointer-locked moves with movementX/Y of ZERO — run 33731301150 counted
+   * 58 look events with yaw byte-identical, on a tree whose pinned local
+   * Chromium 141 turns the same moves into real deltas (the same signature
+   * the Squatchfather gate measured). The contract under proof is
+   * listener -> Adapter.applyLook -> handleMouseMove; when the browser will
+   * not synthesize the delta, drive that same path with an explicit-delta
+   * in-page mousemove before sampling. */
+  await page.waitForTimeout(80);
+  const cdpYawMoved = await page.evaluate((yaw0) => (
+    Math.abs(window.silvercase.player.yaw - yaw0) > 0.01
+  ), beforeMove.yaw);
+  if (!cdpYawMoved) {
+    await page.evaluate(() => {
+      for (const [dx, dy] of [[66, -28], [24, 10]]) {
+        window.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true, movementX: dx, movementY: dy,
+        }));
+      }
+    });
+  }
   await page.keyboard.down('w');
   await page.waitForTimeout(100);
   await page.evaluate(() => window.silvercase.tick(0.6));
@@ -1646,13 +1667,15 @@ try {
     return !sc.cast.deke.alive
       && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell')
       && Boolean(window.__chesterSubtitleReceipt);
-    /* 20 s, not 5: the scene loop is rAF-driven and SwiftShader on the
-     * scheduled runner renders under one frame per second, so the shot
-     * resolution plus Chester's scheduled take can legitimately take more
-     * wall clock than a loaded local box ever shows (run 33605986463 timed
-     * out here at 5 s with every prior check green). The predicate is
-     * unchanged -- a card that never shows still fails, just honestly. */
-  }, null, { timeout: 20000 });
+    /* 90 s of wall clock, because the bound is GAME time: the loop steps a
+     * clamped dt per rendered frame, and the scheduled runner renders about
+     * one frame a second — so the shot resolution, the slump and Chester's
+     * scheduled take advance at a twentieth of wall speed. Run 33605986463
+     * timed out here at 5 s and run 33731301150 at 20 s, both with every
+     * prior check green; 90 s buys the ~4 s of game time the beat needs at
+     * the runner's worst measured rate. The predicate is unchanged — a card
+     * that never shows still fails, just honestly. */
+  }, null, { timeout: 90000 });
   const chesterSubtitleReceipt = await page.evaluate(() => window.__chesterSubtitleReceipt);
   /* A wall-clock sleep is not a game-frame guarantee under SwiftShader. The
    * old 120 ms pause could contain no rendered update, then sample Chester at
@@ -1669,8 +1692,8 @@ try {
     const dy = chester.group.position.y - reaction.origin.y;
     const dz = chester.group.position.z - reaction.origin.z;
     return dx * reaction.away.x + dy * reaction.away.y + dz * reaction.away.z > 0.015;
-    /* Same starved-runner allowance as the subtitle wait above. */
-  }, null, { timeout: 20000 });
+    /* Same game-time-versus-wall-clock allowance as the subtitle wait above. */
+  }, null, { timeout: 90000 });
   const chesterImmediateReaction = await page.evaluate(() => {
     const sc = window.silvercase;
     const line = [...sc.dialogue.voiceLog].reverse()

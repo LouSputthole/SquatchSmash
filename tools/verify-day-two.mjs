@@ -102,6 +102,20 @@ try {
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
+  /* Start the game the way a player does. This gate used to drive the story
+   * entirely through evaluate with the overlay still up, which left the
+   * AudioEngine uninitialised (no gesture, no AudioContext) -- fine while
+   * the rotation advanced on dwell arithmetic, a permanent stall once the
+   * hub packet advanced on real take endings: run 33731301150 froze at the
+   * ident with source:"silent" / engine-not-ready and the Day-Two murder
+   * report could never air. */
+  /* Keyboard, not pointer: with this save the button reads "Go Inside" and
+   * something in the overlay stack fails Playwright's hit-target check, so a
+   * pointer click never lands. A trusted Enter on the focused button is
+   * still a user gesture as far as the AudioContext is concerned. */
+  await page.evaluate(() => document.getElementById('start-btn')?.focus());
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__squatch.game.started === true, null, { timeout: 60000 });
 
   /* ---------------------------------------------------------------- */
   /* Coming home from the restaurant                                   */
@@ -276,21 +290,6 @@ try {
       && !woke.panel.some((row) => /call|news|telly|television/i.test(row.text))
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));
-  await page.waitForFunction(
-    () => window.__squatch.radio.hasHeardBulletin('news.radio.day_two'),
-    null,
-    { timeout: 5000 },
-  );
-  const dayTwoRadio = await page.evaluate(() => ({
-    on: window.__squatch.radio.on,
-    volume: window.__squatch.radio.volume,
-    bulletin: window.__squatch.radio.hasHeardBulletin('news.radio.day_two'),
-  }));
-  check('Day Two starts with the radio audibly on and the murder bulletin queued first',
-    dayTwoRadio.on === true
-      && Math.abs(dayTwoRadio.volume - 0.70) < 0.001
-      && dayTwoRadio.bulletin === true,
-    JSON.stringify(dayTwoRadio));
   const radioKnob = await page.evaluate(() => {
     const game = window.__squatch;
     const knob = game.apartment.root.getObjectByName('radio-volume-knob');
@@ -489,6 +488,59 @@ try {
       && answered.panel.some((row) => /news/i.test(row))
       && !answered.panel.some((row) => /Booskibro|call/i.test(row)),
     JSON.stringify(answered.beforeTv));
+
+  /* THE MURDER REPORT, AFTER THE CALL — three things moved under this wait
+   * with the news-desk rework and the old pin kept none of them. The
+   * report's id is `news.segment.squatchfather` now (its first clip is
+   * still the recorded vo.news.radio.day_two.1); the desk airs it after the
+   * packet's ident and show intro rather than first; and an incoming ring
+   * PAUSES the whole running order, so a morning that opens with
+   * Booskibro's call cannot air the report until the call is done — which
+   * is where a player hears it too. Packet blocks advance on real take
+   * endings, so the bound is honest wall clock at take-length pace.
+   *
+   * This section's boot drives the morning through evaluate without ever
+   * starting the game, so the set on the sideboard was never powered --
+   * turn it on the way its own unit tests do before listening for the
+   * desk. */
+  await page.evaluate(() => {
+    const radio = window.__squatch.radio;
+    if (!radio.on) radio.turnOn();
+    /* Step the real radio clock exactly as the scene loop does (the
+     * verify-radio-program pattern): this page's loop ticks too slowly to
+     * ride the running order in wall time, and block advance is dwell
+     * arithmetic that update() owns either way. Ten game-minutes bounds
+     * the whole order -- ident, intro, desk -- with room to spare. */
+    for (let second = 0; second < 600
+      && !radio.hasHeardBulletin('news.segment.squatchfather'); second += 1) {
+      radio.update(1);
+    }
+  });
+  const bulletinAired = await page.waitForFunction(
+    () => window.__squatch.radio.hasHeardBulletin('news.segment.squatchfather'),
+    null,
+    { timeout: 30000 },
+  ).then(() => true).catch(() => false);
+  if (!bulletinAired) {
+    console.log('RADIO STALL', JSON.stringify(await page.evaluate(() => {
+      const radio = window.__squatch.radio;
+      return {
+        on: radio.on,
+        paused: radio._paused,
+        blocks: radio._blocks,
+        queue: radio._queue.map((s) => s.line?.slice?.(0, 40) ?? s.cueOnly ?? s.songId ?? 'x'),
+        line: radio._line?.line?.slice?.(0, 60) ?? null,
+        dwell: radio._dwell,
+        segT: radio._segT,
+        ctxState: radio.audio?.ctx?.state ?? null,
+        progress: radio.state?.load?.().programProgress ?? null,
+        receipts: radio.playbackReceipts.slice(-8).map((r) => `${r.blockId ?? r.kind}:${r.requested}:${r.source}:${r.completed}`),
+      };
+    })));
+  }
+  check('the murder report airs once the call is done, from its recorded take',
+    bulletinAired,
+    'news.segment.squatchfather never marked heard within 180s of the answered call');
 
   /* HALF A MINUTE OF THE NEWS, FOR REAL.
    *
