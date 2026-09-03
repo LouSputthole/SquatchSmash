@@ -179,7 +179,13 @@ export function createMissionHud({ parent = document.body } = {}) {
     /** Everything on screen right now, for headless verification. */
     text() {
       return {
-        objective: objective.classList.contains('show') ? objective.textContent : '',
+        /* The banner was retired as a display (see `setObjective`) but kept
+         * as a model for exactly this probe, so the probe reads the model:
+         * gating it on `show` here made every objective read "" from the
+         * moment the banner stopped showing, and three verify:mansion checks
+         * went red for a sentence that was on the upper-left panel the whole
+         * time. */
+        objective: objective.textContent,
         instruction: instruction.classList.contains('show') ? instruction.textContent : '',
         callout: callout.classList.contains('show') ? callout.textContent : '',
         timing: timing.classList.contains('show') ? timingCount.textContent : '',
