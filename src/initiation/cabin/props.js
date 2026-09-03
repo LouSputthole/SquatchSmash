@@ -213,6 +213,11 @@ export function makeSaintCard() {
     ));
     layer.name = `card.burn-flame-${index + 1}`;
     layer.position.y = height * 0.18;
+    /* Hidden on its own account: `Object3D.raycast` walks visible children
+     * of an invisible parent, so an always-visible layer would be the first
+     * hit on the gate's "unobstructed face" probe before the flame ever
+     * lit. The lifecycle below toggles the layers with `flame`. */
+    layer.visible = false;
     flame.add(layer);
     return layer;
   });
@@ -289,6 +294,7 @@ export function makeSaintCard() {
     char.position.y = -height / 2;
     charMaterial.opacity = 0;
     flame.visible = false;
+    flameLayers.forEach((layer) => { layer.visible = false; });
     light.intensity = 0;
     embers.visible = false;
     embers.material.opacity = 0;
@@ -300,6 +306,7 @@ export function makeSaintCard() {
       front.visible = false;
       char.visible = false;
       flame.visible = false;
+      flameLayers.forEach((layer) => { layer.visible = false; });
       light.intensity = 0;
       embers.visible = false;
       embers.material.opacity = 0;
@@ -316,6 +323,7 @@ export function makeSaintCard() {
     charMaterial.opacity = 0.35 + burnProgress * 0.58;
     const edgeY = -height / 2 + height * burnProgress;
     flame.visible = true;
+    flameLayers.forEach((layer) => { layer.visible = true; });
     flame.position.set(0.004 * Math.sin(burnProgress * 19), edgeY, 0.006);
     light.position.copy(flame.position);
     light.intensity = 0.7 + 0.5 * Math.sin(burnProgress * 23) ** 2;
