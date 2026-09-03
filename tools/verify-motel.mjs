@@ -2061,12 +2061,23 @@ try {
       const target = motel.interactableList.find((entry) => entry.id === id);
       return [id, target ? target.enabled() : null];
     }));
-    return { sampleOut: motel.S.sampleOut, active: motel.activeInteract(), enabled };
+    return {
+      sampleOut: motel.S.sampleOut,
+      casePlacementReady: motel.S.casePlacementReady,
+      active: motel.activeInteract(),
+      enabled,
+    };
   });
+  /* THE THREE are the sample, Jerky's case and the money: they wait for the
+   * spoken briefing. Lou's own case is not one of them -- its spot opens on
+   * the door slam 1.4 s after he steps in (`closeBehind`), and on a software
+   * renderer that slam has usually landed by the time this probe runs, so
+   * the case is held to the game's own flag rather than to the wall clock. */
   check('the three transaction objects wait for the spoken package briefing',
     !meetingGate.sampleOut
-      && Object.values(meetingGate.enabled).every((enabled) => enabled === false)
-      && !['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
+      && ['sample', 'jerkyCase', 'placeMoney'].every((id) => meetingGate.enabled[id] === false)
+      && meetingGate.enabled.placeOwnCase === meetingGate.casePlacementReady
+      && !['sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
     JSON.stringify(meetingGate));
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-room-first-person');
