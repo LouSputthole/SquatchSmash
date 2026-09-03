@@ -3079,6 +3079,37 @@ try {
       } : null,
     };
   });
+  /* THE CARD IS MEASURED AFTER ITS FADE. `showControls` drops the `faded`
+   * class on the restart frame, and #br-controls brings its opacity back
+   * over a 0.6 s CSS transition -- so a snapshot taken in the same evaluate
+   * as `requestRestart()` reads 0.3 with the class already gone, and the
+   * check that wants it bright fails on timing. It used to pass only when
+   * the card had not yet faded before the restart (the fade starts 22 s into
+   * a leg); the 2026-09-02 wave changes moved the restart past that. Wait on
+   * the signal the check measures, then read the card again. */
+  await page.waitForFunction(() => {
+    const card = document.getElementById('br-controls');
+    return card && !card.classList.contains('faded')
+      && Number(getComputedStyle(card).opacity) > 0.95;
+  }, null, { timeout: 5000 }).catch(() => {});
+  restarted.controls = await page.evaluate(() => {
+    const controls = document.getElementById('br-controls');
+    const bounds = controls?.getBoundingClientRect();
+    const style = controls ? getComputedStyle(controls) : null;
+    return bounds ? {
+      hidden: controls.classList.contains('hidden'),
+      faded: controls.classList.contains('faded'),
+      display: style.display,
+      opacity: Number(style.opacity),
+      left: bounds.left,
+      top: bounds.top,
+      right: bounds.right,
+      bottom: bounds.bottom,
+      width: bounds.width,
+      height: bounds.height,
+      viewport: [innerWidth, innerHeight],
+    } : null;
+  });
   await page.waitForFunction(() => {
     const handle = window.__enolaSquatch.audio.engine.loops.get('music.enola.approach');
     return handle && !handle.element.paused;
