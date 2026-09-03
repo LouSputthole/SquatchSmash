@@ -4944,8 +4944,15 @@ try {
       replay: !!document.getElementById('replayBtn'),
     };
   });
+  /* In preview the page rewrites every card anchor into the sandbox
+   * (`./enolasquatch.html?preview=1`, see the href rewrite in
+   * src/mansion/siege/main.js), so the handoff is matched by page, not by
+   * the literal href: a literal match was red on every preview run for a
+   * link that was there the whole time. */
   check('the card offers the direct SQUATCHOLA GAY handoff and keeps replay available',
-    card.links.includes('./enolasquatch.html') && card.replay === true, card.links.join(' '));
+    card.links.some((href) => /^\.\/enolasquatch\.html(\?|$)/.test(href ?? ''))
+      && card.replay === true,
+    card.links.join(' '));
   check('and says out loud that the SQUATCHOLA GAY handoff is wired',
     /handoff now carries directly into\s+squatchola gay/i.test(card.note),
     card.note.slice(0, 90));
