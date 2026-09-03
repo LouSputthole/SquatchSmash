@@ -321,3 +321,62 @@ test('the thresholds are the ones the owner asked for, and are reachable', () =>
   assert.ok(SHOOT_TARGET_SCORE > 0 && SHOOT_TARGET_SCORE <= 5000);
   assert.ok(SMASH_PLAY_SECONDS > 0 && SMASH_PLAY_SECONDS <= 120);
 });
+
+/**
+ * THE MAN WHO PLAYED SIX GAMES AND WAS TOLD HE HAD PLAYED NONE.
+ *
+ * Owner, 2026-09-03: *"On day 5 someone was stuck in a game of counterstrike
+ * they couldnt complete it."* The pastime flag is cleared every night by
+ * `sleep()` and can only be earned inside the chapter that asks for it; the
+ * clock event behind it is exact-once for the whole campaign. Five deaths on
+ * Day One spent `activity.play_counter_squatch`, five more on Day 5 were
+ * refused as already spent, and the flag never set. `completePastime` owns
+ * both rules now; these hold it to them.
+ */
+test('a pastime done outside its chapter is neither ticked nor billed to the clock', () => {
+  const { campaign, story } = stage(CHAPTERS[0]);          // day_two
+  const before = { ...campaign.state.story };
+  const out = story.completePastime('playedCounterSquatch'); // belongs to heist_day
+  assert.equal(out.ok, false);
+  assert.equal(out.reason, 'not_this_chapter');
+  assert.equal(campaign.state.activities.playedCounterSquatch, false);
+  assert.ok(!campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH),
+    'a later chapter\'s clock event was spent on the wrong morning');
+  assert.equal(campaign.state.story.day, before.day);
+  assert.equal(campaign.state.story.timeMinutes, before.timeMinutes);
+});
+
+test('the chapter\'s own pastime ticks and costs its slice of the morning', () => {
+  const spec = CHAPTERS.find((entry) => entry.chapter === 'heist_day');
+  const { campaign, story, call } = stage(spec);
+  answer(campaign, call);
+  const minutesBefore = campaign.state.story.timeMinutes;
+  const out = story.completePastime('playedCounterSquatch');
+  assert.deepEqual(out, { ok: true, applied: true });
+  assert.equal(campaign.state.activities.playedCounterSquatch, true);
+  assert.equal(campaign.state.story.timeMinutes, minutesBefore + 25);
+  assert.equal(story.tryLeave({ ...CHORES_DONE, playedCounterSquatch: true }).kind, 'go');
+  // Doing it again is not a second game and not a second bill.
+  assert.deepEqual(story.completePastime('playedCounterSquatch'),
+    { ok: true, reason: 'already_done', applied: false });
+  assert.equal(campaign.state.story.timeMinutes, minutesBefore + 25);
+});
+
+test('a save that spent the pastime clock on an earlier morning still earns the flag', () => {
+  const spec = CHAPTERS.find((entry) => entry.chapter === 'heist_day');
+  const { campaign, story, call } = stage(spec);
+  answer(campaign, call);
+  /* Exactly the stuck save: the event went on Day One's ledger, bedtime
+   * cleared the flag, and now it is Day 5 with the door asking for the game. */
+  campaign.update((state) => {
+    state.story.timeEvents.push(TIME_EVENT_IDS.PLAY_COUNTER_SQUATCH);
+    state.activities.playedCounterSquatch = false;
+  });
+  assert.equal(story.tryLeave(CHORES_DONE).id, 'playedCounterSquatch');
+  const minutesBefore = campaign.state.story.timeMinutes;
+  const out = story.completePastime('playedCounterSquatch');
+  assert.deepEqual(out, { ok: true, applied: false });
+  assert.equal(campaign.state.activities.playedCounterSquatch, true);
+  assert.equal(campaign.state.story.timeMinutes, minutesBefore, 'the clock was billed twice');
+  assert.equal(story.tryLeave({ ...CHORES_DONE, playedCounterSquatch: true }).kind, 'go');
+});

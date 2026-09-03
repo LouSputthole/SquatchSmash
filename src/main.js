@@ -2894,7 +2894,7 @@ function eatShrooms() {
    * happened rather than a thing that is currently true. */
   apartment.state.shroomsTaken = true;
   if (campaign.state.activities.tookShrooms !== true) {
-    completeApartmentActivity('tookShrooms', PASTIME_EVENTS.tookShrooms);
+    completeApartmentPastime('tookShrooms');
   }
   hud.toast('Nothing is happening', '');
   hud.say('Earthy. Unpleasant. Nothing is happening. '
@@ -3436,7 +3436,8 @@ function completeApartmentRecoveryActivity(activityId) {
   if (activityId === 'playedSquatchShoot') apartment.state.shootScore = SHOOT_TARGET_SCORE;
   if (activityId === 'playedSquatchSmash') apartment.state.smashPlayed = SMASH_PLAY_SECONDS;
   if (activityId === 'tookShrooms') apartment.state.shroomsTaken = true;
-  completeApartmentActivity(activityId, timeEventId);
+  if (PASTIME_EVENTS[activityId]) completeApartmentPastime(activityId);
+  else completeApartmentActivity(activityId, timeEventId);
   return campaign.state.activities[activityId] === true;
 }
 
@@ -3495,7 +3496,7 @@ function pastimeWatch(dt) {
     st.tvWatched += dt;
     if (st.tvWatched >= TV_WATCH_SECONDS
       && campaign.state.activities.watchedTv !== true) {
-      completeApartmentActivity('watchedTv', PASTIME_EVENTS.watchedTv);
+      completeApartmentPastime('watchedTv');
     }
   }
 
@@ -3504,7 +3505,7 @@ function pastimeWatch(dt) {
    * been counted -- CS_ROUNDS of being shot through a wall. */
   if ((st.csDeaths || 0) >= CS_ROUNDS
     && campaign.state.activities.playedCounterSquatch !== true) {
-    completeApartmentActivity('playedCounterSquatch', PASTIME_EVENTS.playedCounterSquatch);
+    completeApartmentPastime('playedCounterSquatch');
   }
 
   /* Squatch Shoot keeps its own running score and resets it on a new game, so
@@ -3515,7 +3516,7 @@ function pastimeWatch(dt) {
   }
   if ((st.shootScore || 0) >= SHOOT_TARGET_SCORE
     && campaign.state.activities.playedSquatchShoot !== true) {
-    completeApartmentActivity('playedSquatchShoot', PASTIME_EVENTS.playedSquatchShoot);
+    completeApartmentPastime('playedSquatchShoot');
   }
 
   /* Squatch Smash runs as itself in a frame on the monitor (see
@@ -3527,7 +3528,7 @@ function pastimeWatch(dt) {
     st.smashPlayed += dt;
     if (st.smashPlayed >= SMASH_PLAY_SECONDS
       && campaign.state.activities.playedSquatchSmash !== true) {
-      completeApartmentActivity('playedSquatchSmash', PASTIME_EVENTS.playedSquatchSmash);
+      completeApartmentPastime('playedSquatchSmash');
     }
   }
 }
@@ -3536,6 +3537,27 @@ function completeApartmentActivity(activityId, timeEventId) {
   const result = campaign.advanceTime(timeEventId, (state) => {
     state.activities[activityId] = true;
   });
+  syncClockFromCampaign();
+  updateObjectives();
+  return result;
+}
+
+/**
+ * The chapter's own thing, done. The story decides whether it counts.
+ *
+ * This used to be `completeApartmentActivity` with the pastime's clock event,
+ * which is one `advanceTime` -- exact-once for the whole campaign -- behind a
+ * flag that `sleep()` clears every night. Owner, 2026-09-03: *"On day 5
+ * someone was stuck in a game of counterstrike they couldnt complete it."*
+ * Five deaths on Day One had spent `activity.play_counter_squatch`; five more
+ * on Day 5 were refused as already spent, the flag never set, and the door
+ * never opened. `ApartmentStory.completePastime` owns both rules now: only the
+ * current chapter's pastime is completed, and a flag is still owed when its
+ * clock was paid on an earlier morning. See the note on it.
+ */
+function completeApartmentPastime(activityId) {
+  const result = apartmentStory.completePastime(activityId);
+  if (!result.ok) return result;
   syncClockFromCampaign();
   updateObjectives();
   return result;

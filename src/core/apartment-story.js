@@ -2185,6 +2185,47 @@ class ApartmentStory {
     return this.campaign.advanceTime(eventId).applied === true;
   }
 
+  /**
+   * He did the chapter's own thing. Tick it, and spend its slice of the morning.
+   *
+   * Owner, 2026-09-03: *"On day 5 someone was stuck in a game of counterstrike
+   * they couldnt complete it."* He was not stuck in the game; he was stuck in
+   * the flat. `sleep()` clears every chapter's pastime flag each night, on
+   * purpose, so the flag can only be earned inside the chapter that asks for
+   * it -- but the clock event behind the flag is exact-once for the whole
+   * campaign, and the frame loop in src/main.js completed a pastime in ANY
+   * chapter. So a man who died to the cheater five times on Day One spent
+   * `activity.play_counter_squatch` there; on Day 5 the flag was false again,
+   * five more deaths asked `advanceTime` for the same event, it answered
+   * "already spent" without running the change, the flag never set, and the
+   * door kept saying "I told the boys one game" to a man who had played six.
+   *
+   * Two rules, both here so the frame loop cannot get them wrong again:
+   *
+   *   ONLY THIS CHAPTER'S PASTIME COUNTS. A pastime that belongs to a later
+   *     morning is not completed early and its clock is not spent early --
+   *     the flag would only be cleared at bedtime anyway.
+   *   THE FLAG IS OWED EVEN WHEN THE CLOCK IS NOT. A save that already spent
+   *     the event on an earlier morning (every save from before this fix)
+   *     still gets its flag the moment he does the thing in the right chapter.
+   *     The twenty-five minutes were paid once; the door is not a second bill.
+   *
+   * @returns {{ok: boolean, reason?: string, applied: boolean}} `ok` is whether
+   *   the flag is set now; `applied` is whether the clock moved for it.
+   */
+  completePastime(activityId) {
+    const item = pastimesFor(this.campaign.state.story.chapter)
+      .find((entry) => entry.id === activityId);
+    if (!item) return { ok: false, reason: 'not_this_chapter', applied: false };
+    if (this.campaign.state.activities[activityId] === true) {
+      return { ok: true, reason: 'already_done', applied: false };
+    }
+    const tick = (state) => { state.activities[activityId] = true; };
+    const result = this.campaign.advanceTime(item.event, tick);
+    if (!result.applied) this.campaign.update(tick);
+    return { ok: this.campaign.state.activities[activityId] === true, applied: result.applied };
+  }
+
   /** What is on the news this morning, by station. Null before Day Two. */
   news() {
     return CHAPTER_NEWS[this.campaign.state.story.chapter] ?? null;
