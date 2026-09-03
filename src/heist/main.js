@@ -627,6 +627,9 @@ let officersDown = 0;
 let driving = false;
 let roadblockHit = false;
 let routeIndex = 0;
+/* Recoveries this drive, for the gate: a real-input leg that needed one is
+ * a leg the player could not have driven. */
+let driveRecoveryCount = 0;
 let offroadHitCooldown = 0;
 let driveCollisionCooldown = 0;
 let driveInvalidFor = 0;
@@ -1602,6 +1605,7 @@ function debugSnapshot() {
     routeIndex,
     vehicle: {
       ...vehicle.snapshot(),
+      recoveries: driveRecoveryCount,
       maxForwardSpeed: HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed,
       audio: debugDriveAudioSnapshot(),
       pursuitVisible: level.phases.driving.pursuit.visible,
@@ -2660,6 +2664,7 @@ function beginDriving() {
   activatePhase('driving');
   driving = true;
   routeIndex = 0;
+  driveRecoveryCount = 0;
   copsLost = false;
   pursuitWarned = false;
   pursuitPressure = 0;
@@ -5104,6 +5109,7 @@ function hostageVerbUnderCrosshair(verb) {
 function recoverDrivingRoute(reason) {
   if (!driving || drivingRecovery) return false;
   drivingRecovery = true;
+  driveRecoveryCount += 1;
   const drivePhase = level.phases.driving;
   const stable = drivePhase.route.find((node) => node.id === vehicle.lastStableNode)
     ?? escapeStart;
@@ -5113,11 +5119,40 @@ function recoverDrivingRoute(reason) {
   vehicle.lateralSlip = 0;
   vehicle.engineHealth = Math.max(40, vehicle.engineHealth);
   vehicle.tireGrip = Math.max(0.65, vehicle.tireGrip);
+  /* POINTED DOWN THE ROUTE, WITH THE POLICE BACK WHERE THEY STARTED.
+   *
+   * "Restarting from the last safe turn" used to mean the last safe turn's
+   * coordinates and nothing else: the heading was whatever the car was
+   * pointing when it died (a wall, usually), and the cruisers stayed where
+   * they were, which after a bad crash is ON the car, with the pressure that
+   * had built while it sat there still at full. So the restart opened with
+   * a shunt into the same wall. The car now faces the next instruction, the
+   * escort re-forms behind it as it did when the drive began, the pressure
+   * is gone, and the ram waits a beat. The chase camera snaps rather than
+   * flying across the map from the crash site. */
+  const next = drivePhase.route[routeIndex];
+  vehicle.heading = next
+    ? Math.atan2(next.x - vehicle.x, next.z - vehicle.z)
+    : (stable.heading ?? vehicle.heading);
+  vehicle.steerAngle = 0;
+  vehicle.bodyRoll = 0;
   vehicle.setInput();
   driveInvalidFor = 0;
   driveStuckFor = 0;
+  pursuitPressure = 0;
+  ramCooldown = 2.5;
+  chaseInitialised = false;
+  const backX = Math.sin(vehicle.heading);
+  const backZ = Math.cos(vehicle.heading);
+  for (const [index, cruiser] of drivePhase.pursuers.entries()) {
+    cruiser.position.set(
+      vehicle.x - backX * (16 + index * 9), 0, vehicle.z - backZ * (16 + index * 9),
+    );
+    cruiser.rotation.y = vehicle.heading - Math.PI / 2;
+  }
   input?.clear('drive-recovery');
   drivePhase.car.position.set(vehicle.x, 0, vehicle.z);
+  drivePhase.car.rotation.set(0, vehicle.heading - Math.PI / 2, 0);
   const fade = document.getElementById('fade');
   fade.querySelector('span').textContent = reason === 'route'
     ? 'RECOVERING THE ESCAPE ROUTE' : 'RESTARTING FROM THE LAST SAFE TURN';
@@ -5246,7 +5281,18 @@ function updatePursuit(dt, forwardX, forwardZ) {
   if (!copsLost && distance < 4.6 && pursuitPressure > 0.45 && ramCooldown <= 0) {
     ramCooldown = 1.35;
     const shove = 2.4 + pursuitPressure * 2.6;
-    vehicle.speed += Math.sign(vehicle.speed || 1) * shove;
+    /* FORWARD. Always forward. The cruiser is behind the car, so a shunt from
+     * it moves the car the way the car is pointing -- and this used to follow
+     * the SIGN OF THE SPEED instead, which is the direction the car happens
+     * to be moving. Measured 2026-09-03 with real key input on the canal leg:
+     * a car that clipped the west kerb at (7.8, -317) bounced to -7.9 m/s,
+     * `|speed|` stayed under the 9 m/s pressure floor so the pressure never
+     * shed, and every 1.35 s the lead cruiser "rammed" it FURTHER BACKWARDS
+     * -- at -7 to -8 m/s for twenty-five seconds, the whole length of the leg
+     * back past the junction into the north barrier, then forward into the
+     * same kerb again, engine 40 -> 2, recovery, repeat. Four recoveries at
+     * the canal turn and the swap 400 m away never reached. */
+    vehicle.speed += shove;
     const headroom = Math.max(0, vehicle.engineHealth - 30) / 22.1;
     const severity = Math.min(0.05 + pursuitPressure * 0.05, headroom);
     if (severity > 0.002) vehicle.applyCollision({ severity, windshield: false });
@@ -5355,15 +5401,50 @@ function updateDriving(dt) {
   fixedStep.advance(dt, (step) => vehicle.step(step));
   vehicle.tireGrip = restingGrip;
   driveCollisionCooldown = Math.max(0, driveCollisionCooldown - dt);
-  if (intersectsDrivingObstacle(vehicle.x, vehicle.z, level.phases.driving.obstacles)) {
-    vehicle.x = previousX;
-    vehicle.z = previousZ;
-    vehicle.speed *= -0.18;
+  const obstacles = level.phases.driving.obstacles;
+  if (intersectsDrivingObstacle(vehicle.x, vehicle.z, obstacles)) {
+    /* SCRAPE OR STOP.
+     *
+     * Every contact used to be a full stop: both axes given back, speed
+     * flipped to -0.18 of itself, 11.6 damage. Measured 2026-09-03 with a
+     * held W down Canal Road: a car drifting one degree off the centreline
+     * touched the kerb-side parked car at (10.3, -390) at a grazing angle,
+     * stopped dead, and then could not leave -- a stationary car has no yaw
+     * (`yawRate` is `tan(steer) * speed / wheelBase`), so every step under
+     * throttle pushed it back into the same face, another full stop, another
+     * 11.6 off the bodywork every 0.55 s. Engine 84 -> 16 in four seconds
+     * without the car moving a metre, then "RESTARTING FROM THE LAST SAFE
+     * TURN", 140 m back.
+     *
+     * A graze is a graze now. The axis that had to be given back names the
+     * face that stopped the car; if the car is pointed less than about 45
+     * degrees into that face it keeps the other axis, keeps most of its
+     * speed, and pays kerbstone money for it. Square into a barrier or a
+     * wall is still the wall. */
+    const slideAlongX = !intersectsDrivingObstacle(vehicle.x, previousZ, obstacles);
+    const slideAlongZ = !intersectsDrivingObstacle(previousX, vehicle.z, obstacles);
+    const into = slideAlongX ? Math.abs(Math.cos(vehicle.heading))
+      : slideAlongZ ? Math.abs(Math.sin(vehicle.heading)) : 1;
+    const scrape = (slideAlongX || slideAlongZ) && into < 0.7;
+    if (scrape) {
+      if (slideAlongX) vehicle.z = previousZ; else vehicle.x = previousX;
+      vehicle.speed *= Math.max(0, 1 - 1.4 * dt);
+    } else {
+      vehicle.x = previousX;
+      vehicle.z = previousZ;
+      vehicle.speed *= -0.18;
+    }
     if (driveCollisionCooldown <= 0) {
       driveCollisionCooldown = 0.55;
-      vehicle.applyCollision({ severity: 0.34, windshield: Math.abs(vehicle.speed) > 6 });
-      audio.play('heist.vehicle.impact');
-      suppression.noteNearMiss(0.25, 1);
+      if (scrape) {
+        vehicle.applyCollision({ severity: 0.1, tire: true });
+        audio.play('heist.vehicle.curbstone', { volume: 0.7 });
+        suppression.noteNearMiss(0.1, 1);
+      } else {
+        vehicle.applyCollision({ severity: 0.34, windshield: Math.abs(vehicle.speed) > 6 });
+        audio.play('heist.vehicle.impact');
+        suppression.noteNearMiss(0.25, 1);
+      }
     }
   }
   window.__heistDebug.fixedSteps = fixedStep.lastSteps;

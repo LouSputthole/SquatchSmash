@@ -111,6 +111,8 @@ export function poseHotDogCleanupRolesGeometry(partyInput) {
 export function showHotDogCleanupGuidesGeometry(partyInput) {
   const party = requireParty(partyInput);
   for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
+  // The sweep circle is a guide too, and the gate measures it lit.
+  if (party.cleanup.sweepMarker) party.cleanup.sweepMarker.visible = true;
   return party;
 }
 

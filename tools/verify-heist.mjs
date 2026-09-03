@@ -371,22 +371,71 @@ async function measureEscapeVehicle(vehiclePage, { completeRoute = false } = {})
   await reset();
   let progression = null;
   if (completeRoute) {
+    /* THE LAST LEG IS DRIVEN, NOT TELEPORTED.
+     *
+     * Owner, 2026-09-03: *"during the driving scene in the take, that part of
+     * the scene isnt completing when u get to the end of the driving."* Every
+     * route receipt in this file reached the swap through `driveToNextNode`,
+     * which puts the car ON each node -- so nothing here had ever driven the
+     * four hundred metres of Canal Road between the last turn and the swap
+     * with a key held down. Driven with real input, a car that clipped the
+     * kerb was rammed backwards up the leg by its own escort until the engine
+     * died, recovered at the turn, and did it again; see the ram in
+     * `updatePursuit` and `recoverDrivingRoute` in src/heist/main.js. Five
+     * teleports put the car at the canal turn pointing south; from there the
+     * only input is a held W, stepped through the real `updateDriving`, and
+     * the swap has to arrive without a single recovery. */
     const nodes = [];
-    for (let index = 0; index < 6; index++) {
+    for (let index = 0; index < 5; index++) {
       nodes.push(await vehiclePage.evaluate(() => window.__heistDebug.driveToNextNode()));
     }
+    await vehiclePage.evaluate(() => window.__heistDebug.placeCar(20, -250, Math.PI, { speed: 5 }));
+    await vehiclePage.keyboard.down('KeyW');
+    await vehiclePage.waitForFunction(
+      () => window.__heistDebug.inputState().keys.includes('KeyW'),
+      null,
+      { timeout: 5000 },
+    );
+    const lastLeg = await vehiclePage.evaluate(() => {
+      const fixedDt = 1 / 60;
+      let seconds = 0;
+      let sample = null;
+      let minSpeed = Infinity;
+      while (seconds < 40 && window.__heistDebug.state !== 'VEHICLE_SWAP') {
+        sample = window.__heistDebug.simulateDriving(fixedDt, fixedDt);
+        if (!sample.ok) break;
+        minSpeed = Math.min(minSpeed, sample.speed);
+        seconds += fixedDt;
+      }
+      const snap = window.__heistDebug.snapshot();
+      return {
+        seconds: Number(seconds.toFixed(2)),
+        state: snap.state,
+        node: snap.vehicle.lastStableNode,
+        recoveries: snap.vehicle.recoveries,
+        damage: snap.vehicle.collisionDamage,
+        minSpeed: Number(minSpeed.toFixed(2)),
+        position: [Number(snap.vehicle.x.toFixed(1)), Number(snap.vehicle.z.toFixed(1))],
+      };
+    });
+    await vehiclePage.keyboard.up('KeyW');
     await vehiclePage.waitForFunction(
       () => window.__heistDebug.state === 'VEHICLE_SWAP',
       null,
       { timeout: 30000, polling: 250 },
     );
     progression = await vehiclePage.evaluate(() => window.__heistDebug.snapshot());
-    check('the measured vehicle_escape checkpoint still reaches the existing swap',
+    check('the canal leg is driven to the swap on a held W, with no recovery and the escort gone',
       nodes.map((entry) => entry.node).join(',')
-        === 'garage_left,warehouse_left,tower_right,roadblock,canal_turn,industrial_swap'
+        === 'garage_left,warehouse_left,tower_right,roadblock,canal_turn'
+        && lastLeg.state === 'VEHICLE_SWAP'
+        && lastLeg.node === 'industrial_swap'
+        && lastLeg.recoveries === 0
+        && lastLeg.seconds <= 30
+        && lastLeg.minSpeed >= 0
         && progression.state === 'VEHICLE_SWAP'
         && progression.vehicle.pursuitVisible === false,
-      JSON.stringify({ nodes: nodes.map((entry) => entry.node), state: progression.state,
+      JSON.stringify({ nodes: nodes.map((entry) => entry.node), lastLeg, state: progression.state,
         pursuit: progression.vehicle.pursuitVisible }));
   }
 

@@ -45,7 +45,7 @@ const CLEANUP_LABELS = Object.freeze({
   bathrooms: 'Clear the men\'s room — nobody else is in this building',
   cleaning_kit: 'Retrieve Stove\'s Cleaning Kit from storage',
   missing_evidence: 'Find HotDog\'s missing cufflink and lapel pin',
-  final_sweep: 'Perform Lou\'s final evidence sweep',
+  final_sweep: 'Perform Lou\'s final evidence sweep — the circled boards where Billy fell',
 });
 
 /**

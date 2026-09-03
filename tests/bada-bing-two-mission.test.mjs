@@ -206,6 +206,13 @@ test('the closed-party stage and cleanup read clearly from the playable floor', 
   assert.doesNotMatch(source, /CapsuleGeometry/);
   assert.match(source, /const evidenceMarkers = \{/);
   assert.match(source, /const serviceGuide = group\('service-exit-guide'\)/);
+  /* Owner, 2026-09-03: "need to highlight the ground where you need to clean
+   * in the hotdog incident people seem to miss it." A ring the size of the
+   * pool, with a fill the ray can hit, in the evidence-marker vocabulary. */
+  assert.match(source, /const sweepMarker = group\('sweep-marker'\)/);
+  assert.match(source, /floorCircle\('sweep-marker\.ring', -15\.85, -0\.5, 0xffc34e, 1\.45\)/);
+  assert.match(source, /sweepFill\.position\.set\(-15\.85, 0\.01, -0\.5\)/);
+  assert.match(source, /sweepMarker\.visible = false/);
   assert.match(source, /ape\.fur-brush-knife/);
   assert.doesNotMatch(source, /makeRevolver/);
 });
@@ -258,10 +265,14 @@ test('completed cleanup tasks restore every matching party prop and pad', () => 
       lapel: visible(),
       brokenStool: visible(),
       blood: { material: { opacity: 0.88 } },
+      sweepMarker: visible(),
     },
   };
 
   restoreHotDogCleanupPresentation(party, SECOND_VISIT_CLEANUP_TASKS);
+
+  // The circle round the pool goes with the pool.
+  assert.equal(party.cleanup.sweepMarker.visible, false);
 
   assert.equal(party.cleanup.bathroomPads.mens.visible, false);
   assert.equal(party.cleanup.bathroomPads.ladies.visible, false);

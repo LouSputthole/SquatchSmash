@@ -377,7 +377,7 @@ function buildHotDogEndingEntries() {
     restoreShape: 'awaiting_final_sweep',
     actions: [spatialAction(
       'final_sweep',
-      'Perform Lou\'s final evidence sweep',
+      'Perform Lou\'s final evidence sweep — the circled boards where Billy fell',
       'completeCleanup(final_sweep)',
     )],
   }));
