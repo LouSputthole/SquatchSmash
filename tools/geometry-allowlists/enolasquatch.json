@@ -4693,7 +4693,7 @@
     {
       "state": "bombrun",
       "overlap": 3499,
-      "checkSupport": 7720,
+      "checkSupport": 7719,
       "sources": [
         {
           "sourceId": "root:enolasquatch/name=clouds#0/type=Group#0/name=cloud-puff-1#0",
@@ -5059,7 +5059,7 @@
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 18
+          "checkSupport": 17
         },
         {
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0/name=numbskull-hips#0/name=numbskull-leg-right-hip#0/name=numbskull-leg-right-knee#0/name=numbskull-leg-right-boot#0",
@@ -5384,7 +5384,7 @@
     {
       "state": "detonation",
       "overlap": 3500,
-      "checkSupport": 6926,
+      "checkSupport": 6925,
       "sources": [
         {
           "sourceId": "root:enolasquatch/name=clouds#0/type=Group#0/name=cloud-puff-1#0",
@@ -5750,7 +5750,7 @@
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 18
+          "checkSupport": 17
         },
         {
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0/name=numbskull-hips#0/name=numbskull-leg-right-hip#0/name=numbskull-leg-right-knee#0/name=numbskull-leg-right-boot#0",
@@ -6075,7 +6075,7 @@
     {
       "state": "flak",
       "overlap": 3516,
-      "checkSupport": 7737,
+      "checkSupport": 7736,
       "sources": [
         {
           "sourceId": "root:enolasquatch/name=clouds#0/type=Group#0/name=cloud-puff-1#0",
@@ -6465,7 +6465,7 @@
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 18
+          "checkSupport": 17
         },
         {
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0/name=numbskull-hips#0/name=numbskull-leg-right-hip#0/name=numbskull-leg-right-knee#0/name=numbskull-leg-right-boot#0",
@@ -6790,7 +6790,7 @@
     {
       "state": "preflight",
       "overlap": 3467,
-      "checkSupport": 7688,
+      "checkSupport": 7687,
       "sources": [
         {
           "sourceId": "root:enolasquatch/name=clouds#0/type=Group#0/name=cloud-puff-1#0",
@@ -7114,7 +7114,7 @@
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 18
+          "checkSupport": 17
         },
         {
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0/name=numbskull-hips#0/name=numbskull-leg-right-hip#0/name=numbskull-leg-right-knee#0/name=numbskull-leg-right-boot#0",
@@ -7439,7 +7439,7 @@
     {
       "state": "return",
       "overlap": 3499,
-      "checkSupport": 7719,
+      "checkSupport": 7718,
       "sources": [
         {
           "sourceId": "root:enolasquatch/name=clouds#0/type=Group#0/name=cloud-puff-1#0",
@@ -7805,7 +7805,7 @@
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 18
+          "checkSupport": 17
         },
         {
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0/name=numbskull-hips#0/name=numbskull-leg-right-hip#0/name=numbskull-leg-right-knee#0/name=numbskull-leg-right-boot#0",
@@ -8124,7 +8124,7 @@
     {
       "state": "takeoff",
       "overlap": 3460,
-      "checkSupport": 7681,
+      "checkSupport": 7680,
       "sources": [
         {
           "sourceId": "root:enolasquatch/name=clouds#0/type=Group#0/name=cloud-puff-1#0",
@@ -8436,7 +8436,7 @@
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0",
           "scope": "inherited",
           "overlap": 0,
-          "checkSupport": 18
+          "checkSupport": 17
         },
         {
           "sourceId": "root:enolasquatch/name=enola-squatch#0/name=numbskull#0/name=numbskull-hips#0/name=numbskull-leg-right-hip#0/name=numbskull-leg-right-knee#0/name=numbskull-leg-right-boot#0",

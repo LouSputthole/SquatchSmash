@@ -505,14 +505,19 @@ test('Enola allowlist pins all six public states to exact fitted-airframe residu
    * line number, and the suppression counts (six more `overlap: false` surfaces
    * per state — the connecting structure's collar and traverse ring, the new
    * glazing, the bombardier cushion). The gate itself reports 0 violations and
-   * 0 configuration errors against these numbers. */
+   * 0 configuration errors against these numbers.
+   *
+   * Re-pinned again 2026-09-03: Numbskull's photographed face replaced his
+   * seventeen sculpted head meshes with one photo-skull, so his inherited
+   * checkSupport scope in the cockpit dropped 18 -> 17 in every state — one
+   * fewer suppression per state, the same 105-118 sources. */
   const expected = {
-    bombrun: { overlap: 3499, checkSupport: 7720, sources: 114 },
-    detonation: { overlap: 3500, checkSupport: 6926, sources: 114 },
-    flak: { overlap: 3516, checkSupport: 7737, sources: 118 },
-    preflight: { overlap: 3467, checkSupport: 7688, sources: 107 },
-    return: { overlap: 3499, checkSupport: 7719, sources: 113 },
-    takeoff: { overlap: 3460, checkSupport: 7681, sources: 105 },
+    bombrun: { overlap: 3499, checkSupport: 7719, sources: 114 },
+    detonation: { overlap: 3500, checkSupport: 6925, sources: 114 },
+    flak: { overlap: 3516, checkSupport: 7736, sources: 118 },
+    preflight: { overlap: 3467, checkSupport: 7687, sources: 107 },
+    return: { overlap: 3499, checkSupport: 7718, sources: 113 },
+    takeoff: { overlap: 3460, checkSupport: 7680, sources: 105 },
   };
   const states = Object.keys(expected);
 
