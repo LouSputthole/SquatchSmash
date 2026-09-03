@@ -2050,8 +2050,11 @@ try {
       && walkedIn.dealStarted
       && walkedIn.insideRoom,
     JSON.stringify(walkedIn));
-  await previewPage.waitForTimeout(180);
-  await capture(previewPage, 'after-room-first-person');
+  /* Probe BEFORE the screenshot. The door slams and the case placement
+   * opens 1.4 s after he steps in (`closeBehind` in src/motel/main.js), and a
+   * software-rendered capture can take longer than that -- so a probe taken
+   * after the capture was asking whether the objects still waited, 1.6 s
+   * after the wait had legitimately ended. */
   const meetingGate = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const enabled = Object.fromEntries(['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].map((id) => {
@@ -2065,6 +2068,8 @@ try {
       && Object.values(meetingGate.enabled).every((enabled) => enabled === false)
       && !['placeOwnCase', 'sample', 'jerkyCase', 'placeMoney'].includes(meetingGate.active),
     JSON.stringify(meetingGate));
+  await previewPage.waitForTimeout(180);
+  await capture(previewPage, 'after-room-first-person');
 
   await previewPage.waitForFunction(() => window.MOTEL.S.casePlacementReady, null, { timeout: SCENE_WAIT_MS });
   const placementReady = await previewPage.evaluate(() => {

@@ -5803,6 +5803,12 @@ try {
           pressE();
         }
         M.tick(0.08);
+        /* Owner, 2026-09-03: the glue lands on her back "before they return
+         * to the chair". `finish()` no longer reclines her; the cast tick
+         * holds her on all fours for SECOND_DRESS_GLUE_HOLD and then hands
+         * her back to the lounger. Tick through that hold before reading the
+         * head, or the authored recliner pose is asked for 1.6 s too early. */
+        for (let held = 0; held < 4 && M.cast.evening.secondDress.onAllFours; held += 0.1) M.tick(0.1);
         const final = M.cast.evening;
         const retryCues = final.secondDress.cues.slice(afterAbandon.cueCount);
         return {
