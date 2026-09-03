@@ -5401,15 +5401,50 @@ function updateDriving(dt) {
   fixedStep.advance(dt, (step) => vehicle.step(step));
   vehicle.tireGrip = restingGrip;
   driveCollisionCooldown = Math.max(0, driveCollisionCooldown - dt);
-  if (intersectsDrivingObstacle(vehicle.x, vehicle.z, level.phases.driving.obstacles)) {
-    vehicle.x = previousX;
-    vehicle.z = previousZ;
-    vehicle.speed *= -0.18;
+  const obstacles = level.phases.driving.obstacles;
+  if (intersectsDrivingObstacle(vehicle.x, vehicle.z, obstacles)) {
+    /* SCRAPE OR STOP.
+     *
+     * Every contact used to be a full stop: both axes given back, speed
+     * flipped to -0.18 of itself, 11.6 damage. Measured 2026-09-03 with a
+     * held W down Canal Road: a car drifting one degree off the centreline
+     * touched the kerb-side parked car at (10.3, -390) at a grazing angle,
+     * stopped dead, and then could not leave -- a stationary car has no yaw
+     * (`yawRate` is `tan(steer) * speed / wheelBase`), so every step under
+     * throttle pushed it back into the same face, another full stop, another
+     * 11.6 off the bodywork every 0.55 s. Engine 84 -> 16 in four seconds
+     * without the car moving a metre, then "RESTARTING FROM THE LAST SAFE
+     * TURN", 140 m back.
+     *
+     * A graze is a graze now. The axis that had to be given back names the
+     * face that stopped the car; if the car is pointed less than about 45
+     * degrees into that face it keeps the other axis, keeps most of its
+     * speed, and pays kerbstone money for it. Square into a barrier or a
+     * wall is still the wall. */
+    const slideAlongX = !intersectsDrivingObstacle(vehicle.x, previousZ, obstacles);
+    const slideAlongZ = !intersectsDrivingObstacle(previousX, vehicle.z, obstacles);
+    const into = slideAlongX ? Math.abs(Math.cos(vehicle.heading))
+      : slideAlongZ ? Math.abs(Math.sin(vehicle.heading)) : 1;
+    const scrape = (slideAlongX || slideAlongZ) && into < 0.7;
+    if (scrape) {
+      if (slideAlongX) vehicle.z = previousZ; else vehicle.x = previousX;
+      vehicle.speed *= Math.max(0, 1 - 1.4 * dt);
+    } else {
+      vehicle.x = previousX;
+      vehicle.z = previousZ;
+      vehicle.speed *= -0.18;
+    }
     if (driveCollisionCooldown <= 0) {
       driveCollisionCooldown = 0.55;
-      vehicle.applyCollision({ severity: 0.34, windshield: Math.abs(vehicle.speed) > 6 });
-      audio.play('heist.vehicle.impact');
-      suppression.noteNearMiss(0.25, 1);
+      if (scrape) {
+        vehicle.applyCollision({ severity: 0.1, tire: true });
+        audio.play('heist.vehicle.curbstone', { volume: 0.7 });
+        suppression.noteNearMiss(0.1, 1);
+      } else {
+        vehicle.applyCollision({ severity: 0.34, windshield: Math.abs(vehicle.speed) > 6 });
+        audio.play('heist.vehicle.impact');
+        suppression.noteNearMiss(0.25, 1);
+      }
     }
   }
   window.__heistDebug.fixedSteps = fixedStep.lastSteps;
