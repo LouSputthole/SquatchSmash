@@ -78,8 +78,14 @@ const ACTIONS = ['forward', 'back', 'left', 'right', 'sprint', 'crouch', 'jump']
 
 /** Open the shared menu and read back what it renders. */
 async function openMenu(page) {
+  /* The pause module registers during scene boot, and on the scheduled
+   * runner a fresh page can take tens of seconds to get there: run
+   * 33851214541 asked 36 s in, found `__scenePause` not yet registered, and
+   * the menu never opened. Wait for the registration before asking, and
+   * give the menu's own reveal the runner's frame rate. */
+  await page.waitForFunction(() => Boolean(window.__scenePause), null, { timeout: 60000 });
   const opened = await page.evaluate(() => window.__scenePause?.pause());
-  await page.locator('[data-scene-pause]:not(.hidden)').waitFor({ timeout: 10000 });
+  await page.locator('[data-scene-pause]:not(.hidden)').waitFor({ timeout: 30000 });
   const snapshot = await page.evaluate(() => {
     const root = document.querySelector('[data-scene-pause]');
     const inputs = {};

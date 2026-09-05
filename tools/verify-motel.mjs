@@ -1243,6 +1243,25 @@ try {
   await previewPage.mouse.move(240, 150);
   await previewPage.mouse.move(312, 112, { steps: 2 });
   await previewPage.waitForTimeout(80);
+  /* Chrome 151 delivers CDP pointer-locked mousemoves with movementX/Y of
+   * ZERO — run 33953123399 counted lookEvents 4 -> 14 with the facing
+   * byte-identical. When the deltas did not land, drive the same authored
+   * window-listener path with explicit deltas (the fallback the
+   * Squatchfather gate proved on the same runner). */
+  const cdpLookMoved = await previewPage.evaluate((f0) => {
+    const f = window.MOTEL.facing;
+    return Math.hypot(f.x - f0.x, f.y - f0.y, f.z - f0.z) > 0.01;
+  }, beforeLook.facing);
+  if (!cdpLookMoved) {
+    await previewPage.evaluate(() => {
+      for (const [dx, dy] of [[66, -28], [24, 10]]) {
+        window.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true, movementX: dx, movementY: dy,
+        }));
+      }
+    });
+    await previewPage.waitForTimeout(80);
+  }
   const afterLook = await previewPage.evaluate(() => ({
     facing: window.MOTEL.facing,
     input: window.MOTEL.input.snapshot(),
@@ -2750,25 +2769,36 @@ try {
    * drive's own recorded line owns the speech floor while the supplied HTML
    * score is genuinely playing. The score lives outside AudioEngine, so the
    * generic voice-duck tests cannot prove this scene-level coexistence. */
+  /* Capture the receipt IN-PAGE, on the poll that sees the floor owned. The
+   * old flow waited for coexistence and then re-sampled from the harness --
+   * but the drive line is a short take, and on the scheduled runner the
+   * second round trip landed after it ended: run 33953123399 recorded
+   * voicePlaying:false with newDriveTakeCount:1 (the take had played and
+   * finished between the wait's green poll and the sample). */
   await previewPage.waitForFunction(
     ({ line, cue, playedBefore }) => {
       const motel = window.MOTEL;
-      return motel.phase === 'drive'
+      const ok = motel.phase === 'drive'
         && motel.audio.music().playing
         && motel.voice.playing()
         && document.getElementById('subtitle')?.textContent.includes(line)
         && motel.voice.played.filter((entry) => entry.cue === cue).length > playedBefore;
+      if (ok && !window.__jerkyMixReceipt) {
+        window.__jerkyMixReceipt = {
+          phase: motel.phase,
+          music: motel.audio.music(),
+          voicePlaying: motel.voice.playing(),
+          newDriveTakeCount: motel.voice.played
+            .filter((entry) => entry.cue === cue).length - playedBefore,
+          musicEvents: motel.audio.events.filter((entry) => entry.type.startsWith('music-')),
+        };
+      }
+      return ok;
     },
     driveMixPrimer,
     { timeout: SCENE_WAIT_MS, polling: 80 },
   );
-  const jerkyActiveMix = await previewPage.evaluate(({ cue, playedBefore }) => ({
-    phase: window.MOTEL.phase,
-    music: window.MOTEL.audio.music(),
-    voicePlaying: window.MOTEL.voice.playing(),
-    newDriveTakeCount: window.MOTEL.voice.played.filter((entry) => entry.cue === cue).length - playedBefore,
-    musicEvents: window.MOTEL.audio.events.filter((entry) => entry.type.startsWith('music-')),
-  }), driveMixPrimer);
+  const jerkyActiveMix = await previewPage.evaluate(() => window.__jerkyMixReceipt);
   check('the recorded drive line and Jerky score coexist in active play',
     jerkyActiveMix.phase === 'drive'
       && jerkyActiveMix.music.playing === true

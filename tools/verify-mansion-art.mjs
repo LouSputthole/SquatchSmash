@@ -374,7 +374,10 @@ try {
     await page.evaluate(() => window.mansion.setRendering(true));
     await page.waitForFunction((frame) => window.mansion.framesRendered >= frame + 4,
       before, { timeout: 180000 });
-    await page.screenshot({ path: screenshot, timeout: 120000 });
+    /* 300 s: run 33851214541 rendered five shots and then spent the whole
+     * 120 s budget rasterizing the sixth — SwiftShader pays for these heavy
+     * frames in minutes, and the run that finishes pays only what it costs. */
+    await page.screenshot({ path: screenshot, timeout: 300000 });
     await page.evaluate(() => window.mansion.setRendering(false));
     console.log(`  wrote ${path.basename(screenshot)}`);
     return {

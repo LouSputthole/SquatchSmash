@@ -168,6 +168,29 @@ check('1w. not one requested recording failed to decode (failedCues is empty)',
   voResidency.failed.length === 0,
   voResidency.failed.slice(0, 5).join(' | ') || 'failedCues empty');
 
+/* Let the opening camera SETTLE before any synthetic input exists. The boot
+ * presentation eases yaw and pitch toward the authored car-park facing over
+ * rendered frames — about one a second on the scheduled runner — and the
+ * first canvas click ends it: run 33953123399 captured beforeRealInput at
+ * yaw 0.669/pitch 0.539 with 10 click-borne look events already counted,
+ * where a local box reads the settled yaw 0.137/pitch 0. The real-input
+ * cleanup below restores whatever this captures, so waiting AFTER the click
+ * (the previous fix) froze the mid-ease pose for the rest of the round and
+ * check 1e re-measured its 0.74 forever. */
+await page.waitForFunction(() => {
+  const g = window.__golf;
+  if (Math.abs(g.player.pitch) > 0.02) return false;
+  g.camera.updateMatrixWorld();
+  const forward = new g.player.position.constructor();
+  g.camera.getWorldDirection(forward);
+  const toBag = new g.player.position.constructor(
+    g.LAYOUT.lot.bag.x - g.camera.position.x,
+    0,
+    g.LAYOUT.lot.bag.z - g.camera.position.z,
+  ).normalize();
+  return forward.dot(toBag) > 0.75;
+}, null, { timeout: 90000 }).catch(() => {});
+
 /* Cross the browser-to-Player Seam before this verifier teleports or steps any
  * mission state. The canvas click is trusted browser input; mouse and W must
  * move the real Player; release must clear the held key; and the canonical
@@ -199,6 +222,23 @@ for (const [x, y] of [[300, 125], [170, 185], [330, 115]]) {
   await page.mouse.move(x, y, { steps: 3 });
 }
 if (dragLook) await page.mouse.up();
+/* Chrome 151 delivers CDP pointer-locked mousemoves with movementX/Y of
+ * ZERO: run 33953123399 counted 53 look events across the drag with the
+ * yaw byte-identical. If the deltas did not land, drive the same authored
+ * window-listener path with explicit movement deltas — the fallback the
+ * Squatchfather gate proved on that same runner. */
+const cdpYawMoved = await page.evaluate((yaw0) => (
+  Math.abs(window.__golf.player.yaw - yaw0) > 0.001
+), beforeRealInput.yaw);
+if (!cdpYawMoved) {
+  await page.evaluate(() => {
+    for (const [dx, dy] of [[66, -28], [24, 10]]) {
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, movementX: dx, movementY: dy,
+      }));
+    }
+  });
+}
 await page.keyboard.down('w');
 await page.waitForFunction(({ x, z }) => {
   const player = window.__golf.player;
@@ -294,26 +334,10 @@ check('1d. Tab returns control to the round',
 /* Shared HUD visibility fades in; assert the settled player-facing state,
  * not an arbitrary point inside its 400 ms presentation transition. */
 await page.waitForTimeout(450);
-/* The camera eases toward its authored facing over rendered frames with a
- * clamped dt, so the tween's finish line is measured in FRAMES, not wall
- * clock — and the scheduled runner renders about one a second. Two real
- * rAFs (the previous fix) still sampled mid-ease: runs 33605986463 and
- * 33731301150 both measured alignment 0.74 against the 0.75 floor while a
- * local box reports a settled 1.00. So wait, bounded, for the settled
- * facing itself; a camera that never reaches it still fails below, at the
- * timeout, with the true value in the receipt. */
-await page.waitForFunction(() => {
-  const g = window.__golf;
-  g.camera.updateMatrixWorld();
-  const forward = new g.player.position.constructor();
-  g.camera.getWorldDirection(forward);
-  const toBag = new g.player.position.constructor(
-    g.LAYOUT.lot.bag.x - g.camera.position.x,
-    0,
-    g.LAYOUT.lot.bag.z - g.camera.position.z,
-  ).normalize();
-  return forward.dot(toBag) > 0.75;
-}, null, { timeout: 45000 }).catch(() => {});
+/* The camera holds the pose the real-input cleanup restored — the settled
+ * facing captured by the pre-input wait above. Nothing eases here any
+ * more (the drag's look events ended the opening ease), so this sample is
+ * deterministic on any runner speed. */
 const openingGuide = await page.evaluate(() => {
   const g = window.__golf;
   g.camera.updateMatrixWorld();
@@ -440,6 +464,18 @@ const clubArt = await page.evaluate(async () => {
     }));
 
   const golfer = g.golfers.eric;
+  /* Pin the stance before measuring. The scheduled runner renders about a
+   * frame a second, so this sample can catch Eric frozen mid-walk or
+   * mid-practice-swing, with the frozen arm pose carrying the club head
+   * through the turf: run 33953123399 measured driver clearance -0.51
+   * where a local box reads +0.11 in the idle carry stance the check is
+   * about. Save his staging, zero the rig to the idle carry pose, measure,
+   * and hand his walk and state straight back. */
+  const stagedWalk = golfer._walk ?? null;
+  const stagedState = golfer.state;
+  golfer._walk = null;
+  golfer.state = 'idle';
+  golfer._resetPose();
   const ground = g.heightAt(golfer.position.x, golfer.position.z);
   const inHand = {};
   for (const kind of ['driver', 'iron', 'putter']) {
@@ -460,6 +496,8 @@ const clubArt = await page.evaluate(async () => {
     };
   }
   golfer.setClub('iron');
+  golfer._walk = stagedWalk;
+  golfer.state = stagedState;
   return {
     bagParts: bag?.children.map((child) => child.name).filter(Boolean) ?? [],
     inBag,

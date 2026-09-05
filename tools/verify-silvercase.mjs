@@ -318,7 +318,7 @@ async function openOrdinaryResume(rawCampaign, label) {
     () => window.silvercase.fsm.name !== 'MENU', null, { timeout: 60000 },
   );
   await branchPage.waitForFunction(
-    () => window.silvercase.input.snapshot().locked, null, { timeout: 5000 },
+    () => window.silvercase.input.snapshot().locked, null, { timeout: 30000 },
   );
   return {
     page: branchPage,
@@ -376,7 +376,7 @@ async function ensureCleanPathCapture(branchPage) {
   await branchPage.waitForFunction(
     () => window.silvercase.input.snapshot().captured,
     null,
-    { timeout: 5000 },
+    { timeout: 30000 },
   );
 }
 
@@ -559,7 +559,7 @@ async function runCleanStartGoldenPath() {
     await goldenPage.waitForFunction(
       () => window.silvercase.fsm.name === 'KNOCK',
       null,
-      { timeout: 3000 },
+      { timeout: 30000 },
     );
 
     const apartmentReady = await advanceCleanPathUntil(goldenPage, 'beat:ENTER_APARTMENT');
@@ -580,7 +580,7 @@ async function runCleanStartGoldenPath() {
     await goldenPage.waitForFunction(
       () => window.silvercase.fsm.name === 'ESTABLISH_CONTROL',
       null,
-      { timeout: 3000 },
+      { timeout: 30000 },
     );
 
     // Travel around the coffee table instead of walking a mathematical
@@ -607,7 +607,7 @@ async function runCleanStartGoldenPath() {
     await goldenPage.waitForFunction(
       () => window.silvercase.fsm.name === 'CASE_REVEAL',
       null,
-      { timeout: 3000 },
+      { timeout: 30000 },
     );
 
     const couchBeat = await advanceCleanPathUntil(goldenPage, 'beat:COUCH_SHOOTING');
@@ -654,7 +654,7 @@ async function runCleanStartGoldenPath() {
     await goldenPage.waitForFunction(
       () => window.silvercase.fsm.name === 'EXIT',
       null,
-      { timeout: 3000 },
+      { timeout: 30000 },
     );
 
     const exitLegA = await walkCleanPathTo(
@@ -863,7 +863,7 @@ try {
     () => window.silvercase.fsm.name === 'CAR_RIDE', null, { timeout: 60000 },
   );
   await page.waitForFunction(
-    () => window.silvercase.input.snapshot().locked, null, { timeout: 5000 },
+    () => window.silvercase.input.snapshot().locked, null, { timeout: 30000 },
   );
   let carRide = await page.evaluate(() => {
     const sc = window.silvercase;
@@ -1360,7 +1360,7 @@ try {
   // input wiring pass this check.
   await page.locator('canvas').click({ position: { x: 480, y: 300 } });
   await page.waitForFunction(() => window.silvercase.input.snapshot().captured, null, {
-    timeout: 5000,
+    timeout: 30000,
   });
   const beforeMove = await page.evaluate(() => {
     const p = window.silvercase.player;
@@ -1643,7 +1643,7 @@ try {
   await page.waitForFunction(
     (before) => window.silvercase.input.snapshot().mouseDownEvents > before,
     couchMouseDownBefore,
-    { timeout: 3000 },
+    { timeout: 30000 },
   );
   /* Capture the subtitle receipt IN-PAGE, on the frame Chester owns the
    * card. The old flow waited for his cue in the voiceLog and then read the
@@ -1667,15 +1667,18 @@ try {
     return !sc.cast.deke.alive
       && sc.dialogue.voiceLog.some((line) => line.cue === 'vo.silvercase.couch.chester.whatthehell')
       && Boolean(window.__chesterSubtitleReceipt);
-    /* 90 s of wall clock, because the bound is GAME time: the loop steps a
-     * clamped dt per rendered frame, and the scheduled runner renders about
-     * one frame a second — so the shot resolution, the slump and Chester's
+    /* Wall clock, because the bound is GAME time: the loop steps a clamped
+     * dt per rendered frame, and the scheduled runner renders about one
+     * frame a second — so the shot resolution, the slump and Chester's
      * scheduled take advance at a twentieth of wall speed. Run 33605986463
-     * timed out here at 5 s and run 33731301150 at 20 s, both with every
-     * prior check green; 90 s buys the ~4 s of game time the beat needs at
-     * the runner's worst measured rate. The predicate is unchanged — a card
-     * that never shows still fails, just honestly. */
-  }, null, { timeout: 90000 });
+     * timed out here at 5 s, run 33731301150 at 20 s, and run 33953123399
+     * at 90 s, every one with all prior checks green — the runner's worst
+     * rate keeps arriving under each new estimate. 300 s funds the beat the
+     * way the downT waits below fund theirs (17.8 sim-seconds took 209 wall
+     * seconds when measured); the predicate is unchanged — a card that
+     * never shows still fails, just honestly, and a healthy run pays only
+     * what the frames cost. */
+  }, null, { timeout: 300000 });
   const chesterSubtitleReceipt = await page.evaluate(() => window.__chesterSubtitleReceipt);
   /* A wall-clock sleep is not a game-frame guarantee under SwiftShader. The
    * old 120 ms pause could contain no rendered update, then sample Chester at
@@ -1693,7 +1696,7 @@ try {
     const dz = chester.group.position.z - reaction.origin.z;
     return dx * reaction.away.x + dy * reaction.away.y + dz * reaction.away.z > 0.015;
     /* Same game-time-versus-wall-clock allowance as the subtitle wait above. */
-  }, null, { timeout: 90000 });
+  }, null, { timeout: 300000 });
   const chesterImmediateReaction = await page.evaluate(() => {
     const sc = window.silvercase;
     const line = [...sc.dialogue.voiceLog].reverse()
@@ -1949,7 +1952,7 @@ try {
     const state = window.silvercase.state();
     return state.mission.lastShot?.intended === 'Chester'
       && state.mission.lastShot?.onTarget === true;
-  }, null, { timeout: 5000 });
+  }, null, { timeout: 30000 });
   const chairImmediately = await page.evaluate(() => ({
     state: window.silvercase.state(),
     input: window.silvercase.input.snapshot(),
@@ -2246,7 +2249,7 @@ try {
   await page.mouse.down({ button: 'left' });
   try {
     await page.waitForFunction(() => window.silvercase.cast.pruitt.alive === false, null, {
-      timeout: 5000,
+      timeout: 30000,
     });
   } catch (error) {
     const diagnostic = await page.evaluate(() => ({
@@ -2360,14 +2363,14 @@ try {
   if (!await page.evaluate(() => window.silvercase.input.snapshot().captured)) {
     await page.locator('canvas').click({ position: { x: 480, y: 270 } });
     await page.waitForFunction(() => window.silvercase.input.snapshot().captured, null, {
-      timeout: 5000,
+      timeout: 30000,
     });
   }
   const caseInteractionBefore = await page.evaluate(
     () => window.silvercase.input.snapshot().interactionPresses,
   );
   await page.keyboard.press('KeyE');
-  await page.waitForFunction(() => window.silvercase.fsm.name === 'EXIT', null, { timeout: 5000 });
+  await page.waitForFunction(() => window.silvercase.fsm.name === 'EXIT', null, { timeout: 30000 });
   const carried = await page.evaluate(() => window.silvercase.state());
   const caseInteractionRecorded = await page.evaluate(
     (before) => window.silvercase.input.snapshot().interactionPresses > before,
@@ -2438,7 +2441,7 @@ try {
   await page.waitForFunction(
     () => !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
     null,
-    { timeout: 5000 },
+    { timeout: 30000 },
   );
   const complete = await page.evaluate(() => ({
     state: window.silvercase.state(),
@@ -2526,7 +2529,7 @@ try {
       await p.waitForFunction(
         () => window.silvercase.dialogue.choice === null,
         null,
-        { timeout: 7000 },
+        { timeout: 30000 },
       );
       const defaulted = await p.evaluate((started) => ({
         elapsed: (performance.now() - started) / 1000,
@@ -2563,7 +2566,7 @@ try {
       await p.waitForFunction(
         () => window.silvercase.dialogue.choice === null,
         null,
-        { timeout: 3000 },
+        { timeout: 30000 },
       );
       const spared = await p.evaluate(() => ({
         beat: window.silvercase.fsm.name,
@@ -2593,7 +2596,7 @@ try {
       await p.waitForFunction(
         () => window.silvercase.fsm.name === 'EXECUTE_WINSTON',
         null,
-        { timeout: 3000 },
+        { timeout: 30000 },
       );
       const ordered = await p.evaluate(() => window.silvercase.state());
       check('Digit2 enters the Winston execution beat without killing him on the choice key',
@@ -2672,7 +2675,7 @@ try {
       await p.waitForFunction(
         () => window.silvercase.fsm.name === 'EXIT',
         null,
-        { timeout: 5000 },
+        { timeout: 30000 },
       );
       const killExitStart = await p.evaluate(() => ({
         x: window.silvercase.player.position.x,
@@ -2706,7 +2709,7 @@ try {
       await p.waitForFunction(
         () => !document.getElementById('sceneCompleteOverlay').classList.contains('hidden'),
         null,
-        { timeout: 5000 },
+        { timeout: 30000 },
       );
       const killComplete = await p.evaluate(() => ({
         state: window.silvercase.state(),

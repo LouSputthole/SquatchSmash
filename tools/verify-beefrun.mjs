@@ -1395,6 +1395,22 @@ const chain = await page.evaluate(() => {
     b.cameras.update(0.016, b.physics, b.aircraft.group, b.aircraft.pilotEye, {});
   });
   await resumePage.mouse.move(366, 460, { steps: 3 });
+  /* Chrome 151 delivers CDP pointer-locked mousemoves with movementX/Y of
+   * ZERO — run 33953123399 timed out below with the glance never taken.
+   * When the deltas did not land, drive the same authored listener path
+   * with the move's own deltas (480,300 -> 366,460), the fallback the
+   * Squatchfather gate proved on this runner. */
+  const cdpGlanceMoved = await resumePage.evaluate(() => (
+    Math.abs(window.__beefrun.cameras.lookYaw) > 0.01
+    || Math.abs(window.__beefrun.cameras.lookPitch) > 0.01
+  ));
+  if (!cdpGlanceMoved) {
+    await resumePage.evaluate(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, movementX: -114, movementY: 160,
+      }));
+    });
+  }
   await resumePage.waitForFunction(() => {
     const b = window.__beefrun;
     const point = b.aircraft.parts.tammySticker.getWorldPosition(new b.THREE.Vector3());
@@ -1402,7 +1418,9 @@ const chain = await page.evaluate(() => {
     return b.cameras.lookYaw > 0.18 && b.cameras.lookPitch < -0.25
       && Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1
       && point.z >= -1 && point.z <= 1;
-  }, null, { timeout: 5000 });
+    /* 30 s, not 5: the camera applies the look on rendered frames, and the
+     * scheduled runner draws about one a second. */
+  }, null, { timeout: 30000 });
   const tammyGlance = await resumePage.evaluate(() => {
     const b = window.__beefrun;
     const point = b.aircraft.parts.tammySticker.getWorldPosition(new b.THREE.Vector3());

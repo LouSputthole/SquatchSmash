@@ -72,7 +72,15 @@ try {
     { waitUntil: 'load' },
   );
   await apartment.waitForFunction(() => window.__squatch?.radio, null, { timeout: 60000 });
-  await apartment.locator('#start-btn').click({ timeout: 10000 });
+  /* Not a pointer click: scheduled runs 33851214541 and 33953123399 both
+   * finished the click action and then timed out inside Playwright's
+   * post-click bookkeeping ("waiting for scheduled navigations to finish")
+   * while the scene boot starved the main thread. A focused button and a
+   * real Enter press is the same trusted user gesture for the
+   * AudioContext, with no navigation wait attached (the Day Two gate's
+   * proven boot path). */
+  await apartment.evaluate(() => document.getElementById('start-btn')?.focus());
+  await apartment.keyboard.press('Enter');
   await apartment.waitForFunction(() => window.__squatch?.game?.started === true
     && window.__squatch?.radio?.on === true, null, { timeout: 60000 });
   /* SwiftShader can render the Apartment below one frame per second under

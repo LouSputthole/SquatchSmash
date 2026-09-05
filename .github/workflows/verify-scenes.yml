@@ -200,6 +200,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # npm ci wipes the ignored node_modules/three shim that lets gate
+      # tools statically import src modules Node-side. Verify's push job
+      # gets it back for free because an earlier step in the same workspace
+      # rewrites it; here every gate is its own fresh runner, and run
+      # 33953123399 failed five campaign gates in under a minute each on
+      # ERR_MODULE_NOT_FOUND 'three' before a browser ever launched.
+      - name: Restore the Node-side three shim
+        run: node -e "import('./tools/three-shim.mjs').then((m) => m.ensureThreeShim())"
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

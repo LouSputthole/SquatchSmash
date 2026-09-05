@@ -206,6 +206,36 @@ async function pressCode(code) {
   await step(0.1);
 }
 
+/* The floor ask ("Well? He's not going to volunteer.") is the persistent
+ * prompt between counted impacts, and every green run proves a click lands
+ * and counts while it is up: impacts 2-6 count on node 'floor' in run after
+ * run. Only the bark exchange owns a click. So the impact window is "no bark
+ * open", not "no dialogue at all" -- run 33953123399 spent a pre-click wait
+ * on the floor ask itself and handed impact 7 to whatever frame followed. */
+async function waitForImpactWindow(maxSeconds = 90) {
+  for (let elapsed = 0; elapsed < maxSeconds; elapsed += 0.25) {
+    const current = await facts();
+    if (!current.active || current.node === 'floor') return current;
+    await step(0.25);
+  }
+  return facts();
+}
+
+/* Fund the swing before judging the click. The impact applies at the swing's
+ * own frame, which can sit past the game time the click itself stepped; the
+ * real loop pays the difference on a 60 fps box and does not on the scheduled
+ * runner's one frame a second. Stepping until the count moves keeps the
+ * one-click-one-hit assertion intact: a double-count still fails, and a click
+ * that truly missed still comes back short after the bounded budget. */
+async function waitForHits(wanted, maxSeconds = 4) {
+  for (let elapsed = 0; elapsed < maxSeconds; elapsed += 0.25) {
+    const current = await facts();
+    if (current.hits >= wanted || current.dead) return current;
+    await step(0.25);
+  }
+  return facts();
+}
+
 /** Stage a normal first-person pose, then aim at the centre of a production target. */
 async function stageAim(target, stand) {
   return page.evaluate(({ target: targetName, stand: pose }) => {
@@ -798,9 +828,9 @@ try {
      * swings:0 with hits pinned at 4. So every counted impact waits for the
      * dialogue floor first -- the one-click-one-hit assertion below is
      * untouched, because the click that counts happens with no node open. */
-    await waitForDialogue({ active: false });
+    await waitForImpactWindow();
     await clickCanvas(wanted === 7 ? 0.38 : 0.7);
-    let hit = await facts();
+    let hit = await waitForHits(wanted);
     /* A starved hosted runner can land a click on the frame the Gratin bark
      * owns and the impact never registers: scheduled run 33488181465 failed
      * exactly here one hit short while the same tree passes locally every
@@ -808,9 +838,9 @@ try {
      * so the assertion this check exists for -- one click, one hit, never
      * two -- is untouched: a double-count still fails on the first click. */
     for (let retry = 0; retry < 2 && hit.hits < wanted; retry += 1) {
-      await waitForDialogue({ active: false });
+      await waitForImpactWindow();
       await clickCanvas(0.5);
-      hit = await facts();
+      hit = await waitForHits(wanted);
     }
     routeCheck(`fatal route left-click impact ${wanted} is counted once`,
       hit.hits === wanted && (wanted < 7 ? hit.phase === 'open' : hit.phase === 'done'),

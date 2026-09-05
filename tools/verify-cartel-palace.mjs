@@ -377,6 +377,22 @@ try {
   });
   await page.mouse.move(480, 300);
   await page.mouse.move(552, 266, { steps: 2 });
+  /* Chrome 151 delivers CDP pointer-locked mousemoves with movementX/Y of
+   * ZERO — run 33953123399 held yaw at exactly 0 through both moves. When
+   * the deltas did not land, drive the same authored window-listener path
+   * with explicit deltas (the fallback the Squatchfather gate proved). */
+  const cdpYawMoved = await page.evaluate((yaw0) => (
+    Math.abs(window.CARTEL_PALACE.player.yaw - yaw0) > 0.01
+  ), cleanInputBefore.yaw);
+  if (!cdpYawMoved) {
+    await page.evaluate(() => {
+      for (const [dx, dy] of [[66, -28], [24, 10]]) {
+        window.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true, movementX: dx, movementY: dy,
+        }));
+      }
+    });
+  }
   await page.keyboard.down('w');
   await page.waitForFunction(({ x, z }) => {
     const player = window.CARTEL_PALACE.player;

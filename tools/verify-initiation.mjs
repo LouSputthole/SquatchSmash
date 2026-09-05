@@ -63,9 +63,13 @@ const REQUIRED_TRAIL_BEATS = Object.freeze(['IN-210', 'IN-220', 'IN-230', 'IN-24
  * wall time is never misreported as a collision softlock. On the 2026-08-28
  * release machine the clean run hit the old 240-second ceiling with live
  * input, nonzero velocity, progress less than one second old, and only 7.1 m
- * left. Six minutes keeps a measured 50% wall-clock margin without changing
- * the authored route or using a position shortcut. */
-const APPROACH_WALK_TIMEOUT_MS = 360_000;
+ * left, and scheduled run 33953123399 hit the six-minute ceiling the same
+ * way — velocity 2.35, progress 539 ms old, 3.3 m from the final slot: the
+ * runner renders about a frame a second and the clamped dt walks roughly a
+ * tenth of a metre of ground per wall second, so the whole track honestly
+ * needs over 500 s. Fifteen minutes funds that walk with margin; a genuinely
+ * wedged player still fails here, with the same diagnostics. */
+const APPROACH_WALK_TIMEOUT_MS = 900_000;
 /* A wall-clock-only stuck detector is false under a throttled SwiftShader
  * frame: on the 2026-08-28 release machine, five seconds sometimes contained
  * only one or two observable steering samples. Require a real sample budget
