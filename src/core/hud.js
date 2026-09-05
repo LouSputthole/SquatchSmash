@@ -246,6 +246,9 @@ export class Hud {
          * that we have." */
         this.objectives.classList.add('op-panel');
         ensureObjectivePanelStyle(document);
+        this.objectivesHint = document.createElement('div');
+        this.objectivesHint.className = 'ohint hidden';
+        this.objectives.append(this.objectivesHint);
         this._objectiveVisibility = createObjectiveDisplayController({
           show: () => this.objectives.classList.remove('hidden'),
           collapse: () => this.objectives.classList.add('hidden'),
@@ -269,7 +272,9 @@ export class Hud {
       return;
     }
     // Only touch the DOM when the list actually reads differently.
-    const key = `${plan.day}|${items.map((i) => [
+    const primary = items.find((item) => item.current) ?? items.find((item) => !item.rule && !item.done);
+    const hint = plan.hint || primary?.hint || '';
+    const key = `${plan.day}|${hint}|${items.map((i) => [
       i.id ?? '',
       i.rule ?? '',
       i.label ?? '',
@@ -280,6 +285,8 @@ export class Hud {
     if (key === this._objectivesKey) return;
     this._objectivesKey = key;
     this.objectivesTitle.textContent = `Day ${plan.day} · today`;
+    this.objectivesHint.textContent = hint;
+    this.objectivesHint.classList.toggle('hidden', !hint);
     this.objectivesList.replaceChildren(...items.map((item) => {
       const el = document.createElement('li');
       el.className = `${item.done ? 'done' : ''} ${item.required ? 'required' : ''}`.trim();

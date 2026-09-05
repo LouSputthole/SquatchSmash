@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createObjectiveGuide } from '../core/objective-guide.js';
 
 import { createArcade } from '../arcade/mount.js';
 import { AudioEngine } from '../core/audio.js';
@@ -1747,6 +1748,48 @@ chapter = createCabinChapterRuntime({
 /* The builder owns the authored registrations. These fallbacks keep the
  * public exterior contract useful to a stripped-down geometry preview too. */
 const landmarkById = new Map(COUNTRYSIDE_CABIN_LANDMARKS.map((entry) => [entry.id, entry]));
+createObjectiveGuide({
+  camera, panel: objectivePanel.element,
+  isActive: () => state.phase === 'active' && !state.paused && !state.resting
+    && !state.posture && !dialogue?.active && !phone.inCall && !executionChoice?.active,
+  getStep: () => story.objectivePlan().step,
+  getTarget: () => {
+    const phase = story.phase();
+    const target = (id, label, object) => object ? { id, label, object } : null;
+    if (phase === 'arrival_rest' || phase === 'second_rest') {
+      return target('bed', 'Cabin bed', cabin.utilityTargets.bed);
+    }
+    if (phase === 'explore') {
+      const remaining = COUNTRYSIDE_CABIN_LANDMARKS.filter((entry) => !story.landmarkComplete(entry));
+      remaining.sort((a, b) => player.position.distanceToSquared(cabin.landmarks[a.id].position)
+        - player.position.distanceToSquared(cabin.landmarks[b.id].position));
+      const next = remaining[0];
+      return next ? target(next.id, next.shortLabel, cabin.interactionTargets[next.id]) : null;
+    }
+    if (phase === 'margo_call' || phone.ringing) return target('phone', 'Cabin phone', cabin.utilityTargets.phone);
+    if (phase === 'open_cellar') return target('cellar-entry', 'Cellar entrance', cabin.basement.entryTarget);
+    if (phase === 'enter_dungeon') return {
+      id: 'dungeon-entry', label: 'Cellar passage', position: cabin.basement.spawns.dungeonEntry.position,
+    };
+    const cleanup = cabin.bodyCleanup.interactionTargets;
+    if (phase === 'wrap_bodies' && story.nightfallBriefingComplete()) {
+      const next = Object.values(CABIN_HOSTAGE_IDS).map((id) => dungeonActorFor(id)?.bodyTarget)
+        .find((mesh) => mesh?.userData.interact?.enabled?.());
+      return target(next?.name ?? 'wrap', 'Wrap the body', next);
+    }
+    if (phase === 'carry_bodies') {
+      if (state.carryingBody) return state.level === 'basement'
+        ? target('cellar-exit', 'Ladder up through the wardrobe', cabin.basement.exitTarget)
+        : target('pyre', 'Carry to the firepit', cleanup.fire);
+      const next = Object.values(cleanup.bodies).find((mesh) => mesh.userData.interact?.enabled?.());
+      return target(next?.name ?? 'body', 'Pick up the wrapped body', next);
+    }
+    if (phase === 'pour_gas') return target('gas-can', 'Gasoline beside the firepit', cleanup.gasCan);
+    if (phase === 'ignite_bonfire') return target('pyre', 'Light the pyre', cleanup.ignition);
+    if (story.tryLeave().kind === 'go') return target('car', 'Family car', cabin.carTarget);
+    return null;
+  },
+});
 for (const [id, target] of Object.entries(cabin.interactionTargets ?? {})) {
   if (!target || target.userData?.interact || id === 'car') continue;
   const landmark = landmarkById.get(id);

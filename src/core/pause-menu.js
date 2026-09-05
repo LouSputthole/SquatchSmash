@@ -407,8 +407,25 @@ export function createPauseMenu({
   const list = root.querySelector('[data-scene-pause-instructions]');
   const actions = root.querySelector('.scene-pause-actions');
   const resumeButton = root.querySelector('[data-scene-pause-resume]');
+  const directionButton = document.createElement('button');
+  directionButton.type = 'button';
+  directionButton.className = 'secondary';
+  directionButton.dataset.sceneObjectiveDirection = '';
+  directionButton.textContent = 'Show objective direction';
+  directionButton.hidden = true;
+  directionButton.addEventListener('click', () => {
+    resume();
+    window.__objectiveGuide?.reveal();
+  });
+  actions.appendChild(directionButton);
 
   const recoveryButtons = {};
+  const recoveryHelp = document.createElement('p');
+  recoveryHelp.dataset.sceneRecoveryHelp = '';
+  recoveryHelp.setAttribute('role', 'status');
+  recoveryHelp.hidden = true;
+  actions.after(recoveryHelp);
+  let recoveryBusy = false;
   if (recovery?.getState
     && recovery?.restartFromCheckpoint
     && recovery?.restartScene
@@ -423,10 +440,21 @@ export function createPauseMenu({
       button.className = 'secondary';
       button.dataset.sceneRecoveryAction = id;
       button.textContent = label;
-      button.addEventListener('click', () => {
-        if (button.disabled || button.hidden) return;
-        resume();
-        recovery[method]();
+      button.addEventListener('click', async () => {
+        if (button.disabled || button.hidden || recoveryBusy) return;
+        recoveryBusy = true;
+        try {
+          resume();
+          const result = await recovery[method]();
+          if (result === false || result?.ok === false) {
+            pause();
+            recoveryHelp.textContent = 'That recovery could not finish. Your saved progress is kept. Try another recovery option.';
+          }
+        } catch (error) {
+          console.error('[recovery]', error);
+          pause();
+          recoveryHelp.textContent = 'Recovery failed. Try another option or export your save before reloading.';
+        } finally { recoveryBusy = false; }
       });
       recoveryButtons[id] = button;
       actions.appendChild(button);
@@ -684,8 +712,13 @@ export function createPauseMenu({
      * the next pause reopens with a paste box and no way to see it. */
     if (!saveVisible) importPanel.hidden = true;
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
+    directionButton.hidden = !window.__objectiveGuide?.available();
     if (recoveryButtons.checkpoint) {
       const state = recovery.getState();
+      recoveryHelp.hidden = false;
+      recoveryHelp.textContent = state.skipAvailable
+        ? 'Still stuck? Skip scene is now available to continue the story.'
+        : 'Stuck? Try a checkpoint or scene restart. Skip scene unlocks after two retries.';
       recoveryButtons.checkpoint.disabled = !state.checkpointAvailable;
       recoveryButtons.checkpoint.title = state.checkpointAvailable
         ? 'Return to the latest durable checkpoint'

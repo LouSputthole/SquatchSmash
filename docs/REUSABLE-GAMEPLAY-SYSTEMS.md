@@ -1031,10 +1031,20 @@ the keymap. Camera shake is multiplied by `shakeScale()` at the point it is
 applied to the camera.
 
 The recovery Interface is `getState()`, `restartFromCheckpoint()`,
-`restartScene()` and `skipScene()`. Skip unlocks after either two checkpoint
-restarts or two scene restarts. The persistent key is
+`restartScene()` and `skipScene()`. Skip unlocks after two retries in any
+combination of checkpoint and scene restarts. Failed storage writes retain
+the retry ledger for the current page; successful writes remain durable. The persistent key is
 `squatch-life.scene-recovery.v1`; preview runs use isolated preview/session
 storage and must not touch the canonical campaign.
+
+`src/core/objective-guide.js` provides scene-authored direction assistance.
+Apartment, cabin, Bing, graveyard and luxury apartment adapters derive their
+next target from live objectives and actual world objects. `[J]` reveals its
+label, distance and a clamped screen marker for 14 active seconds; 45 seconds
+without objective or distance progress reveals it automatically. Pause,
+posture and dialogue time do not count. The pause menu also offers **Show
+objective direction**, including when J is rebound to a movement action.
+The guide never changes campaign state or completes an interaction.
 
 ### Stable UI labels
 

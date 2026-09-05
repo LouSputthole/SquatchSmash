@@ -174,6 +174,22 @@ function receiveCord(h) {
   return h;
 }
 
+test('the back room names the next physical action and relinquishes the card outside', () => {
+  const h = walkIn(harness());
+  receiveCord(h);
+  h.dialogue.finish();
+  assert.match(h.quest.guidance.hint, /prep table/);
+  assert.ok(h.quest.guidance.target.object.userData.interact);
+  const watch = h.quest.table.get('watch');
+  watch.pad.userData.interact.onUse();
+  assert.match(h.quest.guidance.hint, /Click.*break.*Q.*back/);
+  assert.equal(h.quest.guidance.target, null, 'a held object must not still be marked on the table');
+  h.quest.stepBack();
+  h.dialogue.finish();
+  h.standAt(0, 0);
+  assert.equal(h.quest.guidance, null);
+});
+
 test('every sound the store room reaches for is one the club has decoded', () => {
   /* The scene plays eight cues that have been ASKED for and not yet recorded,
    * and a stand-in beside each one until they land. Both halves have to be in

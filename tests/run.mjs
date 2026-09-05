@@ -219,6 +219,7 @@ const TEST_MODULES = [
   './framing-allowlist.test.mjs',
   './prompt-hud.test.mjs',
   './objective-panel.test.mjs',
+  './objective-guide.test.mjs',
   './subtitle-priority.test.mjs',
   './framing-beats.test.mjs',
   './shared-system-adoption.test.mjs',

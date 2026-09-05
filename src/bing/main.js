@@ -11,6 +11,7 @@
  * everybody would expect at the end.
  */
 import * as THREE from 'three';
+import { createObjectiveGuide } from '../core/objective-guide.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
@@ -932,6 +933,9 @@ const MISSION_SPINE = new Set(['lou', 'office', 'speak', 'take', 'listen', 'leav
 
 /** One line of direction under the list, keyed to where the evening is. */
 function missionHint() {
+  if (!isSecondVisit && mission.leaveBlocker === 'margo_number') {
+    return 'Margo is at the bar. Ask for her number before leaving.';
+  }
   switch (mission.state) {
     case 'lot': case 'outside': return 'Head in through the front.';
     case 'club': return 'The hallway to the back is on the right.';
@@ -944,6 +948,11 @@ function missionHint() {
 }
 
 function paintObjectives(list) {
+  const roomObjective = licenseToGrill?.guidance;
+  if (roomObjective) {
+    objectivePanel.setLine(roomObjective.label, { title: 'LICENSE TO GRILL', hint: roomObjective.hint });
+    return;
+  }
   const now = list.find((o) => !o.done && !o.optional && MISSION_SPINE.has(o.id));
   const item = (o) => ({
     label: o.text,
@@ -1036,7 +1045,7 @@ function objectivesTick() {
     /* The hint follows `mission.state`, which can move without any objective
      * flipping -- entering the hallway, say -- so it has to be part of what
      * counts as "something moved". */
-    + `|${mission.state}`;
+    + `|${mission.state}|${licenseToGrill?.guidance?.label ?? ''}|${licenseToGrill?.guidance?.hint ?? ''}`;
   if (sig === objectiveSig) return;
   objectiveSig = sig;
   repaintObjectives();
@@ -2827,6 +2836,34 @@ function paintMachine() {
 /* ------------------------------------------------------------------ */
 
 let dragLookHinted = false;
+createObjectiveGuide({
+  camera, panel: objectivePanel.element,
+  isActive: () => game.started && !game.paused && !game.over && !game.seatedIn && !game.beat && !dialogue.active,
+  getStep: () => `${mission.state}|${licenseToGrill.guidance?.label ?? ''}`,
+  getTarget: () => {
+    const sideQuest = licenseToGrill.guidance;
+    if (sideQuest) return sideQuest.target;
+    const door = (id, label) => ({ id, label, object: club.doors[id].pivot });
+    const currentRoom = roomAt(player.position.x, player.position.z);
+    const exitTarget = () => currentRoom === 'lot' || currentRoom === 'outside'
+      ? { id: 'car', label: 'Your car · hold E at the wheel to leave', position: car.exitPosition() }
+      : door(currentRoom === 'vestibule' ? 'front' : 'inner', 'Exit through the lobby');
+    if (isSecondVisit) return mission.readyToLeave ? exitTarget() : null;
+    if (mission.leaveBlocker === 'margo_number') return {
+      id: 'margo', label: 'Margo at the bar · ask for her number', object: cast.byName.margo.group,
+    };
+    if (mission.readyToLeave) return exitTarget();
+    switch (mission.state) {
+      case 'lot': case 'outside': return currentRoom === 'vestibule'
+        ? door('inner', 'Enter the club') : door('front', 'Club entrance');
+      case 'club': return { id: 'hallway', label: 'Back hallway', position: club.anchors.hallMouth };
+      case 'hallway': return door('lou', 'Lou’s office');
+      case 'office': return { id: 'lou', label: 'Lou behind the desk', object: cast.byName.lou.group };
+      case 'package': return { id: 'package', label: 'Package on the desk', object: club.office.parcel };
+      default: return null;
+    }
+  },
+});
 let input;
 
 const primaryControl = Object.freeze({

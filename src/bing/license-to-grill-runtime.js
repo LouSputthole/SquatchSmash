@@ -1981,6 +1981,42 @@ export function createLicenseToGrill({
 
   return {
     get phase() { return runtime.phase; },
+    /** The room takes the current card only while the player is doing this
+     * optional scene. Leaving restores Lou's main objective immediately. */
+    get guidance() {
+      if (runtime.phase !== 'open' || !inStoreRoom()) return null;
+      const blond = { id: 'james-blond', label: 'James Blond', object: runtime.blond?.group };
+      if (runtime.execution.phase !== 'idle') return {
+        label: 'Give Numbskull room', hint: 'Stay clear of the chair.', target: null,
+      };
+      if (runtime.grill?.broken || runtime.stage === 'named') return {
+        label: 'Hear James Blond out',
+        hint: dialogue?.active ? 'Finish the conversation.' : 'Look at Blond and press [E] to continue.',
+        target: dialogue?.active ? null : blond,
+      };
+      if (runtime.held) {
+        const item = BELONGINGS.find((entry) => entry.id === runtime.held);
+        return {
+          label: `Inspect ${item?.hand?.toLowerCase() ?? 'his belongings'}`,
+          hint: item?.smashNode ? '[Click] break it · [Q] put it back.' : '[Q] put the keys back · [E] talk to Blond about the car.',
+          target: null,
+        };
+      }
+      if (dialogue?.active || !runtime.hasCord) return {
+        label: 'Question James Blond',
+        hint: dialogue?.active ? 'Choose a response when it appears. You can walk away and return.' : 'Approach the chair and press [E] to talk.',
+        target: dialogue?.active ? null : blond,
+      };
+      const belonging = [...runtime.table.values()].find((entry) => !entry.wreck && entry.item.smashNode);
+      return {
+        label: 'Get answers from James Blond',
+        hint: runtime.tool
+          ? '[Click] use the tool · [Q] put it back to inspect the belongings on the prep table.'
+          : 'His belongings are on the prep table. [E] pick one up · [Click] break it · [Q] put it back.',
+        target: runtime.tool || !belonging ? null
+          : { id: 'blond-belongings', label: 'Belongings on the prep table', object: belonging.pad },
+      };
+    },
     get state() { return runtime.grill?.state ?? null; },
     get persisted() { return runtime.persisted; },
     get blond() { return runtime.blond; },

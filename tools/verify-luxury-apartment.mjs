@@ -254,7 +254,11 @@ try {
   browser = await launchChromium({
     executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
     headless: true,
-    args: [
+    // The portable CI receipt uses SwiftShader; a local GPU run can exercise
+    // the same real-input sequence at normal playable frame rates.
+    args: process.env.LUXURY_APARTMENT_NATIVE_GPU === '1' ? [
+      '--autoplay-policy=no-user-gesture-required',
+    ] : [
       '--use-gl=angle',
       '--use-angle=swiftshader',
       '--enable-unsafe-swiftshader',
@@ -1690,7 +1694,7 @@ try {
     JSON.stringify({ stations: authored.gameStations, cabinetApps: authored.cabinetApps }));
 
   await capture(page, 'luxury-arrival');
-  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.locator('#start-btn').click();
   await page.waitForFunction(() => window.LUXURY_APARTMENT?.state?.phase === 'active');
   await page.waitForTimeout(250);
 
@@ -1746,11 +1750,12 @@ try {
       && !initialRadio.savedPower && !initialRadio.worldOn,
     JSON.stringify(initialRadio));
 
-  const luxuryRadioApproach = await stageLuxuryRadio(page);
   if (!await page.evaluate(() => document.pointerLockElement?.tagName === 'CANVAS')) {
     await page.locator('canvas').click({ position: { x: 640, y: 360 } });
-    await stageLuxuryRadio(page);
   }
+  const luxuryRadioApproach = await stageLuxuryRadio(page);
+  check('the hi-fi resolves before the real E press', luxuryRadioApproach.targetResolved,
+    JSON.stringify(luxuryRadioApproach));
   await page.keyboard.press('KeyE');
   await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === true);
   const radioOn = await page.evaluate(() => {

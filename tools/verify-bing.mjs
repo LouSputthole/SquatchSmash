@@ -3430,55 +3430,44 @@ check('the woman at the end of the bar is Margo, on the stool and not in it',
     && her.profile.gender === 'female' && her.profile.bodyShape === 'curvy',
   JSON.stringify(her));
 
-/* ---- 33: the mark by the entrance is the real one ----
- * Not "is there a picture there" but "is the squatch actually drawn on it".
- * squatchArt() renders drawSquatchSilhouette into a canvas, so the proof is
- * in the pixels: a wide, solid band of ink across the shoulders at the
- * height the silhouette puts them, which a letter or a star cannot fake. */
-const entrance = await page.evaluate(() => {
+/* ---- 33: all six entrance prints are the delivered art ----
+ * The September 1 art pass replaced the procedural canvas plates. Requiring
+ * a CanvasTexture here rejected every successful replacement. Bind the live
+ * mounted textures to the manifest and inspect their decoded pixels instead. */
+const entrance = await page.evaluate(async () => {
   const b = window.__bing;
-  const T = b.THREE;
-  const marked = [];
-  const inkRun = (canvas) => {
-    const g = canvas.getContext('2d', { willReadFrequently: true });
-    if (!g) return 0;
-    /* The widest unbroken run of ink anywhere across the figure's half of
-     * the plate. A band rather than one row, because squatchArt drops the
-     * silhouette lower when there is no footer under it -- and a shoulder
-     * line on one layout is a forehead on the other. Nothing set in type
-     * runs a sixth of a plate wide without a gap; a pair of shoulders does. */
-    let best = 0;
-    for (let f = 0.45; f <= 0.86; f += 0.04) {
-      const y = Math.min(canvas.height - 1, Math.round(canvas.height * f));
-      const row = g.getImageData(0, y, canvas.width, 1).data;
-      // The plate's own background is the first pixel; ink is anything else.
-      const bg = [row[0], row[1], row[2]];
-      let run = 0;
-      for (let x = 0; x < canvas.width; x++) {
-        const d = Math.abs(row[x * 4] - bg[0]) + Math.abs(row[x * 4 + 1] - bg[1])
-          + Math.abs(row[x * 4 + 2] - bg[2]);
-        if (d > 40) { run += 1; if (run > best) best = run; } else run = 0;
-      }
+  await b.club.artReady;
+  const manifest = await (await fetch('/assets/art/manifest.json')).json();
+  const slots = ['bing.vestibule.star0', 'bing.vestibule.star1', 'bing.vestibule.star2',
+    'bing.vestibule.star3', 'bing.club.crest', 'bing.club.family_place'];
+  return slots.map((slot) => {
+    const objects = [];
+    b.club.root.traverse((o) => { if (o.userData.art?.slot === slot) objects.push(o); });
+    const mesh = objects[0];
+    const art = mesh?.userData.art;
+    const image = mesh?.material?.map?.source?.data;
+    const authored = manifest.art.filter((entry) => entry.slot === slot);
+    const position = mesh?.getWorldPosition(new b.THREE.Vector3());
+    let range = 0;
+    if (image?.naturalWidth > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 32;
+      const g = canvas.getContext('2d', { willReadFrequently: true });
+      g.drawImage(image, 0, 0, 32, 32);
+      const pixels = g.getImageData(0, 0, 32, 32).data;
+      const light = [];
+      for (let i = 0; i < pixels.length; i += 4) light.push(Math.max(pixels[i], pixels[i + 1], pixels[i + 2]));
+      range = Math.max(...light) - Math.min(...light);
     }
-    return best / canvas.width;
-  };
-  const scan = (root, tag) => {
-    root.traverse((o) => {
-      const img = o.isMesh && o.material?.map?.source?.data;
-      if (!img || !img.getContext) return;
-      const p = new T.Vector3();
-      o.getWorldPosition(p);
-      // The vestibule's wall of stars and the pair flanking the club doors.
-      if (p.z < 10 || p.z > 15) return;
-      const run = inkRun(img);
-      if (run > 0.12) marked.push({ tag, z: +p.z.toFixed(2), run: +run.toFixed(2) });
-    });
-  };
-  scan(b.club.root, 'club');
-  return { marked };
+    return { slot, file: art?.file, count: objects.length, real: art?.real,
+      manifestMatch: authored.length === 1 && authored[0].file === art?.file,
+      loaded: image?.naturalWidth > 0 && image?.naturalHeight > 0,
+      mounted: Boolean(mesh?.visible && position.z >= 10 && position.z <= 15), range };
+  });
 });
-check('the pictures by the entrance carry the real squatch mark, drawn not lettered',
-  entrance.marked.length >= 5, JSON.stringify(entrance.marked.slice(0, 8)));
+check('all six entrance prints use the delivered manifest art with decoded, nonblank textures',
+  entrance.length === 6 && entrance.every((entry) => entry.count === 1 && entry.real
+    && entry.manifestMatch && entry.loaded && entry.mounted && entry.range > 24), JSON.stringify(entrance));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 
