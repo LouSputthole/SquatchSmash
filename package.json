@@ -64,7 +64,7 @@
     "verify:bing": "node tools/verify-bing.mjs",
     "verify:license-to-grill": "node tools/verify-license-to-grill.mjs",
     "verify:bing-two": "node tools/verify-bing-two.mjs",
-    "verify:specialmeeting": "node tools/verify-luxury-apartment.mjs && node tools/verify-specialmeeting.mjs",
+    "verify:specialmeeting": "node tools/verify-specialmeeting.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "verify:motel": "node tools/verify-motel.mjs",
     "verify:no-wake": "node tools/verify-no-wake.mjs",

@@ -206,14 +206,48 @@ async function moveLook(movementX, movementY) {
 /* SwiftShader can render this forest below 20 fps. The game deliberately caps
  * a frame's simulation delta at 50 ms, so authored seconds then take longer
  * than wall-clock seconds; give the honest clock room instead of skipping its
- * silences or changing playback rate in QA. */
-async function chooseAtBeat(beatId, text, timeout = 600000) {
+ * silences or changing playback rate in QA.
+ *
+ * The room is PROGRESS-shaped, not a fixed wall bound: a loaded box measured
+ * the drive covering 8.7 m in 12.7 wall seconds at an authored 13 m/s (the
+ * clamped dt pays a metre per rendered frame), which walked straight through
+ * the old 600 s allowance while the ride was advancing the whole time. So
+ * keep waiting while the beat, the drive distance, or the subtitle moves;
+ * fail only when the scene provably stops, or at a hard ceiling, both with
+ * the same diagnostics. */
+async function chooseAtBeat(beatId, text, { stallSeconds = 300, ceilingSeconds = 1800 } = {}) {
+  const startedAt = Date.now();
+  let lastProgressAt = Date.now();
+  let lastKey = null;
   try {
-    await page.waitForFunction(({ beatId: wanted, text: words }) => {
-      const ride = window.SPECIAL_MEETING?.ride;
-      return ride?.beatId === wanted
-        && ride.options?.some((option) => option.text.includes(words));
-    }, { beatId, text }, { timeout });
+    for (;;) {
+      const reached = await page.waitForFunction(({ beatId: wanted, text: words }) => {
+        const ride = window.SPECIAL_MEETING?.ride;
+        return ride?.beatId === wanted
+          && ride.options?.some((option) => option.text.includes(words));
+      }, { beatId, text }, { timeout: 30000 }).then(() => true, () => false);
+      if (reached) break;
+      const probe = await page.evaluate(() => ({
+        beat: window.SPECIAL_MEETING?.ride?.beatId ?? null,
+        distance: window.SPECIAL_MEETING?.forest
+          ? Math.round(window.SPECIAL_MEETING.forest.drive.distance * 2) / 2
+          : null,
+        subtitle: document.querySelector('#subtitle')?.textContent?.trim() ?? null,
+      }));
+      const key = `${probe.beat}|${probe.distance}|${probe.subtitle}`;
+      if (key !== lastKey) {
+        lastKey = key;
+        lastProgressAt = Date.now();
+      }
+      if (Date.now() - lastProgressAt > stallSeconds * 1000) {
+        throw new Error(`the ride stopped moving on the way to ${beatId} (no beat, `
+          + `drive, or subtitle progress for ${stallSeconds} s)`);
+      }
+      if (Date.now() - startedAt > ceilingSeconds * 1000) {
+        throw new Error(`the ride never reached ${beatId} inside the `
+          + `${ceilingSeconds} s ceiling, though it was still making progress`);
+      }
+    }
   } catch (error) {
     const state = await page.evaluate(() => {
       const sm = window.SPECIAL_MEETING;

@@ -96,24 +96,21 @@ export const SCENE_GATES = Object.freeze([
   },
   {
     script: 'verify:specialmeeting',
-    tier: 'smoke',
-    /* One boot, one click, and 2.0 s of held W plus a mouse sweep -- about
-     * forty driven frames on the software rasteriser. It is here rather than
-     * in `scene` because it deliberately stops at the kerb: it asks whether
-     * the player can move AT ALL and never rides out, so it costs a boot and
-     * two wall seconds rather than a night's drive.
-     *
-     * SMOKE ON PURPOSE, TOO. This is the check that found the Special Meeting
-     * shipped with no input wiring whatsoever -- no keys, no mouse, no pointer
-     * lock, `player.enabled` never set -- which every other gate in the
-     * repository called green because none of them presses a key. A question
-     * that basic belongs in the cheapest tier, where it runs most often.
-     *
-     * The systems-pass merge folded the voice-readiness checks in as well, so
-     * the boot now also waits out the 220-cue decode gate and proves SM-100
-     * cannot start before it -- tens of seconds of decode, not driven frames,
-     * and still smoke money. */
-    why: 'One specialmeeting boot, a click for pointer lock, 2 s of held input. Stops at the kerb.',
+    tier: 'scene',
+    /* Smoke until 2026-09-05, when the rationale ("stops at the kerb, never
+     * rides out") no longer described the tool: the finale pass grew it into
+     * the complete Beat 28 ride — the 228-cue decode gate, the pickup, the
+     * full forest drive with its authored choices through SM-534, the trail
+     * walk, and the Initiation handoff. The drive advances a clamped dt per
+     * rendered frame, so the software rasteriser pays for authored minutes
+     * in wall minutes; the same finale pass also chained the ~40-minute
+     * luxury-apartment gate in front of it inside the 20-minute smoke
+     * budget, so the script was cancelled unfinished on every scheduled run
+     * since (33851214541, 33953123399, and earlier) and has never produced
+     * a single on-runner wall-time measurement. The chain is gone and this
+     * tier buys that first measurement; correct it again from the printed
+     * wall time if 45 minutes is not what the ride costs. */
+    why: 'One specialmeeting boot, then the whole Beat 28 ride — decode gate, forest drive, authored choices, trail walk, Initiation handoff — over real rendered frames.',
   },
   {
     script: 'verify:radio-program',
@@ -145,8 +142,15 @@ export const SCENE_GATES = Object.freeze([
   },
   {
     script: 'verify:cabin-browser',
-    tier: 'smoke',
-    why: 'One countryside-cabin boot; all hub actions, teleports, rest, and route assertions run inside page evaluations without driven rendered time.',
+    tier: 'scene',
+    /* Smoke until 2026-09-05. The rationale ("no driven rendered time")
+     * predated the physical body-carry pass: the gate now walks BOTH wrapped
+     * captives through corridor, ladder, cabin, yard and pyre on real held-W
+     * frames, and the scheduled runner renders about one frame a second.
+     * Runs 33851214541 and 33953123399 were both cancelled at the 20-minute
+     * smoke ceiling with the carry still in progress and every printed check
+     * green — the last line each time was Gratin waiting on the carry. */
+    why: 'One countryside-cabin boot, then two real-E body carries walked over real rendered frames — measured past the 20-minute smoke ceiling on the scheduled runner.',
   },
   {
     script: 'verify:mouths',
