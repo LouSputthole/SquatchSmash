@@ -265,3 +265,18 @@ each scene's code; `src/core/` shared; `tools/` the gates; `tests/` the suite
 (`tests/run.mjs` registers every file — a new test is invisible until it is
 listed there); `assets/sfx/` generated voice and audio; `docs/` the design
 record.
+
+## Completed-call notes and save feedback (2026-09-05)
+
+Campaign schema v28 stores `phoneBriefings` and `saveReceipt` in the canonical
+save. `Phone` records a note only after its last turn finishes, before the
+scene's call-ended callback can route away. Interrupted and unanswered calls
+do not create notes. Pass the current campaign into a scene's Phone; read
+`campaign.phoneBriefings` for display without cloning the entire save every
+frame. Shared authored summaries live in `src/core/phone-briefings.js`.
+
+`src/core/save-feedback.js` owns the successful-write receipt and the shared
+pause-menu journal. Announce saves only after storage accepts them; a failed
+write retains the previous receipt and the existing failure warning. Preview
+storage must never claim to have saved the player's campaign. Save export,
+import and reset include this metadata through the existing campaign path.

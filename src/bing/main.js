@@ -1229,6 +1229,7 @@ function showKit(on = true) {
  * means, so this reuses it rather than keeping a second copy of the rules.
  */
 const phone = new Phone({
+  campaign,
   time: { day: campaign.state.story.day, hour: 23 },
   audio,
   calls: [],
@@ -1314,6 +1315,7 @@ function paintPhone() {
   ui.phoneKeys.textContent = phone.ringing
     ? '[E] ANSWER   [P] POCKET'
     : phone.inCall ? '[Q] HANG UP'
+      : phone.screen === 'briefings' ? '[E] NEXT / HOME   WHEEL NOTES   [P] POCKET'
       : (phone.screen === 'messages' || phone.screen === 'thread')
         ? '[E] SELECT   WHEEL THREAD   [Q] POCKET'
         : '[E] SELECT   [P] POCKET';
@@ -3078,7 +3080,7 @@ input = createFirstPersonInput({
 });
 
 window.addEventListener('wheel', (e) => {
-  if (!game.phoneUp || (phone.screen !== 'messages' && phone.screen !== 'thread')) return;
+  if (!game.phoneUp || !phone.canCycle) return;
   e.preventDefault();
   phone.cycle(e.deltaY > 0 ? 1 : -1);
   paintPhone();

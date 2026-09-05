@@ -352,6 +352,7 @@ const radio = new Radio(audio, hud, time, {
   hudVisible: () => radioHudWithinRange(camera?.position, home?.radioPos),
 });
 const phone = new Phone({
+  campaign: routed ? campaign : null,
   time,
   audio,
   calls: [],
@@ -1774,7 +1775,7 @@ browserInput = createFirstPersonInput({
 
 window.addEventListener('wheel', (event) => {
   if (state.phase !== 'active' || state.posture || state.paused) return;
-  if (home.inventory.held === 'phone' && ['messages', 'thread'].includes(phone.screen)) {
+  if (home.inventory.held === 'phone' && phone.canCycle) {
     phone.cycle(event.deltaY > 0 ? 1 : -1);
   } else {
     home.inventory.cycle(event.deltaY > 0 ? 1 : -1);
@@ -1854,6 +1855,7 @@ function frame(now) {
 
     if (state.phase === 'active' && !state.posture && !state.resting && !state.showering) {
       interaction.update(dt);
+      if (home.inventory.held === 'phone' && phone.screen === 'briefings') hud.hidePrompt();
     }
     luxuryMargo?.update(dt);
     updateLuxuryPhone(dt);

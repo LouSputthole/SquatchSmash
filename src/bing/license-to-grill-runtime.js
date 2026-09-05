@@ -32,6 +32,7 @@
  * Blond's possessions takes the mutually exclusive information route.
  */
 import * as THREE from 'three';
+import { grillToolPose } from './grill-tool-motion.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import {
   applyConnectedDeathPivot,
@@ -1126,23 +1127,9 @@ export function createLicenseToGrill({
   function poseTool(progress) {
     const model = runtime.toolModel;
     if (!model) return;
-    const p = progress < 0 ? 0 : Math.max(0, Math.min(1, progress));
-    const ease = (value) => value * value * (3 - 2 * value);
-    const wind = p < 0.35
-      ? ease(p / 0.35)
-      : 1 - ease((p - 0.35) / 0.65);
-    const strikePhase = Math.max(0, Math.min(1, (p - 0.28) / 0.60));
-    const strike = Math.sin(strikePhase * Math.PI);
-    model.position.set(
-      0.17 + wind * 0.055,
-      -0.22 + wind * 0.10 - strike * 0.12,
-      -0.38 - strike * 0.13,
-    );
-    model.rotation.set(
-      -0.32 - wind * 1.05 + strike * 2.05,
-      0.46 - strike * 0.22,
-      0.10 + wind * 0.58 - strike * 0.82,
-    );
+    const pose = grillToolPose(runtime.tool, progress);
+    model.position.set(...pose.position);
+    model.rotation.set(...pose.rotation);
   }
 
   /**
@@ -1169,6 +1156,7 @@ export function createLicenseToGrill({
     const id = runtime.tool;
     const tool = CART_TOOLS.find((entry) => entry.id === id);
     if (!tool || !blondInReach()) {
+      hud?.toast?.(blondReachHint());
       sfx(PENDING_SFX.CORD_MISS, {
         volume: 0.32,
         position: new THREE.Vector3(CHAIR.x, 0.9, CHAIR.z),
@@ -1177,10 +1165,15 @@ export function createLicenseToGrill({
     }
     const result = runtime.grill?.apply?.(id);
     markBodyHit(result);
-    sfx(PENDING_SFX.CORD_WHIP, {
+    if (id === 'tenderizer') sfx(PENDING_SFX.CORD_WHIP, {
       volume: 0.56,
       position: new THREE.Vector3(CHAIR.x, 1.1, CHAIR.z),
     });
+    // Existing delivered Foley distinguishes a pour from a metal implement.
+    const impactPosition = new THREE.Vector3(CHAIR.x, 1.1, CHAIR.z);
+    if (id === 'ice') audio?.play?.('water.splash', { volume: 0.3, position: impactPosition });
+    if (id === 'sauce') audio?.play?.('whiskey.pour', { volume: 0.3, position: impactPosition });
+    if (id === 'tongs') audio?.play?.('can.crush', { volume: 0.22, position: impactPosition });
     runtime.blond?.say?.(0.8);
     if (result?.fatal) {
       finishFatalBlow();
@@ -1507,6 +1500,12 @@ export function createLicenseToGrill({
      * "is he facing the chair" is a dot product against it. */
     const look = { x: -Math.sin(player.yaw ?? 0), z: -Math.cos(player.yaw ?? 0) };
     return ((dx / d) * look.x + (dz / d) * look.z) >= WHIP_ARC;
+  }
+
+  function blondReachHint() {
+    if (!player) return 'Move closer to the chair.';
+    const distance = Math.hypot(CHAIR.x - player.position.x, CHAIR.z - player.position.z);
+    return distance > WHIP_RANGE ? 'Move closer to the chair.' : 'Face James Blond before using the tool.';
   }
 
   /**
@@ -2011,7 +2010,7 @@ export function createLicenseToGrill({
       return {
         label: 'Get answers from James Blond',
         hint: runtime.tool
-          ? '[Click] use the tool · [Q] put it back to inspect the belongings on the prep table.'
+          ? `${blondInReach() ? '[Click] use the tool.' : blondReachHint()} [Q] put it back to inspect the belongings.`
           : 'His belongings are on the prep table. [E] pick one up · [Click] break it · [Q] put it back.',
         target: runtime.tool || !belonging ? null
           : { id: 'blond-belongings', label: 'Belongings on the prep table', object: belonging.pad },

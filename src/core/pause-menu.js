@@ -15,6 +15,7 @@ import { exportCampaignSave, importCampaignSave } from './campaign.js';
 import * as settings from './settings.js';
 import { setSceneLifecyclePaused } from './scene-lifecycle.js';
 import { installSystemicPolish } from './systemic-polish.js';
+import { readSaveFeedback, saveFeedbackText, subscribeSaveFeedback } from './save-feedback.js';
 
 /**
  * Initiation owns a frozen, scene-local AudioContext and EffectComposer rather
@@ -384,6 +385,11 @@ export function createPauseMenu({
       </div>
       <div class="scene-pause-save">
         <div class="scene-pause-label">Save data</div>
+        <p data-scene-save-receipt role="status"></p>
+        <details data-scene-call-notes hidden>
+          <summary>Call notes</summary>
+          <div data-scene-call-note-list></div>
+        </details>
         <div class="scene-pause-actions">
           <button type="button" class="secondary" data-scene-pause-export>Export save</button>
           <button type="button" class="secondary" data-scene-pause-import>Import save</button>
@@ -406,6 +412,28 @@ export function createPauseMenu({
   const objective = root.querySelector('[data-scene-pause-objective]');
   const list = root.querySelector('[data-scene-pause-instructions]');
   const actions = root.querySelector('.scene-pause-actions');
+  const saveReceipt = root.querySelector('[data-scene-save-receipt]');
+  const callNotes = root.querySelector('[data-scene-call-notes]');
+  const noteList = root.querySelector('[data-scene-call-note-list]');
+  let notesKey = null;
+  function refreshSaveReceipt() {
+    const status = readSaveFeedback();
+    saveReceipt.textContent = saveFeedbackText(status);
+    callNotes.hidden = !status.briefings.length;
+    const key = JSON.stringify(status.briefings);
+    if (key === notesKey) return;
+    notesKey = key;
+    noteList.replaceChildren();
+    for (const entry of status.briefings) {
+      const note = document.createElement('details');
+      const title = document.createElement('summary');
+      title.textContent = `${entry.from} · Day ${entry.day} · ${entry.at}`;
+      const text = document.createElement('p');
+      text.style.whiteSpace = 'pre-wrap'; text.textContent = entry.text;
+      note.append(title, text); noteList.append(note);
+    }
+  }
+  const unsubscribeSave = subscribeSaveFeedback(() => { if (!root.classList.contains('hidden')) refreshSaveReceipt(); });
   const resumeButton = root.querySelector('[data-scene-pause-resume]');
   const directionButton = document.createElement('button');
   directionButton.type = 'button';
@@ -712,6 +740,7 @@ export function createPauseMenu({
      * the next pause reopens with a paste box and no way to see it. */
     if (!saveVisible) importPanel.hidden = true;
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
+    refreshSaveReceipt();
     directionButton.hidden = !window.__objectiveGuide?.available();
     if (recoveryButtons.checkpoint) {
       const state = recovery.getState();
@@ -826,6 +855,7 @@ export function createPauseMenu({
     isPaused: () => open,
     destroy() {
       endRebind();
+      unsubscribeSave();
       unsubscribeSettings();
       window.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('visibilitychange', onVisibilityChange);

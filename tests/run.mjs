@@ -12,6 +12,7 @@ ensureDomShim();
 const TEST_MODULES = [
   './build-kit.test.mjs',
   './campaign.test.mjs',
+  './campaign-phone-briefings.test.mjs',
   './campaign-finale.test.mjs',
   './campaign-stats.test.mjs',
   './run-code.test.mjs',

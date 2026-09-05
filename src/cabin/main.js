@@ -200,6 +200,7 @@ const radio = new Radio(audio, hud, time, {
   ),
 });
 const phone = new Phone({
+  campaign,
   time,
   audio,
   calls: [],
@@ -2048,7 +2049,7 @@ input = createFirstPersonInput({
       if (!event.repeat && executionChoice?.handleKey?.(event.code)) return true;
       if (controls.code === 'KeyE' && !event.repeat && cabin.inventory.held === 'phone') {
         if (chapter?.startMargoCall?.()) return true;
-        if (phone.ringing || phone.inCall) { phone.press(); return true; }
+        if (phone.ringing || phone.inCall || phone.screen === 'briefings') { phone.press(); return true; }
         /* A held phone with nothing to answer must NOT eat the world's E.
          * This branch used to return true unconditionally, so walking the
          * ridge trail with the phone out — exactly how the scene leaves you
@@ -2280,7 +2281,7 @@ const pauseMenu = createPauseMenu({
 window.addEventListener('wheel', (event) => {
   stopCreekListeningForInput();
   if (state.phase !== 'active' || state.posture) return;
-  if (cabin.inventory.held === 'phone' && ['messages', 'thread'].includes(phone.screen)) {
+  if (cabin.inventory.held === 'phone' && phone.canCycle) {
     phone.cycle(event.deltaY > 0 ? 1 : -1);
   } else {
     cabin.inventory.cycle(event.deltaY > 0 ? 1 : -1);
@@ -2314,6 +2315,7 @@ function frame(now) {
       if (creekListening.update(player.position)) hud.toast('Creek listening ended');
       updateShootingRangeLifecycle();
       interaction.update(dt);
+      if (cabin.inventory.held === 'phone' && phone.screen === 'briefings') hud.hidePrompt();
       updateHeldUse(dt);
       phone.update(dt);
       phone.draw();

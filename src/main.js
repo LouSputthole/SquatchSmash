@@ -506,6 +506,7 @@ const tv = new Tv({ audio });
 // Campaign calls are one-shot story events, so the legacy clock schedule is
 // deliberately disabled here. The physical phone still owns ring/answer/UI.
 const phone = new Phone({
+  campaign,
   time,
   audio,
   calls: [],
@@ -1560,7 +1561,7 @@ function paintInputCapture({ captured = false } = {}) {
  * locked, so it cannot fire while somebody is scrolling the page around it. */
 window.addEventListener('wheel', (e) => {
   if (!document.pointerLockElement || game.seated) return;
-  if (apartment?.state?.heldItem === 'phone' && (phone.screen === 'messages' || phone.screen === 'thread')) {
+  if (apartment?.state?.heldItem === 'phone' && phone.canCycle) {
     phone.cycle(e.deltaY > 0 ? 1 : -1);
     return;
   }
@@ -6043,6 +6044,7 @@ function frame() {
         arcade.placeOverlay?.(apartment.screen, camera, renderer.domElement, THREE);
       } else {
         interaction.update(dt);
+        if (apartment.state.heldItem === 'phone' && phone.screen === 'briefings') hud.hidePrompt();
         // Keep the screen alive while the player is across the room.
         if (apartment.state.pcOn) {
           arcade.update(hdt);

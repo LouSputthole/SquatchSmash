@@ -67,7 +67,10 @@ Adapters:
   own the authored collapse pose.
 - `PlanarMirror` derives its plane from the mounted mesh and owns reflection
   render-target lifecycle. A bathroom may provide grime, cracks and a distance
-  policy, not a second reflection-camera implementation.
+  policy, not a second reflection-camera implementation. The shared renderer
+  skips hidden ancestors, incompatible camera layers and glass outside the
+  player's frustum. Its conservative bounds retain partially visible glass;
+  looking back refreshes the reflection in that frame at the same quality.
 - `FirstPersonBody` owns the reflection-only figure layer, stable
   standing/seated/bed/scripted pose synchronization, walk gait, reflected
   weapon state and persistent outfit identity. Scenes supply only their
@@ -1075,6 +1078,24 @@ button. Add a scene to `RECOVERABLE_CAMPAIGN_SCENES`, provide a canonical
 completer/destination, and extend `tests/campaign-scene-skip.test.mjs` and
 `tests/scene-recovery-wiring.test.mjs`. `tests/scene-recovery.test.mjs` proves
 the threshold, durability and preview isolation.
+
+## Completed calls and successful saves
+
+`Phone` accepts the scene's `campaign` and records a bounded, deduplicated
+briefing at natural call completion. `phone-briefings.js` owns the authored
+summaries and preserves the actual words for unknown calls. Ring-outs and
+interrupted calls record nothing. The phone's Call notes screen and the
+shared pause menu read the same campaign entries; no scene owns another
+journal store. Entries travel with save export/import and disappear on reset.
+
+`save-feedback.js` publishes receipt metadata only after a successful storage
+write. Milestone changes receive a short on-screen acknowledgement; routine
+clock/radio updates do not spam the HUD. The pause menu shows the most recent
+receipt, and failure/preview/in-memory states have explicit wording. A view
+listener cannot turn a successful write into a reported storage failure.
+`tests/campaign-phone-briefings.test.mjs` covers completion, migration,
+reload/export/import, deduplication and failure recovery; the real input proof
+is `node tools/verify-followup-polish.mjs`.
 
 ## Migration order
 

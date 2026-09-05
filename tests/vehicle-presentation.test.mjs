@@ -190,6 +190,30 @@ test('every playable bathroom uses the canonical planar mirror Module', () => {
   }
 });
 
+test('a mirror skips hidden and offscreen glass, and refreshes immediately on return', () => {
+  const scene = new THREE.Scene();
+  const mount = new THREE.Group(); scene.add(mount);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(1, 1)); mount.add(glass);
+  const mirror = new PlanarMirror(scene, glass, { enabled: true });
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 50);
+  camera.position.set(0, 0, 2); camera.lookAt(0, 0, 0);
+  let draws = 0;
+  const renderer = { getRenderTarget: () => null, setRenderTarget() {}, render() { draws++; } };
+  assert.equal(mirror.render(renderer, camera), true);
+  camera.lookAt(0, 0, 4);
+  assert.equal(mirror.render(renderer, camera), false);
+  assert.equal(draws, 1);
+  camera.lookAt(0, 0, 0); mount.visible = false;
+  assert.equal(mirror.render(renderer, camera), false);
+  mount.visible = true;
+  assert.equal(mirror.render(renderer, camera), true);
+  assert.equal(draws, 2);
+  // The centre is beyond the view edge, but part of the glass remains visible.
+  camera.lookAt(1.4, 0, 0);
+  assert.equal(mirror.render(renderer, camera), true);
+  mirror.dispose();
+});
+
 test('mirror scenes either use the shared first-person body or an authored reflection-layer body', () => {
   for (const relative of [
     '../src/main.js',
