@@ -28,6 +28,37 @@ class MemoryStorage {
   }
 }
 
+test('refused storage writes still unlock recovery and remain isolated per scene', () => {
+  const storage = new MemoryStorage();
+  storage.setItem = () => { throw new Error('quota exceeded'); };
+  const options = { sceneId: 'bank_heist', storage, restartScene: () => {}, completeAndSkip: () => 'skipped' };
+  const recovery = createSceneRecovery(options);
+  recovery.restartScene();
+  // A new menu/controller on the same page must see the failed write too.
+  const rebuilt = createSceneRecovery(options);
+  rebuilt.restartScene();
+  assert.equal(rebuilt.getState().skipAvailable, true);
+  assert.equal(rebuilt.skipScene(), 'skipped');
+  assert.equal(createSceneRecovery({ ...options, sceneId: 'no_wake' }).getState().skipUnlocked, false);
+});
+
+test('denied storage reads and writes cannot permanently lock recovery', () => {
+  const storage = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const recovery = createSceneRecovery({ sceneId: 'no_wake', storage, restartScene: () => {}, completeAndSkip: () => true });
+  recovery.restartScene();
+  recovery.restartScene();
+  assert.equal(recovery.getState().skipAvailable, true);
+});
+
+test('one checkpoint retry plus one scene retry unlocks the same escape route', () => {
+  const recovery = createSceneRecovery({ sceneId: 'no_wake', storage: new MemoryStorage(),
+    restartCheckpoint: () => true, restartScene: () => true, completeAndSkip: () => true });
+  recovery.restartFromCheckpoint();
+  assert.equal(recovery.getState().skipAvailable, false);
+  recovery.restartScene();
+  assert.equal(recovery.getState().skipAvailable, true);
+});
+
 test('two checkpoint restarts durably unlock the scene skip', () => {
   const storage = new MemoryStorage();
   const calls = [];

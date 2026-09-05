@@ -67,7 +67,10 @@ Adapters:
   own the authored collapse pose.
 - `PlanarMirror` derives its plane from the mounted mesh and owns reflection
   render-target lifecycle. A bathroom may provide grime, cracks and a distance
-  policy, not a second reflection-camera implementation.
+  policy, not a second reflection-camera implementation. The shared renderer
+  skips hidden ancestors, incompatible camera layers and glass outside the
+  player's frustum. Its conservative bounds retain partially visible glass;
+  looking back refreshes the reflection in that frame at the same quality.
 - `FirstPersonBody` owns the reflection-only figure layer, stable
   standing/seated/bed/scripted pose synchronization, walk gait, reflected
   weapon state and persistent outfit identity. Scenes supply only their
@@ -1031,10 +1034,20 @@ the keymap. Camera shake is multiplied by `shakeScale()` at the point it is
 applied to the camera.
 
 The recovery Interface is `getState()`, `restartFromCheckpoint()`,
-`restartScene()` and `skipScene()`. Skip unlocks after either two checkpoint
-restarts or two scene restarts. The persistent key is
+`restartScene()` and `skipScene()`. Skip unlocks after two retries in any
+combination of checkpoint and scene restarts. Failed storage writes retain
+the retry ledger for the current page; successful writes remain durable. The persistent key is
 `squatch-life.scene-recovery.v1`; preview runs use isolated preview/session
 storage and must not touch the canonical campaign.
+
+`src/core/objective-guide.js` provides scene-authored direction assistance.
+Apartment, cabin, Bing, graveyard and luxury apartment adapters derive their
+next target from live objectives and actual world objects. `[J]` reveals its
+label, distance and a clamped screen marker for 14 active seconds; 45 seconds
+without objective or distance progress reveals it automatically. Pause,
+posture and dialogue time do not count. The pause menu also offers **Show
+objective direction**, including when J is rebound to a movement action.
+The guide never changes campaign state or completes an interaction.
 
 ### Stable UI labels
 
@@ -1065,6 +1078,24 @@ button. Add a scene to `RECOVERABLE_CAMPAIGN_SCENES`, provide a canonical
 completer/destination, and extend `tests/campaign-scene-skip.test.mjs` and
 `tests/scene-recovery-wiring.test.mjs`. `tests/scene-recovery.test.mjs` proves
 the threshold, durability and preview isolation.
+
+## Completed calls and successful saves
+
+`Phone` accepts the scene's `campaign` and records a bounded, deduplicated
+briefing at natural call completion. `phone-briefings.js` owns the authored
+summaries and preserves the actual words for unknown calls. Ring-outs and
+interrupted calls record nothing. The phone's Call notes screen and the
+shared pause menu read the same campaign entries; no scene owns another
+journal store. Entries travel with save export/import and disappear on reset.
+
+`save-feedback.js` publishes receipt metadata only after a successful storage
+write. Milestone changes receive a short on-screen acknowledgement; routine
+clock/radio updates do not spam the HUD. The pause menu shows the most recent
+receipt, and failure/preview/in-memory states have explicit wording. A view
+listener cannot turn a successful write into a reported storage failure.
+`tests/campaign-phone-briefings.test.mjs` covers completion, migration,
+reload/export/import, deduplication and failure recovery; the real input proof
+is `node tools/verify-followup-polish.mjs`.
 
 ## Migration order
 

@@ -8,6 +8,7 @@
  * src/arcade/ for that one.
  */
 import * as THREE from 'three';
+import { createObjectiveGuide } from './core/objective-guide.js';
 import { ApartmentAudioEngine, closedNightCuePrefixes } from './core/apartment-audio.js';
 import { chooseNoImmediateRepeat } from './core/audio-variant-bank.js';
 import { Hud } from './core/hud.js';
@@ -505,6 +506,7 @@ const tv = new Tv({ audio });
 // Campaign calls are one-shot story events, so the legacy clock schedule is
 // deliberately disabled here. The physical phone still owns ring/answer/UI.
 const phone = new Phone({
+  campaign,
   time,
   audio,
   calls: [],
@@ -1515,7 +1517,7 @@ startBtn.addEventListener('click', async () => {
        * turns it off if you want the quiet. Started here rather than at boot
        * because the AudioContext does not exist until the first gesture. */
       startMorningRadio();
-      hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
+      hud.say(`<em>${time.clock12}.</em> You are awake. That was not the plan.`, 5200);
       /* Except on the fourth morning, when he is not the only one awake. He
        * is free to get up and walk off the moment his eyes open -- see
        * `startMargoWake`'s own doc comment -- so this does not wait for the
@@ -1559,7 +1561,7 @@ function paintInputCapture({ captured = false } = {}) {
  * locked, so it cannot fire while somebody is scrolling the page around it. */
 window.addEventListener('wheel', (e) => {
   if (!document.pointerLockElement || game.seated) return;
-  if (apartment?.state?.heldItem === 'phone' && (phone.screen === 'messages' || phone.screen === 'thread')) {
+  if (apartment?.state?.heldItem === 'phone' && phone.canCycle) {
     phone.cycle(e.deltaY > 0 ? 1 : -1);
     return;
   }
@@ -3363,6 +3365,7 @@ function activityContext() {
     showered: apartment.state.showered,
     peed: game.peed,
     pooped: game.pooped,
+    bowel: apartment.state.bowel,
     changedClothes: apartment.state.dressed,
     emailChecked: apartment.state.repliedHR,
     whiskeyRelaxed: campaign.state.activities.whiskeyRelaxed,
@@ -3459,9 +3462,35 @@ function settleApartmentRecoveryBeat() {
  * the HUD compares the rendered list and does nothing when it reads the same,
  * so this is a string compare on most of the calls.
  */
+let apartmentObjectiveGuide = null;
 function updateObjectives() {
   if (!apartment) return;
   hud.setObjectives(apartmentStory.objectives(activityContext()));
+  apartmentObjectiveGuide ??= createObjectiveGuide({
+    camera, panel: hud.objectives,
+    isActive: () => player.mode === 'walk' && !game.paused && !game.left && !game.passingOut
+      && !phone.inCall && document.body.classList.contains('playing'),
+    getStep: () => {
+      const door = apartmentStory.tryLeave(activityContext());
+      return `${door.kind}|${door.id}|${apartment.state.bowel > 0.55}`;
+    },
+    getTarget: () => {
+      const door = apartmentStory.tryLeave(activityContext());
+      const at = (id, label, position) => position ? { id, label, position } : null;
+      if (door.kind === 'go') return { id: 'front-door', label: 'Front door', object: apartment.frontDoorPivot };
+      if (door.kind === 'stay') return at('bed', 'Bed', apartment.bedPose.position);
+      if (door.id === 'pooped' || door.id === 'peed') {
+        if (door.id === 'pooped' && apartment.state.bowel <= 0.55) {
+          return at('fridge', 'Raw milk in the fridge', apartment.fridgePos);
+        }
+        return at('toilet', 'Toilet · press E to use', apartment.toiletSeat);
+      }
+      if (door.id === 'showered') return at('shower', 'Bathroom shower', apartment.showerStand);
+      if (door.id === 'eaten') return at('kitchen', 'Eggs in the fridge', apartment.fridgePos);
+      if (door.id === 'changedClothes') return { id: 'clothes', label: 'Clothes rail', object: apartment.closet.rail };
+      return null;
+    },
+  });
 }
 
 function syncClockFromCampaign() {
@@ -6015,6 +6044,7 @@ function frame() {
         arcade.placeOverlay?.(apartment.screen, camera, renderer.domElement, THREE);
       } else {
         interaction.update(dt);
+        if (apartment.state.heldItem === 'phone' && phone.screen === 'briefings') hud.hidePrompt();
         // Keep the screen alive while the player is across the room.
         if (apartment.state.pcOn) {
           arcade.update(hdt);

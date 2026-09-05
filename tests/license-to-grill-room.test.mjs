@@ -27,8 +27,21 @@ import {
   SWINGS_BEFORE_THE_TABLE,
 } from '../src/bing/license-to-grill.js';
 import { createLicenseToGrill } from '../src/bing/license-to-grill-runtime.js';
+import { grillToolPose } from '../src/bing/grill-tool-motion.js';
 
 ensureDomShim();
+
+test('cart tools have distinct contact poses and settle back without a jump', () => {
+  const tools = ['tenderizer', 'ice', 'tongs', 'sauce'];
+  assert.equal(new Set(tools.map((id) => JSON.stringify(grillToolPose(id, 0.56)))).size, 4);
+  for (const id of tools) {
+    assert.deepEqual(grillToolPose(id, 1), grillToolPose(id, 0));
+    for (const time of [-1, 0, 0.28, 0.56, 0.8, 1]) {
+      const pose = grillToolPose(id, time);
+      assert.ok([...pose.position, ...pose.rotation].every(Number.isFinite));
+    }
+  }
+});
 
 /** The store room's real coordinates, from src/bing/club.js. */
 const CHAIR = { x: 9.6, z: -12.3 };
@@ -44,7 +57,10 @@ function harness({ inventoryRejects = false, initialPersisted = null } = {}) {
   const toasts = [];
 
   const audio = {
-    play: (name) => played.push(name),
+    play: (name, options) => {
+      if (options?.position) assert.ok(['x', 'y', 'z'].every((axis) => Number.isFinite(options.position[axis])), `${name} must have finite spatial audio coordinates`);
+      played.push(name);
+    },
     hasSample: () => false,
     stopLoop: () => {},
     startLoop: () => {},
@@ -173,6 +189,22 @@ function receiveCord(h) {
   assert.equal(node.next, 'cordInHand');
   return h;
 }
+
+test('the back room names the next physical action and relinquishes the card outside', () => {
+  const h = walkIn(harness());
+  receiveCord(h);
+  h.dialogue.finish();
+  assert.match(h.quest.guidance.hint, /prep table/);
+  assert.ok(h.quest.guidance.target.object.userData.interact);
+  const watch = h.quest.table.get('watch');
+  watch.pad.userData.interact.onUse();
+  assert.match(h.quest.guidance.hint, /Click.*break.*Q.*back/);
+  assert.equal(h.quest.guidance.target, null, 'a held object must not still be marked on the table');
+  h.quest.stepBack();
+  h.dialogue.finish();
+  h.standAt(0, 0);
+  assert.equal(h.quest.guidance, null);
+});
 
 test('every sound the store room reaches for is one the club has decoded', () => {
   /* The scene plays eight cues that have been ASKED for and not yet recorded,

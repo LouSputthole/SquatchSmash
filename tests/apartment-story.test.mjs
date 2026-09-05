@@ -271,6 +271,17 @@ test('the door tells him how to get things started when it refuses over the dump
   assert.match(earlier.hint, /toilet/i);
 });
 
+test('the live bathroom objective explains the prerequisite, then the actual toilet input', () => {
+  const story = createApartmentStory({ campaign: createCampaign({ storage: new MemoryStorage() }), ring: () => true });
+  story.callAnswered(DAY_ONE_LOU_CALL);
+  const activities = { eaten: true, showered: true, peed: true, pooped: false, changedClothes: true };
+  assert.match(story.objectives({ ...activities, bowel: 0 }).hint, /raw milk.*fridge/i);
+  const ready = story.objectives({ ...activities, bowel: 0.62 });
+  assert.match(ready.hint, /ready.*toilet.*\[E\].*sit/i);
+  assert.doesNotMatch(ready.hint, /raw milk/);
+  assert.doesNotMatch(story.objectives({ ...activities, pooped: true, bowel: 0 }).hint, /toilet/);
+});
+
 test('the two bathroom errands read as two different jobs on the panel', () => {
   const story = createApartmentStory({
     campaign: createCampaign({ storage: new MemoryStorage() }),

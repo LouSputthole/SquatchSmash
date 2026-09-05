@@ -9,6 +9,8 @@ const _planeDelta = new THREE.Vector3();
 const _reflectedPosition = new THREE.Vector3();
 const _reflectedUp = new THREE.Vector3();
 const _quaternion = new THREE.Quaternion();
+const _viewProjection = new THREE.Matrix4();
+const _viewFrustum = new THREE.Frustum();
 
 export function reflectPointAcrossPlane(point, planePoint, planeNormal, out = new THREE.Vector3()) {
   const distance = _planeDelta.copy(point).sub(planePoint).dot(planeNormal);
@@ -110,7 +112,14 @@ export class PlanarMirror {
 
   render(renderer, sourceCamera) {
     if (!this.enabled || !renderer || !sourceCamera) return false;
+    for (let node = this.mesh; node; node = node.parent) if (!node.visible) return false;
     const { center, normal } = this.plane();
+    sourceCamera.updateWorldMatrix(true, false);
+    _viewProjection.multiplyMatrices(sourceCamera.projectionMatrix, sourceCamera.matrixWorldInverse);
+    _viewFrustum.setFromProjectionMatrix(_viewProjection);
+    // A conservative bounding sphere keeps partially visible glass updating.
+    // No render-target or quality changes: returning to the glass refreshes it now.
+    if (!sourceCamera.layers.test(this.mesh.layers) || !_viewFrustum.intersectsObject(this.mesh)) return false;
     sourceCamera.getWorldPosition(_cameraPosition);
     // Behind the glass or edge-on, there is nothing to fit a frustum through.
     const facing = _planeDelta.copy(_cameraPosition).sub(center).dot(normal);

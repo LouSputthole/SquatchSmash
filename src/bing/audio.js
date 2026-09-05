@@ -27,6 +27,7 @@ const BING_RUNTIME_CUES = new Set([
   'can.crack',
   'can.sip',
   'can.crush',
+  'water.splash',
   'till.ring',
   'bing.money.flutter',
   'bing.line.snort',

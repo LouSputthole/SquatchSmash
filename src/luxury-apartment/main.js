@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createObjectiveGuide } from '../core/objective-guide.js';
 
 import { createArcade } from '../arcade/mount.js';
 import { AudioEngine } from '../core/audio.js';
@@ -260,6 +261,9 @@ function refreshObjective() {
   syncLuxuryContinuity();
   objectivePanel.setLine(currentObjective(), {
     title: !routed && readyTally.ready ? 'READY' : 'OBJECTIVE',
+    hint: phone.inCall ? '' : phone.ringing ? '[E] Answer your phone from wherever you are.'
+      : routed ? luxuryStory.tryLeave(specialMeetingActivities()).hint ?? ''
+        : 'Bathroom downstairs · wardrobe upstairs · phone beside the bed.',
   });
 }
 
@@ -348,6 +352,7 @@ const radio = new Radio(audio, hud, time, {
   hudVisible: () => radioHudWithinRange(camera?.position, home?.radioPos),
 });
 const phone = new Phone({
+  campaign: routed ? campaign : null,
   time,
   audio,
   calls: [],
@@ -1379,6 +1384,27 @@ if (routed && campaign.hasItem(ITEM_IDS.PHONE)) {
 home.state.phoneTaken = home.inventory.has('phone');
 readyTally.sync(home.state);
 
+createObjectiveGuide({
+  camera, panel: objectivePanel.element,
+  isActive: () => state.phase === 'active' && !state.paused && !state.resting
+    && !state.posture && !state.showering && !phone.inCall && !luxuryMargo?.active,
+  getStep: currentObjective,
+  getTarget: () => {
+    const target = (id, label) => ({ id, label, object: home.utilityTargets[id] });
+    if (phone.ringing) return null; // The global answer key works anywhere.
+    const door = routed ? luxuryStory.tryLeave(specialMeetingActivities()) : null;
+    if (door?.kind === 'go' || (!routed && readyTally.ready)) return target('elevator', 'Private elevator');
+    if (door?.id === 'special_meeting_suit') return target('wardrobe', 'Charcoal suit · upstairs wardrobe');
+    if (door?.id === 'luxury_stayover' && luxuryStory.phase() === 'stayover') return target('bed', 'Bed upstairs · hold E to sleep');
+    if (!routed || luxuryStory.phase() === 'get_ready') {
+      if (!home.state.showered) return target('shower', 'Bathroom shower · downstairs');
+      if (!home.state.dressed) return target('wardrobe', 'Clothes · upstairs wardrobe');
+      if (!home.state.phoneTaken) return target('phone', 'Phone beside the bed');
+    }
+    return null;
+  },
+});
+
 revolver = new LuxuryRevolverRuntime({
   scene,
   camera,
@@ -1749,7 +1775,7 @@ browserInput = createFirstPersonInput({
 
 window.addEventListener('wheel', (event) => {
   if (state.phase !== 'active' || state.posture || state.paused) return;
-  if (home.inventory.held === 'phone' && ['messages', 'thread'].includes(phone.screen)) {
+  if (home.inventory.held === 'phone' && phone.canCycle) {
     phone.cycle(event.deltaY > 0 ? 1 : -1);
   } else {
     home.inventory.cycle(event.deltaY > 0 ? 1 : -1);
@@ -1829,6 +1855,7 @@ function frame(now) {
 
     if (state.phase === 'active' && !state.posture && !state.resting && !state.showering) {
       interaction.update(dt);
+      if (home.inventory.held === 'phone' && phone.screen === 'briefings') hud.hidePrompt();
     }
     luxuryMargo?.update(dt);
     updateLuxuryPhone(dt);
