@@ -13,6 +13,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { createFirstPersonInput } from '../core/first-person-input.js';
 import { conciseObjectiveItems, createObjectivePanel } from '../core/objective-panel.js';
+import { createObjectiveGuide } from '../core/objective-guide.js';
 import { Player } from '../core/player.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { PostFX } from '../core/postfx.js';
@@ -167,6 +168,18 @@ if (previewCheckpoint) {
  * the furniture on `body.playing`, exactly as the card it replaces did.
  */
 const objectivePanel = createObjectivePanel({ parent: document.getElementById('hud') });
+createObjectiveGuide({
+  camera, panel: objectivePanel.element,
+  isActive: () => state.phase === 'active' && !state.paused && !state.bodyMoving && !state.endingShown,
+  getStep: () => `${mission.bodyCarried}|${mission.bodyPlaced}|${mission.bodyBuried}`,
+  getTarget: () => mission.bodyBuried
+    ? { id: 'car', label: 'Snow’s car', object: graveyard.car }
+    : mission.bodyPlaced
+      ? { id: 'shovel', label: 'Shovel beside the plot', object: graveyard.shovel }
+      : mission.bodyCarried
+        ? { id: 'plot', label: 'Fresh burial plot', object: graveyard.freshPlot }
+        : { id: 'body', label: 'Pick up Billy', object: graveyard.body },
+});
 
 /** The line under the list that answers "which way", per body state. */
 function objectiveHint() {

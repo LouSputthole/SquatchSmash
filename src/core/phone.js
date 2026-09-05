@@ -35,6 +35,8 @@
  * answers him. Cue identity does not change with direction.
  */
 
+import { briefingFromCall } from './phone-briefings.js';
+
 export const W = 300;
 export const H = 620;
 
@@ -240,7 +242,12 @@ export class Phone {
     threads = THREADS,
     onThreadRead = null,
     onCallState = null,
+    campaign = null,
   } = {}) {
+    this.campaign = campaign;
+    this.sessionBriefings = [];
+    this.briefing = 0;
+    this.briefingPage = 0;
     this.time = time;
     this.audio = audio;
     this.canvas = document.createElement('canvas');
@@ -286,12 +293,15 @@ export class Phone {
   }
   get outgoing() { return !!this.call && this.call.direction === 'outgoing'; }
   get unreadCount() { return this.threads.filter((thread) => thread.unread).length; }
+  get briefings() { return this.campaign?.phoneBriefings ?? this.sessionBriefings; }
+  get canCycle() { return ['messages', 'thread', 'briefings'].includes(this.screen); }
 
   /** The phone is a held item. Every idle screen must say how to pocket it. */
   idleHint() {
     if (this.screen === 'messages') return '[E] read  ·  wheel: another  ·  [Q] pocket';
     if (this.screen === 'thread') return 'wheel: another  ·  [E] recents  ·  [Q] pocket';
-    if (this.screen === 'recents') return '[E] home  ·  [Q] pocket';
+    if (this.screen === 'recents') return this.briefings.length ? '[E] call notes  ·  [Q] pocket' : '[E] home  ·  [Q] pocket';
+    if (this.screen === 'briefings') return 'wheel: another  ·  [E] next / home  ·  [Q] pocket';
     return '[E] open  ·  [Q] pocket';
   }
 
@@ -420,6 +430,11 @@ export class Phone {
     const turn = c.turns[c.line];
     if (!turn) {
       // He does not get to say goodbye. Nobody on this phone says goodbye.
+      const briefing = briefingFromCall(c.def, c.turns, { day: this.time?.day, at: this._stamp() });
+      if (briefing) {
+        if (this.campaign) this.campaign.recordPhoneBriefing(briefing);
+        else this.sessionBriefings = [briefing, ...this.sessionBriefings.filter((entry) => entry.id !== briefing.id)].slice(0, 32);
+      }
       this.hangUp({ force: true });
       return;
     }
@@ -484,11 +499,18 @@ export class Phone {
     if (this.screen === 'home') { this.screen = 'messages'; return; }
     if (this.screen === 'messages') { this.screen = 'thread'; this._readSelectedThread(); return; }
     if (this.screen === 'thread') { this.screen = 'recents'; this.missed = 0; return; }
+    if (this.screen === 'recents' && this.briefings.length) { this.screen = 'briefings'; this.briefingPage = 0; return; }
+    if (this.screen === 'briefings' && this.briefingPage + 1 < this._briefingPages().length) { this.briefingPage++; return; }
     this.screen = 'home';
   }
 
   /** The other direction, for moving between threads. */
   cycle(dir = 1) {
+    if (this.screen === 'briefings') {
+      if (this.briefings.length) this.briefing = (this.briefing + dir + this.briefings.length) % this.briefings.length;
+      this.briefingPage = 0;
+      return;
+    }
     if (this.screen !== 'messages' && this.screen !== 'thread') return;
     if (!this.threads.length) return;
     this.thread = (this.thread + dir + this.threads.length) % this.threads.length;
@@ -513,6 +535,7 @@ export class Phone {
     if (this.screen === 'messages') this._drawThreadList(g);
     else if (this.screen === 'thread') this._drawThread(g);
     else if (this.screen === 'recents') this._drawRecents(g);
+    else if (this.screen === 'briefings') this._drawBriefing(g);
     else this._drawHome(g);
   }
 
@@ -530,6 +553,7 @@ export class Phone {
       ['Messages', `${unread} unread`, '#e06a6a'],
       ['Recents', this.missed ? `${this.missed} missed` : 'nothing today', this.missed ? '#e06a6a' : '#5f6a7d'],
     ];
+    if (this.briefings.length) rows.push(['Call notes', `${this.briefings.length} saved briefings`, '#c9a227']);
     let y = H * 0.52;
     for (const [label, sub, colour] of rows) {
       g.fillStyle = '#151a24';
@@ -622,6 +646,32 @@ export class Phone {
       g.fillText(r.at, 18, y + 18);
       y += 48;
     }
+    this._hint(g, this.idleHint());
+  }
+
+  _briefingPages() {
+    this.g.font = '14px ui-monospace, monospace';
+    const lines = String(this.briefings[this.briefing]?.text || '').split('\n').flatMap((line) => wrap(this.g, line, W - 40));
+    const pages = [];
+    for (let i = 0; i < lines.length; i += 18) pages.push(lines.slice(i, i + 18));
+    return pages.length ? pages : [[]];
+  }
+
+  _drawBriefing(g) {
+    const entries = this.briefings;
+    this.briefing = Math.min(this.briefing, Math.max(0, entries.length - 1));
+    const entry = entries[this.briefing];
+    g.textAlign = 'left'; g.fillStyle = '#e6ecf5'; g.font = '600 20px ui-monospace, monospace';
+    g.fillText('Call notes', 18, 70);
+    if (!entry) { this._hint(g, '[E] home'); return; }
+    g.font = '600 14px ui-monospace, monospace'; g.fillStyle = '#e6d09a';
+    g.fillText(clip(g, entry.from, W - 36), 18, 100);
+    g.font = '12px ui-monospace, monospace'; g.fillStyle = '#929fb3';
+    g.fillText(`Day ${entry.day} · ${entry.at} · ${this.briefing + 1}/${entries.length}`, 18, 122);
+    const pages = this._briefingPages(); this.briefingPage = Math.min(this.briefingPage, pages.length - 1);
+    g.fillStyle = '#dbe3ef'; g.font = '14px ui-monospace, monospace';
+    pages[this.briefingPage].forEach((line, i) => g.fillText(line, 20, 160 + i * 21));
+    if (pages.length > 1) g.fillText(`Page ${this.briefingPage + 1}/${pages.length}`, 20, H - 58);
     this._hint(g, this.idleHint());
   }
 

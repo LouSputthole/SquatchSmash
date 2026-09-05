@@ -123,7 +123,7 @@ const heistPhoneTime = {
 /* Tony already owns this phone in campaign inventory. THE TAKE does not put
  * it in the weapon hotbar or render a second handset; the shared Phone owns
  * only the incoming-call lifecycle when the safehouse debrief reaches it. */
-const phone = new Phone({ time: heistPhoneTime, audio, calls: [], threads: [] });
+const phone = new Phone({ time: heistPhoneTime, audio, campaign, calls: [], threads: [] });
 // Queued re-record cues caption with the words their takes actually say.
 loadAsRecordedCaptions().then((captions) => phone.setAsRecordedCaptions(captions));
 const SAFEHOUSE_LOU_CALL = Object.freeze({

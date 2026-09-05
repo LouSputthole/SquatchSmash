@@ -1738,6 +1738,7 @@ class ApartmentStory {
       items.push({
         id: item.id,
         label: pastimeLabel(item, activities),
+        hint: item.hint,
         done: activities[item.id] === true,
         required: pastimesStillGate,
         current: door.kind === 'activity' && door.id === item.id,
@@ -1833,7 +1834,13 @@ class ApartmentStory {
      * to midnight, so everything above it is true and useless for seventeen
      * hours unless the list also says what a day with nothing in it is for. */
     if (killingTime) items.push(DAY_ONE_KILL_TIME);
-    return { chapter: state.story.chapter, day: state.story.day, items };
+    let hint = door.hint ?? '';
+    if (door.id === 'pooped') {
+      hint = Number(activities.bowel) > 0.55
+        ? 'You are ready. Bathroom through the north door · look at the toilet and press [E] to sit. Follow the on-screen keys, or stay seated to finish.'
+        : 'Eat the cooked eggs, or drink the raw milk from the fridge. Then look at the toilet and press [E] to sit.';
+    }
+    return { chapter: state.story.chapter, day: state.story.day, items, hint };
   }
 
   /**

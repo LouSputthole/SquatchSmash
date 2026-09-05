@@ -57,7 +57,7 @@ const parts = [
     ['DEFAULT_KEYS', 'KEY_ACTIONS', 'SETTING_NAMES', 'get', 'getAll', 'set', 'subscribe',
      'reload', 'live', 'applyBody', 'REDUCED_SHAKE', 'shakeScale', 'lookSensitivity',
      'bindLookSensitivity', 'bindAudioVolume', 'getKeymap', 'bindKey', 'resetKeys',
-     'translateKey', 'keyLabel'],
+     'translateKey', 'keyLabel', 'projectGameplayKeysInText'],
     'settings'),
   /* WHAT PAUSE-MENU ASKS FOR THAT THIS BUNDLE DOES NOT HAVE.
    *
@@ -94,6 +94,9 @@ const parts = [
   importCampaignSave: () => ({ ok: false, reason: 'no campaign in the arcade build' }),
 };
 const setSceneLifecyclePaused = () => {};
+const readSaveFeedback = () => ({ receipt: null, failing: false, preview: false, persistent: false, briefings: [] });
+const saveFeedbackText = () => 'This arcade run has no campaign checkpoint.';
+const subscribeSaveFeedback = () => () => {};
 const installSystemicPolish = () => {
   const inert = { destroy() {} };
   return { presentation: inert, start: inert, keys: inert };

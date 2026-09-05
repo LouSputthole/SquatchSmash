@@ -12,6 +12,7 @@ ensureDomShim();
 const TEST_MODULES = [
   './build-kit.test.mjs',
   './campaign.test.mjs',
+  './campaign-phone-briefings.test.mjs',
   './campaign-finale.test.mjs',
   './campaign-stats.test.mjs',
   './run-code.test.mjs',
@@ -219,6 +220,7 @@ const TEST_MODULES = [
   './framing-allowlist.test.mjs',
   './prompt-hud.test.mjs',
   './objective-panel.test.mjs',
+  './objective-guide.test.mjs',
   './subtitle-priority.test.mjs',
   './framing-beats.test.mjs',
   './shared-system-adoption.test.mjs',

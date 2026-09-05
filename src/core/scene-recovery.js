@@ -5,6 +5,9 @@ export { SCENE_RECOVERY_STORAGE_KEY } from './scene-recovery-storage.js';
 export const SCENE_SKIP_RESTART_THRESHOLD = 2;
 
 const fallbackStorage = new PreviewMemoryStorage();
+// A quota/security failure must not erase the retries that unlock recovery.
+// Keep failed writes per storage object; a later durable edit/reset wins.
+const volatileLedgers = new WeakMap();
 
 function resolveStorage(storage, locationLike) {
   if (storage && typeof storage.getItem === 'function' && typeof storage.setItem === 'function') {
@@ -40,12 +43,16 @@ function count(value) {
 
 function readLedger(storage) {
   try {
-    const parsed = JSON.parse(storage.getItem(SCENE_RECOVERY_STORAGE_KEY) || '{}');
+    const source = storage.getItem(SCENE_RECOVERY_STORAGE_KEY);
+    const fallback = volatileLedgers.get(storage);
+    if (fallback && fallback.source === source) return fallback.ledger;
+    volatileLedgers.delete(storage);
+    const parsed = JSON.parse(source || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? parsed
       : {};
   } catch {
-    return {};
+    return volatileLedgers.get(storage)?.ledger ?? {};
   }
 }
 
@@ -65,8 +72,11 @@ function writeScene(storage, sceneId, state) {
   };
   try {
     storage.setItem(SCENE_RECOVERY_STORAGE_KEY, JSON.stringify(ledger));
+    volatileLedgers.delete(storage);
   } catch {
-    // Recovery remains usable when storage is unavailable; only durability is lost.
+    let source = null;
+    try { source = storage.getItem(SCENE_RECOVERY_STORAGE_KEY); } catch { /* denied */ }
+    volatileLedgers.set(storage, { source, ledger });
   }
 }
 
@@ -107,8 +117,7 @@ export function createSceneRecovery({
 
   function getState() {
     const attempts = readScene(sceneStorage, activeSceneId());
-    const skipUnlocked = attempts.checkpointRestarts >= SCENE_SKIP_RESTART_THRESHOLD
-      || attempts.sceneRestarts >= SCENE_SKIP_RESTART_THRESHOLD;
+    const skipUnlocked = attempts.checkpointRestarts + attempts.sceneRestarts >= SCENE_SKIP_RESTART_THRESHOLD;
     return {
       ...attempts,
       skipUnlocked,

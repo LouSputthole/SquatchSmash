@@ -524,6 +524,16 @@ async function extractBodyThroughRealRoute(page, cleanupId, { checkCarrySuppress
   ]) {
     surfaceRoute.push(await walkPlayerTo(page, target));
   }
+  await page.keyboard.press('KeyJ');
+  await page.waitForFunction(() => {
+    const marker = document.querySelector('[data-objective-marker]');
+    return marker && !marker.hidden && marker.dataset.target === 'pyre';
+  });
+  check('Direction assistance stays on the outdoor pyre below zero elevation', await page.evaluate(() => {
+    const runtime = window.COUNTRYSIDE_CABIN;
+    return runtime.state.level === 'cabin' && runtime.player.position.y < 0
+      && document.querySelector('[data-objective-marker]')?.dataset.target === 'pyre';
+  }));
   const fireApproach = await page.evaluate(() => {
     const runtime = window.COUNTRYSIDE_CABIN;
     const target = runtime.cleanup.interactionDescriptors.fire.target;
@@ -1462,6 +1472,15 @@ try {
   for (const plan of wrapPlan) {
     await clearHands(page);
     await teleport(page, plan.view, 'interact');
+    await page.keyboard.press('KeyJ');
+    await page.waitForFunction(() => {
+      const runtime = window.COUNTRYSIDE_CABIN;
+      const marker = document.querySelector('[data-objective-marker]');
+      const nextBodies = ['counterStrike', 'ateam'].map((id) => runtime.dungeon.actors[id].bodyTarget)
+        .filter((target) => target.userData.interact.enabled());
+      return marker && !marker.hidden && nextBodies.some((target) => target.name === marker.dataset.target);
+    });
+    check('Wrapping assistance marks an actual unwrapped captive', true);
     const before = await page.evaluate(({ actor }) => {
       const runtime = window.COUNTRYSIDE_CABIN;
       const target = runtime.dungeon.actors[actor].bodyTarget;

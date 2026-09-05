@@ -17,6 +17,8 @@ import {
   synchronizeCampaignStatistics,
 } from './campaign-stats.js';
 import { campaignRadioContext } from './radio-program.js';
+import { normalizePhoneBriefings } from './phone-briefings.js';
+import { campaignSaveMilestone, normalizeSaveReceipt, publishSaveFeedback } from './save-feedback.js';
 
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
@@ -963,7 +965,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 27;
+export const CAMPAIGN_VERSION = 28;
 
 /**
  * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
@@ -1852,6 +1854,8 @@ function initialState() {
   return {
     version: CAMPAIGN_VERSION,
     revision: 0,
+    phoneBriefings: [],
+    saveReceipt: null,
     scene: {
       id: SCENE_IDS.APARTMENT,
       spawn: 'wake',
@@ -3121,6 +3125,10 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  27(saved) {
+    // Old saves cannot prove that a call finished, or when a write occurred.
+    return { ...saved, version: 28, phoneBriefings: [], saveReceipt: null };
+  },
 });
 
 function migrate(saved) {
@@ -3347,6 +3355,8 @@ function normalize(saved) {
     version: CAMPAIGN_VERSION,
     revision: Number.isSafeInteger(saved.revision) && saved.revision >= 0
       ? saved.revision : 0,
+    phoneBriefings: normalizePhoneBriefings(saved.phoneBriefings),
+    saveReceipt: normalizeSaveReceipt(saved.saveReceipt),
     scene: {
       id: sceneId,
       spawn: normalizedSpawn(sceneId, saved.scene?.spawn),
@@ -3876,6 +3886,7 @@ class Campaign {
     const loaded = load(storage);
     this.storage = loaded.storage;
     this._state = loaded.state;
+    this._saveMilestone = campaignSaveMilestone(this._state);
     this._recoveredNow = Boolean(loaded.newRecovery);
     this._recovery = loaded.newRecovery ?? loaded.recovery;
 
@@ -3925,6 +3936,23 @@ class Campaign {
   /** True while the last save write failed and the next one will retry. */
   get saveFailing() {
     return Boolean(this._saveFailing);
+  }
+
+  get phoneBriefings() {
+    // The phone redraws often; it must not clone the entire campaign to read notes.
+    return this._state.phoneBriefings.map((entry) => ({ ...entry }));
+  }
+
+  recordPhoneBriefing(entry) {
+    const [valid] = normalizePhoneBriefings([entry]);
+    if (!valid || this._state.phoneBriefings.some((existing) => existing.id === valid.id)) return false;
+    this.update((state) => { state.phoneBriefings = [valid, ...state.phoneBriefings].slice(0, 32); });
+    return true;
+  }
+
+  publishSaveStatus(milestone = false) {
+    publishSaveFeedback({ receipt: this._state.saveReceipt, failing: this.saveFailing,
+      persistent: Boolean(this.storage), preview: Boolean(this.preview), briefings: this._state.phoneBriefings }, { milestone });
   }
 
   addItem(itemId, { concealed = false } = {}) {
@@ -4103,22 +4131,29 @@ class Campaign {
       }
     }
     this._state = fresh;
+    this._saveFailing = false;
+    this._saveMilestone = campaignSaveMilestone(fresh);
+    this.publishSaveStatus();
     this._recovery = null;
     this._recoveredNow = false;
     return this.state;
   }
 
   #save() {
-    if (!this.storage) return false;
+    if (!this.storage) { this.publishSaveStatus(); return false; }
+    const mission = this._state.missions[this._state.scene.id];
+    const receipt = { at: Date.now(), scene: this._state.scene.id,
+      label: SCENES[this._state.scene.id]?.title || this._state.scene.id.replaceAll('_', ' '),
+      checkpoint: mission?.checkpoint || this._state.scene.spawn || '' };
     try {
-      this.storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(this._state));
+      this.storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify({ ...this._state, saveReceipt: receipt }));
+      this._state.saveReceipt = receipt;
       if (this._saveFailing) {
         // A later write went through — the quota was cleared, the frame was
         // unblocked. Progress is persisting again; take the warning down.
         this._saveFailing = false;
         updateSaveFailureNotice(false);
       }
-      return true;
     } catch {
       // Sandboxed frames, privacy modes, and full quotas can expose
       // localStorage but reject writes. The current page still gets a
@@ -4128,8 +4163,13 @@ class Campaign {
       // Keep the handle and retry on the next save, and say so on screen.
       this._saveFailing = true;
       updateSaveFailureNotice(true);
+      this.publishSaveStatus();
       return false;
     }
+    const milestone = campaignSaveMilestone(this._state);
+    this.publishSaveStatus(milestone !== this._saveMilestone);
+    this._saveMilestone = milestone;
+    return true;
   }
 }
 
@@ -5519,6 +5559,7 @@ export function createCampaign(options = {}) {
   const preview = explicitStorage ? null : getPreviewRuntime();
   const storage = explicitStorage ? options.storage : (preview?.storage ?? browserStorage());
   const campaign = new Campaign(storage);
+  campaign.preview = Boolean(preview);
 
   if (preview && !preview.seeded) {
     seedPreviewCampaign(
@@ -5531,6 +5572,7 @@ export function createCampaign(options = {}) {
     preview.seeded = true;
   }
   if (preview) installPreviewNotice();
+  campaign.publishSaveStatus();
   return campaign;
 }
 
