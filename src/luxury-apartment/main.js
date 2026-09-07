@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { initHauntHost } from '../core/online/haunt-host.js';
 import { createObjectiveGuide } from '../core/objective-guide.js';
 
 import { createArcade } from '../arcade/mount.js';
@@ -2221,3 +2222,50 @@ window.__squatchSceneReady?.('LUXURY APARTMENT ready');
 requestAnimationFrame(frame);
 window.setTimeout(() => loading.classList.add('hidden'), 180);
 window.setTimeout(() => loading.remove(), 780);
+
+/* THE DEV HAUNT (prototype, 2026-09-07). `?haunt=1` only — every gate boots
+ * this scene without the flag and sees a world with no stranger in it. The
+ * whole wiring rides the window handle so frame() stays untouched; the haunt
+ * runs its own rAF for the stranger's lerp and the voice panner. */
+if (new URLSearchParams(location.search).get('haunt') === '1') {
+  const L = window.LUXURY_APARTMENT;
+  const caption = (text, holdMs = 4200) => {
+    const el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = 'position:fixed;left:50%;bottom:18%;transform:translateX(-50%);'
+      + 'z-index:3500;color:#e8ddc0;background:rgba(8,8,10,.72);padding:6px 14px;'
+      + 'font:italic 15px Georgia,serif;letter-spacing:.06em;border-radius:4px;'
+      + 'transition:opacity .8s;pointer-events:none;';
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; }, holdMs);
+    setTimeout(() => el.remove(), holdMs + 900);
+  };
+  const flickLights = (offMs) => {
+    try {
+      L.setLights('all', false, { automatic: true });
+      setTimeout(() => L.setLights('all', true, { automatic: true }), offMs);
+    } catch (error) { console.warn('haunt lights:', error.message); }
+  };
+  initHauntHost({
+    THREE, scene, camera, sceneId: 'luxury_apartment',
+    getPlayer: () => ({ x: player.position.x, z: player.position.z, yaw: player.yaw }),
+    pranks: {
+      whisper: (text) => caption(String(text ?? '').slice(0, 120) || '…'),
+      fart: () => L.audio.play(`fart.${1 + Math.floor(Math.random() * 4)}`, { volume: 0.8 }),
+      lights: () => flickLights(1400),
+      phone: () => {
+        L.audio.startLoop('haunt.phone', { name: 'phone.ring', volume: 0.5 });
+        setTimeout(() => L.audio.stopLoop('haunt.phone', 0.2), 4200);
+      },
+      nudge: () => {
+        try { L.actions.crookedArt(); } catch { flickLights(250); }
+      },
+      jumpscare: () => {
+        L.audio.play('door.knob', { volume: 0.9 });
+        setTimeout(() => L.audio.play('door.creak', { volume: 1 }), 350);
+        flickLights(900);
+        caption('Behind you.', 1600);
+      },
+    },
+  });
+}

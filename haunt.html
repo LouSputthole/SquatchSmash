@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Stranger — Dev Haunt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128123;</text></svg>" />
+<link rel="stylesheet" href="src/haunt/haunt.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body class="haunt">
+
+<canvas id="scene"></canvas>
+
+<!-- ===== landing card ===== -->
+<div id="join-card">
+  <div class="card">
+    <h1>YOU ARE THE STRANGER</h1>
+    <p class="tagline">Nobody sent you. Nobody knows you. You were never here.</p>
+    <label>
+      <span>NAME</span>
+      <input id="name-input" type="text" maxlength="24" autocomplete="off"
+             spellcheck="false" value="The Stranger" />
+    </label>
+    <button id="join-btn" type="button">OPEN THE LINE</button>
+    <div id="ritual" class="hidden">
+      <label>
+        <span>YOUR CODE — get it to the man inside</span>
+        <textarea id="offer-out" readonly spellcheck="false"></textarea>
+      </label>
+      <button id="copy-offer" type="button">COPY</button>
+      <label>
+        <span>HIS REPLY</span>
+        <textarea id="answer-in" spellcheck="false"
+                  placeholder="paste the reply code here"></textarea>
+      </label>
+      <button id="connect-btn" type="button">WALK IN</button>
+    </div>
+    <div id="join-error" class="hidden"></div>
+    <p class="fineprint">Joining opens your microphone. Speak softly. He can hear you.</p>
+  </div>
+</div>
+
+<!-- ===== control surface ===== -->
+<div id="surface" class="hidden">
+  <div id="chips">
+    <div id="scene-chip" class="chip">SCENE: —</div>
+    <div id="host-chip" class="chip">HOST: no contact</div>
+    <div id="status-chip" class="chip">LINKED</div>
+  </div>
+
+  <div id="crosshair">+</div>
+
+  <div id="lock-hint">click the void to look around · WASD to drift</div>
+
+  <div id="pranks">
+    <div class="strip-title">THE BUSINESS</div>
+    <div class="whisper-row">
+      <input id="whisper-text" type="text" maxlength="120" autocomplete="off"
+             spellcheck="false" placeholder="somethin' to whisper…" />
+      <button type="button" class="prank" data-cmd="whisper">WHISPER</button>
+    </div>
+    <button type="button" class="prank" data-cmd="fart">FART</button>
+    <button type="button" class="prank" data-cmd="lights">LIGHTS</button>
+    <button type="button" class="prank" data-cmd="phone">PHONE</button>
+    <button type="button" class="prank" data-cmd="nudge">NUDGE</button>
+    <button type="button" class="prank danger" data-cmd="jumpscare">JUMPSCARE</button>
+    <button id="mute-btn" type="button" class="live">MIC: LIVE</button>
+  </div>
+</div>
+
+<script type="module" src="src/haunt/main.js"></script>
+</body>
+</html>
