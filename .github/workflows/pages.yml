@@ -56,7 +56,7 @@ jobs:
              silvercase.html mansion.html mansion-siege.html enolasquatch.html \
              cartel-palace.html specialmeeting.html preview.html roster.html \
              wardrobe.html combatlab.html weapon-sound-audition.html trophyroom.html \
-             radioroom.html _site/
+             radioroom.html haunt.html _site/
           cp -r src vendor assets game lib _site/
           # Every check below says what it wanted before it runs.
           #
