@@ -228,6 +228,13 @@ const MESSAGES = [
       '',
       'Give your hands a day to stop shaking first.',
       '',
+      /* The sign-off tease, restored (owner, 2026-09-09: "also yeah rever
+       * this"). The reconcile pass cut it from the body and the read-reaction
+       * both; the Prospect's vo.mail.flying.3 quotes this exact sentence, so
+       * the two travel together. The mail is afterBeefRun-gated, so neither
+       * says "initiation" anywhere Day One can hear it. */
+      'If you make it past initiation, that is.',
+      '',
       'Good landing.',
       '',
       'Lou',

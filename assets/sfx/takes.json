@@ -6950,6 +6950,54 @@
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"
     },
+    "vo.call.booski.silver_case.1": {
+      "text": "fe94be077b24",
+      "source": "rendered",
+      "voice": "booski",
+      "voiceId": "s2wvuS7SwITYg8dqsJdn"
+    },
+    "vo.call.booski.silver_case.2": {
+      "text": "4a39018fee54",
+      "source": "rendered",
+      "voice": "booski",
+      "voiceId": "s2wvuS7SwITYg8dqsJdn"
+    },
+    "vo.call.booski.silver_case.3": {
+      "text": "919d163f0fe9",
+      "source": "rendered",
+      "voice": "booski",
+      "voiceId": "s2wvuS7SwITYg8dqsJdn"
+    },
+    "vo.call.booski.silver_case.4": {
+      "text": "a1d2bfab488e",
+      "source": "rendered",
+      "voice": "booski",
+      "voiceId": "s2wvuS7SwITYg8dqsJdn"
+    },
+    "vo.call.booski.silver_case.tony.1": {
+      "text": "f74c5eba6826",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "vo.call.booski.silver_case.tony.2": {
+      "text": "47135c817d23",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "vo.call.booski.silver_case.tony.3": {
+      "text": "dea97b898044",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
+    "vo.call.booski.silver_case.tony.4": {
+      "text": "107dda058ba1",
+      "source": "rendered",
+      "voice": "player",
+      "voiceId": "iP95p4xoKVk53GoZ742B"
+    },
     "vo.call.booski.special_meeting.1": {
       "text": "789c0621dab6",
       "source": "assumed"
@@ -14061,7 +14109,7 @@
       "source": "assumed"
     },
     "vo.siege.prospect.little_friend": {
-      "text": "096828fd499e",
+      "text": "78b90d1059b0",
       "source": "rendered",
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B"

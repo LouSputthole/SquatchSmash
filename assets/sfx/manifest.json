@@ -26056,9 +26056,7 @@
     {
       "name": "vo.siege.prospect.little_friend",
       "voice": "player",
-      "say": "Say hello to my little friend.",
-      "needsRerecord": true,
-      "rerecordReason": "Owner, 2026-09-09: \"what happened to the say hello to my little friend line at the top of the stairs\" -- the 2026-08-28 punch-up pick is retired and the Scarface line is back; the take on disk still speaks the punch-up wording."
+      "say": "Say hello to my little friend."
     },
     {
       "name": "vo.siege.lull.booski.reload",

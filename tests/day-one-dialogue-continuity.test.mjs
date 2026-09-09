@@ -41,7 +41,12 @@ test('Day One chat, mail, and radio frame Wednesday as routine club business', (
   assert.match(noticeText, /weekly meeting.*routine business/i);
 
   const audibleApartmentText = MANIFEST.sfx
-    .filter(({ name }) => /^vo\.(?:mail\.|idle\.)/.test(name))
+    /* vo.mail.flying.* reacts to Lou's flying invite, which is
+     * afterBeefRun-gated in src/arcade/mail.js — it cannot air on Day One,
+     * and its restored punchline deliberately quotes "If you make it past
+     * initiation." (owner, 2026-09-09). Every other mail/idle cue stays in
+     * the sweep. */
+    .filter(({ name }) => /^vo\.(?:mail\.|idle\.)/.test(name) && !name.startsWith('vo.mail.flying.'))
     .map(({ say }) => say ?? '')
     .join('\n');
   assert.doesNotMatch(audibleApartmentText, PREMATURE_FINALE,

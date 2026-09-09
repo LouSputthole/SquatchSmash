@@ -29,11 +29,6 @@
   ],
   "lines": [
     {
-      "cue": "vo.siege.prospect.little_friend",
-      "retiredText": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
-      "reason": "Owner, 2026-09-09: \"what happened to the say hello to my little friend line at the top of the stairs\" -- the 2026-08-28 punch-up pick is retired and the Scarface line is back; the take on disk still speaks the punch-up wording."
-    },
-    {
       "cue": "vo.graveyard.snow.bark.plot",
       "retiredText": "Fresh plot is past GeeWiz. The reserved hole stays open.",
       "reason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."

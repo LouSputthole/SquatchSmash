@@ -176,8 +176,11 @@ test('the graveyard is an optional memorial museum around the burial', () => {
   assert.equal(mission.echoHeard, true);
   assert.equal(mission.inspectGrave('colton').line.toLowerCase().includes('asian feet'), true);
   assert.equal(mission.suggestSaucePlot(), false);
-  assert.match(lines.at(-1), /reserved.*HotDog.*past GeeWiz/i);
-  assert.doesNotMatch(lines.slice(-2).join(' '), /traitor|rat|feeling|need that one soon/i);
+  /* Snow's refusal is the authored foreshadow again (owner, 2026-09-09:
+   * "Revert the grave back to Sauces ... a good foreshadow") — he does not
+   * explain it, and he never says traitor or rat. */
+  assert.match(lines.at(-1), /need that one soon/i);
+  assert.doesNotMatch(lines.slice(-2).join(' '), /traitor|rat/i);
 
   assert.equal(mission.urinateOn('babs'), false);
   assert.equal(mission.urinateOn('brawny'), true);
