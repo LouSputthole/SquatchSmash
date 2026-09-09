@@ -2,8 +2,8 @@
   "schema": "squatchsmash.rendered-voice-receipts.v2",
   "coverage": {
     "authoredPlayable": 4116,
-    "currentDelivered": 4107,
-    "outstanding": 9,
+    "currentDelivered": 4099,
+    "outstanding": 17,
     "missing": [
       "vo.call.booski.silver_case.1",
       "vo.call.booski.silver_case.2",
@@ -15,10 +15,18 @@
       "vo.call.booski.silver_case.tony.4"
     ],
     "rerecord": [
-      "vo.siege.prospect.little_friend"
+      "vo.graveyard.inspect.sauce",
+      "vo.graveyard.prospect.sauce",
+      "vo.graveyard.snow.bark.plot",
+      "vo.graveyard.snow.sauce",
+      "vo.mail.flying.3",
+      "vo.siege.prospect.little_friend",
+      "vo.toilet.hint.1",
+      "vo.toilet.hint.2",
+      "vo.toilet.hint.3"
     ],
     "recast": [],
-    "renderedExact": 557,
+    "renderedExact": 549,
     "assumedCurrent": 3550
   },
   "receipts": [
@@ -4313,32 +4321,6 @@
       "channels": 1
     },
     {
-      "cue": "vo.graveyard.inspect.sauce",
-      "file": "vo.graveyard.inspect.sauce.mp3",
-      "sha256": "ea58b057b58b55706b92a2b3a9d9d4c2e57e63a7d28e148d852bc00954bf97dd",
-      "bytes": 40586,
-      "indexVersion": "2640cf3f89",
-      "textHash": "1b8961d828d0",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 2.461,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.graveyard.prospect.sauce",
-      "file": "vo.graveyard.prospect.sauce.mp3",
-      "sha256": "063e14ef67e97a9e04c21e9f2f2286e01d6e540fdef32a3e010f10124eefd9da",
-      "bytes": 33062,
-      "indexVersion": "95ebdd368e",
-      "textHash": "0aa82f171507",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 1.997,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
       "cue": "vo.graveyard.snow.bark.daylight",
       "file": "vo.graveyard.snow.bark.daylight.mp3",
       "sha256": "9b1240e28148b068da9ed0ef29294abac480ba183604b7f39881efde0bed5024",
@@ -4352,19 +4334,6 @@
       "channels": 1
     },
     {
-      "cue": "vo.graveyard.snow.bark.plot",
-      "file": "vo.graveyard.snow.bark.plot.mp3",
-      "sha256": "5ff3a5e0f9ee01a9ee0c7a51e8260b8db75b9cbdccd65903e6b1b6edd243928e",
-      "bytes": 62737,
-      "indexVersion": "80e02eb193",
-      "textHash": "d2926956e79b",
-      "voice": "snow",
-      "voiceId": "OhisAd2u8Q6qSA4xXAAT",
-      "durationSeconds": 3.855,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
       "cue": "vo.graveyard.snow.done.watched-home",
       "file": "vo.graveyard.snow.done.watched-home.mp3",
       "sha256": "60e64fad6219568466630ad629c010106afa89ae4a1d8510f63ec017c4923a06",
@@ -4374,19 +4343,6 @@
       "voice": "snow",
       "voiceId": "OhisAd2u8Q6qSA4xXAAT",
       "durationSeconds": 5.805,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.graveyard.snow.sauce",
-      "file": "vo.graveyard.snow.sauce.mp3",
-      "sha256": "b795ca3bfedd589b57fecf7a8e783ccd34afef5bb2deae15334af492fa9cc4db",
-      "bytes": 56050,
-      "indexVersion": "8a336cf0ef",
-      "textHash": "2d55788a377f",
-      "voice": "snow",
-      "voiceId": "OhisAd2u8Q6qSA4xXAAT",
-      "durationSeconds": 3.437,
       "sampleRate": 44100,
       "channels": 1
     },
@@ -4699,19 +4655,6 @@
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
       "durationSeconds": 2.554,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.mail.flying.3",
-      "file": "vo.mail.flying.3.mp3",
-      "sha256": "67ff9c808a517f0af684901328d6b805866caa06e91aa9dec97cd30723cae7d3",
-      "bytes": 32226,
-      "indexVersion": "6d7ef31bcc",
-      "textHash": "149e42c3e6e6",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 1.95,
       "sampleRate": 44100,
       "channels": 1
     },
@@ -7208,45 +7151,6 @@
       "voice": "player",
       "voiceId": "iP95p4xoKVk53GoZ742B",
       "durationSeconds": 2.972,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.toilet.hint.1",
-      "file": "vo.toilet.hint.1.mp3",
-      "sha256": "07da4ee30e5b0920440a1dc09f367fd68aa20b17ec70045242da8cd12eb95208",
-      "bytes": 51453,
-      "indexVersion": "0f70f57f6f",
-      "textHash": "58282e6e8045",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 3.158,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.toilet.hint.2",
-      "file": "vo.toilet.hint.2.mp3",
-      "sha256": "48a5c0af14fc31f83eb38b319d075eeeaba0c3097c8128d536e829cd1fbefe99",
-      "bytes": 51453,
-      "indexVersion": "a6207d6bbf",
-      "textHash": "9b2553eb38d0",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 3.158,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.toilet.hint.3",
-      "file": "vo.toilet.hint.3.mp3",
-      "sha256": "d599dee470936e9e4fcaf4f5c613c780d2faa69cfe0f3cebf050750c761cdf3d",
-      "bytes": 49363,
-      "indexVersion": "c71a4f41de",
-      "textHash": "4acb8a6d4932",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 3.019,
       "sampleRate": 44100,
       "channels": 1
     },

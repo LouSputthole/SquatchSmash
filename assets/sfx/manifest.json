@@ -15805,7 +15805,9 @@
     {
       "name": "vo.mail.flying.3",
       "voice": "player",
-      "say": "“Nothing mad,” he says, after the meat run."
+      "say": "\"If you make it past initiation.\" Cheers, Lou.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09 (\"also yeah rever this\"): the initiation-tease reply is back; the take on disk still speaks the meat-run rewrite."
     },
     {
       "name": "vo.mail.flying.4",
@@ -15815,17 +15817,23 @@
     {
       "name": "vo.toilet.hint.1",
       "voice": "player",
-      "say": "Nothing doing yet. Couple of cigarettes usually gets that moving."
+      "say": "Nothing doing yet. One dart usually gets that moving.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09 (\"revert this as well\"): the dart / zyn / raw-milk hints are back; the take on disk still speaks the generic-cigarettes rewrite."
     },
     {
       "name": "vo.toilet.hint.2",
       "voice": "player",
-      "say": "Not yet. Give it a few smokes and we will be back in here."
+      "say": "Not yet. A zyn would sort this out inside a minute.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09 (\"revert this as well\"): the dart / zyn / raw-milk hints are back; the take on disk still speaks the generic-cigarettes rewrite."
     },
     {
       "name": "vo.toilet.hint.3",
       "voice": "player",
-      "say": "Empty. It always turns up about four cigarettes in."
+      "say": "Empty. There is raw milk in the fridge, mind.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09 (\"revert this as well\"): the dart / zyn / raw-milk hints are back; the take on disk still speaks the generic-cigarettes rewrite."
     },
     {
       "name": "vo.bing2.shubenator.intro",
@@ -16751,7 +16759,9 @@
     {
       "name": "vo.graveyard.snow.bark.plot",
       "voice": "snow",
-      "say": "Fresh plot is past GeeWiz. The reserved hole stays open."
+      "say": "Fresh plot is past GeeWiz. Sauce's hole stays open.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
     },
     {
       "name": "vo.graveyard.inspect.babs",
@@ -16806,17 +16816,23 @@
     {
       "name": "vo.graveyard.inspect.sauce",
       "voice": "player",
-      "say": "An open plot marked RESERVED in fresh pencil."
+      "say": "An open plot with SAUCE already cut into the temporary marker.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
     },
     {
       "name": "vo.graveyard.prospect.sauce",
       "voice": "player",
-      "say": "Fresh hole. Why not use this one?"
+      "say": "We already have a hole. Put HotDog in Sauce's.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
     },
     {
       "name": "vo.graveyard.snow.sauce",
       "voice": "snow",
-      "say": "Reserved means reserved. HotDog goes past GeeWiz."
+      "say": "No. I have a feeling we are going to need that one soon.",
+      "needsRerecord": true,
+      "rerecordReason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
     },
     {
       "name": "vo.graveyard.prospect.pee.brawny",

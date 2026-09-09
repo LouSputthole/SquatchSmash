@@ -32,6 +32,46 @@
       "cue": "vo.siege.prospect.little_friend",
       "retiredText": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
       "reason": "Owner, 2026-09-09: \"what happened to the say hello to my little friend line at the top of the stairs\" -- the 2026-08-28 punch-up pick is retired and the Scarface line is back; the take on disk still speaks the punch-up wording."
+    },
+    {
+      "cue": "vo.graveyard.snow.bark.plot",
+      "retiredText": "Fresh plot is past GeeWiz. The reserved hole stays open.",
+      "reason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
+    },
+    {
+      "cue": "vo.graveyard.inspect.sauce",
+      "retiredText": "An open plot marked RESERVED in fresh pencil.",
+      "reason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
+    },
+    {
+      "cue": "vo.graveyard.prospect.sauce",
+      "retiredText": "Fresh hole. Why not use this one?",
+      "reason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
+    },
+    {
+      "cue": "vo.graveyard.snow.sauce",
+      "retiredText": "Reserved means reserved. HotDog goes past GeeWiz.",
+      "reason": "Owner, 2026-09-09: \"Revert the grave back to Sauces, its more of an inside joke than anytthing and a good foreshadow.\" The reconcile-era RESERVED anonymization is retired; the take on disk still speaks it."
+    },
+    {
+      "cue": "vo.mail.flying.3",
+      "retiredText": "“Nothing mad,” he says, after the meat run.",
+      "reason": "Owner, 2026-09-09 (\"also yeah rever this\"): the initiation-tease reply is back; the take on disk still speaks the meat-run rewrite."
+    },
+    {
+      "cue": "vo.toilet.hint.1",
+      "retiredText": "Nothing doing yet. Couple of cigarettes usually gets that moving.",
+      "reason": "Owner, 2026-09-09 (\"revert this as well\"): the dart / zyn / raw-milk hints are back; the take on disk still speaks the generic-cigarettes rewrite."
+    },
+    {
+      "cue": "vo.toilet.hint.2",
+      "retiredText": "Not yet. Give it a few smokes and we will be back in here.",
+      "reason": "Owner, 2026-09-09 (\"revert this as well\"): the dart / zyn / raw-milk hints are back; the take on disk still speaks the generic-cigarettes rewrite."
+    },
+    {
+      "cue": "vo.toilet.hint.3",
+      "retiredText": "Empty. It always turns up about four cigarettes in.",
+      "reason": "Owner, 2026-09-09 (\"revert this as well\"): the dart / zyn / raw-milk hints are back; the take on disk still speaks the generic-cigarettes rewrite."
     }
   ],
   "retired": [

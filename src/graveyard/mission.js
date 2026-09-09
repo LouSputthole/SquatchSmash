@@ -28,10 +28,13 @@ export const GRAVES = Object.freeze({
     line: 'GeeWiz. Regular stone, regular plot, one spelling nobody ever agreed on.',
   }),
   sauce: Object.freeze({
-    // Keep the internal id for save and geometry compatibility. The player-facing
-    // marker cannot name Sauce before the Cartel Palace betrayal reveal.
-    name: 'RESERVED', tier: 'reserved', open: true,
-    line: 'An open plot marked RESERVED in fresh pencil.',
+    /* The marker NAMES Sauce, three chapters early, on purpose. A reconcile
+     * pass once anonymized it to RESERVED to protect the Palace reveal; the
+     * owner overruled it, 2026-09-09: "Revert the grave back to Sauces, its
+     * more of an inside joke than anytthing and a good foreshadow." The
+     * Family digs holes for people it still says hello to. */
+    name: 'SAUCE', tier: 'reserved', open: true,
+    line: 'An open plot with SAUCE already cut into the temporary marker.',
   }),
 });
 
@@ -79,7 +82,8 @@ export const GRAVEYARD_SNOW_BARKS = Object.freeze({
   plot: Object.freeze({
     who: 'Snow',
     cue: 'vo.graveyard.snow.bark.plot',
-    text: 'Fresh plot is past GeeWiz. The reserved hole stays open.',
+    /* "Sauce's hole", by name — see the GRAVES.sauce note (owner, 2026-09-09). */
+    text: "Fresh plot is past GeeWiz. Sauce's hole stays open.",
     seconds: 3.2,
   }),
 });
@@ -214,8 +218,11 @@ export class GraveyardMission {
   }
 
   suggestSaucePlot() {
-    this.line('Fresh hole. Why not use this one?', 'vo.graveyard.prospect.sauce', 'Prospect');
-    this.line('Reserved means reserved. HotDog goes past GeeWiz.', 'vo.graveyard.snow.sauce', 'Snow');
+    /* The original exchange, restored (owner, 2026-09-09 — see GRAVES.sauce):
+     * the Prospect offers Sauce's hole for HotDog and Snow's refusal is the
+     * foreshadow, delivered dead flat. */
+    this.line("We already have a hole. Put HotDog in Sauce's.", 'vo.graveyard.prospect.sauce', 'Prospect');
+    this.line('No. I have a feeling we are going to need that one soon.', 'vo.graveyard.snow.sauce', 'Snow');
     return false;
   }
 

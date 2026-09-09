@@ -199,23 +199,25 @@ test('all requested graves have an authored presentation tier and epitaph', () =
   assert.equal(GRAVES.whiplash.traitor, true);
 });
 
-test('the early reserved plot does not name Sauce before the Palace betrayal reveal', () => {
+test('the early open plot names Sauce on purpose — the foreshadow is authored', () => {
+  /* This test used to enforce the opposite: a reconcile pass anonymized the
+   * marker to RESERVED to protect the Palace reveal, and this pinned it.
+   * Owner, 2026-09-09: "Revert the grave back to Sauces, its more of an
+   * inside joke than anytthing and a good foreshadow." The marker, the
+   * inspect line, Snow's bark and the whole HotDog exchange name him. */
   const reserved = GRAVES.sauce;
   assert.equal(reserved.open, true);
-  assert.equal(reserved.name, 'RESERVED');
-  assert.doesNotMatch(`${reserved.name} ${reserved.line}`, /sauce/i);
-  assert.match(reserved.line, /open plot.*reserved/i);
-  assert.doesNotMatch(
-    Object.values(GRAVEYARD_SNOW_BARKS).map(({ text }) => text).join(' '),
-    /sauce/i,
-  );
+  assert.equal(reserved.name, 'SAUCE');
+  assert.match(reserved.line, /SAUCE already cut/);
+  assert.match(GRAVEYARD_SNOW_BARKS.plot.text, /Sauce's hole stays open/);
 
   const spoken = [];
   const mission = new GraveyardMission({ onLine: (line) => spoken.push(line) });
   const inspected = mission.inspectGrave('sauce');
   mission.suggestSaucePlot();
-  assert.equal(inspected.name, 'RESERVED');
-  assert.doesNotMatch([inspected.line, ...spoken].join(' '), /sauce/i);
+  assert.equal(inspected.name, 'SAUCE');
+  assert.match(spoken.join(' '), /Put HotDog in Sauce's/);
+  assert.match(spoken.join(' '), /going to need that one soon/);
 });
 
 test('optional museum objectives require every marker and a respect or disrespect choice', () => {

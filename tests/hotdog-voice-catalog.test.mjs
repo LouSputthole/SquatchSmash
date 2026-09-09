@@ -107,7 +107,7 @@ test('the runtime party and graveyard scripts are the authoritative voice catalo
       },
       {
         cue: 'vo.graveyard.snow.bark.plot',
-        text: 'Fresh plot is past GeeWiz. The reserved hole stays open.',
+        text: "Fresh plot is past GeeWiz. Sauce's hole stays open.",
         voice: 'snow',
       },
     ],
