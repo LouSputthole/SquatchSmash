@@ -237,17 +237,16 @@ export class CourseAudio {
   /** Footstep on whatever he is standing on, using the shared surface model. */
   footstep(surface, intensity = 1, position = null) {
     const step = surfaceProps(surface).step;
-    /* No `footstep.sand` recording exists, and an unknown cue does not 404 --
-     * it falls through to the synth's default 800 Hz tick, so every bunker
-     * step was a beep. Until sand is recorded, a gravel take pitched down to
-     * 0.78-0.88 and pulled to 70% reads as soft granular scuff rather than
-     * loose stone. Swap to the real file the day it lands. */
-    const cue = step === 'water' ? 'footstep.puddle'
-      : step === 'sand' ? 'footstep.gravel'
-        : `footstep.${step}`;
+    /* `footstep.sand` landed 2026-09-02, so the bunkers play their own grain.
+     * Both halves of the stand-in went with it: the gravel redirect, and the
+     * 0.21 volume and 0.78-0.88 pitch-down that existed to make loose stone
+     * pass for soft sand. A recording briefed as a muffled granular crunch
+     * needs neither, and carrying the compensation forward would only mix the
+     * real take against the fault it was hiding. */
+    const cue = step === 'water' ? 'footstep.puddle' : `footstep.${step}`;
     this.engine?.play(cue, {
-      volume: (step === 'sand' ? 0.21 : 0.30) * intensity,
-      rate: step === 'sand' ? 0.78 + Math.random() * 0.10 : 0.92 + Math.random() * 0.18,
+      volume: 0.30 * intensity,
+      rate: 0.92 + Math.random() * 0.18,
       position,
     });
   }

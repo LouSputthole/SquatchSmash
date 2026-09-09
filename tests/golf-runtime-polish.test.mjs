@@ -99,15 +99,17 @@ test('CourseAudio plays the resolved footstep as a positional course cue', () =>
 
   audio.footstep('bunker', 0.8, position);
 
-  /* The old pin asserted `footstep.sand` — a cue with no recording behind it,
-   * so every bunker step was the synth's default 800 Hz tick. Until sand is
-   * generated (it is on VOICE-LINES-TODO.md), the course plays a gravel take
-   * pitched to 0.78-0.88 at 70% level as a soft granular scuff; this pins the
-   * stand-in. Flip back to footstep.sand the day the real grain lands. */
+  /* Flipped back 2026-09-02, which is what the previous version of this pin
+   * said to do the day the real grain landed. The bunkers asked for
+   * `footstep.sand` from the start; the cue had no recording, an unknown cue
+   * does not 404, and so every bunker step was the synth's 800 Hz tick until
+   * a gravel take pitched to 0.78-0.88 at 70% stood in for it. Sand exists
+   * now, so the cue, the level and the pitch are all the ordinary ones -- the
+   * stand-in's compensation went out with the stand-in. */
   assert.equal(calls.length, 1);
-  assert.equal(calls[0][0], 'footstep.gravel');
-  assert.ok(Math.abs(calls[0][1].volume - 0.168) < 1e-9);
-  assert.ok(calls[0][1].rate >= 0.78 && calls[0][1].rate <= 0.88);
+  assert.equal(calls[0][0], 'footstep.sand');
+  assert.ok(Math.abs(calls[0][1].volume - 0.24) < 1e-9);
+  assert.ok(calls[0][1].rate >= 0.92 && calls[0][1].rate <= 1.10);
   assert.deepEqual(calls[0][1].position, position);
 });
 

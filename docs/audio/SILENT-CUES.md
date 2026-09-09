@@ -9,19 +9,7 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**12 silent cues across 4 scenes.**
-
-## cabin — 1
-
-- `gasoline.pour` (3.2s) — src/cabin/main.js
-
-## core — 1
-
-- `phone.ringback` (3s) — src/core/phone.js
-
-## nowake — 1
-
-- `footstep.sand` (0.6s) — src/nowake/audio.js
+**9 silent cues across 1 scenes.**
 
 ## world — 9
 
