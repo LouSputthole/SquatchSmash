@@ -22,12 +22,18 @@ import { SPEAKERS } from '../script.js';
  */
 export class DialogueController {
   constructor({
-    onLine, onLineEnd, onStage, playCue,
+    onLine, onLineEnd, onStage, playCue, skipLine,
   } = {}) {
     this.onLine = onLine;
     this.onLineEnd = onLineEnd;
     this.onStage = onStage;
     this.playCue = playCue;
+    /* `(line) => boolean` — true means this spoken line must not play NOW,
+     * judged at the moment it would start (and re-judged while it runs, so a
+     * speaker dying mid-line cuts the line). The mission supplies the roster
+     * fact; this controller only asks. Stage directions are never skipped —
+     * they are the scene's business, not anybody's voice. */
+    this.skipLine = skipLine;
 
     this.queue = [];
     this.active = null;
@@ -109,6 +115,19 @@ export class DialogueController {
       done?.();
       return;
     }
+    /* DEAD MEN SAY NOTHING. Owner playtest, 2026-09-09: *"the silent night
+     * protocol, the scientists were all dead and the voice lines were still
+     * going."* The gassing queues each stage's cries when the stage begins,
+     * and the collapse cadence runs on its own clock — so a man could be
+     * face-down on the epoxy while his queued line still took the floor:
+     * `#speak` gated the AUDIO on `alive`, but the caption and its authored
+     * hold marched through regardless, dead air under a dead man's name.
+     * Judged here, when the line would start, so a skip costs no hold at all
+     * and a still-living speaker's lines are untouched. */
+    if (!line.stage && this.skipLine?.(line)) {
+      this._advance();
+      return;
+    }
     this.active = line;
     const authored = line.hold ?? Math.max(1.2, (line.text?.length || 0) * 0.045);
     this.timer = authored;
@@ -177,6 +196,15 @@ export class DialogueController {
 
   update(dt) {
     if (!this.active) return;
+    /* The mid-air half of "dead men say nothing": a line that STARTED while
+     * its speaker lived is cut the moment he is not — take stopped through
+     * the same handle hush() always used, caption gone with the advance. A
+     * stage direction has no speaker to lose and always finishes. */
+    if (!this.active.stage && this.skipLine?.(this.active)) {
+      this.hush();
+      this._advance();
+      return;
+    }
     this.timer -= dt;
     if (this.timer <= 0) this._advance();
   }

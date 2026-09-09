@@ -82,3 +82,68 @@ test('a bare duration from playCue still holds the line and cannot be hushed', (
   assert.equal(dialogue.hush(), false);
   assert.deepEqual(log, []);
 });
+
+/* DEAD MEN SAY NOTHING. Owner playtest, 2026-09-09: "the silent night
+ * protocol, the scientists were all dead and the voice lines were still
+ * going." The mission's `skipLine` hook is the roster fact; these pin the
+ * controller's half of the contract: a dead speaker's scheduled lines do not
+ * play — dropped before they start, cut if he dies mid-take — and a living
+ * speaker's lines are untouched. */
+
+const said = (speaker, cue, hold = 2) => ({ speaker, text: cue, cue, hold });
+
+function morgueController(log, dead) {
+  return new DialogueController({
+    playCue: (cue) => (cue ? take(log, cue) : 0),
+    skipLine: (line) => dead.has(line.speaker),
+  });
+}
+
+test('a dead speaker\'s queued line never starts — no cue, no caption, no hold', () => {
+  const log = [];
+  const dead = new Set(['MARCHUK']);
+  const dialogue = morgueController(log, dead);
+  dialogue.play([
+    said('SOKOLOV', 'sokolov.openit', 1),
+    said('MARCHUK', 'marchuk.giveyourhand', 1),
+    said('ORLOVA', 'orlova.lookatme', 1),
+  ]);
+  assert.equal(dialogue.active.cue, 'sokolov.openit');
+  dialogue.update(1.6);
+  assert.equal(dialogue.active.cue, 'orlova.lookatme',
+    'the corpse\'s line is stepped over in the same advance, costing no hold');
+  assert.deepEqual(dialogue.cueLog, ['sokolov.openit', 'orlova.lookatme']);
+  assert.ok(!dialogue.captionLog.some((line) => line.speaker === 'MARCHUK'));
+});
+
+test('a speaker who dies mid-take is cut — the take stops and the floor moves on', () => {
+  const log = [];
+  const dead = new Set();
+  const dialogue = morgueController(log, dead);
+  dialogue.play([said('SOKOLOV', 'sokolov.openit', 4), said('ORLOVA', 'orlova.lookatme', 1)]);
+  dialogue.update(0.2);
+  assert.deepEqual(log, [], 'alive, so the take runs');
+  dead.add('SOKOLOV');
+  dialogue.update(0.05);
+  assert.deepEqual(log, ['stop:sokolov.openit']);
+  assert.equal(dialogue.active.cue, 'orlova.lookatme');
+});
+
+test('a stage direction is never skipped, and onDone fires through an all-dead tail', () => {
+  const log = [];
+  const dead = new Set(['MARCHUK', 'ORLOVA']);
+  const dialogue = morgueController(log, dead);
+  const stages = [];
+  dialogue.onStage = (stage) => stages.push(stage);
+  let done = 0;
+  dialogue.play([
+    { speaker: 'HUD', stage: 'glass.handprint', hold: 0.5 },
+    said('MARCHUK', 'marchuk.giveyourhand', 1),
+    said('ORLOVA', 'orlova.lookatme', 1),
+  ], { onDone: () => done++ });
+  assert.deepEqual(stages, ['glass.handprint'], 'the scene\'s business still runs');
+  dialogue.update(0.6);
+  assert.equal(done, 1, 'a queue whose whole tail is corpses still drains');
+  assert.deepEqual(log, []);
+  assert.equal(dialogue.busy, false);
+});

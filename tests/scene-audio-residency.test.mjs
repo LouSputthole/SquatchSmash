@@ -652,10 +652,13 @@ test('Mansion: the one persistent house receiver decodes in the background bank'
   /* One hour, read twice from one constant -- the receiver's clock and the
    * preload window cannot drift apart into a bank that decodes the wrong show. */
   assert.match(mainSource, /\{ hour: HOUSE_RADIO_HOUR \}, \{\n\s+venue: 'mansion'/);
-  /* One physical tuner across both campaign visits, default-off on a new
-   * save. A saved-on tuner is restored only inside beginTour, after the real
-   * start gesture initializes the AudioContext, and that restoration cannot
-   * create a second radio.talk owner because there is only one Radio. */
+  /* One physical tuner across both campaign visits. Since 2026-09-09 the
+   * constructor prefers ON regardless of the saved switch (owner: "the radio
+   * should default to on in every scene"); `defaultPower: false` now only
+   * shapes the fresh save's recorded switch. The tuner still lights only
+   * inside beginTour, after the real start gesture initializes the
+   * AudioContext, and that restoration cannot create a second radio.talk
+   * owner because there is only one Radio. */
   assert.match(mainSource,
     /state: createCampaignRadioAdapter\(mansionRecoveryCampaign, \{[\s\S]*?receiverId: 'mansion_house',[\s\S]*?defaultPower: false,/);
   assert.match(mainSource,
@@ -663,7 +666,7 @@ test('Mansion: the one persistent house receiver decodes in the background bank'
   assert.equal((mainSource.match(/\bnew Radio\(/g) ?? []).length, 1);
 });
 
-test('Luxury and Mansion persist separate default-off physical receivers after audio unlock', () => {
+test('Luxury and Mansion keep separate physical receivers behind their own audio unlocks', () => {
   const luxurySource = readSource('src/luxury-apartment/main.js');
   const mansionSource = readSource('src/mansion/main.js');
 

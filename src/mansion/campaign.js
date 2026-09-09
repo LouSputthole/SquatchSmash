@@ -4,10 +4,14 @@ export const MANSION_RETURN_REPORT = Object.freeze({
   palaceLocationKnown: true,
 });
 
-/** Player-facing return objective, kept in lockstep with Lou's two labels. */
+/** Player-facing return objective, kept in lockstep with Lou's two labels.
+ * Owner, 2026-09-09: "Leaving the mansion for the cartel siege it needs to
+ * be clear to talk to Lou agian to leave." The completed line used to say
+ * only where you were going, not that Lou himself is the way out — the
+ * player stood in a house with no visible exit. */
 export function mansionReturnObjective(status) {
   return status === 'complete'
-    ? 'Leave for the Cartel Palace'
+    ? 'Talk to Lou again — he takes you to the Cartel Palace'
     : "Receive Lou's briefing";
 }
 

@@ -1142,12 +1142,16 @@ flavor(
  * unconditionally); this file owns the gate on the bed, the checkpoint
  * banner when a beat lands, and the pause-menu objective that lists what is
  * on offer. Preview links have no story and therefore no gate. */
+/* Sentence case because these are now real list rows on the objective panel
+ * (owner, 2026-09-09: "the objectives before being able to sleep in the
+ * mansion arent clear" — the menu lived in the hint's small print and the
+ * player had no idea what counted). Banner call sites upcase for themselves. */
 const EVENING_BEAT_MENU = Object.freeze({
-  theatre: 'A PICTURE IN THE THEATRE',
-  pool: 'THE GIRLS ON THE POOL DECK',
-  bar: 'A DRINK OFF THE BARTENDER',
-  dog: 'THE DOG ON THE THIRD FLOOR',
-  lan: "SHUBES' RUNESCAPE",
+  theatre: 'A picture in the theatre',
+  pool: 'The girls on the pool deck',
+  bar: 'A drink off the bartender',
+  dog: 'The dog on the third floor',
+  lan: "Shubes' RuneScape",
 });
 function eveningWindDown() {
   return mansionCampaign.story?.windDown ?? null;
@@ -1250,10 +1254,20 @@ let returnBriefingPlaying = false;
  */
 function mansionObjectivePlan() {
   if (mansionVisit === 'return') {
+    const status = mansionCampaign.story?.mission?.status;
     const line = returnBriefingPlaying
       ? 'Listen to Lou'
-      : mansionReturnObjective(mansionCampaign.story?.mission?.status);
-    return line ? { title: 'Objective', items: [{ label: line, done: false }] } : null;
+      : mansionReturnObjective(status);
+    if (!line) return null;
+    return {
+      title: 'Objective',
+      items: [{ label: line, done: false }],
+      /* Owner, 2026-09-09: "it needs to be clear to talk to Lou agian to
+       * leave" — the second E press on Lou IS the departure, so say so. */
+      hint: !returnBriefingPlaying && status === 'complete'
+        ? 'Press E on Lou when you are ready to go.'
+        : '',
+    };
   }
   const mission = mansionCampaign.story?.mission;
   if (silentSquatch?.mission?.objective) {
@@ -1273,25 +1287,37 @@ function mansionObjectivePlan() {
   }
   if (mission?.status !== 'complete' || mission.sleptAtMansion === true) return null;
   if (!houseExplored()) {
+    /* The count rides in the LABEL. It sat in the hint's small print and
+     * the standing order read as one unmoving line however far you walked. */
     return {
       title: 'Objective',
-      items: [{ label: 'Explore the mansion', done: false }],
-      hint: `Lou's house is bigger than it looks. ${exploredRooms.size}/${EXPLORE_ENOUGH} rooms found.`,
+      items: [{
+        label: `Explore the mansion — ${exploredRooms.size}/${EXPLORE_ENOUGH} rooms found`,
+        done: false,
+      }],
+      hint: "Lou's house is bigger than it looks. Every floor counts.",
     };
   }
   const state = eveningWindDown();
   if (state && !state.ready) {
-    const menu = MANSION_EVENING_BEAT_IDS
-      .filter((id) => !state.done.includes(id))
-      .map((id) => EVENING_BEAT_MENU[id].toLowerCase())
-      .join(', ');
+    /* Owner, 2026-09-09: "the objectives before being able to sleep in the
+     * mansion arent clear." The five settling-in beats were a comma prose
+     * blob in the hint; now each is its own row and ticks as it lands, so
+     * the player can see exactly what counts and what he has already done. */
     return {
       title: 'Objective',
       items: [
         { label: 'Explore the mansion', done: true },
-        { label: 'Wind the night down', done: false },
+        {
+          label: `Wind the night down — any ${state.required} of these:`,
+          done: false,
+        },
+        ...MANSION_EVENING_BEAT_IDS.map((id) => ({
+          label: EVENING_BEAT_MENU[id],
+          done: state.done.includes(id),
+        })),
       ],
-      hint: `${state.required - state.done.length} more of: ${menu}.`,
+      hint: 'Then the guest bed, off the cellar hall.',
     };
   }
   return {
@@ -1299,7 +1325,7 @@ function mansionObjectivePlan() {
     items: [
       { label: 'Explore the mansion', done: true },
       { label: 'Wind the night down', done: true },
-      { label: 'Go to bed', done: false },
+      { label: 'Sleep in the guest room', done: false },
     ],
     hint: 'The guest room is off the cellar hall.',
   };
@@ -1367,7 +1393,7 @@ if (interior.props.guestRoom.bed) {
         const state = eveningWindDown();
         const menu = MANSION_EVENING_BEAT_IDS
           .filter((id) => !state?.done.includes(id))
-          .map((id) => EVENING_BEAT_MENU[id])
+          .map((id) => EVENING_BEAT_MENU[id].toUpperCase())
           .join(' · ');
         announceCheckpoint(`TOO WIRED TO SLEEP — ${state ? state.required - state.done.length : 2} MORE: ${menu}`);
         return false;

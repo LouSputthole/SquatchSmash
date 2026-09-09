@@ -58,8 +58,10 @@ test('the staircase threat is an original vo. cue and the scene plays it once', 
   const names = new Set(siegeVoiceCueNames());
   assert.ok(names.has('vo.siege.prospect.little_friend'));
   assert.equal(SEQUENCES.little_friend.length, 1, 'it is one line, said once, ever');
-  assert.equal(SEQUENCES.little_friend[0].say,
-    "Fine. Everybody at once. Let's find out how many of you this thing was designed for.");
+  /* Owner, 2026-09-09: "what happened to the say hello to my little friend
+   * line at the top of the stairs" -- the quote is back, over the punch-up's
+   * 2026-08-28 replacement. */
+  assert.equal(SEQUENCES.little_friend[0].say, 'Say hello to my little friend.');
   assert.equal(SEQUENCES.little_friend[0].protected, true);
   assert.equal(SEQUENCES.little_friend[0].priority, 'hero');
   assert.ok(SEQUENCES.little_friend[0].gain >= 1.4,
@@ -276,7 +278,7 @@ test('the recording sheet shows the siege as its own section', () => {
     legacyQueue: {},
   });
   assert.match(markdown, /MANSION UNDER SIEGE/);
-  assert.match(markdown, /Fine\. Everybody at once\. Let's find out how many of you this thing was designed for\./);
+  assert.match(markdown, /Say hello to my little friend\./);
 });
 
 /* ================================================================== */
@@ -464,8 +466,7 @@ test('the runner holds a line for its recording when there is one', () => {
 
   const guessed = new SiegeDialogue({ audio: { play() {}, sampleDuration: () => null } });
   guessed.play('little_friend');
-  assert.equal(guessed.hold,
-    readingSeconds("Fine. Everybody at once. Let's find out how many of you this thing was designed for."));
+  assert.equal(guessed.hold, readingSeconds('Say hello to my little friend.'));
 });
 
 test('every beat the mission cannot leave on its own has a sequence that leaves it', () => {

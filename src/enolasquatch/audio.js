@@ -51,10 +51,21 @@ const MUSIC_DIR = 'assets/music/';
  *
  * These are deliberately NOT SFX-manifest cues. They are long-form streamed
  * records, routed through the music bus so every spoken line gets the shared
- * dialogue duck and so neither track acquires a fake world position. The
- * approach is a one-shot whose delivered length is 37.704 s; the mission cuts
- * it on the exact release frame if the player reaches the handle sooner. The
- * escape record starts only after the detonation has had a silent aftermath.
+ * dialogue duck and so neither track acquires a fake world position.
+ *
+ * The approach record LOOPS until the release frame cuts it. It used to be a
+ * one-shot, and the one-shot is why the trigger could never move earlier than
+ * the 37.704 s master reaches: starting sooner meant the record died before
+ * the lever, and the end of the run-in is the stretch the score exists for.
+ * Owner playtest, 2026-09-09: "the music before dropping the bomb doesnt come
+ * on early enough." Looping is what lets the trigger sit at the corridor exit
+ * (`BOMB_APPROACH_MUSIC_LEAD_M`, ./mission/MissionController.js — measured
+ * there: 38.3 s of score before an ordinary drop became 68.0 s). The seam is
+ * measured, not assumed: the tail fades to −34.6 dB RMS over its last ~1.2 s
+ * and the head enters at −18.4 dB (100 ms RMS windows through an
+ * OfflineAudioContext, 2026-09-09), so the wrap is a breath, not a skip. The
+ * release-frame hard cut is unchanged. The escape record still plays once,
+ * starting only after the detonation has had a silent aftermath.
  */
 export const ENOLA_NARRATIVE_MUSIC = Object.freeze({
   approach: Object.freeze({
@@ -63,6 +74,7 @@ export const ENOLA_NARRATIVE_MUSIC = Object.freeze({
     duration: 37.704,
     volume: 0.22,
     fade: 0.8,
+    loop: true,
   }),
   escape: Object.freeze({
     key: 'music.enola.escape',
@@ -422,7 +434,9 @@ export class EnolaMissionAudio extends MissionAudio {
       volume: score.volume,
       fade: score.fade,
       crossfade: 0.18,
-      loop: false,
+      /* Per-score: the approach wraps until the release cut takes it (see
+       * ENOLA_NARRATIVE_MUSIC), the escape is still a needle-drop. */
+      loop: score.loop === true,
       bus: 'music',
       ambience: false,
     };

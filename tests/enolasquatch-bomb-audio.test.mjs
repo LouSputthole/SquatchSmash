@@ -35,7 +35,7 @@ const {
 const {
   MissionController, BOMB_APPROACH_MUSIC_LEAD_M,
 } = await import('../src/enolasquatch/mission/MissionController.js');
-const { TARGET_X } = await import('../src/enolasquatch/config.js');
+const { TARGET_X, ZONES_EAST } = await import('../src/enolasquatch/config.js');
 
 /* ------------------------------------------------------------------ */
 /* A WebAudio context that records what it was told, and nothing else  */
@@ -330,7 +330,11 @@ test('the owner-delivered approach and escape records are streamed once on the m
     && event.key === ENOLA_NARRATIVE_MUSIC.approach.key);
   assert.ok(approach, 'the target-run record must be handed to the streaming player');
   assert.equal(approach.url, `assets/music/${ENOLA_NARRATIVE_MUSIC.approach.file}`);
-  assert.equal(approach.opts.loop, false, 'a narrative needle-drop is never a looping ambience bed');
+  /* The approach wraps until the release frame cuts it. It was a one-shot,
+   * which capped how early the trigger could move; owner playtest,
+   * 2026-09-09: "the music before dropping the bomb doesnt come on early
+   * enough." See ENOLA_NARRATIVE_MUSIC's own comment for the measured seam. */
+  assert.equal(approach.opts.loop, true, 'the approach record must wrap until the release cut');
   assert.equal(approach.opts.bus, 'music', 'dialogue ducking owns the record');
   assert.equal(approach.opts.ambience, false, 'the score has no fake world position');
   assert.ok(approach.opts.volume <= 0.25, 'the approach leaves headroom for the crew');
@@ -420,6 +424,13 @@ test('a checkpoint-requested approach record is retained until delayed audio ini
 test('the approach score starts in defense before the bomb-approach handoff and never restarts', () => {
   assert.ok(BOMB_APPROACH_MUSIC_LEAD_M > 2200,
     'the music lead must be earlier than the 2200 m phase handoff');
+  /* Anchored to the route, not retyped: the record enters with the flak at
+   * the mountain-corridor exit — the same x at which detection hands off to
+   * defense. Owner playtest, 2026-09-09: "the music before dropping the bomb
+   * doesnt come on early enough." */
+  const corridor = ZONES_EAST.find((zone) => zone.id === 'corridor');
+  assert.equal(BOMB_APPROACH_MUSIC_LEAD_M, TARGET_X - corridor.to,
+    'the music lead is the corridor exit, where the defense phase begins');
   let starts = 0;
   let phase = 'defense';
   const mission = {

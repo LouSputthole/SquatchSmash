@@ -373,12 +373,18 @@ try {
           positionError: radio.position.distanceTo(expectedPosition),
           duplicateMusicOwners: musicOwnersBefore.length - new Set(musicOwnersBefore).size,
           poweredOff: !radio.on,
-          receiverPrefersOff: radio.preferredOn === false
-            && game.campaignState.radio.receivers.beefrun_cockpit !== true,
+          /* Owner, 2026-09-09: "the radio should default to on in every
+           * scene" — the constructor now prefers ON regardless of the saved
+           * switch, and the cockpit latch lights the set on the first
+           * in-cockpit frame. The save-side receipt lives below in
+           * `receiverSavedOff`, after a real R press. */
+          receiverPrefersOn: radio.preferredOn === true,
         };
         if (!exerciseControls) return common;
 
-        await press('KeyR');
+        /* No R press to turn it on: the cockpit latch already lit the set
+         * (default-on, 2026-09-09). `poweredOn` is now the receipt that it
+         * did so without any player input. */
         const poweredOn = radio.on;
         const pannerPosition = radio.panner
           ? new game.THREE.Vector3(
@@ -495,8 +501,14 @@ try {
       && state.radio.startupCuesResident
       && state.radio.positionError < 0.02
       && state.radio.duplicateMusicOwners === 0
-      && state.radio.poweredOff
-      && state.radio.receiverPrefersOff;
+      && state.radio.receiverPrefersOn
+      /* In-cockpit checkpoints light the set through the default-on latch.
+       * Takeoff is the exception by design: its control exercise ends on a
+       * real R press OFF, the persisted-off receipt. On-foot checkpoints
+       * never reached the panel, so the set was never lit. */
+      && (spec.inCockpit && spec.checkpoint !== 'takeoff'
+        ? !state.radio.poweredOff
+        : state.radio.poweredOff);
     const saveIsolated = state.saveIsolation.canonicalUnchanged
       && state.saveIsolation.campaignKeys.join('|') === 'squatchlife.campaign'
       && state.saveIsolation.storageClass === 'PreviewMemoryStorage'

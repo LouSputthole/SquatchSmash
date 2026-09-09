@@ -638,7 +638,10 @@ test('the mission walks the brief\'s objective chain in order', () => {
   m.enteredOffice();
   assert.equal(m.beat, B.BRIEFING);
   m.briefingEnded();
-  assert.equal(m.objective, 'Hold the house');
+  /* Owner, 2026-09-09: "the objectie in the siege to go to the top of the
+   * stairs and hit F need to be clear" -- the beat names the place and the
+   * key instead of borrowing the waves' "Hold the house". */
+  assert.equal(m.objective, 'Get to the top of the stairs and press F');
 });
 
 test('the essential office briefing owns the player-fire lock', () => {

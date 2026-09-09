@@ -1745,9 +1745,14 @@ try {
       worldOn: runtime.home.state.radioOn,
     };
   });
-  check('a fresh luxury-apartment receiver is default-off',
-    !initialRadio.on && !initialRadio.preferredOn
-      && !initialRadio.savedPower && !initialRadio.worldOn,
+  /* Owner, 2026-09-09: "the radio should default to on in every scene so if
+   * a user turns off the radio they dont miss it for the rest of the game."
+   * The start gesture is the audio unlock, so a fresh visit walks in on a
+   * set that is already airing. `savedPower` is not pinned here: the auto-on
+   * uses `remember: false`, and only an incidental snapshot persist would
+   * have written power by now. */
+  check('a fresh luxury-apartment receiver is default-on and already airing after the start gesture',
+    initialRadio.on && initialRadio.preferredOn && initialRadio.worldOn,
     JSON.stringify(initialRadio));
 
   if (!await page.evaluate(() => document.pointerLockElement?.tagName === 'CANVAS')) {
@@ -1757,8 +1762,8 @@ try {
   check('the hi-fi resolves before the real E press', luxuryRadioApproach.targetResolved,
     JSON.stringify(luxuryRadioApproach));
   await page.keyboard.press('KeyE');
-  await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === true);
-  const radioOn = await page.evaluate(() => {
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === false);
+  const radioOffFirst = await page.evaluate(() => {
     const runtime = window.LUXURY_APARTMENT;
     return {
       on: runtime.radio.on,
@@ -1768,11 +1773,12 @@ try {
       talkBeds: Number(runtime.audio.loops.has('radio.talk')),
     };
   });
-  check('real E on the luxury hi-fi resolves the target and persists its switch',
+  check('real E on the airing luxury hi-fi turns it off and persists the switch',
     luxuryRadioApproach.targetResolved && luxuryRadioApproach.distance < 3
-      && radioOn.on && radioOn.preferredOn && radioOn.savedPower && radioOn.worldOn
-      && radioOn.talkBeds === 1,
-    JSON.stringify({ approach: luxuryRadioApproach, radioOn }));
+      && !radioOffFirst.on && !radioOffFirst.preferredOn
+      && radioOffFirst.savedPower === false && !radioOffFirst.worldOn
+      && radioOffFirst.talkBeds === 0,
+    JSON.stringify({ approach: luxuryRadioApproach, radioOffFirst }));
 
   /* A second page in the SAME browser context is the reload receipt. The
    * constructor may remember the switch, but it must remain silent until a
@@ -1801,9 +1807,12 @@ try {
     savedPower: window.LUXURY_APARTMENT.radio.state.load().power,
     worldOn: window.LUXURY_APARTMENT.home.state.radioOn,
   }));
-  check('reload remembers luxury receiver power without attempting pre-gesture autoplay',
+  /* THE owner receipt (2026-09-09): the save above remembers OFF, and the
+   * reload boots preferring ON anyway. An off is an in-visit choice, not a
+   * campaign-length one -- and still no pre-gesture autoplay. */
+  check('reload boots preferring ON despite the remembered off, without pre-gesture autoplay',
     !beforeReloadGesture.on && beforeReloadGesture.preferredOn
-      && beforeReloadGesture.savedPower && !beforeReloadGesture.worldOn,
+      && beforeReloadGesture.savedPower === false && !beforeReloadGesture.worldOn,
     JSON.stringify(beforeReloadGesture));
   await radioReloadPage.locator('#start-btn').click();
   await radioReloadPage.waitForFunction(() => (
@@ -1818,9 +1827,9 @@ try {
     talkBeds: Number(window.LUXURY_APARTMENT.audio.loops.has('radio.talk')),
   }));
   const originalRadioContext = await page.evaluate(() => window.LUXURY_APARTMENT.audio.ctx?.state ?? null);
-  check('the next real start gesture restores one luxury receiver bed and synchronizes the world prop',
+  check('the next real start gesture lights the set again with one talk bed and synchronizes the world prop',
     afterReloadGesture.on && afterReloadGesture.preferredOn
-      && afterReloadGesture.savedPower && afterReloadGesture.worldOn
+      && afterReloadGesture.worldOn
       && afterReloadGesture.talkBeds === 1 && originalRadioContext === 'suspended',
     JSON.stringify({ reload: afterReloadGesture, originalRadioContext }));
   await radioReloadPage.close();
@@ -1832,6 +1841,19 @@ try {
   }
   await stageLuxuryRadio(page);
   await page.keyboard.press('KeyE');
+  await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === true);
+  const radioBackOn = await page.evaluate(() => ({
+    on: window.LUXURY_APARTMENT.radio.on,
+    preferredOn: window.LUXURY_APARTMENT.radio.preferredOn,
+    savedPower: window.LUXURY_APARTMENT.radio.state.load().power,
+    worldOn: window.LUXURY_APARTMENT.home.state.radioOn,
+  }));
+  check('a second real E press turns the set back on and persists the switch',
+    radioBackOn.on && radioBackOn.preferredOn
+      && radioBackOn.savedPower && radioBackOn.worldOn,
+    JSON.stringify(radioBackOn));
+  await stageLuxuryRadio(page);
+  await page.keyboard.press('KeyE');
   await page.waitForFunction(() => window.LUXURY_APARTMENT.radio.on === false);
   const radioOff = await page.evaluate(() => ({
     on: window.LUXURY_APARTMENT.radio.on,
@@ -1839,7 +1861,7 @@ try {
     savedPower: window.LUXURY_APARTMENT.radio.state.load().power,
     worldOn: window.LUXURY_APARTMENT.home.state.radioOn,
   }));
-  check('a second real E press persists off and leaves later verifier work with no station overlap',
+  check('a third real E press persists off and leaves later verifier work with no station overlap',
     !radioOff.on && !radioOff.preferredOn && !radioOff.savedPower && !radioOff.worldOn,
     JSON.stringify(radioOff));
 

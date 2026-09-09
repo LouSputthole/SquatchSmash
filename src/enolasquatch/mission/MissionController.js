@@ -375,17 +375,35 @@ const DROP_CAM_SECONDS = 4.2;
  * malfunction sequence begins at 1600 m, leaving roughly 550 m of lead. */
 const BOMB_MALFUNCTION_TRIGGER_M = 1600;
 
-/* THE APPROACH RECORD STARTS BEFORE THE APPROACH PHASE.
+/* THE APPROACH RECORD STARTS WITH THE FLAK, AT THE CORRIDOR EXIT.
  *
- * Owner QA, 2026-08-28: "The music leading into the Fat Squatch bomb drop
- * needs to begin earlier." The former trigger was the `bombApproach` handoff
- * at 2200 m. At the authored ~62 m/s run-in that left only about 26 seconds
- * before an ordinary read-the-lines release, throwing away roughly twelve
- * seconds of the delivered 37.704 s master. Starting at 2800 m gives that
- * missing ten-second breath while the player is still flying the approach;
- * the release frame remains the authoritative hard cut. Exported so the
- * regression test and browser verifier do not retype the distance. */
-export const BOMB_APPROACH_MUSIC_LEAD_M = 2800;
+ * Two owner notes in a row asked for the same thing. 2026-08-28: "The music
+ * leading into the Fat Squatch bomb drop needs to begin earlier" — the
+ * trigger moved from the 2200 m `bombApproach` handoff to 2800 m. Then
+ * 2026-09-09: "the music before dropping the bomb doesnt come on early
+ * enough." It could not move again while the record was a one-shot: measured
+ * on 2026-09-09 (organic flight under the gyro at 62-66 m/s), the 2800 m
+ * trigger fired 38.3 game-seconds before an ordinary read-the-lines release
+ * (trigger t=59.5 at x=6200, drop t≈97.8) against a 37.704 s master — the
+ * record was already spending its last second on the lever, and the first
+ * ~30 s of the defense run (entered t=29.75 at x=4213) had no score at all.
+ * Every earlier trigger would have left the end of the run-in silent, which
+ * is the one stretch the score exists for.
+ *
+ * So the record now LOOPS until the release frame cuts it (see
+ * `ENOLA_NARRATIVE_MUSIC.approach` in ../audio.js for the measured seam),
+ * and the trigger moves to the route's own boundary: the mountain-corridor
+ * exit, which is the same x at which `updateDetectionPhase()` hands off to
+ * `defense` — the score enters on the first frame of the run at the city,
+ * with the guns. Measured after the change (same flight): trigger t=29.75
+ * at x=4216, ordinary drop t=97.75 — 68.0 s of score to the release, the
+ * record wrapping once and still cut on the exact release frame, with the
+ * loop handle confirmed live and unended at the lever. Derived from
+ * ZONES_EAST rather than retyped so
+ * the anchor moves WITH the route; exported so the regression test and
+ * browser verifier do not retype the distance. */
+export const BOMB_APPROACH_MUSIC_LEAD_M = TARGET_X
+  - ZONES_EAST.find((zone) => zone.id === 'corridor').to;
 
 /* ------------------------------------------------------------------ */
 /* THE TWO DIAMONDS                                                    */

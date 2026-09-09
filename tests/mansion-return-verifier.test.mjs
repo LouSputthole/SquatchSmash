@@ -88,7 +88,10 @@ test('the generic scene audit inventories every distinct post-heist runtime', ()
 
 test('the canonical return pause objective follows Lou briefing progress', () => {
   assert.equal(mansionReturnObjective('in_progress'), "Receive Lou's briefing");
-  assert.equal(mansionReturnObjective('complete'), 'Leave for the Cartel Palace');
+  /* Owner, 2026-09-09: "it needs to be clear to talk to Lou agian to leave."
+   * The objective names the man, not just the destination. */
+  assert.equal(mansionReturnObjective('complete'),
+    'Talk to Lou again — he takes you to the Cartel Palace');
 
   const source = read('../src/mansion/main.js');
   assert.match(source,

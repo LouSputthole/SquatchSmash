@@ -74577,7 +74577,7 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
       "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
-      "maxDepthM": 0.033209,
+      "maxDepthM": 0.034307,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -168275,7 +168275,7 @@
       "kind": "INTERPENETRATION",
       "left": "root:mansion/name=SilentSquatch#0/name=xXx#0/name=xxx-chain#0/name=xxx-chain-link#0",
       "right": "root:mansion/name=SilentSquatch#0/name=xxx-hook-eye#0",
-      "maxDepthM": 0.033209,
+      "maxDepthM": 0.034307,
       "reason": "This exact lower-lab shell, landing, glazing, service or apparatus pair is intentionally fitted at its structural interface; the exact pair and cap keep every scientist and neighboring prop audited.",
       "source": "src/mansion/scenes/SilentSquatch.js:902",
       "sourceAnchor": "GEOMETRY_GATE_SILENT_LAB_JOIN"
@@ -298382,13 +298382,13 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-7#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-6#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
@@ -350323,13 +350323,13 @@
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-3#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-1#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1
         },
         {
-          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-7#0",
+          "sourceId": "root:mansion/name=SilentSquatch#0/name=silent-squatch-core-arc-6#0",
           "scope": "direct",
           "overlap": 1,
           "checkSupport": 1

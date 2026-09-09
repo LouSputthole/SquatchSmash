@@ -29,6 +29,11 @@
   ],
   "lines": [
     {
+      "cue": "vo.siege.prospect.little_friend",
+      "retiredText": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
+      "reason": "Owner, 2026-09-09: \"what happened to the say hello to my little friend line at the top of the stairs\" -- the 2026-08-28 punch-up pick is retired and the Scarface line is back; the take on disk still speaks the punch-up wording."
+    },
+    {
       "cue": "vo.sf.opening.history.4",
       "retiredText": "You shot Booski. In the stomach. Four times. Six years ago. He healed mean and still sends you a card every anniversary, so.",
       "reason": "Owner, 2026-09-01: the accepted punch-up pick is the colostomy-bag line; the campaign-reconcile pass replaced it and the take on disk speaks the rewrite."

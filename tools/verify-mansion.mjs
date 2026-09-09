@@ -2732,34 +2732,49 @@ try {
     preferredOn: window.mansion.media.radioPreferredOn,
     savedPower: window.mansion.media.radioSavedPower,
   }));
-  check('a fresh ordinary Mansion visit keeps the default-off receiver silent before audio unlock',
+  /* Owner, 2026-09-09: "the radio should default to on in every scene so if
+   * a user turns off the radio they dont miss it for the rest of the game."
+   * The constructor now prefers ON regardless of the saved switch; the set
+   * still cannot autoplay before the start gesture unlocks the page. */
+  check('a fresh ordinary Mansion visit prefers the receiver on but stays silent before audio unlock',
     beforeFirstGesture.visit === 'silent_squatch' && !beforeFirstGesture.on
-      && !beforeFirstGesture.preferredOn && !beforeFirstGesture.savedPower,
+      && beforeFirstGesture.preferredOn && !beforeFirstGesture.savedPower,
     JSON.stringify(beforeFirstGesture));
   await firstRadioPage.locator('#startBtn').click();
-  await firstRadioPage.waitForFunction(() => window.mansion?.running === true, null, { timeout: 180000 });
+  await firstRadioPage.waitForFunction(() => (
+    window.mansion?.running === true && window.mansion.media.radioOn === true
+  ), null, { timeout: 180000 });
+  const houseRadioLit = await firstRadioPage.evaluate(() => ({
+    on: window.mansion.media.radioOn,
+    preferredOn: window.mansion.media.radioPreferredOn,
+    activeSet: window.mansion.media.activeRadioSet,
+    talkBeds: Number(window.mansion.audio.loops.has('radio.talk')),
+  }));
+  check('the start gesture lights the default-on house tuner with one talk bed',
+    houseRadioLit.on && houseRadioLit.preferredOn
+      && houseRadioLit.activeSet === 0 && houseRadioLit.talkBeds === 1,
+    JSON.stringify(houseRadioLit));
   const houseRadioApproach = await stageHouseRadio(firstRadioPage);
   if (!await firstRadioPage.evaluate(() => document.pointerLockElement === window.mansion.renderer.domElement)) {
     await firstRadioPage.locator('canvas').click({ position: { x: 240, y: 150 } });
     await stageHouseRadio(firstRadioPage);
   }
   await firstRadioPage.keyboard.press('KeyE');
-  await firstRadioPage.waitForFunction(() => window.mansion.media.radioOn === true);
-  const houseRadioOn = await firstRadioPage.evaluate(() => ({
+  await firstRadioPage.waitForFunction(() => window.mansion.media.radioOn === false);
+  const houseRadioOff = await firstRadioPage.evaluate(() => ({
     on: window.mansion.media.radioOn,
     preferredOn: window.mansion.media.radioPreferredOn,
     savedPower: window.mansion.media.radioSavedPower,
-    activeSet: window.mansion.media.activeRadioSet,
     talkBeds: Number(window.mansion.audio.loops.has('radio.talk')),
     persistedPower: JSON.parse(localStorage.getItem('squatchlife.campaign'))
       ?.radio?.receivers?.mansion_house ?? null,
   }));
-  check('real E on a Mansion cabinet persists the one shared house tuner',
+  check('real E on a Mansion cabinet switches the one shared house tuner off and persists it',
     houseRadioApproach.targetResolved && houseRadioApproach.distance < 3
-      && houseRadioOn.on && houseRadioOn.preferredOn && houseRadioOn.savedPower
-      && houseRadioOn.persistedPower === true
-      && houseRadioOn.activeSet === 0 && houseRadioOn.talkBeds === 1,
-    JSON.stringify({ approach: houseRadioApproach, radio: houseRadioOn }));
+      && !houseRadioOff.on && !houseRadioOff.preferredOn
+      && houseRadioOff.savedPower === false
+      && houseRadioOff.persistedPower === false && houseRadioOff.talkBeds === 0,
+    JSON.stringify({ approach: houseRadioApproach, radio: houseRadioOff }));
 
   /* Carry the radio block written by that E press into a known-valid return
    * story template. This changes only verifier story setup; the radio state
@@ -2785,9 +2800,12 @@ try {
     preferredOn: window.mansion.media.radioPreferredOn,
     savedPower: window.mansion.media.radioSavedPower,
   }));
-  check('the repaired-house visit shares saved power but stays silent before its own gesture',
+  /* The save carried over from the first visit remembers OFF (the E press
+   * above). The return visit boots preferring ON anyway — an off is an
+   * in-visit choice — while still refusing pre-gesture autoplay. */
+  check('the repaired-house visit ignores the remembered off and prefers on, silent before its own gesture',
     beforeReturnGesture.visit === 'return' && !beforeReturnGesture.on
-      && beforeReturnGesture.preferredOn && beforeReturnGesture.savedPower,
+      && beforeReturnGesture.preferredOn && beforeReturnGesture.savedPower === false,
     JSON.stringify(beforeReturnGesture));
   await returnRadioPage.locator('#startBtn').click();
   await returnRadioPage.waitForFunction(() => (
@@ -2805,7 +2823,7 @@ try {
     firstRadioPage.evaluate(() => window.mansion.audio.ctx?.state ?? null),
   ]);
   check('the return gesture restores exactly one house bed while both prior scene contexts stay suspended',
-    afterReturnGesture.on && afterReturnGesture.preferredOn && afterReturnGesture.savedPower
+    afterReturnGesture.on && afterReturnGesture.preferredOn
       && afterReturnGesture.activeSet === 0 && afterReturnGesture.talkBeds === 1
       && inactiveRadioContexts.every((state) => state === 'suspended'),
     JSON.stringify({ returnRadio: afterReturnGesture, inactiveRadioContexts }));
@@ -2818,8 +2836,8 @@ try {
   }
   await stageHouseRadio(firstRadioPage);
   await firstRadioPage.keyboard.press('KeyE');
-  await firstRadioPage.waitForFunction(() => window.mansion.media.radioOn === false);
-  const houseRadioOff = await firstRadioPage.evaluate(() => ({
+  await firstRadioPage.waitForFunction(() => window.mansion.media.radioOn === true);
+  const houseRadioBackOn = await firstRadioPage.evaluate(() => ({
     on: window.mansion.media.radioOn,
     preferredOn: window.mansion.media.radioPreferredOn,
     savedPower: window.mansion.media.radioSavedPower,
@@ -2827,10 +2845,10 @@ try {
     persistedPower: JSON.parse(localStorage.getItem('squatchlife.campaign'))
       ?.radio?.receivers?.mansion_house ?? null,
   }));
-  check('a second real E press persists the house tuner off and clears its talk bed',
-    !houseRadioOff.on && !houseRadioOff.preferredOn && !houseRadioOff.savedPower
-      && houseRadioOff.persistedPower === false && houseRadioOff.talkBeds === 0,
-    JSON.stringify(houseRadioOff));
+  check('a second real E press turns the house tuner back on and persists it',
+    houseRadioBackOn.on && houseRadioBackOn.preferredOn && houseRadioBackOn.savedPower
+      && houseRadioBackOn.persistedPower === true && houseRadioBackOn.talkBeds === 1,
+    JSON.stringify(houseRadioBackOn));
   await firstRadioPage.close();
 
   await page.bringToFront();

@@ -1105,7 +1105,7 @@ function buildProblems({
       Problem: 'Luxury Apartment and both Mansion visits previously reset their physical 97.8 receivers instead of using the shared campaign adapter.',
       Evidence: `${lineReference('src/luxury-apartment/main.js', source.luxury, "receiverId: 'luxury_apartment'")}; ${lineReference('src/mansion/main.js', source.mansion, "receiverId: 'mansion_house'")}; focused residency and real-browser reload receipts.`,
       'Player impact': 'Resolved: saved power, volume, cursor, and selection now survive reload without autoplay before the player gesture or duplicate Mansion talk beds.',
-      'Proposed fix': 'Implemented: unique Luxury ownership and one shared physical Mansion house tuner, both default-off and restored after audio unlock.',
+      'Proposed fix': 'Implemented: unique Luxury ownership and one shared physical Mansion house tuner, both lit after audio unlock. 2026-09-09 owner ruling: every receiver boots preferring ON; an off is an in-visit choice the save records but boot no longer obeys.',
       'Mechanical or creative': 'Mechanical', 'Owner decision needed': 'No; used the established shared receiver behavior.', Status: 'RESOLVED',
     },
     {

@@ -4520,6 +4520,8 @@ export function buildSilentSquatch({
       _printed: false,
       /** Set by `stepOut`: where to walk once he is through the doorway. */
       queued: null,
+      /** The node his current line is playing on, so death can stop it. */
+      _voice: null,
 
       get position() { return fig.group.position; },
       /**
@@ -4581,6 +4583,11 @@ export function buildSilentSquatch({
         const source = route(cue, {
           volume: opts.volume ?? 0.9, position: at, ref: 2.2, maxDist: 26, ...opts,
         });
+        /* The take is KEPT so `collapse()` can cut it. The controller's own
+         * hush() only reaches takes handed back as `{ duration, source }`,
+         * and this route hands back a NUMBER — so a man who died mid-line
+         * kept talking from the floor, and nothing upstream could stop him. */
+        self._voice = source ?? null;
         /* The line PLAYS and then the mouth is started on it, in that order.
          * Behind the glass or not, it is the same `AudioEngine.play()` at the
          * end of the route, so the amplitude tap is on it either way and the
@@ -4761,6 +4768,17 @@ export function buildSilentSquatch({
         self.alive = false;
         self.stage = 'down';
         self.target = null;
+        /* DEAD MEN SAY NOTHING — the mid-air half. Owner playtest,
+         * 2026-09-09: *"the scientists were all dead and the voice lines
+         * were still going."* A line that started while he lived is cut the
+         * moment he goes down: the retained take is stopped (same contract
+         * as DialogueController.hush — stop() on a node that already ended
+         * throws, and that is fine) and the mouth driver with it, exactly
+         * as xXx's kill() already does. Queued lines are the mission's half:
+         * its `skipLine` roster check drops them before they start. */
+        try { self._voice?.stop?.(); } catch { /* never started, or already ended */ }
+        self._voice = null;
+        fig.voiceMouth.stop();
         /* Do not freeze the final panic/pounding frame into the corpse. Figure
          * stops all living pose relaxation once `down` is true, so without
          * this reset the outstretched forearms remain inside the glass-side

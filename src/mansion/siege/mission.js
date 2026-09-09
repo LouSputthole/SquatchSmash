@@ -83,9 +83,16 @@ export const BEATS = Object.freeze({
      * beat and therefore restores fire permission immediately. */
     playerFireEnabled: false,
   }),
-  /** A weapon comes up at the top of the stairs. The line. Once. */
+  /** A weapon comes up at the top of the stairs. The line. Once.
+   *
+   * The objective names the place and the key itself, the way THE TAKE's
+   * orders do ("Press E anywhere"). It used to read "Hold the house" here --
+   * right for the waves, illegible for a beat that is waiting on one key in
+   * one bay, exactly as the playtest note above predicted. Owner, 2026-09-09:
+   * *"the objectie in the siege to go to the top of the stairs and hit F need
+   * to be clear"*. */
   LITTLE_FRIEND: Object.freeze({
-    objective: 'Hold the house',
+    objective: 'Get to the top of the stairs and press F',
     hint: 'Take the lit firing step on the gallery rail. Weapon up, then press F.',
     state: 'under_attack',
   }),

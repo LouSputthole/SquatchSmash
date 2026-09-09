@@ -1,9 +1,9 @@
 {
   "schema": "squatchsmash.rendered-voice-receipts.v2",
   "coverage": {
-    "authoredPlayable": 4108,
-    "currentDelivered": 4093,
-    "outstanding": 15,
+    "authoredPlayable": 4116,
+    "currentDelivered": 4092,
+    "outstanding": 24,
     "missing": [
       "heist.death_debrief_people",
       "heist.death_doors_first",
@@ -17,14 +17,23 @@
       "heist.snow_street_sirens",
       "heist.snow_van_clock",
       "heist.snow_vault_eight",
+      "vo.call.booski.silver_case.1",
+      "vo.call.booski.silver_case.2",
+      "vo.call.booski.silver_case.3",
+      "vo.call.booski.silver_case.4",
+      "vo.call.booski.silver_case.tony.1",
+      "vo.call.booski.silver_case.tony.2",
+      "vo.call.booski.silver_case.tony.3",
+      "vo.call.booski.silver_case.tony.4",
       "vo.wake.5"
     ],
     "rerecord": [
       "vo.door.refusal.heist_cleanup.1",
-      "vo.sf.opening.history.4"
+      "vo.sf.opening.history.4",
+      "vo.siege.prospect.little_friend"
     ],
     "recast": [],
-    "renderedExact": 543,
+    "renderedExact": 542,
     "assumedCurrent": 3550
   },
   "receipts": [
@@ -5966,19 +5975,6 @@
       "voice": "lou1",
       "voiceId": "M9UAxraM2w5tCjpOaIB0",
       "durationSeconds": 6.13,
-      "sampleRate": 44100,
-      "channels": 1
-    },
-    {
-      "cue": "vo.siege.prospect.little_friend",
-      "file": "vo.siege.prospect.little_friend.mp3",
-      "sha256": "fd497a8e19040728e379339dd98d3406aebb35ec604a5230466f870c0ef3b597",
-      "bytes": 71097,
-      "indexVersion": "bc515ea193",
-      "textHash": "096828fd499e",
-      "voice": "player",
-      "voiceId": "iP95p4xoKVk53GoZ742B",
-      "durationSeconds": 4.365,
       "sampleRate": 44100,
       "channels": 1
     },

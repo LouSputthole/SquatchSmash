@@ -477,15 +477,44 @@ test('every line behind the glass goes through the glass audio, and nothing else
     }
     assert.ok(entry.from >= 0 && entry.from <= 5, `${entry.cue} came from nobody`);
   }
-  /* And after the door locks, every one of them is genuinely muffled. */
+  /* And after the door locks, every one of them is genuinely muffled.
+   *
+   * 18, measured 2026-09-09. This pin read `> 20` when corpses still spoke:
+   * the stages' interjections and DeathMegatron's taunts displace each
+   * stage's second cry toward the back of the queue, and in this rig's exact
+   * pacing seven of the thirteen gas lines used to reach the floor only
+   * AFTER their speaker had collapsed (owner: *"the scientists were all dead
+   * and the voice lines were still going"*). The dead-speaker skip drops
+   * exactly those seven, 25 -> 18. */
   const afterLock = lab.glassAudio.log.filter((entry) => entry.muffled);
-  assert.ok(afterLock.length > 20);
+  assert.ok(afterLock.length >= 16, `${afterLock.length} muffled lines after the lock is too few`);
   assert.ok(afterLock.some((entry) => entry.cue.includes('reaction.')));
   assert.ok(afterLock.some((entry) => entry.cue.includes('gas.')));
   /* Booski, DeathMegatron, Lou and the Prospect are never routed through it. */
   const dry = new Set(report.cues.filter((c) => !lab.glassAudio.log.some((g) => g.cue === c)));
   assert.ok([...dry].some((c) => c.includes('booski.')));
   assert.equal([...dry].some((c) => c.includes('.orlova.')), false);
+});
+
+/* DEAD MEN SAY NOTHING. Owner playtest, 2026-09-09: *"the silent night
+ * protocol, the scientists were all dead and the voice lines were still
+ * going."* The controller half is pinned in mansion-dialogue-hush.test.mjs;
+ * this is the mission half, on the full night: a line whose speaker has
+ * collapsed by the time the queue reaches it is dropped — no cue, no
+ * caption — while a still-living speaker's lines are untouched. */
+test('a collapsed scientist\'s queued cries never play; a living one\'s still do', () => {
+  const r = rig();
+  playThrough(r);
+  const played = r.lab.glassAudio.log.map((entry) => entry.cue);
+  /* Marchuk is fourth down, and in this rig's exact pacing his crawl cry
+   * ("Nadia. Give me your hand.") reaches the floor only after he has — it
+   * used to play anyway, out of a man face-down on the epoxy. */
+  assert.ok(!played.some((c) => c.includes('gas.marchuk.giveyourhand')),
+    'a corpse took the dialogue floor');
+  assert.ok(!r.lines.some((line) => line.cue?.includes('gas.marchuk.giveyourhand')),
+    'and its caption went with it');
+  /* Orlova is the last one on her feet, so her cry at the glass still plays. */
+  assert.ok(played.some((c) => c.includes('gas.orlova.lookatme')));
 });
 
 /**

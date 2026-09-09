@@ -13,9 +13,9 @@
       "mcdonagh": "Right. Come on. Come on up, the whole fuckin' lot of yiz.",
       "houser": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
       "coen": "Okay. All right then. Come on up.",
-      "status": "ACCEPTED 2026-08-28",
-      "picked": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
-      "retiredText": "Say hello to my little friend."
+      "status": "REVERSED 2026-09-09 — owner: \"what happened to the say hello to my little friend line at the top of the stairs\". The quote goes back in; the punch-up pick is queued for retirement in assets/sfx/rerecord.json.",
+      "picked": "Say hello to my little friend.",
+      "retiredText": "Fine. Everybody at once. Let's find out how many of you this thing was designed for."
     },
     {
       "cue": "vo.nowake.cabin.willy.dont-remember.1",

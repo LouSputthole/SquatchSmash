@@ -264,6 +264,15 @@ class SilentSquatchMission {
       onLineEnd,
       onStage: (stage, line) => this.#stage(stage, line),
       playCue: (cue, voice, line) => this.#speak(cue, voice, line, playCue),
+      /* DEAD MEN SAY NOTHING. Owner playtest, 2026-09-09: *"the silent night
+       * protocol, the scientists were all dead and the voice lines were
+       * still going."* `#speak` already muted a corpse's AUDIO, but the
+       * caption and its hold still took the floor — and a line mid-take when
+       * its man went down kept playing out of him. The roster fact lives
+       * here, on the mission, because the controller has never heard of a
+       * scientist; the controller asks it both when a line would start and
+       * while it runs. Lines from a still-living speaker are untouched. */
+      skipLine: (line) => this.#speakerDead(line),
     });
 
     /* ---- what has happened, honestly ---- */
@@ -656,6 +665,20 @@ class SilentSquatchMission {
         onDone?.();
       },
     });
+  }
+
+  /**
+   * Is this line's speaker a corpse? The dialogue controller's `skipLine`
+   * hook — true drops the line (queued) or cuts it (mid-take). Only speakers
+   * with a body in the lab can be dead: Booski, Lou, DeathMegatron, the
+   * guards and the HUD have no roster entry and always speak. A lab double
+   * that publishes no `alive` (contract-lab's scientists do) reads as alive.
+   */
+  #speakerDead(line) {
+    if (line?.speaker === 'XXX') return this.lab.xxx?.alive === false;
+    const index = SCIENTIST_INDEX[line?.speaker];
+    if (index === undefined) return false;
+    return this.lab.scientists?.[index]?.alive === false;
   }
 
   /** Route a line to the right mouth. Behind the glass, that is a scientist's

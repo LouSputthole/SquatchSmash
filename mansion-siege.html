@@ -467,11 +467,16 @@
       <b>SQUATCHOLA GAY</b>. Preview runs keep the standalone link; campaign runs
       commit the siege report before they leave this landing.
     </div>
+    <!-- ONE EXIT, BY OWNER'S ORDER. The card used to offer the apartment, the
+         quiet house, the Enola handoff and a replay. Owner, 2026-09-09:
+         "Optiponsm after the siege should just be continue - we have these
+         back to the apartment and other stuff" / "It should just continue to
+         squatchola gay". The campaign graph agrees: mansion_siege's only
+         `next` edge is enola_squatch (src/core/campaign.js). Campaign runs
+         route through the click handler's navigate(); preview runs fall
+         through to the sandbox-rewritten href. -->
     <div class="exits">
-      <a href="./index.html" class="btn small" style="text-decoration:none; display:inline-block;">HOME &mdash; THE APARTMENT</a>
-      <a href="./mansion.html" class="btn alt small" style="text-decoration:none; display:inline-block;">THE HOUSE, QUIET</a>
-      <a id="continueBtn" href="./enolasquatch.html" class="btn alt small" style="text-decoration:none; display:inline-block;">CONTINUE &mdash; SQUATCHOLA GAY</a>
-      <button id="replayBtn" type="button" class="btn alt small">PLAY IT AGAIN</button>
+      <a id="continueBtn" href="./enolasquatch.html" class="btn small" style="text-decoration:none; display:inline-block;">CONTINUE &mdash; SQUATCHOLA GAY</a>
     </div>
   </div>
 

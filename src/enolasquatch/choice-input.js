@@ -23,11 +23,15 @@ export function consumeEnolaChoiceKey(mission, code) {
     return mission.chooseReleaseLine?.(digit) === true;
   }
 
-  if (mission.phase === 'emergency' && !mission._emergencyResolved) {
-    const response = { 1: 'baby', 2: 'push', 3: 'shutdown' }[digit];
-    return response ? mission.chooseEmergencyResponse?.(response) === true : false;
-  }
-
+  /* The release pick is the ONLY numbered choice on this page. An emergency
+   * branch used to sit here mapping 1/2/3 onto chooseEmergencyResponse, but
+   * `setPhase('emergency')` has set `_emergencyResolved` true on entry since
+   * the owner retired that menu (2026-08-19, "Require the player to actually
+   * reduce throttle"), so the branch could never take a key — while the help
+   * text it justified went on promising "1-3 for the engine emergency"
+   * (owner playtest, 2026-09-09: "options for the throttle turn down on
+   * squatchola gay arent showing correctly"). The emergency is flown with
+   * the throttle; see MissionController.updateEmergency(). */
   return false;
 }
 

@@ -318,7 +318,20 @@ export class Player {
       this.position.lerpVectors(tw.fromPos, tw.toPos, e);
       this.pitch = lerp(tw.fromPitch, tw.toPitch, e);
       this.yaw = lerp(tw.fromYaw, shortestAngle(tw.fromYaw, tw.toYaw), e);
-      this.eyeHeight = this.position.y;
+      /* ABOVE THE FLOOR, not the world Y. `eyeHeight` is a height above the
+       * floor everywhere else in this class (see standFrom's note), and every
+       * consumer recovers the feet as `position.y - eyeHeight`. This line
+       * wrote the world Y instead, which is the same number only on a floor
+       * at y = 0 -- every earlier sittable scene, so nothing noticed. The
+       * mansion theatre's floor is at -2.8: sitting there wrote eyeHeight
+       * -1.56, the feet read back as 0.0 -- a GROUND-storey foot height,
+       * 2.8 m over the seat -- and the room-visibility pass culled the
+       * theatre's own group around the seated player. Owner, 2026-09-09:
+       * "When you sit in the theatre of the mansion the room dissapears."
+       * `this.ground` is the floor he was standing on when the tween began
+       * (walking keeps it current; teleports set it), so the feet keep
+       * reading exactly that floor all the way into the pose. */
+      this.eyeHeight = this.position.y - this.ground;
       if (k >= 1) {
         this._tween = null;
         tw.onDone?.();

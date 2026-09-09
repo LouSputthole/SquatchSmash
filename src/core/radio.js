@@ -152,7 +152,14 @@ export class Radio {
     /** Each station keeps its own place in its own playlist. */
     this.index = new Map([['squatch', Number.isSafeInteger(saved.cursor) ? saved.cursor : 0]]);
     this.on = false;
-    this.preferredOn = typeof saved.power === 'boolean' ? saved.power : true;
+    /* Owner, 2026-09-09: "the radio should default to on in every scene so
+     * if a user turns off the radio they dont miss it for the rest of the
+     * game." The switch used to persist through the campaign save, so one
+     * off at the Bing silenced every receiver from there to the credits.
+     * Every set now starts its scene preferring ON — off is an in-visit
+     * choice, not a campaign-length one. The save still records the switch
+     * (scenes read it for receipts); boot just stops obeying it. */
+    this.preferredOn = true;
     // A small receiver across the room, not a nightclub PA. The physical
     // knob lets the player change this without changing the whole game mix.
     this.volume = Number.isFinite(saved.volume)

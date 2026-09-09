@@ -46,11 +46,13 @@ test('THE TAKE plays Tony as physically present instead of winking at Counter-St
   assert.match(ALL_HEIST_DIALOGUE.prospect_mask_on.text, /hear my own heart/i);
 });
 
-test('the Siege staging carries the parody without quoting the film', () => {
+test("the Siege payoff is the owner's Scarface line, played straight", () => {
+  /* The 2026-08-28 punch-up retired the quote as a doctrine violation; the
+   * owner overruled it on 2026-09-09: "what happened to the say hello to my
+   * little friend line at the top of the stairs". His call outranks the
+   * sheet, so the quote stands. */
   const line = SIEGE_SEQUENCES.little_friend[0].say;
-  assert.equal(line,
-    "Fine. Everybody at once. Let's find out how many of you this thing was designed for.");
-  assert.doesNotMatch(line, /say hello to my little friend/i);
+  assert.equal(line, 'Say hello to my little friend.');
 });
 
 test('Beat 27 belongs to the luxury apartment and Beat 28 owns the existing ride', () => {

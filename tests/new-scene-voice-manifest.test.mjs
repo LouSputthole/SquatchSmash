@@ -76,7 +76,17 @@ test('every Silver Case line the script names is in the ledger, and nothing else
    * still catches a scene that has LOST lines. */
   assert.ok(cues.length >= 60, 'the script has lost lines rather than gained them');
   assert.equal(new Set(cues.map((cue) => cue.name)).size, cues.length, 'two lines share one recording');
-  assert.equal(cues.every((cue) => cue.name.startsWith('vo.silvercase.') && cue.voice && cue.say), true);
+  /* The collector also owns Beat 19's telephone — Booskibro's silver-case
+   * call rings the luxury apartment, but the takes are this beat's (the way
+   * Silver Pines owns Lou's new-space call). Owner, 2026-09-09: "in the
+   * luxury apartment before the silver case, the voicelines dont wrok for
+   * booski" — the call had no manifest owner at all until this. */
+  assert.equal(cues.every((cue) => (
+    (cue.name.startsWith('vo.silvercase.') || cue.name.startsWith('vo.call.booski.silver_case.'))
+      && cue.voice && cue.say
+  )), true);
+  assert.equal(cues.filter((cue) => cue.name.startsWith('vo.call.booski.silver_case.')).length, 8,
+    'four Booski lines and four replies make the whole call');
 });
 
 test('the manifest name is the string the scene plays, with no take suffix', () => {
@@ -410,7 +420,11 @@ test('the recording sheet shows both scenes rather than only counting them', () 
   );
   const have = new Set(index.files || []);
   const owed = (cues) => cues.filter((cue) => !have.has(`${cue.name}.mp3`)).length;
-  const silverCaseOwed = owed(collectSilverCaseVoiceCues());
+  /* The collector also owns Beat 19's telephone, but the sheet files those
+   * takes under "Apartment and shared hub" — the room where the phone
+   * rings — so this heading counts only the mission's own lines. */
+  const silverCaseOwed = owed(collectSilverCaseVoiceCues()
+    .filter((cue) => cue.name.startsWith('vo.silvercase.')));
   /* The sheet is regenerated centrally by `npm run audio:todo`, on the same
    * cadence as the manifest — so between an authoring session and the next
    * run it is behind by exactly the cues declared in

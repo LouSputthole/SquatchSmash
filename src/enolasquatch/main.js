@@ -760,39 +760,37 @@ function updateRouteDataReadout() {
 }
 
 /* ------------------------------------------------------------------ */
-/* The 1-5 release-line choice and the 3-option emergency choice.        */
+/* The 1-5 release-line choice — THE ONLY CHOICE PANEL ON THIS PAGE.    */
 /*
- * Note on the emergency choice: the phase brief for MissionController
- * describes "a player choice matching the brief's 5 options" for this beat,
- * but `chooseEmergencyResponse()` (built in the prior, now-fixed phase) only
- * implements three — 'baby', 'push', 'shutdown' — matching what
- * `dialogue/script.js`'s `emergency.*` beats actually narrate. This file
- * wires exactly those three rather than inventing two more the dialogue
- * never speaks to, for the same reason the prior phase gave.
+ * The engine emergency used to be a second, three-option menu here
+ * ('baby'/'push'/'shutdown'). The owner retired it on 2026-08-19 in favour
+ * of the real lever ("Require the player to actually reduce throttle"), and
+ * `MissionController.setPhase('emergency')` sets `_emergencyResolved` true
+ * on entry precisely so no panel can rise. What stayed behind was every
+ * ADVERTISEMENT of the menu: the pause instructions below, the cockpit
+ * card and the title overlay in enolasquatch.html all still promised
+ * "1-3 for the engine emergency" / "an emergency option", and the beat then
+ * showed none — reproduced 2026-09-09 in a real browser: pausing during
+ * ENGINE OVERHEATING put "1-3 for the engine emergency" on screen with no
+ * options anywhere and Digit1-3 wired to engine/battery toggles. Owner
+ * playtest, 2026-09-09: "options for the throttle turn down on squatchola
+ * gay arent showing correctly." The options were not showing because they
+ * no longer exist; it was the promises that were wrong, and every one of
+ * them now names the throttle instead.
  */
 /* ------------------------------------------------------------------ */
-
-const EMERGENCY_OPTIONS = [
-  { key: '1', text: 'Baby the throttle back — long way home.' },
-  { key: '2', text: 'Push it and hope.' },
-  { key: '3', text: 'Shut it down.' },
-];
 
 const choicePanel = $('es-choice');
 const choiceOptionsEl = $('es-choice-options');
 
 function currentChoice() {
-  // MissionController tracks its own release/emergency sub-state on
-  // underscore-prefixed instance fields with no public getter — read-only
-  // access from here (never written directly; every state change still goes
-  // through `chooseReleaseLine`/`chooseEmergencyResponse`) is the pragmatic
-  // choice given `mission/MissionController.js` is fixed code this phase does
-  // not edit.
+  // MissionController tracks its release sub-state on an underscore-prefixed
+  // instance field with no public getter — read-only access from here (never
+  // written directly; the state change still goes through
+  // `chooseReleaseLine`) is the pragmatic choice given
+  // `mission/MissionController.js` is fixed code this phase does not edit.
   if (mission.phase === 'release' && mission._releaseStep === 'awaitChoice') {
     return { id: 'release', options: RELEASE_LINES.map((l) => ({ key: l.key, text: l.text })) };
-  }
-  if (mission.phase === 'emergency' && !mission._emergencyResolved) {
-    return { id: 'emergency', options: EMERGENCY_OPTIONS };
   }
   return null;
 }
@@ -1868,7 +1866,13 @@ const pauseMenu = createPauseMenu({
     'On the gun: mouse traverses the turret, left button fires. Nobody is flying while you are back there.',
     'F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop your two engines (three and four).',
-    '1-5 — pick a line when the release choice is on screen. 1-3 for the engine emergency.',
+    /* No numbered keys for the engine emergency — the menu was retired on
+     * 2026-08-19 for the real lever, and this line promising "1-3 for the
+     * engine emergency" is what the owner paused into on 2026-09-09:
+     * "options for the throttle turn down on squatchola gay arent showing
+     * correctly." Name the control the beat actually asks for. */
+    '1-5 — pick a line when the release choice is on screen.',
+    'Engine emergency: pull the throttle back with Z and hold it there while she cools.',
     'C — camera. Tab — pause or resume; restart from the last checkpoint.',
   ],
   onPause: () => {

@@ -679,6 +679,14 @@ function frame() {
 
     const inCockpit = mission.flags.inCockpit;
     if (inCockpit) {
+      /* Owner, 2026-09-09: "the radio should default to on in every scene so
+       * if a user turns off the radio they dont miss it for the rest of the
+       * game." Same latch as the golf cart: the set lights the moment the
+       * player is at the panel and stays lit unless HE switches it off this
+       * visit -- a real R press flips `preferredOn` false, so this never
+       * argues with him. `remember: false` keeps the auto-on out of the
+       * campaign save; only the player's own switch is worth recording. */
+      if (radio.preferredOn && !radio.on) radio.turnOn({ remember: false });
       input.applyTo(physics.controls);
       engines.setThrottle(0, physics.controls.throttleL);
       engines.setThrottle(1, physics.controls.throttleR);

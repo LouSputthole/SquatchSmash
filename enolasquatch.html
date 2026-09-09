@@ -8,8 +8,9 @@
 <link rel="stylesheet" href="src/style.css" />
 <link rel="stylesheet" href="src/beefrun/beefrun.css" />
 <style>
-  /* ---- The mission-specific player-choice panel (1-5 release lines, the
-       3-option engine emergency) — not present in beefrun.css, modeled on
+  /* ---- The mission-specific player-choice panel (the 1-5 release lines —
+       the page's only numbered choice; the engine emergency is flown with
+       the throttle) — not present in beefrun.css, modeled on
        src/silvercase.html's own #choicePrompt inline-style pattern since
        that scene has the closest equivalent already. ---- */
   #es-choice {
@@ -178,7 +179,7 @@
       <li><kbd>B</kbd><kbd>V</kbd><span>brakes · parking</span></li>
       <li><kbd>3</kbd><kbd>4</kbd><span>battery · fuel</span></li>
       <li><kbd>1</kbd><kbd>2</kbd><span>start / stop engines three &amp; four</span></li>
-      <li><kbd>1</kbd>-<kbd>5</kbd><span>pick a line / emergency option</span></li>
+      <li><kbd>1</kbd>-<kbd>5</kbd><span>pick a line when the choice is on screen</span></li>
       <li><kbd>P</kbd><span>autopilot (airborne only)</span></li>
       <li><kbd>T</kbd><span>take the tail gun (airborne only)</span></li>
       <li><kbd>C</kbd><span>camera</span></li>
@@ -198,7 +199,7 @@
   <ul></ul>
 </div>
 
-<!-- The 1-5 release-line choice / the 3-option engine-emergency choice. -->
+<!-- The 1-5 release-line choice — the page's only numbered choice. -->
 <div id="es-choice">
   <div id="es-choice-options"></div>
 </div>
@@ -239,7 +240,13 @@
       <li><kbd>B</kbd> wheel brakes &middot; <kbd>V</kbd> parking brake &middot; <kbd>3</kbd> battery &middot; <kbd>4</kbd> fuel</li>
       <li><kbd>1</kbd><kbd>2</kbd> start engines three &amp; four (one and two are the captain's) &middot; <kbd>C</kbd> camera</li>
       <li><kbd>P</kbd> autopilot &middot; <kbd>T</kbd> take the tail gun &mdash; both airborne only, wings level &middot; mouse traverses the turret, left button fires</li>
-      <li><kbd>1</kbd>-<kbd>5</kbd> pick a line or an emergency option when one is on screen</li>
+      <!-- "1-5 pick a line or an emergency option" stood here after the
+           engine-emergency menu was retired (2026-08-19) for the real
+           throttle; the beat then promised options it never showed. Owner
+           playtest, 2026-09-09: "options for the throttle turn down on
+           squatchola gay arent showing correctly." Only the release choice
+           takes a number now. -->
+      <li><kbd>1</kbd>-<kbd>5</kbd> pick a line when the release choice is on screen</li>
       <li><kbd>Tab</kbd> pause, review instructions, or restart from checkpoint</li>
       <li>Mouse looks around. A gamepad works if one is plugged in.</li>
     </ul>

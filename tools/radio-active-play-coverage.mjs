@@ -176,7 +176,7 @@ const RECEIPTS = [
     'Physical 97.8 receiver · mansion_house',
     'station:squatch',
     'tools/verify-mansion.mjs',
-    'a fresh ordinary Mansion visit keeps the default-off receiver silent before audio unlock',
+    'a fresh ordinary Mansion visit prefers the receiver on but stays silent before audio unlock',
   ),
   receipt(
     'enolasquatch.html',

@@ -2215,11 +2215,16 @@ try {
     };
   });
   check('go("bombApproach") stages the bombing run', bombApproachEntry.phase === 'bombApproach');
+  /* `media.loop` must now be TRUE: the approach record wraps until the
+   * release frame cuts it, so its earlier corridor-exit trigger cannot
+   * strand the last of the run-in in silence (owner playtest, 2026-09-09:
+   * "the music before dropping the bomb doesnt come on early enough" — see
+   * BOMB_APPROACH_MUSIC_LEAD_M). The release-frame cut is checked below. */
   check('the Enola approach score owns one real streamed media handle on the bombing run',
     bombApproachEntry.musicKeys.join('|') === 'music.enola.approach'
       && bombApproachEntry.media
       && /enola-pre-bomb-drop-approach\.mp3(?:\?|$)/.test(bombApproachEntry.media.src)
-      && !bombApproachEntry.media.paused && !bombApproachEntry.media.loop
+      && !bombApproachEntry.media.paused && bombApproachEntry.media.loop === true
       && bombApproachEntry.media.volume === 0.22
       && !bombApproachEntry.media.released && !bombApproachEntry.media.failed
       && bombApproachEntry.receipt?.kind === 'approach'

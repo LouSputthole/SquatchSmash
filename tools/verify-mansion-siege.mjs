@@ -1192,7 +1192,11 @@ try {
   const briefingReceiptRows = briefingEnds.speechReceipts ?? [];
   delete briefingEnds.speechReceipts;
   check('the briefing ends on its own and puts him on the stairs',
-    briefingEnds.beat === 'LITTLE_FRIEND' && briefingEnds.objective === 'Hold the house',
+    /* Owner, 2026-09-09: "the objectie in the siege to go to the top of the
+     * stairs and hit F need to be clear" -- the beat's objective names the
+     * place and the key now, not the waves' "Hold the house". */
+    briefingEnds.beat === 'LITTLE_FRIEND'
+      && briefingEnds.objective === 'Get to the top of the stairs and press F',
     JSON.stringify(briefingEnds));
   check('and the objective says WHERE to stand and WHAT to press',
     /rail|step|gallery/i.test(briefingEnds.hint ?? '') && /\bF\b/.test(briefingEnds.hint ?? ''),
@@ -4948,10 +4952,16 @@ try {
    * (`./enolasquatch.html?preview=1`, see the href rewrite in
    * src/mansion/siege/main.js), so the handoff is matched by page, not by
    * the literal href: a literal match was red on every preview run for a
-   * link that was there the whole time. */
-  check('the card offers the direct SQUATCHOLA GAY handoff and keeps replay available',
-    card.links.some((href) => /^\.\/enolasquatch\.html(\?|$)/.test(href ?? ''))
-      && card.replay === true,
+   * link that was there the whole time.
+   *
+   * ONE EXIT AND NO OTHERS. Owner, 2026-09-09: "Optiponsm after the siege
+   * should just be continue" / "It should just continue to squatchola gay".
+   * The apartment and quiet-house links and the replay button are gone; the
+   * card must offer exactly the SQUATCHOLA GAY continue. */
+  check('the card offers the SQUATCHOLA GAY continue and nothing else',
+    card.links.length === 1
+      && /^\.\/enolasquatch\.html(\?|$)/.test(card.links[0] ?? '')
+      && card.replay === false,
     card.links.join(' '));
   check('and says out loud that the SQUATCHOLA GAY handoff is wired',
     /handoff now carries directly into\s+squatchola gay/i.test(card.note),

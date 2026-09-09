@@ -28,11 +28,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHOICES, SEQUENCES, SPEAKERS } from '../src/silvercase/dialogue/script.js';
+import { SILVER_CASE_BOOSKI_CALL } from '../src/core/apartment-story.js';
+import { callScript } from '../src/core/phone.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(ROOT, 'assets/sfx/manifest.json');
 
 const PREFIX = 'vo.silvercase.';
+/* Beat 19's telephone — Booskibro ringing the luxury apartment the night
+ * before the handover. The call is authored in apartment-story.js but its
+ * takes belong to this beat, the way Silver Pines owns Lou's new-space
+ * call; nothing owned them at all until the owner played the night and
+ * heard it (2026-09-09: "in the luxury apartment before the silver case,
+ * the voicelines dont wrok for booski") — eight authored lines with no
+ * manifest entry, so no ledger ever counted them missing. */
+const CALL_PREFIX = 'vo.call.booski.silver_case.';
 
 /**
  * Every recordable line in the mission.
@@ -62,12 +72,24 @@ export function collectSilverCaseVoiceCues() {
       if (option.cue) cues.push({ name: option.cue, voice: SPEAKERS.PROSPECT.voice, say: option.text });
     }
   }
+
+  for (const turn of callScript(SILVER_CASE_BOOSKI_CALL)) {
+    cues.push({
+      name: turn.cue,
+      voice: turn.who === 'me' ? 'player' : SILVER_CASE_BOOSKI_CALL.voiceProfile,
+      say: turn.text,
+    });
+  }
   return cues;
+}
+
+function ownedCue(name) {
+  return name.startsWith(PREFIX) || name.startsWith(CALL_PREFIX);
 }
 
 /** Return an updated manifest without mutating or writing the input. */
 export function syncSilverCaseVoiceManifest(manifest) {
-  const kept = (manifest.sfx || []).filter((cue) => !cue.name.startsWith(PREFIX));
+  const kept = (manifest.sfx || []).filter((cue) => !ownedCue(cue.name));
   return { ...manifest, sfx: [...kept, ...collectSilverCaseVoiceCues()] };
 }
 
@@ -84,7 +106,7 @@ export function checkSilverCaseVoiceManifest(manifest) {
     expected.set(cue.name, cue);
   }
   const declared = new Map();
-  for (const cue of (manifest.sfx || []).filter((entry) => entry.name.startsWith(PREFIX))) {
+  for (const cue of (manifest.sfx || []).filter((entry) => ownedCue(entry.name))) {
     if (declared.has(cue.name)) failures.push(`duplicate cue ${cue.name}`);
     else declared.set(cue.name, cue);
   }

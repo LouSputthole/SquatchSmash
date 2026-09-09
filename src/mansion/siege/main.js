@@ -2247,10 +2247,11 @@ function respawnFromCheckpoint() {
 /**
  * Start the night again.
  *
- * A reload rather than an in-page teardown, and for the same reason
- * `replayBtn` has always used one: this scene mounts twenty-two people, four
- * damage states and a weapon system, and the honest way to get a clean one is
- * to ask the browser for a clean one.
+ * A reload rather than an in-page teardown: this scene mounts twenty-two
+ * people, four damage states and a weapon system, and the honest way to get a
+ * clean one is to ask the browser for a clean one. (The mission card's replay
+ * button used the same reload until the owner cut the card down to one
+ * Continue on 2026-09-09; the death screen is the replay path now.)
  */
 function restartScene() {
   window.location.reload();
@@ -2666,7 +2667,9 @@ function showMissionCard({ attackersDown = mission.attackersDown } = {}) {
   weaponSystem.setTrigger(false);
   running = false;
 }
-$('replayBtn')?.addEventListener('click', () => window.location.reload());
+/* The card's replay button and the home/quiet-house links left with the
+ * owner's 2026-09-09 note ("should just be continue"); the death screen still
+ * owns starting the night again, and the pause menu still owns leaving. */
 $('continueBtn')?.addEventListener('click', (event) => {
   if (siegeCampaignPreview || !siegeCampaignComplete) return;
   event.preventDefault();

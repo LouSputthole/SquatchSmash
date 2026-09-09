@@ -185,7 +185,16 @@ export const SEQUENCES = Object.freeze({
 
   /** Once, ever. PART VI. */
   little_friend: Object.freeze([
-    say('prospect.little_friend', 'prospect', "Fine. Everybody at once. Let's find out how many of you this thing was designed for.", {
+    /* THE LINE IS THE QUOTE, ON THE OWNER'S ORDER. The 2026-08-28 punch-up
+     * (docs/dialogue/punchups/nowake-siege-graveyard-silvercase.json) retired
+     * it as a doctrine violation and shipped "Fine. Everybody at once. Let's
+     * find out how many of you this thing was designed for." in its place.
+     * Owner, 2026-09-09: *"what happened to the say hello to my little friend
+     * line at the top of the stairs"* -- his call outranks the sheet, so the
+     * quote is back, played straight per docs/TONE-AND-PARODY.md. The take on
+     * disk still speaks the punch-up wording, so the cue is queued in
+     * assets/sfx/rerecord.json until a new render lands. */
+    say('prospect.little_friend', 'prospect', 'Say hello to my little friend.', {
       /* This is the siege payoff, not another conversational line. The named
        * flag lets the scene hold weapon reports and give the subtitle its own
        * visual weight for exactly the recording's measured duration. */
