@@ -32,8 +32,9 @@ test('every exact rendered take has a current text, performer, index, hash, and 
    * the siege stairs ("what happened to the say hello to my little friend
    * line"), so vo.siege.prospect.little_friend's take -- rendered from the
    * retired punch-up wording -- left current evidence for the rerecord
-   * queue: 557. */
-  assert.equal(current.length, 557);
+   * queue: 557. Rendered on 2026-09-09 with the eight Booski silver-case
+   * call lines, so 566. */
+  assert.equal(current.length, 566);
   assert.equal(RENDERED_VOICE_AUDIT_SAMPLE_RATE, 44_100,
     'browser decode receipts must not drift with the host audio device');
   assert.ok(evidence.receipts.every((row) => row.sampleRate === RENDERED_VOICE_AUDIT_SAMPLE_RATE));
@@ -45,19 +46,23 @@ test('every exact rendered take has a current text, performer, index, hash, and 
   assert.equal(coverage.currentDelivered,
     coverage.renderedExact + coverage.assumedCurrent,
     'legacy assumed takes must remain visible beside exact render receipts');
-  /* Nine outstanding, each with a ledger entry the booth sheet shows. The
-   * fifteen that used to stand here were recorded (thirteen missing plus the
-   * Squatchfather colostomy-bag re-record and the heist door refusal, both
-   * cleared out of `lines` in assets/sfx/rerecord.json once the replacements
-   * indexed, that file's own documented last step). What remains is the
-   * 2026-09-09 playtest's own paperwork. Missing: the eight Booski
-   * silver-case call lines that reached the manifest when the owner heard
-   * the luxury-apartment call playing silent ("the voicelines dont wrok for
+  /* Nothing outstanding: every authored playable line has a delivered take.
+   *
+   * The nine that stood here were the 2026-09-09 playtest's own paperwork,
+   * rendered the same morning. Missing: the eight Booski silver-case call
+   * lines that reached the manifest when the owner heard the
+   * luxury-apartment call playing silent ("the voicelines dont wrok for
    * booski"). Re-record: the siege's little-friend payoff, whose take on
-   * disk still speaks the retired 2026-08-28 punch-up wording. */
-  assert.equal(coverage.outstanding, 9);
-  assert.equal(coverage.missing.length, 8);
-  assert.equal(coverage.rerecord.length, 1);
+   * disk spoke the retired 2026-08-28 punch-up wording until the Scarface
+   * line was re-rendered and the cue cleared out of `lines` in
+   * assets/sfx/rerecord.json, that file's own documented last step.
+   *
+   * Zero is the number worth holding: `authoredPlayable ===
+   * currentDelivered` only while it stays there, and the assertion above is
+   * what notices the day it does not. */
+  assert.equal(coverage.outstanding, 0);
+  assert.equal(coverage.missing.length, 0);
+  assert.equal(coverage.rerecord.length, 0);
   assert.equal(coverage.recast.length, 0);
 });
 

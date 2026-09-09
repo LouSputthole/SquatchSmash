@@ -27,13 +27,7 @@
     "the takes and `npm run vo:takes` has stamped them.",
     "Remove a line from `lines` once its replacement take is indexed."
   ],
-  "lines": [
-    {
-      "cue": "vo.siege.prospect.little_friend",
-      "retiredText": "Fine. Everybody at once. Let's find out how many of you this thing was designed for.",
-      "reason": "Owner, 2026-09-09: \"what happened to the say hello to my little friend line at the top of the stairs\" -- the 2026-08-28 punch-up pick is retired and the Scarface line is back; the take on disk still speaks the punch-up wording."
-    }
-  ],
+  "lines": [],
   "retired": [
     {
       "cue": "vo.wake.5",
