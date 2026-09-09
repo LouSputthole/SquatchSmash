@@ -291,7 +291,15 @@ async function clickCanvas(seconds = 0.9) {
   const canvas = page.locator('#scene');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('game canvas has no bounds');
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  /* Upper third, not centre. The dialogue box is bottom-anchored and grows
+   * upward; with the floor ask's six options it can reach mid-screen, and a
+   * click that lands on the panel instead of the canvas never fires the
+   * swing. That is the migrating one-hit-short failure: run 33953123399
+   * lost impact 7 and run 34020410281 lost impact 4, each with the floor
+   * ask open at check time, while the same tree passes locally where the
+   * panel raced closed. In pointer lock the swing raycast comes from the
+   * camera, so any point ON the canvas is the same trigger. */
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.28);
   await step(seconds, 0.04);
 }
 

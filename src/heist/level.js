@@ -2188,6 +2188,16 @@ function buildMercerGarageExterior(street) {
   }
   slab(fabric, [M.mouthHalf * 2 + 0.7, 0.3, throatDepth],
     [0, M.mouthHead + 0.15, bandCentre], MAT.darkConcrete, 'mercer-throat-soffit');
+  /* Guide strips down the throat cheeks, on the ramp's own tilt. The mouth
+   * used to read as a void because nothing inside it returned light — the
+   * strips give the descent a visible far side, the way every deck above
+   * already reads through its amber bands. Same palette, no new material. */
+  for (const side of [-1, 1]) {
+    const strip = slab(fabric, [0.06, 0.14, throatDepth - 0.3],
+      [side * (M.mouthHalf - 0.04), 0.92, bandCentre],
+      GLOW.amber, `mercer-throat-strip-${side < 0 ? 'west' : 'east'}`);
+    strip.rotation.x = -0.22;
+  }
 
   // The clearance bar, hung on two drops, with the height plate bolted to it.
   for (const x of [-2.6, 2.6]) {
@@ -2314,17 +2324,30 @@ function buildMercerGarageExterior(street) {
   slab(forecourt, [2.2, 2.6, 0.28], [6.6, 7.7, -34.8], MAT.darkConcrete, 'mercer-pylon-board');
   glyph(forecourt, 'P', [6.6, 7.7, -34.63], 1.9, GLOW.amber, 0.1);
 
-  // Two chevrons on the asphalt, pointing at the mouth.
+  /* Two chevrons on the asphalt, pointing at the mouth. `rotation.y = θ`
+   * maps a bar's +X run to (cosθ, 0, −sinθ), so the sign that joins the
+   * inner ends SOUTH — the apex aimed into the garage — is `-side`. The
+   * first cut used `side` and both arrows pointed back up the street; over
+   * the 66 m approach the four bars foreshortened into one red diagonal
+   * streak across the lane that read as a decal glitch (owner, 2026-09-09:
+   * "the mercer street garage entrance is kind of fucked"; photographed
+   * before and after). */
   for (const z of [-30.5, -32.5]) {
     for (const side of [-1, 1]) {
       const bar = slab(forecourt, [1.8, 0.02, 0.24], [side * 0.62, 0.015, z],
         MAT.warning, `mercer-chevron-${side < 0 ? 'west' : 'east'}-${Math.abs(z)}`);
-      bar.rotation.y = side * 0.62;
+      bar.rotation.y = -side * 0.62;
     }
   }
 
   /* --- 7. The one real light ---------------------------------------- */
-  const mouthLight = new THREE.PointLight(0xffd7a0, 3.4, 26, 2);
+  /* Intensity 30, not 3.4: with decay 2 the old value delivered ~0.3 at the
+   * apron 3.5 m below and the stated purpose — "pool light on the asphalt
+   * for the player to read it as a way in" — was not met; every eye-level
+   * ray through the 7 m mouth hit the #171c1d interior wall and the opening
+   * photographed as a flat black void. The pool is real now and the falloff
+   * still dies inside the forecourt (distance 26, decay 2). */
+  const mouthLight = new THREE.PointLight(0xffd7a0, 30, 26, 2);
   mouthLight.name = 'mercer-mouth-light';
   mouthLight.position.set(0, 3.0, -36.9);
   root.add(mouthLight);
@@ -2375,7 +2398,12 @@ function buildStreet() {
   group.name = 'phase-street';
   ownGeometry(box(group, [18, 0.2, 72], [0, -0.1, 0], MAT.asphalt, 'heist-street-ground'),
     'heist.street.ground', { structural: true, fixedSupportAnchor: true });
-  for (let z = -34; z < 34; z += 8) {
+  /* The centre line starts at -26, not -34: the -34 dash spanned z -36..-32,
+   * crossing the Mercer apron on the same y 0.025 plane (a coplanar z-fight
+   * measured by raycast — both flats returned at one point) and painting the
+   * red line straight through the garage mouth. The lane belongs to the
+   * garage's own markings from the forecourt in. */
+  for (let z = -26; z < 34; z += 8) {
     ownGeometry(flat(group, [0.2, 0.02, 4], [0, 0.015, z], MAT.warning),
       'heist.street.lane-paint', { overlap: false });
   }

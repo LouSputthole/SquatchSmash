@@ -191,15 +191,40 @@ async function lookAtWorldPoint(point) {
   /* Pointer lock reports relative motion even when these synthetic screen
    * coordinates fall outside the viewport. Playwright still dispatches a real
    * CDP mouse move, so the canonical Adapter receives `movementX/Y`. */
-  await page.mouse.move(320 + delta.movementX, 180 + delta.movementY, { steps: 2 });
+  await applyLookDeltas(delta.movementX, delta.movementY);
+}
+
+/* Chrome 151 delivers CDP pointer-locked mousemoves with movementX/Y of
+ * ZERO: scheduled run 34020410281 held yaw to within 4e-16 across a whole
+ * door approach while the walk itself worked, and the verifier aborted 4.4 m
+ * from a door it could never turn to face. Probe after the CDP move, and
+ * when the deltas did not land drive the same authored window-listener path
+ * with explicit deltas — the fallback the Squatchfather gate proved. */
+async function applyLookDeltas(movementX, movementY) {
+  const before = await page.evaluate(() => ({
+    yaw: window.SPECIAL_MEETING.player.yaw,
+    pitch: window.SPECIAL_MEETING.player.pitch,
+  }));
+  await page.mouse.move(320 + movementX, 180 + movementY, { steps: 2 });
   await page.waitForTimeout(40);
+  const moved = await page.evaluate(({ yaw, pitch }) => (
+    Math.abs(window.SPECIAL_MEETING.player.yaw - yaw)
+      + Math.abs(window.SPECIAL_MEETING.player.pitch - pitch) > 1e-6
+  ), before);
+  if (!moved && (movementX !== 0 || movementY !== 0)) {
+    await page.evaluate(({ dx, dy }) => {
+      window.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, movementX: dx, movementY: dy,
+      }));
+    }, { dx: movementX, dy: movementY });
+    await page.waitForTimeout(40);
+  }
 }
 
 async function moveLook(movementX, movementY) {
   await page.mouse.move(320, 180);
   await page.waitForTimeout(20);
-  await page.mouse.move(320 + movementX, 180 + movementY, { steps: 2 });
-  await page.waitForTimeout(40);
+  await applyLookDeltas(movementX, movementY);
 }
 
 /** Select a displayed authored option through the real numbered-key route. */
@@ -737,7 +762,10 @@ try {
   /* A starved hosted runner can coalesce or defer the synthetic
    * pointer-locked deltas past any fixed wait (scheduled run 33488181465
    * failed the look check with yaw byte-identical while the same tree
-   * passes locally). Wait on the camera itself and nudge again, bounded. */
+   * passes locally), and Chrome 151 can deliver them with movementX/Y of
+   * ZERO outright (run 34020410281, yaw within 4e-16). Wait on the camera
+   * itself, nudge again, and on the last try drive the authored
+   * window-listener path with explicit deltas. */
   for (let nudge = 0; nudge < 3; nudge += 1) {
     const turned = await page.waitForFunction(({ yaw, pitch }) => (
       Math.abs(window.SPECIAL_MEETING.player.yaw - yaw) > 0.01
@@ -745,8 +773,16 @@ try {
     ), { yaw: beforeInput.yaw, pitch: beforeInput.pitch }, { timeout: 1500 })
       .catch(() => null);
     if (turned) break;
-    await page.mouse.move(320 + nudge * 8, 180 + nudge * 6);
-    await page.mouse.move(402, 132, { steps: 2 });
+    if (nudge < 2) {
+      await page.mouse.move(320 + nudge * 8, 180 + nudge * 6);
+      await page.mouse.move(402, 132, { steps: 2 });
+    } else {
+      await page.evaluate(() => {
+        window.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true, movementX: 82, movementY: -48,
+        }));
+      });
+    }
   }
   await page.waitForTimeout(50);
   const afterLook = await page.evaluate(() => ({

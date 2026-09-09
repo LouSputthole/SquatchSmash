@@ -2149,11 +2149,23 @@ try {
     };
     requestAnimationFrame(watch);
   });
-  await page.keyboard.press('e');
   /* `commit` and not `load`: the proof owed here is that the campaign left
    * this page for that href. Sitting through a whole second WebGL scene's boot
-   * would only add the Bing's problems to the Cabin's ledger. */
-  await page.waitForURL(/bing\.html/, { waitUntil: 'commit' });
+   * would only add the Bing's problems to the Cabin's ledger.
+   *
+   * Press-and-verify, bounded: the interaction ray resolves its target on
+   * rendered frames, and the scheduled runner draws about one a second — an
+   * E that lands before the frame that re-aims at the car is a no-op, and
+   * scheduled run 34020410281 sat out the whole 180 s wait on one unlucky
+   * press with the leave armed and every prior check green. Repeating E is
+   * safe: the page unloads on the first press that lands. */
+  let departed = false;
+  for (let attempt = 0; attempt < 4 && !departed; attempt += 1) {
+    await page.keyboard.press('e');
+    departed = await page.waitForURL(/bing\.html/, { waitUntil: 'commit', timeout: 60000 })
+      .then(() => true, () => false);
+  }
+  if (!departed) await page.waitForURL(/bing\.html/, { waitUntil: 'commit', timeout: 120000 });
   /* The browser belongs to Bada Bing II from here. Stop charging the Cabin for
    * what happens in it -- including the aborted media requests this very
    * navigation leaves behind on the page it just unloaded. */

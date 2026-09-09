@@ -1638,6 +1638,29 @@ try {
    * repositions the synthetic cursor and can turn a correctly aimed camera
    * away from the target before mousedown. Down/up is the player's real
    * trigger without injecting a verifier-only look delta. */
+  /* Arm the Chester-card watcher IN-PAGE before the trigger is pulled. His
+   * "What the hell, man?!" is a short take; any harness round trip between
+   * the shot and the capture can land after his card has already handed
+   * off (the first re-fire draft measured exactly that: who still
+   * 'Chester', text already Lou's "What?"). An rAF watcher installed ahead
+   * of the mousedown sees the card on the frame it shows, whatever the
+   * harness is doing. */
+  await page.evaluate(() => {
+    window.__chesterSubtitleReceipt = null;
+    const watch = () => {
+      const subs = document.getElementById('subs');
+      const who = document.getElementById('subsWho')?.textContent ?? '';
+      if (subs?.classList.contains('show') && who === 'Chester' && !window.__chesterSubtitleReceipt) {
+        window.__chesterSubtitleReceipt = {
+          shown: true,
+          who,
+          text: document.getElementById('subsLine')?.textContent ?? '',
+        };
+      }
+      if (!window.__chesterSubtitleReceipt) requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+  });
   await page.mouse.down({ button: 'left' });
   await page.mouse.up({ button: 'left' });
   await page.waitForFunction(
@@ -1645,6 +1668,24 @@ try {
     couchMouseDownBefore,
     { timeout: 30000 },
   );
+  /* The mousedown COUNTING is not the shot LANDING: scheduled run
+   * 34020410281 counted the click and then waited out the full post-shot
+   * budget with Deke still alive — on the starved runner a click can reach
+   * the window listener yet miss the scene's own fire path (an instruction
+   * overlay under the cursor, or a frame that never sampled the press).
+   * Re-fire, bounded, ONLY while the ordered man still stands; a shot that
+   * lands twice is impossible past his death, so the one-shot assertions
+   * below are untouched. */
+  for (let refire = 0; refire < 3; refire += 1) {
+    const landed = await page.waitForFunction(
+      () => !window.silvercase.cast.deke.alive,
+      null,
+      { timeout: 45000 },
+    ).then(() => true, () => false);
+    if (landed) break;
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.up({ button: 'left' });
+  }
   /* Capture the subtitle receipt IN-PAGE, on the frame Chester owns the
    * card. The old flow waited for his cue in the voiceLog and then read the
    * card from the harness -- but "What the hell, man?!" is a short take, and

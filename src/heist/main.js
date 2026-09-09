@@ -5523,26 +5523,50 @@ function updateDriving(dt) {
     advanceTo('GARAGE_ESCAPE');
   }
 
-  const target = drivePhase.route[routeIndex];
-  if (target && Math.hypot(vehicle.x - target.x, vehicle.z - target.z) <= target.radius) {
-    vehicle.markStableNode(target.id);
-    routeIndex++;
-    /* Each call announces the NEXT instruction, because a direction shouted at
-     * the junction you are already in the middle of is not a direction. */
-    if (target.id === 'garage_left') {
-      advanceTo('CITY_PURSUIT');
-      say('rippin_market_left');
-    } else if (target.id === 'warehouse_left') {
-      say('rippin_tower_right');
-    } else if (target.id === 'tower_right') {
-      advanceTo('ROADBLOCK');
-      say('snow_roadblock');
-    } else if (target.id === 'roadblock') {
-      advanceTo('INDUSTRIAL_ROUTE');
-      say('rippin_canal');
-    } else if (target.id === 'canal_turn') {
-      say('rippin_swap_ahead');
-    } else if (target.id === 'industrial_swap') {
+  /* Take the FURTHEST route node the car is standing in, not only the one
+   * the tracker happens to be waiting on. The tracker used to be strictly
+   * sequential, and off-road corner-cutting is legal driving (it costs
+   * tyre, severity 0.16 below) — so a corner cut wide of one junction's
+   * radius left routeIndex pointing at the missed turn forever, and the
+   * owner reached the swap yard on 2026-09-09 with nothing firing: "The
+   * driving scene in the take still isnt ending when he gets to the end."
+   * Skipped nodes replay their state advances in order (advanceTo is
+   * monotonic and idempotent) but not their shouted directions — a
+   * direction belongs to the junction actually reached, not to three
+   * corners rapid-fire. */
+  let reachedIndex = -1;
+  for (let index = routeIndex; index < drivePhase.route.length; index++) {
+    const node = drivePhase.route[index];
+    if (Math.hypot(vehicle.x - node.x, vehicle.z - node.z) <= node.radius) reachedIndex = index;
+  }
+  if (reachedIndex >= 0) {
+    let swapReached = false;
+    for (let index = routeIndex; index <= reachedIndex; index++) {
+      const target = drivePhase.route[index];
+      const isReached = index === reachedIndex;
+      vehicle.markStableNode(target.id);
+      /* Each call announces the NEXT instruction, because a direction
+       * shouted at the junction you are already in the middle of is not a
+       * direction. */
+      if (target.id === 'garage_left') {
+        advanceTo('CITY_PURSUIT');
+        if (isReached) say('rippin_market_left');
+      } else if (target.id === 'warehouse_left') {
+        if (isReached) say('rippin_tower_right');
+      } else if (target.id === 'tower_right') {
+        advanceTo('ROADBLOCK');
+        if (isReached) say('snow_roadblock');
+      } else if (target.id === 'roadblock') {
+        advanceTo('INDUSTRIAL_ROUTE');
+        if (isReached) say('rippin_canal');
+      } else if (target.id === 'canal_turn') {
+        if (isReached) say('rippin_swap_ahead');
+      } else if (target.id === 'industrial_swap') {
+        swapReached = true;
+      }
+    }
+    routeIndex = reachedIndex + 1;
+    if (swapReached) {
       /* Order matters: `snow_lost_them` is a VEHICLE_SWAP line, and
        * `DialogueArbiter` refuses a line whose state has not arrived yet. */
       reachSwap();
