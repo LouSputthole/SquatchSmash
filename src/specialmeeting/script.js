@@ -680,7 +680,16 @@ const RAW_BEATS = [
     id: 'SM-260',
     slug: 'chain',
     act: 3,
-    kind: 'choice',
+    /* `silence`, not `choice`, since 2026-09-09. A `choice` has no clock, so a
+     * player who did not spot the two buttons sat at a parked car forever —
+     * the owner's "real long awkward pause ... people think the game broke."
+     * The question is optional; twelve unbroken seconds after the chain is
+     * back up, nobody says anything and the car simply goes, which is the
+     * silent option and the scene's own rule. The chain business itself is
+     * staged by `chain-business.js` on the road's clock, and this beat's gate
+     * in main.js waits for its rehook rather than for the raw stop. */
+    kind: 'silence',
+    holdSeconds: 12,
     title: 'The chain',
     note: 'The car stops. Headlights on a rusted chain strung across the track '
       + 'between two posts. Lag gets out without being asked, unhooks it, drops '

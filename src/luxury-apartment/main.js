@@ -364,7 +364,20 @@ const phone = new Phone({
   },
   onCallState: (connected) => {
     radio.setPhoneDucked(connected);
-    if (!connected) specialMeetingPrelude?.callEnded();
+    if (!connected) {
+      specialMeetingPrelude?.callEnded();
+      /* A player who suited up BEFORE Booski rang has already done the one
+       * thing the beat asks; the fresh 170 s `carWait` booked by callEnded()
+       * gets the same suit cap the wardrobe applies (see
+       * `specialMeetingCarCap` above). */
+      if (routed && luxuryStory.dressedForMeeting()) {
+        const { carOutside, carIn } = specialMeetingPrelude?.snapshot() ?? {};
+        if (!carOutside && Number.isFinite(carIn)
+          && carIn > SPECIAL_MEETING_HOME_TIMING.dressedCarWait) {
+          specialMeetingCarCap = SPECIAL_MEETING_HOME_TIMING.dressedCarWait;
+        }
+      }
+    }
     if (routed && state.phase === 'active') refreshObjective();
   },
 });
@@ -459,6 +472,21 @@ let specialMeetingCarLight = null;
 let specialMeetingCarTarget = null;
 let specialMeetingCarSweep = 0;
 let specialMeetingDoorRefusals = 0;
+/* THE SUIT CAPS THE CAR CLOCK. Owner, 2026-09-09: "long time to wait in the
+ * luxury apartment when waiting for seff lag and numbskull after you put on
+ * the suit." Measured on the live route: the call ends and `carWait` books
+ * the pickup 170 s out, so a player who answered promptly and went straight
+ * to the wardrobe (suit on ~35 s after the hang-up) stood dressed in the
+ * objective's "Wait in for the text" for the remaining ~135 s with nothing
+ * left to do. Getting dressed LATE was already the short wait — the prelude
+ * holds the car on the suit and then sends it `dressedCarWait` (24 s) out —
+ * so the long wait was exclusively the reward for being quick. This is the
+ * flat's own countdown to the same authored 24 s: armed by the wardrobe when
+ * the prelude's clock still has more than that left to run, ticked on the
+ * frame clock below and by the QA `advance` seam, and resolved through the
+ * prelude's public `carArrives()` so the headlights, Lag's text and the
+ * objective all fire through the one authored arrival path. */
+let specialMeetingCarCap = null;
 /* Lag's text, once it has landed: shown in the held phone's family thread. */
 let specialMeetingText = null;
 const specialMeetingPlaybackReceipts = [];
@@ -1073,7 +1101,37 @@ function useWardrobe() {
   if (suitUp) luxuryStory.dressForMeeting();
   refreshLuxuryObjective({ toast: true });
   specialMeetingPrelude?.dressed();
+  if (suitUp) {
+    /* The suit is the last thing the beat asks of him, so it caps the car
+     * clock (see the `specialMeetingCarCap` note above). Measured live before
+     * this line existed: answered promptly and dressed 35 s after the
+     * hang-up, `carIn` still held 134.6 s — two and a quarter minutes of
+     * standing in the objective's "Wait in for the text" with nothing left
+     * to do. `dressed()` already handles the spent clock (`carHeld`); this
+     * handles the still-running one, and only ever shortens it. */
+    const { carOutside, carIn } = specialMeetingPrelude?.snapshot() ?? {};
+    if (!carOutside && Number.isFinite(carIn)
+      && carIn > SPECIAL_MEETING_HOME_TIMING.dressedCarWait) {
+      specialMeetingCarCap = SPECIAL_MEETING_HOME_TIMING.dressedCarWait;
+    }
+  }
   return true;
+}
+
+/**
+ * Tick the suit's cap on the car clock. Runs on the same frame clock as the
+ * prelude's own `update` and on the QA `advance` seam, so a verifier that
+ * compresses the authored waits compresses this one identically. Arrival goes
+ * through the prelude's public `carArrives()` — headlights, engine loop,
+ * Lag's text and the objective all fire through the one authored path, and
+ * its own guards (already outside, not dressed) make a late tick harmless.
+ */
+function advanceSpecialMeetingCarCap(dt) {
+  if (specialMeetingCarCap === null) return;
+  specialMeetingCarCap -= Math.max(0, Number(dt) || 0);
+  if (specialMeetingCarCap > 0) return;
+  specialMeetingCarCap = null;
+  specialMeetingPrelude?.carArrives();
 }
 
 function takeHomePhone() {
@@ -1867,6 +1925,7 @@ function frame(now) {
       ),
       moving: (player.velocity?.lengthSq?.() ?? 0) > 0.04,
     });
+    advanceSpecialMeetingCarCap(dt);
     updateSpecialMeetingCar(dt);
     const wasRinging = phone.ringing;
     phone.update(dt);
@@ -2127,6 +2186,8 @@ window.LUXURY_APARTMENT = {
   debug: {
     specialMeeting: {
       snapshot: () => specialMeetingPrelude?.snapshot() ?? null,
+      /** Seconds left on the suit's cap of the car clock, or null. */
+      carCap: () => specialMeetingCarCap,
       activities: () => specialMeetingActivities(),
       receipts: () => specialMeetingPlaybackReceipts.map((entry) => ({
         ...entry,
@@ -2142,6 +2203,9 @@ window.LUXURY_APARTMENT = {
         const elapsed = Math.max(0, Number(seconds) || 0);
         if (phoneClock) updateLuxuryPhone(elapsed);
         if (preludeClock) specialMeetingPrelude?.update(elapsed, { busy, moving: false });
+        /* The suit's cap on the car clock rides the same compression, so the
+         * verifier's picture of the wait matches a player's. */
+        if (preludeClock) advanceSpecialMeetingCarCap(elapsed);
         updateSpecialMeetingCar(Math.min(elapsed, 0.05));
         return {
           phone: { ringing: phone.ringing, inCall: phone.inCall },

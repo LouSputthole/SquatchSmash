@@ -47,6 +47,7 @@ import { registerSceneRenderer } from '../core/scene-lifecycle.js';
 import { loadFaceIndex } from '../bing/family.js';
 import { AMBIENCE_CUES } from './ambience.js';
 import { buildSpecialMeetingCast } from './cast.js';
+import { CHAIN_REHOOKED_MILESTONE, createChainBusiness } from './chain-business.js';
 import { createFrontPassengerDoorTarget } from './door-interaction.js';
 import { PassengerRig, createNightForestRoad, adaptMeetingSedan } from './forest/index.js';
 import { createRideSequence } from './ride.js';
@@ -65,15 +66,21 @@ import { EYE_HEIGHT, FOOTSTEP_SURFACE, stageSpecialMeeting } from './stage.js';
  * beat id -> the road event it may not start without.
  *
  * The surface-change beat starts when the tyres reach the cattle grid; the
- * chain beat starts when the car has actually stopped in front of the chain;
- * and the final exchange waits for the last moving approach. The arrival fade
- * releases on the last 2.5 metres into the spur so the first returning image
- * still moves and the player never waits on a long dead-black stop. Nothing
- * else waits.
+ * chain beat starts once Lag has hooked the chain back up BEHIND the car —
+ * `chain-business.js` publishes that rehook as a synthetic road milestone, so
+ * "Was that locked?" can only ever be asked about a chain the player watched
+ * go down and up. (It used to gate on the raw stop, which the car reached 43
+ * to 89 game seconds before the dialogue did — measured 2026-09-09 against
+ * the delivered take lengths — and the whole LONG SILENCE played over a car
+ * parked dead at a chain nobody touched.) The final exchange waits for the
+ * last moving approach. The
+ * arrival fade releases on the last 2.5 metres into the spur so the first
+ * returning image still moves and the player never waits on a long
+ * dead-black stop. Nothing else waits.
  */
 const GATES = Object.freeze({
   'SM-220': 'turn_off',
-  'SM-260': 'chain',
+  'SM-260': CHAIN_REHOOKED_MILESTONE,
   'SM-324': 'final_approach',
   /* SM-326 begins the dissolve while the car is still rolling. The dedicated
    * pre-arrival node keeps the full-black interval short without divorcing it
@@ -86,7 +93,7 @@ const GATES = Object.freeze({
   'SM-330': 'arrival',
 });
 
-/** The one beat that lets the car move again: Lag has hooked the chain back up. */
+/** The one beat that lets the car move again: everybody is back in the car. */
 const RELEASES = Object.freeze({ 'SM-270': true });
 const TRAIL_HANDOFF_DISTANCE_M = 8;
 /* The selected recorded performance reaches its final fade around 198
@@ -95,6 +102,37 @@ const TRAIL_HANDOFF_DISTANCE_M = 8;
  * stretch nominal cruise to about 174 seconds without changing the authored
  * target speeds, engine note, or any bend. */
 const FOREST_DRIVE_TIME_SCALE = 0.60;
+/**
+ * AND THE DIALOGUE STAYS THE MASTER APPROACHING A STOP. A single time scale
+ * fits the whole road to the whole conversation, but the fit is uneven leg by
+ * leg: measured 2026-09-09 against the delivered take lengths, the car
+ * reached the chain stop 41 s before
+ * the quiet path's dialogue and 80+ s before a chatty one, and every one of
+ * those seconds was a car parked dead in front of an untouched chain. So the
+ * drive tapers toward a scripted stop it has got to early: inside
+ * `reserveM` of a stop whose story milestone (`until`) has not begun, the
+ * time scale slides linearly from the base 0.60 down to `floor` — 0.24 is
+ * about 2 m/s of visible, engine-on, rut-by-rut progress, which reads as a
+ * careful driver on a bad track rather than as a hang — and snaps back to
+ * base the moment the story catches up. Authored target speeds, bends and
+ * the engine note are untouched; only the drive's own dt is shaped, through
+ * the same `timeScale` knob the scene already turns once.
+ */
+const STOP_PACING = Object.freeze([
+  /* Do not park at the chain before the LONG SILENCE is running. */
+  Object.freeze({ stop: 'chain', until: 'SM-253', reserveM: 130, floor: 0.24 }),
+  /* The spur is deliberately NOT in this table. Its arrival was never the
+   * owner's bug: the authored arrival_fade blacks the screen over the story
+   * catch-up, so there is no visible parked car to pace around — and a
+   * first cut that DID taper the spur stretched that authored blackout to
+   * 2,788 ms against the gate's own <= 2,500 pin and left a 1.55 s
+   * sub-threshold crawl before the arrival wait flag rose. Measured
+   * 2026-09-09; the chain row alone is the fix the owner asked for. */
+]);
+/* Idling through the opened chain gap: first gear, nobody's foot in it. */
+const CHAIN_CREEP_TIME_SCALE = 0.45;
+/* The car's tail is clear of the chain line this far past the stop node. */
+const CHAIN_CLEAR_PAST_M = 14.5;
 const CAR_DOOR_INTERACTION_ID = 'specialmeeting.front_passenger_door';
 const FOREST_TRAVEL_AUDIO = Object.freeze({
   engine: Object.freeze({ key: 'sm.forest.engine', cue: 'car.engine.idle' }),
@@ -209,6 +247,12 @@ cast.boardForArrival();
 
 let forest = null;
 let gatedOn = null;
+/* The staged chain stop (SM-260's physical half), built with the forest. */
+let chainBusiness = null;
+/* Story milestones the stop pacing reads: the highest-numbered beat entered.
+ * Beat ids order lexically within this scene (SM-010 … SM-540), so a string
+ * comparison is the whole ordering. */
+let storyHighWater = '';
 /* Whether the car has actually arrived and stopped. The script used to start
  * on the player's first click instead; see `onArrivalPhase`. */
 let arrived = false;
@@ -522,8 +566,20 @@ const ride = createRideSequence({
      * say where he is and nothing about what happens next -- which is what
      * their own author wrote directly above them. */
     setObjective(objectiveFor(b));
+    if (b.id > storyHighWater) storyHighWater = b.id;
     if (GATES[b.id] && !reachedNodes.has(GATES[b.id])) gatedOn = GATES[b.id];
-    if (RELEASES[b.id]) forest?.resume();
+    /* SM-260: the ride has arrived at the chain the player just watched go
+     * back up. Lag has stood at it long enough — he starts back for the car
+     * while the optional question is on the table. */
+    if (b.id === 'SM-260') chainBusiness?.storyAtChain();
+    /* SM-270 releases the road, THROUGH the staged stop: the car may only
+     * pull away once Lag is actually back in his seat. A drive resumed while
+     * he is still walking to the door is three men leaving without the man
+     * who opened the gate for them. */
+    if (RELEASES[b.id]) {
+      if (chainBusiness) chainBusiness.requestDepart();
+      else forest?.resume();
+    }
     /* `disembarkForPickup()` is NOT here any more: it runs in
      * `onArrivalPhase` a beat before this, against a car that has stopped. */
     if (b.id === 'SM-110') {
@@ -785,6 +841,101 @@ function settleForestArrival() {
   return true;
 }
 
+/* ------------------------------------------------------------------ */
+/* The chain stop, performed                                           */
+/* ------------------------------------------------------------------ */
+
+let chainStopS = null;
+let arrivalStopS = null;
+
+/** The rig-convention yaw that stands a person at (x, z) facing (tx, tz). */
+function lookYaw(x, z, tx, tz) {
+  return Math.atan2(tx - x, tz - z);
+}
+
+/**
+ * Wire `chain-business.js`'s clock to the physical scene: the cast, the chain
+ * prop, the two door sounds the block already loads and the boat chain's
+ * rattle. Lag has no walk cycle, so his two walks are his standing rig moved
+ * along the line at walking pace, turned the way he is going — through the
+ * headlight beams, which is what makes the whole stop legible from the front
+ * passenger seat.
+ */
+function buildChainBusiness() {
+  const chain = forest.chain;
+  const doorSpot = () => stage.sedan.doorWorld('rear_left');
+  /* Where Lag stepped out. The walk to the gate is measured from here; the
+   * walk back aims at wherever the car actually idled to. */
+  let outAt = null;
+  const placeLag = (x, z, yaw) => cast.place('lag', x, forest.heightAt(x, z), z, yaw);
+  return createChainBusiness({
+    onDoor: (open) => audio.play(open ? 'car.door' : 'car.door.close.heavy', {
+      volume: 0.5, position: doorSpot(),
+    }),
+    onLagOut: () => {
+      cast.standUp('lag');
+      const door = doorSpot();
+      outAt = { x: door.x, z: door.z };
+      placeLag(outAt.x, outAt.z, lookYaw(outAt.x, outAt.z, chain.standing.x, chain.standing.z));
+    },
+    onLagMove: (t, leg) => {
+      if (!outAt) return;
+      const from = leg === 'to_gate' ? outAt : chain.standing;
+      const to = leg === 'to_gate' ? chain.standing : doorSpot();
+      const x = from.x + (to.x - from.x) * t;
+      const z = from.z + (to.z - from.z) * t;
+      placeLag(x, z, lookYaw(x, z, to.x, to.z));
+    },
+    onChainOpen: () => {
+      chain.setOpen(true);
+      audio.play('boat.ballast.chain', { volume: 0.42, position: chain.position });
+      /* At the post, watching the car use the gap he just opened. */
+      placeLag(chain.standing.x, chain.standing.z,
+        lookYaw(chain.standing.x, chain.standing.z, chain.position.x, chain.position.z));
+    },
+    onCreep: () => forest.resume(),
+    onChainClosed: () => {
+      chain.setOpen(false);
+      audio.play('boat.ballast.chain', { volume: 0.36, position: chain.position });
+    },
+    /* The rehook is what SM-260 gates on — same mechanic as a road node. */
+    onMilestone: (id) => {
+      reachedNodes.add(id);
+      if (gatedOn === id) gatedOn = null;
+    },
+    onLagIn: () => cast.sit('lag', 'rear_left'),
+    onDepart: () => forest.drive.start(),
+  });
+}
+
+/**
+ * One frame of stop pacing (see `STOP_PACING`), plus the two pieces of car
+ * handling the chain business asks for: idle-through while the gap is open,
+ * and the hold just past it where Lag rejoins. Runs before `forest.update`
+ * so the frame's drive step uses the frame's scale.
+ */
+function paceTheDrive() {
+  const drive = forest.drive;
+  let scale = FOREST_DRIVE_TIME_SCALE;
+  if (chainBusiness?.phase === 'through') {
+    scale = CHAIN_CREEP_TIME_SCALE;
+    if (drive.distance >= chainStopS + CHAIN_CLEAR_PAST_M) {
+      drive.hold();
+      chainBusiness.carCleared();
+    }
+  } else {
+    for (const rule of STOP_PACING) {
+      if (storyHighWater >= rule.until) continue;
+      const stopAt = rule.stop === 'chain' ? chainStopS : arrivalStopS;
+      const remaining = stopAt - drive.distance;
+      if (remaining <= 0 || remaining > rule.reserveM) continue;
+      scale = Math.min(scale, Math.max(rule.floor,
+        FOREST_DRIVE_TIME_SCALE * (remaining / rule.reserveM)));
+    }
+  }
+  drive.timeScale = scale;
+}
+
 function beginTheDrive({ restoreNode = null } = {}) {
   if (forest) return;
   /* One camera owner at a time. `release()` preserves the exact seat pose; the
@@ -803,6 +954,9 @@ function beginTheDrive({ restoreNode = null } = {}) {
     onNode: (id) => {
       reachedNodes.add(id);
       if (gatedOn === id) gatedOn = null;
+      /* The stop at the chain begins the staged business the moment the car
+       * has physically settled — the rail fires stop nodes only at rest. */
+      if (id === 'chain') chainBusiness?.begin();
       if (id === 'arrival') driveTransitionReceipt.arrivalAt = performance.now();
       if (id === 'arrival') settleForestArrival();
       if (id === 'arrival' && campaign.state.scene.spawn !== 'spur') {
@@ -810,6 +964,9 @@ function beginTheDrive({ restoreNode = null } = {}) {
       }
     },
   });
+  chainStopS = forest.road.events.find((event) => event.id === 'chain').s;
+  arrivalStopS = forest.road.events.find((event) => event.id === 'arrival').s;
+  chainBusiness = buildChainBusiness();
   /* The block's flat ground goes with the block. Everything the cast is stood
    * on from here is the forest's terrain field, which is the same one the
    * trees, the trailhead and the car are placed against. */
@@ -1010,8 +1167,11 @@ function frame() {
    * sound until the cut to black; after it the forest owns all three, and the
    * adapter's own header is explicit that nothing else may step the vehicle
    * while the rail is driving it. */
-  if (forest) forest.update(dt);
-  else {
+  if (forest) {
+    paceTheDrive();
+    forest.update(dt);
+    chainBusiness?.update(dt);
+  } else {
     stage.update(dt, player.position);
     /* AFTER the car. PassengerRig reapplies the camera with dt=0, so there is
      * no previous-frame seat chase while the departure rail is moving. */
@@ -1086,6 +1246,14 @@ async function wakeTheSound() {
         SPECIAL_MEETING_RADIO_GAG.cue,
         ...AMBIENCE_CUES,
         ...Object.values(FOREST_TRAVEL_AUDIO).map(({ cue }) => cue),
+        /* The chain across the track, going down and back up. The NO WAKE
+         * ballast chain is the same object doing the same thing; reuse-first
+         * beats a second recording of a chain. (No apostrophes in this
+         * comment: the residency test pairs every quote in this call to find
+         * the prefix list, and one possessive here un-pairs the lot.) The
+         * two car-door cues the business plays are covered by the car prefix
+         * below. */
+        'boat.ballast.chain',
       ],
       prefixes: ['car.', 'footstep.', 'street.'],
     });
@@ -1229,6 +1397,8 @@ const certification = {
   },
   get rideBeat() { return ride.beatId; },
   get ridePhase() { return ride.phase; },
+  /** The staged chain stop, so a live check can hold SM-260 to its business. */
+  get chainStop() { return chainBusiness?.snapshot() ?? null; },
   get arrival() { return arrivalEvidence(); },
   get trailDistance() { return trailDistanceTravelled; },
   get trailRequiredDistance() { return TRAIL_HANDOFF_DISTANCE_M; },

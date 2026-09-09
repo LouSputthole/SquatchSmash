@@ -1157,6 +1157,11 @@ try {
             && event.s >= forest.drive.distance - 0.05
             && event.s - forest.drive.distance < 3
         )),
+        /* The staged chain stop (SM-260's physical half). While its clock is
+         * live the car is deliberately held — creeping the gap, or parked
+         * just past it while Lag rehooks the chain and walks back — and that
+         * is a performance, not a softlock. */
+        chainStop: sm.certification.chainStop?.phase ?? null,
         stage: forest.drive.stage,
         blackout: document.querySelector('#blackout')?.classList.contains('on') ?? false,
         travelLoops: ['sm.forest.engine', 'sm.forest.road'].filter(
@@ -1231,11 +1236,22 @@ try {
       x: 0.28, y: 0.22, width: 0.69, height: 0.48,
     }),
   ]);
+  /* The side floors are re-measured, not the original 0.04/0.25. Those
+   * numbers were only ever achievable because the retired spur taper held
+   * the car crawling beside the lit meeting clearing when SM-320 was
+   * answered; the 2026-09-09 chain business re-timed the story against the
+   * road, and this moment now lands in the deep stage whose side woods are
+   * authored DARK for the run-in. Measured at the SM-320 anchor across two
+   * runs: mean 0.0341 / 0.0330, readable 0.2247 / 0.1397. The floors sit
+   * under both with margin while still refusing an opaque or unlit pane —
+   * a glass regression reads ~0.011 mean / 0.004 readable (measured from a
+   * parked side view at the black spur edge). The forward half keeps the
+   * strong pin: the road and headlight throw must stay plainly readable. */
   check('the rendered road and side woods remain readable through the live cabin glass',
     forwardVisibility.mean >= 0.055
       && forwardVisibility.readableFraction >= 0.55
-      && sideVisibility.mean >= 0.04
-      && sideVisibility.readableFraction >= 0.25,
+      && sideVisibility.mean >= 0.025
+      && sideVisibility.readableFraction >= 0.08,
     JSON.stringify({ forward: forwardVisibility, side: sideVisibility }));
   await lookAtWorldPoint(await sedanViewPoint('forward'));
 
@@ -1412,7 +1428,8 @@ try {
         && sample.speed < 0.2
         && !sample.waitingAt
         && !sample.arrived
-        && !sample.approachingAuthoredStop;
+        && !sample.approachingAuthoredStop
+        && (sample.chainStop === null || ['idle', 'done'].includes(sample.chainStop));
       if (unexplained && quietStarted === null) quietStarted = sample.t;
       if (!unexplained && quietStarted !== null) {
         maxUnexplainedStopMs = Math.max(maxUnexplainedStopMs, sample.t - quietStarted);
@@ -1570,6 +1587,13 @@ try {
         progressRegressions,
         maxUnexplainedStopMs,
         waitsSeen,
+        /* SM-260's staged half: the chain went down and up again, the car
+         * only left with Lag aboard, and the sampler watched it happen. */
+        chainPerformance: {
+          phasesSeen: [...new Set(samples.map((sample) => sample.chainStop).filter(Boolean))],
+          final: sm.certification.chainStop,
+          chainStrungAgain: sm.forest.chain.open === false,
+        },
         firedEvents,
         stats,
         stagesSeen,
@@ -1620,7 +1644,14 @@ try {
   check('the kilometre drive makes monotonic progress with only authored stops',
     certification.route.samples > 500
       && certification.route.progressRegressions === 0
-      && certification.route.maxUnexplainedStopMs < 1500
+      /* 2,000, not 1,500: the chain business (2026-09-09) releases the car
+       * from a dead stop just past the rehook, and `drive.start()`'s spool
+       * from 0 up through this sampler's 0.2 m/s line measures 1,551 ms on
+       * consecutive runs (1,550.7 / 1,551.5 — deterministic physics, not a
+       * hang; the business is already `done` so nothing explains it). A real
+       * hang still trips this at double the old margin, and the driveSeconds
+       * window below caps anything longer. */
+      && certification.route.maxUnexplainedStopMs < 2000
       && certification.route.waitsSeen.includes('arrival')
       && certification.route.waitsSeen.every((id) => ['chain', 'arrival'].includes(id))
       && certification.route.firedEvents.includes('chain')
@@ -1632,6 +1663,14 @@ try {
         certification.route.endDistance - (certification.route.stats.roadLength - 4)
       ) < 0.25,
     JSON.stringify(certification.route));
+
+  check('SM-260 performs the chain: down, car through, up behind them, Lag back aboard',
+    certification.route.chainPerformance.final?.phase === 'done'
+      && certification.route.chainPerformance.final.departed === true
+      && certification.route.chainPerformance.chainStrungAgain
+      && certification.route.chainPerformance.phasesSeen.includes('through')
+      && certification.route.chainPerformance.phasesSeen.includes('back'),
+    JSON.stringify(certification.route.chainPerformance));
 
   check('the drive stays visible until its final exchange, then fades briefly with travel audio retained',
     certification.route.firedEvents.includes('final_approach')
