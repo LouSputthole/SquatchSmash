@@ -223,6 +223,25 @@ export class PalaceBystanders {
   }
 
   /**
+   * A checkpoint restore stood the working civilians back up (the cast's
+   * `reviveCivilians`); forget the discarded attempt's panic so the resumed
+   * room derives its own — an alarmed resume calls `stagePanicked` straight
+   * after. The once-only voice latches (`pleaded`, the cower line index)
+   * survive on purpose: a retry must not replay lines already heard.
+   */
+  reset() {
+    for (const record of this.state.values()) {
+      record.phase = 'calm';
+      record.t = 0;
+      record.cowerClock = 0;
+      record.alarmed = false;
+      record.recallClock = 0;
+      record.from.copy(record.entry.root.position);
+    }
+    return this;
+  }
+
+  /**
    * Stage the room as a checkpoint restore found it: everybody already down
    * where they landed, no run, no lines replayed.
    */

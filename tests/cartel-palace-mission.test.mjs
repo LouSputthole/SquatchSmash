@@ -11,8 +11,9 @@ import {
   PALACE_CASE_ROUTE_EVIDENCE,
   PALACE_BEATS,
   PALACE_DINING_OBJECTIVES,
+  palaceWaveObjective,
 } from '../src/cartel-palace/mission.js';
-import { buildPalaceCast, PALACE_GUARD_POSTS } from '../src/cartel-palace/cast.js';
+import { buildPalaceCast, PALACE_GUARD_POSTS, PALACE_WAVE_POSTS } from '../src/cartel-palace/cast.js';
 import { PALACE_CONVERSATIONS } from '../src/cartel-palace/conversations.js';
 import {
   FINALE_BEATS,
@@ -261,6 +262,29 @@ test('every stage of the dining room has its own objective card, and none of the
   assert.match(PALACE_DINING_OBJECTIVES.sauce.text, /eliminate sauce/i);
   assert.match(PALACE_DINING_OBJECTIVES.wave.text, /a-team/i);
   assert.match(PALACE_DINING_OBJECTIVES['reprisal-one'].text, /armor/i);
+  /* Owner, 2026-09-09: "its not clear you need to kill everyone to secure
+   * the room." The securing card must define secure as the requirement. */
+  assert.match(PALACE_DINING_OBJECTIVES.sauce.text, /nobody armed/i,
+    'the securing order no longer says what secure means');
+});
+
+test('the wave card carries a live body count, clamped to the authored wave', () => {
+  const base = PALACE_DINING_OBJECTIVES.wave;
+  const size = PALACE_WAVE_POSTS.length;
+  assert.equal(size, 4, 'the wave changed size; update WAVE_SIZE in mission.js with it');
+
+  const counted = palaceWaveObjective(3);
+  assert.equal(counted.kicker, base.kicker);
+  assert.equal(counted.hint, base.hint);
+  assert.ok(counted.text.startsWith(base.text), 'the count replaced the order instead of extending it');
+  assert.match(counted.text, /3 of 4 still standing\./);
+  assert.equal(Object.isFrozen(counted), true);
+
+  assert.match(palaceWaveObjective(size).text, /4 of 4 still standing\./);
+  assert.match(palaceWaveObjective(9).text, /4 of 4 still standing\./, 'the count must clamp high');
+  assert.match(palaceWaveObjective(-2).text, /0 of 4 still standing\./, 'the count must clamp low');
+  assert.equal(palaceWaveObjective(), base, 'no count returns the static card unchanged');
+  assert.equal(palaceWaveObjective(Number.NaN), base);
 });
 
 test('the final room is a two-target boss encounter and cannot clear early', () => {

@@ -571,9 +571,32 @@ export class PalaceFinaleDirector {
    * Checkpoint staging for a room whose encounter is already live: no
    * replayed speech, no second activation — the caller has activated the
    * encounter itself, so `onEngage` deliberately does not fire.
+   *
+   * THIS IS A FULL RESET NOW, NOT A ONE-WAY GATE. Owner, 2026-09-09: *"The
+   * mark scene at the cartel palace, losing and restarting the checkpoint
+   * broke it."* The director is one long-lived instance, and the in-memory
+   * death retry restores the same object that just watched the player die.
+   * The old `if (this.engaged) return false` therefore refused every retry
+   * past Tony's verdict and left the DEAD attempt's stage, reaction ledger
+   * and pending door callback running the new one. Measured on the retry
+   * path (die in stage one): stage stuck at `reprisal-one`, `_reacted`
+   * still holding sauce/first, and Mark restored `active: false, phase:
+   * 'away'` — a visible statue at (-3.2, 0, -40.8) that the impact resolver
+   * refuses as `inactive`, with nothing left anywhere to call
+   * `onMarkReturn`. 240 simulated seconds produced no progression.
    */
   skipConfrontation() {
-    if (this.engaged) return false;
+    this.queue.length = 0;
+    this.current = null;
+    this.timer = 0;
+    this._after = null;
+    this._divers.length = 0;
+    this._reacted = new Set();
+    this.dived = false;
+    /* The two people the enrage tracks are restaged alive by the caller —
+     * nothing durable records a civilian's death. `stageForCheckpoint`
+     * re-derives it from the bodies for harnesses that stage their own. */
+    this.enraged = false;
     this.engaged = true;
     this.phase = 'combat';
     /* A checkpoint that resumes into a live dining room resumes into the
@@ -586,14 +609,12 @@ export class PalaceFinaleDirector {
     return true;
   }
 
-  /** Checkpoint staging for the cleared room: kills already landed. */
-  stageAftermath() {
-    this.skipConfrontation();
-    this.phase = 'aftermath';
-    this.stage = 'done';
-    this._after = null;
-    this._reacted.add('mark').add('sauce').add('all');
+  /** The trio staged as having already hit the floor: prone at the authored
+   * landing points (the survivors only), the wife braced where she stands —
+   * the same trust in DIVE_POINTS that live staging has always had. */
+  _stageDived() {
     this.dived = true;
+    this._divers.length = 0;
     for (const entry of this.cast.civilians) {
       if (entry.down) continue;
       const divePoint = DIVE_POINTS[entry.id];
@@ -603,6 +624,59 @@ export class PalaceFinaleDirector {
       } else {
         entry.figure.setState?.('startled', { blend: false });
       }
+    }
+    return true;
+  }
+
+  /** Checkpoint staging for the cleared room: kills already landed. */
+  stageAftermath() {
+    this.skipConfrontation();
+    this.phase = 'aftermath';
+    this.stage = 'done';
+    this._reacted.add('mark').add('sauce').add('all').add('first');
+    this._stageDived();
+    return true;
+  }
+
+  /**
+   * Checkpoint staging from the mission's durable facts.
+   *
+   * The campaign records WHO IS DEAD (`sauceEliminated` / `markEliminated`
+   * persist the moment each kill lands) and nothing about which line was
+   * mid-air, so the resumed stage is re-derived from the bodies:
+   *
+   *   nobody down yet         the chef's half, exactly as before;
+   *   the chef down           stage one — `_beginReprisal` replays Mark's
+   *                           entrance beat, and its `engage` line walks him
+   *                           back in through `onMarkReturn`, the same door
+   *                           as live play. The checkpoint snapshot was
+   *                           captured on the chef's kill, so full plates
+   *                           and an unreleased wave ARE stage one's truth;
+   *   Mark down, chef alive   the chef is genuinely alone — killing him ends
+   *                           the mission, and `_beginReprisal` already
+   *                           refuses over Mark's body;
+   *   both down               the aftermath.
+   */
+  stageForCheckpoint({ sauceEliminated = false, markEliminated = false } = {}) {
+    if (sauceEliminated && markEliminated) return this.stageAftermath();
+    this.skipConfrontation();
+    /* Which Mark the resume owes is decided by the bodies actually on the
+     * floor, not by a flag from the discarded attempt. */
+    this.enraged = this.cast.civilians.some(
+      (entry) => entry.down && ['lola', 'johnny'].includes(entry.id),
+    );
+    if (markEliminated) {
+      /* He died at his own table before the chef did. The room has already
+       * reacted; the mission has one name left on it. */
+      this._reacted.add('mark').add('first').add('all');
+      this._stageDived();
+      return true;
+    }
+    if (sauceEliminated) {
+      this._reacted.add('sauce').add('first');
+      this._stageDived();
+      this._beginReprisal();
+      return true;
     }
     return true;
   }

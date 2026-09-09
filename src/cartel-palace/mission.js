@@ -152,9 +152,13 @@ export const PALACE_DINING_OBJECTIVES = Object.freeze({
     text: 'Hold fire and hear them out.',
     hint: 'You can move. Tony unlocks the trigger when he delivers the verdict.',
   }),
+  /* Owner, 2026-09-09: *"its not clear you need to kill everyone to secure
+   * the room."* "Secure the room" was the whole instruction, and securing it
+   * actually spans three more fights — so the card now says what secure
+   * MEANS, and the wave stage below carries the arithmetic. */
   sauce: Object.freeze({
     kicker: 'THE CHEF IS ALONE',
-    text: 'Eliminate Sauce and secure the room.',
+    text: 'Eliminate Sauce and secure the room — nobody armed stays standing in it.',
     hint: 'Mark walked out and left his chef to entertain you.',
   }),
   'reprisal-one': Object.freeze({
@@ -178,6 +182,31 @@ export const PALACE_DINING_OBJECTIVES = Object.freeze({
     hint: 'No plates, no crew, no chef. Just the man who sold your family.',
   }),
 });
+
+/* Four men, and the card counts them. Kept in step with cast.js's
+ * PALACE_WAVE_POSTS by tests/cartel-palace-mission.test.mjs — this module
+ * stays import-light on purpose (no THREE, no rigs) so the mission is
+ * provable headlessly. The hint's "Four came in" is the same authored 4. */
+const WAVE_SIZE = 4;
+
+/**
+ * The wave card with the live body count in the standing order.
+ *
+ * Owner, 2026-09-09: *"its not clear you need to kill everyone to secure the
+ * room."* The 2026-09-02 rewording named the requirement; this puts the
+ * arithmetic on the card the way the Siege keeps its attacker counter live,
+ * so "everyone" is a number the player can watch go down. Passing no count
+ * (or garbage) returns the static card unchanged.
+ */
+export function palaceWaveObjective(standing) {
+  const base = PALACE_DINING_OBJECTIVES.wave;
+  if (!Number.isFinite(standing)) return base;
+  const count = Math.max(0, Math.min(WAVE_SIZE, Math.trunc(standing)));
+  return Object.freeze({
+    ...base,
+    text: `${base.text} ${count} of ${WAVE_SIZE} still standing.`,
+  });
+}
 
 /**
  * Pure mission authority for the final infiltration. The browser runtime owns

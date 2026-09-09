@@ -1465,6 +1465,45 @@ try {
     settle();
     const afterChef = { stage: runtime.finale.report().stage, markActive: runtime.cast.mark.active };
 
+    /* DIE AND RETRY, MID-FIGHT. Owner, 2026-09-09: *"The mark scene at the
+     * cartel palace, losing and restarting the checkpoint broke it."* The
+     * chef's kill persisted the dining_room checkpoint one call ago, so this
+     * is the exact save the retry button restores. Before the fix the retry
+     * kept the dead attempt's stage running: Mark came back `active: false,
+     * phase: 'away'` — a visible statue at (-3.2, 0, -40.8) that the impact
+     * resolver refuses as `inactive` — and nothing remained to call
+     * onMarkReturn; 240 simulated seconds produced no progression. The rest
+     * of this sequence now runs ON THE RETRIED TIMELINE, which is the proof
+     * that a player who loses to Mark can restart and finish the room. */
+    runtime.playerActor.health = 0;
+    runtime.playerActor.incapacitated = true;
+    runtime.presentPlayerDeath();
+    const retried = runtime.retryFromCheckpoint();
+    const retryReport = runtime.finale.report();
+    const afterRetry = {
+      retried,
+      phase: runtime.phase,
+      stage: retryReport.stage,
+      pendingEntrance: retryReport.pendingCues.some((cue) => cue.includes('reprisal.enter')),
+      sauceDown: runtime.cast.sauce.down,
+      markDown: runtime.cast.mark.down,
+      markArmor: runtime.cast.mark.actor.armor,
+      markArmorMax: runtime.cast.mark.armorMax,
+      playerHealth: runtime.playerActor.health,
+      playerIncapacitated: runtime.playerActor.incapacitated,
+      waveWaiting: runtime.cast.wave.every((entry) => (
+        !entry.root.visible && !entry.active && !entry.down
+      )),
+      objective: runtime.objective,
+      deathHidden: document.getElementById('death').classList.contains('hidden'),
+    };
+    settle();
+    const afterRetryReturn = {
+      stage: runtime.finale.report().stage,
+      markActive: runtime.cast.mark.active,
+      markVisible: runtime.cast.mark.root.visible,
+    };
+
     /* His plates, spent the way a player spends them. */
     runtime.cast.mark.actor.armor = 0;
     runtime.finale.onArmorBroken();
@@ -1491,6 +1530,8 @@ try {
       markKill,
       sauceKill,
       afterChef,
+      afterRetry,
+      afterRetryReturn,
       afterArmor,
       waveKills,
       afterWave,
@@ -1518,6 +1559,30 @@ try {
    * proves the real room turns over, with the real Combatants: Mark is in the
    * room after the chef, OUT of it with four A-Team men standing after his
    * plates go, and back in with nothing on him once they are down. */
+  /* THE MARK-FIGHT RETRY (owner, 2026-09-09). Everything after this point in
+   * the sequence — armour, wave, last stand, extraction — happened on the
+   * timeline the retry restored, so the three-stage and completion checks
+   * below double as the die → restart → finish-the-fight proof. */
+  check('dining_room: dying to Mark and retrying restages stage one and walks him back in',
+    outcome.afterRetry.retried === true
+      && outcome.afterRetry.phase === 'active'
+      && outcome.afterRetry.deathHidden
+      && outcome.afterRetry.stage === 'reprisal-one'
+      && outcome.afterRetry.pendingEntrance
+      && outcome.afterRetry.sauceDown
+      && !outcome.afterRetry.markDown
+      && outcome.afterRetry.markArmor === outcome.afterRetry.markArmorMax
+      && outcome.afterRetry.playerHealth > 0
+      && outcome.afterRetry.playerIncapacitated === false
+      && outcome.afterRetry.waveWaiting
+      && /break mark/i.test(outcome.afterRetry.objective)
+      && outcome.afterRetryReturn.stage === 'reprisal-one'
+      && outcome.afterRetryReturn.markActive
+      && outcome.afterRetryReturn.markVisible,
+    JSON.stringify({
+      afterRetry: outcome.afterRetry,
+      afterRetryReturn: outcome.afterRetryReturn,
+    }));
   check('dining_room: the chef, the armour and the wave turn the fight over three real stages',
     outcome.afterChef.stage === 'reprisal-one' && outcome.afterChef.markActive
       && outcome.afterArmor.stage === 'wave'

@@ -56,6 +56,7 @@ import { buildPalaceCast, MARK_ARMOR } from './cast.js';
 import { PalaceFinaleDirector } from './finale.js';
 import {
   EVIDENCE_IDS, PALACE_BEATS, PALACE_DINING_OBJECTIVES, CartelPalaceMission,
+  palaceWaveObjective,
 } from './mission.js';
 import {
   previewPalaceCheckpointForLocation,
@@ -1399,12 +1400,26 @@ function restoreCombatCheckpoint(snapshot) {
   weapons.setSuppression(suppression);
   security.restore(snapshot.security);
   restageEliminatedTargets();
-  /* The dining-room checkpoint snapshot is captured by enterDiningRoom()'s
-   * own transition, one call BEFORE activateFinalEncounter() flips Mark and
-   * Sauce live — so restoring into the boss beat must re-assert the
-   * encounter or both targets come back passive. Idempotent: it only sets
-   * active = !down, and raiseAlarm('dining_room') no-ops if already up. */
-  if (mission.beat === PALACE_BEATS.DINING_ROOM) security.activateFinalEncounter();
+  /* Civilians sit outside every snapshot on purpose, so their durable truth
+   * is the built room: alive at their posts. Stand them back up (reload
+   * parity — a rebuild starts with a living cleaner and a living trio), and
+   * take everyone the restore proved alive back out of the kill ledger so a
+   * discarded attempt cannot inflate the Prospect's Record. */
+  for (const id of cast.reviveCivilians()) playerKillIds.delete(id);
+  for (const entry of cast.all) {
+    if (!entry.down) playerKillIds.delete(entry.id);
+  }
+  bystanders.reset();
+  const progress = mission.snapshot();
+  if (progress.alarmRaised
+    || [PALACE_BEATS.BETRAYAL, PALACE_BEATS.DINING_ROOM, PALACE_BEATS.CLEAR]
+      .includes(mission.beat)) {
+    bystanders.stagePanicked();
+  }
+  /* The dining-room stage machinery re-derives itself from the durable facts
+   * AFTER the security restore, so the staged bodies and the queued entrance
+   * beat survive — clearCombatTransients() above wiped the previous queue. */
+  stageFinaleForCheckpoint(mission.beat);
   syncLoadout();
   updatePlayerStatus();
   updateAmmo();
@@ -1413,10 +1428,49 @@ function restoreCombatCheckpoint(snapshot) {
    * objective has just been pushed over the top of the stage card. Forget the
    * last stage so the next frame writes the right one. */
   bossStage = null;
+  waveStandingShown = -1;
   updateDiningObjective();
   updateBoss();
   updateCombatFeedback(0);
   return security;
+}
+
+/**
+ * The dining room (or its aftermath) staged from the mission's durable facts.
+ *
+ * Owner, 2026-09-09: *"The mark scene at the cartel palace, losing and
+ * restarting the checkpoint broke it."* The chef's kill persists a
+ * `dining_room` checkpoint mid-fight, and neither restore path could stage
+ * what it says: the reload staged the CHEF's half over his own corpse, and
+ * the in-memory retry was refused outright by the old one-way
+ * `skipConfrontation`, leaving the dead attempt's stage running the new one —
+ * measured: Mark restored `active: false, phase: 'away'`, a visible statue
+ * the impact resolver refuses as `inactive`, with no path left to
+ * `onMarkReturn`. Both paths route through here now.
+ *
+ * Order matters: the encounter is re-asserted first (the dining-room
+ * checkpoint snapshot is captured one call BEFORE activateFinalEncounter()
+ * flips the chef live, so a raw restore brings him back passive —
+ * idempotent, and raiseAlarm('dining_room') no-ops if already up), then the
+ * bodies are normalized, then the director re-derives the stage.
+ */
+function stageFinaleForCheckpoint(id) {
+  if (!['dining_room', 'clear'].includes(id)) return;
+  security.activateFinalEncounter();
+  ui.boss.classList.remove('hidden');
+  const progress = mission.snapshot();
+  /* Mark has left the table by the time any dining-room checkpoint exists —
+   * he delegates before the chef fight and is behind the doors between
+   * reprisals — so whatever the discarded attempt left standing in the room
+   * goes off stage before the director decides which return it owes him. */
+  if (id !== 'clear' && !progress.markEliminated && !cast.mark.down) {
+    cast.markScramblesAway({ instant: true });
+  }
+  cast.stageWaveWaiting();
+  finale.stageForCheckpoint({
+    sauceEliminated: progress.sauceEliminated,
+    markEliminated: progress.markEliminated,
+  });
 }
 
 function stageWorldForCheckpoint(id) {
@@ -1436,15 +1490,7 @@ function stageWorldForCheckpoint(id) {
   if (progress.alarmRaised || ['betrayal', 'dining_room', 'clear'].includes(id)) {
     bystanders.stagePanicked();
   }
-  if (['dining_room', 'clear'].includes(id)) {
-    security.activateFinalEncounter();
-    ui.boss.classList.remove('hidden');
-    /* Resuming inside a live (or cleared) dining room never replays the
-     * speech: the encounter is already activated above, so the director only
-     * stages the trio to match — braced for a fight, or in the aftermath. */
-    if (id === 'clear') finale.stageAftermath();
-    else finale.skipConfrontation();
-  }
+  stageFinaleForCheckpoint(id);
   restageEliminatedTargets(progress);
   placeAtCheckpoint(id);
   repaintEvidence();
@@ -1811,14 +1857,25 @@ function updateBoss() {
  * nothing is written until it changes.
  */
 let bossStage = null;
+/* The wave count last written to the card; -1 outside the wave stage. */
+let waveStandingShown = -1;
 function updateDiningObjective() {
   if (mission.beat !== PALACE_BEATS.DINING_ROOM) return;
   const stage = finale.report().stage;
-  if (stage === bossStage) return;
+  /* Owner, 2026-09-09: *"its not clear you need to kill everyone to secure
+   * the room."* During the wave the card carries the live count, so each
+   * kill visibly moves the order forward — 4 of 4, 3 of 4, down to the door
+   * opening. Costs one waveStanding() scan per frame during that one stage;
+   * nothing is written until the stage or the count changes. */
+  const waveStanding = stage === 'wave' ? cast.waveStanding() : -1;
+  if (stage === bossStage && waveStanding === waveStandingShown) return;
   bossStage = stage;
+  waveStandingShown = waveStanding;
   /* The wave is the one stage with nobody to put a bar on. */
   ui.boss.classList.toggle('hidden', stage === 'wave');
-  updateObjective(PALACE_DINING_OBJECTIVES[stage]);
+  updateObjective(stage === 'wave'
+    ? palaceWaveObjective(waveStanding)
+    : PALACE_DINING_OBJECTIVES[stage]);
 }
 
 /**

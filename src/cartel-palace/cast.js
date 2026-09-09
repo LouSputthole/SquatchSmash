@@ -451,6 +451,7 @@ function makeCivilian({ id, x, z, yaw, look, cowerAt = null }) {
      * and outside Durable combat state. One centre-mass rifle round or any
      * head hit ends them — this is not a fight, it is a consequence. */
     health: 40,
+    healthMax: 40,
     down: false,
     active: true,
     /* Where this person goes when the shooting starts, if anywhere. The
@@ -459,6 +460,10 @@ function makeCivilian({ id, x, z, yaw, look, cowerAt = null }) {
     cowerAt: Array.isArray(cowerAt) ? new THREE.Vector3(cowerAt[0], 0, cowerAt[1]) : null,
     panicked: false,
   };
+  /* Where this person was built — the pose a checkpoint restore stands them
+   * back up in, since nothing durable ever records a civilian's death. */
+  entry.home = figure.root.position.clone();
+  entry.homeYaw = figure.root.rotation.y;
   figure.root.userData.palaceCivilian = entry;
   return entry;
 }
@@ -744,6 +749,58 @@ export function buildPalaceCast(parent) {
     return true;
   }
 
+  /**
+   * A checkpoint restore discards the attempt that shot them.
+   *
+   * Nothing durable records a civilian's death — the mission does not count
+   * them, PalaceSecurity never snapshots them — so the durable truth is the
+   * built room: everyone alive at their post. A page reload gets that for
+   * free; the in-memory death retry has to stand them back up here, or the
+   * dead attempt's corpses (and the enrage they caused) leak into the new
+   * one. Poses over the top are the caller's job: the finale director stages
+   * the trio, PalaceBystanders re-stages a panicked cleaner.
+   *
+   * @returns {string[]} the ids that were actually down and were revived.
+   */
+  function reviveCivilians() {
+    const revived = [];
+    for (const entry of [...civilians, ...bystanders]) {
+      if (entry.down) revived.push(entry.id);
+      entry.down = false;
+      entry.active = true;
+      entry.health = entry.healthMax;
+      entry.panicked = false;
+      entry.root.position.copy(entry.home);
+      entry.root.rotation.y = entry.homeYaw;
+      entry.figure.setState?.('stand', { blend: false });
+    }
+    return revived;
+  }
+
+  /**
+   * The reprisal stood back behind its two walls, for a checkpoint restore.
+   *
+   * Every dining-room checkpoint is captured with the wave unreleased (the
+   * only mid-fight persist is the chef's kill, which precedes the call), so
+   * whoever the restored record says is alive belongs at his post: hidden —
+   * which is what makes him unhittable — inactive, and waiting for
+   * `releaseWave`. Without this, a retry after dying IN the wave left four
+   * visible, inactive statues standing in the room.
+   */
+  function stageWaveWaiting() {
+    let staged = 0;
+    for (const entry of wave) {
+      presentationMotions.delete(entry.id);
+      if (entry.down) continue;
+      entry.root.visible = false;
+      entry.active = false;
+      entry.presentation = 'waiting';
+      entry.root.position.copy(entry.stagingTarget);
+      staged += 1;
+    }
+    return staged;
+  }
+
   /** Put a begging civilian on the floor. Presentation only: no mission call. */
   /** Put a civilian on the floor -- begging trio or working bystander. */
   function civilianDown(entry, { roll = 0.42 } = {}) {
@@ -778,6 +835,8 @@ export function buildPalaceCast(parent) {
     updatePresentation,
     clearPresentation,
     waveStanding,
+    stageWaveWaiting,
+    reviveCivilians,
     standUp,
     markDown,
     civilianDown,

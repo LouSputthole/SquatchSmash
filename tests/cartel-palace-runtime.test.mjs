@@ -99,8 +99,16 @@ test('Cartel Palace death retry restores in memory, with reload only as the fall
     'the retry button must not rebuild the page unconditionally');
   assert.match(main, /function presentPlayerDeath\(\)/,
     'death presentation is one function so the retry un-freezes everything it froze');
-  assert.match(main, /PALACE_BEATS\.DINING_ROOM\) security\.activateFinalEncounter\(\)/,
-    'a dining-room restore must re-assert the final encounter or the bosses come back passive');
+  /* Owner, 2026-09-09: "The mark scene at the cartel palace, losing and
+   * restarting the checkpoint broke it." Both restore paths now stage the
+   * dining room from the mission's durable facts through one function, and
+   * it must (a) re-assert the encounter or the chef comes back passive, and
+   * (b) run AFTER the security restore in the combat path, or
+   * clearCombatTransients wipes the entrance beat it queues. */
+  assert.match(main, /function stageFinaleForCheckpoint\(id\) \{[\s\S]{0,900}?security\.activateFinalEncounter\(\)[\s\S]{0,900}?finale\.stageForCheckpoint\(/,
+    'a dining-room restore must re-assert the final encounter and re-derive the stage from durable facts');
+  assert.match(main, /security\.restore\(snapshot\.security\);[\s\S]{0,1600}?stageFinaleForCheckpoint\(mission\.beat\)/,
+    'the combat restore must stage the dining room after the security restore, not before the transient wipe');
   assert.match(main, /hud\.clearSay\(\)/,
     'the failed attempt\'s pending narration must not talk into the restored timeline');
   assert.match(hud, /clearSay\(\)\s*\{/, 'Hud must expose the narration cut the retry relies on');
