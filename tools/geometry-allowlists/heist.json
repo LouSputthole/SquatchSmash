@@ -319,84 +319,78 @@
     },
     {
       "state": "street-withdrawal",
-      "overlap": 13,
+      "overlap": 12,
       "checkSupport": 0,
       "sources": [
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#0",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#1",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
-          "sourceId": "root:heist-street_withdrawal/type=Mesh#10",
           "scope": "direct",
-          "overlap": 1,
-          "checkSupport": 0
-        },
-        {
           "sourceId": "root:heist-street_withdrawal/type=Mesh#2",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#3",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#4",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#5",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#6",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#7",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#8",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#9",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         },
         {
+          "scope": "direct",
+          "sourceId": "root:heist-street_withdrawal/type=Mesh#91",
+          "overlap": 1,
+          "checkSupport": 0
+        },
+        {
+          "scope": "direct",
           "sourceId": "root:heist-street_withdrawal/type=Mesh#92",
-          "scope": "direct",
-          "overlap": 1,
-          "checkSupport": 0
-        },
-        {
-          "sourceId": "root:heist-street_withdrawal/type=Mesh#93",
-          "scope": "direct",
           "overlap": 1,
           "checkSupport": 0
         }
