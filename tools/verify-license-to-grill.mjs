@@ -183,6 +183,15 @@ async function facts() {
       dead: b.licenseToGrill.state?.dead ?? false,
       broken: b.licenseToGrill.state?.broken ?? false,
       swings: b.licenseToGrill.state?.swings ?? null,
+      /* The tool swing clock and the input gates, so a lost impact names its
+       * broken link instead of reporting a bare hit count: -1 means no swing
+       * in flight, and a click is only routed while the game is started,
+       * unpaused and not over (see createBingInputPolicy's canHandleInput). */
+      toolSwing: b.licenseToGrill.toolSwing,
+      gameStarted: !!b.game.started,
+      gamePaused: !!b.game.paused,
+      gameOver: !!b.game.over,
+      mouseDownEvents: b.input.snapshot().mouseDownEvents,
       used: [...(b.licenseToGrill.state?.used ?? [])],
       handled: [...(b.licenseToGrill.state?.handled ?? [])],
       smashed: [...(b.licenseToGrill.state?.smashed ?? [])],
@@ -211,11 +220,18 @@ async function pressCode(code) {
  * and counts while it is up: impacts 2-6 count on node 'floor' in run after
  * run. Only the bark exchange owns a click. So the impact window is "no bark
  * open", not "no dialogue at all" -- run 33953123399 spent a pre-click wait
- * on the floor ask itself and handed impact 7 to whatever frame followed. */
+ * on the floor ask itself and handed impact 7 to whatever frame followed.
+ *
+ * `toolSwing < 0` joined the window for the same one-click-one-hit honesty:
+ * `useTool()` consumes a press outright while a swing is still in flight
+ * (license-to-grill-runtime.js line ~1145), and on the starved hosted runner
+ * the real rAF loop can still be mid-follow-through from the previous
+ * counted impact when the harness gets around to the next click. Waiting for
+ * the clock to read idle means every counted click starts its own swing. */
 async function waitForImpactWindow(maxSeconds = 90) {
   for (let elapsed = 0; elapsed < maxSeconds; elapsed += 0.25) {
     const current = await facts();
-    if (!current.active || current.node === 'floor') return current;
+    if ((!current.active || current.node === 'floor') && current.toolSwing < 0) return current;
     await step(0.25);
   }
   return facts();
@@ -287,20 +303,69 @@ async function stageAim(target, stand) {
   }, { target, stand });
 }
 
+/* A left click is only a fact once the game's canvas listener has counted
+ * it. Scheduled runs 33953123399 (impact 7), 34020410281 (impact 4) and
+ * 34327599387 (impact 7) each lost exactly one impact click on the hosted
+ * runner -- silently, with the floor ask up and the player measured in
+ * whip reach both times we have coordinates -- while the same tree passes
+ * locally every run. The earlier fix moved the click to the upper third on
+ * the theory that the dialogue panel intercepts it; the panel cannot
+ * (#dialogue lives inside #hud, which is pointer-events: none), and the run
+ * on 34327599387 failed with that fix in place. So this helper stops
+ * guessing about the runner's hit-test and proves delivery instead:
+ *   1. the pixel must hit-test to #scene itself before it is pressed --
+ *      elementFromPoint is the same test the browser applies to the click,
+ *      so no runner-specific overlay layout can swallow the press unseen;
+ *   2. the Adapter's own mouseDownEvents receipt must advance after the CDP
+ *      click, or the click is re-sent at a freshly scanned pixel, bounded.
+ * Delivery retries cannot double-count an impact: a click that failed the
+ * receipt check never reached the canvas listener, so it cannot have
+ * started a swing -- every one-click-one-hit assertion downstream keeps its
+ * full force, and a genuinely double-counted click still fails there. */
 async function clickCanvas(seconds = 0.9) {
   const canvas = page.locator('#scene');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('game canvas has no bounds');
-  /* Upper third, not centre. The dialogue box is bottom-anchored and grows
-   * upward; with the floor ask's six options it can reach mid-screen, and a
-   * click that lands on the panel instead of the canvas never fires the
-   * swing. That is the migrating one-hit-short failure: run 33953123399
-   * lost impact 7 and run 34020410281 lost impact 4, each with the floor
-   * ask open at check time, while the same tree passes locally where the
-   * panel raced closed. In pointer lock the swing raycast comes from the
-   * camera, so any point ON the canvas is the same trigger. */
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.28);
-  await step(seconds, 0.04);
+  let lastAttempt = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const target = await page.evaluate(({ x, y, w, h }) => {
+      const scene = document.getElementById('scene');
+      /* Historic upper-third spot first, then spread across the surface. */
+      const spots = [
+        [0.5, 0.28], [0.5, 0.14], [0.25, 0.3], [0.75, 0.3],
+        [0.5, 0.5], [0.12, 0.55], [0.88, 0.55], [0.5, 0.8],
+      ];
+      for (const [fx, fy] of spots) {
+        const px = x + w * fx;
+        const py = y + h * fy;
+        const at = document.elementFromPoint(px, py);
+        if (at === scene) return { px, py, clear: true };
+      }
+      const at = document.elementFromPoint(x + w * 0.5, y + h * 0.28);
+      return {
+        px: x + w * 0.5,
+        py: y + h * 0.28,
+        clear: false,
+        blockedBy: at ? `${at.tagName.toLowerCase()}#${at.id || '(no id)'}` : '(nothing hit)',
+      };
+    }, { x: box.x, y: box.y, w: box.width, h: box.height });
+    const before = await page.evaluate(() => window.__bing.input.snapshot().mouseDownEvents);
+    await page.mouse.click(target.px, target.py);
+    /* The receipt increments synchronously in the canvas mousedown handler,
+     * so the only wait here is for the renderer's input queue to drain --
+     * poll on a timer, not rAF, because a counted event needs no frame. */
+    const received = await page.waitForFunction(
+      (prior) => window.__bing.input.snapshot().mouseDownEvents > prior,
+      before,
+      { timeout: 8000, polling: 50 },
+    ).then(() => true, () => false);
+    lastAttempt = { attempt, target, before, received };
+    if (received) {
+      await step(seconds, 0.04);
+      return;
+    }
+  }
+  throw new Error(`left click never reached the canvas listener: ${JSON.stringify(lastAttempt)}`);
 }
 
 /** Capture the actual scene at review resolution without the preview/HUD card

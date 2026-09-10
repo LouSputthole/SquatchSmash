@@ -1034,11 +1034,21 @@ try {
     return { yaw: p.yaw, centre: p.yawCenter, range: p.yawRange,
       pitch: p.pitch, min: p.pitchMin, max: p.pitchMax };
   });
+  /* Direction-agnostic on purpose. The point is that BOTH clamps hold — a
+   * huge drag one way pins one end of the seat's yaw/pitch window and the
+   * opposite drag pins the other. Which drag lands on which end depends on
+   * the input path: nightly run 34327599387 measured the two reads at the
+   * exact clamp values but swapped (first read at centre+range/max, second
+   * at centre-range/min) under the Chrome-151 explicit-delta fallback,
+   * while local Chrome maps them the other way. Sort both sides and the
+   * check pins the window without pinning the browser's sign convention. */
+  const yawEnds = [lowerLook.yaw, upperLook.yaw].sort((a, b) => a - b);
+  const pitchEnds = [lowerLook.pitch, upperLook.pitch].sort((a, b) => a - b);
   check('the passenger can look around the cabin but cannot rotate like an owl',
-    Math.abs(lowerLook.yaw - (lowerLook.centre - lowerLook.range)) < 0.01
-      && Math.abs(upperLook.yaw - (upperLook.centre + upperLook.range)) < 0.01
-      && Math.abs(lowerLook.pitch - lowerLook.min) < 0.01
-      && Math.abs(upperLook.pitch - upperLook.max) < 0.01
+    Math.abs(yawEnds[0] - (lowerLook.centre - lowerLook.range)) < 0.01
+      && Math.abs(yawEnds[1] - (lowerLook.centre + lowerLook.range)) < 0.01
+      && Math.abs(pitchEnds[0] - lowerLook.min) < 0.01
+      && Math.abs(pitchEnds[1] - lowerLook.max) < 0.01
       && lowerLook.range > 2.3 && lowerLook.range < Math.PI,
     JSON.stringify({ lowerLook, upperLook }));
 

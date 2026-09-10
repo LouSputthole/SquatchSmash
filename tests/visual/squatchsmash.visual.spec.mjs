@@ -241,6 +241,18 @@ test('luxury apartment mirror, living room, and Margo two-floor route', async ({
     const runtime = window.LUXURY_APARTMENT;
     runtime.setTime(8, 20 * 60 + 30);
     runtime.state.paused = true;
+    /* Every physical receiver defaults ON (owner ruling 2026-09-09, in
+     * src/core/radio.js), so the hi-fi is airing by the time this stage runs
+     * and its OSD card captions the frame with a now-playing line that cycles
+     * with the broadcast blocks — scheduled run 34327599387 measured the
+     * card as a stable 17,724-pixel diff against a baseline authored radio-
+     * silent, and no baseline could ever hold while the text cycles. pause()
+     * is the visual-determinism seam: it freezes the running order and hides
+     * the card without touching the saved power switch, so the game keeps
+     * its default-on ruling and only this capture goes quiet. It also holds
+     * for the mirror and Margo shots below — nothing on this paused route
+     * calls resume(). */
+    runtime.radio.pause();
     /* An authored wide rather than the main spawn's wall-facing yaw: keep the
      * sectional, coffee-table contraband and cinema wall in one stable shot. */
     runtime.camera.position.set(-0.55, 1.76, 6.55);
@@ -252,6 +264,7 @@ test('luxury apartment mirror, living room, and Margo two-floor route', async ({
       minutes: runtime.time.minutes,
       position: runtime.camera.position.toArray().map((value) => +value.toFixed(3)),
       outfit: runtime.firstPersonBody.outfitId,
+      radioOn: runtime.radio.on,
     };
   });
   await captureVisual(page, 'luxury-apartment-living-room', living);
@@ -447,11 +460,37 @@ test('Cartel Palace courtyard checkpoint', async ({ page }) => {
   await bootActiveScene(page, {
     path: '/cartel-palace.html?preview=1&checkpoint=perimeter',
     handle: () => window.CARTEL_PALACE?.phase === 'menu',
-    start: '#start-btn',
-    active: () => window.CARTEL_PALACE?.phase === 'active',
+    start: null,
+    active: null,
     seed: 0x6606,
   });
+  /* Park the native loop BEFORE the start click, not after activation. The
+   * Palace's animate() only advances the carbine viewmodel bob, the guards'
+   * limb cycles and the exposure awareness while phase === 'active', so the
+   * accumulated pose at capture time used to be (native frames between the
+   * click and the freeze) x the 0.05 s dt clamp — a frame-count lottery on
+   * the ~1 fps SwiftShader runner. Scheduled run 34327599387 measured it as
+   * 11,848 then 4,060 differing pixels across two attempts of the same
+   * commit; reproduced locally as a 19,959-pixel swing across four captures,
+   * localized to exactly those three elements (carbine x 528-787, figures
+   * x 203-340 y 240-330, meter fill x 768-787 y 52). The start handler is
+   * promise-based and never awaits a rendered frame, so activation completes
+   * under a frozen clock and every active-phase frame below is test-owned at
+   * a fixed 1/60 s. */
+  await page.evaluate(() => window.__SQUATCH_VISUAL_TEST__.clock.freeze({ capturePending: true }));
+  await page.locator('#start-btn').click();
+  /* Interval polling, not the default RAF polling — the render clock is
+   * frozen, so a RAF-polled wait would deadlock exactly as documented on
+   * freezeRenderedFrame. */
+  await page.waitForFunction(() => window.CARTEL_PALACE?.phase === 'active',
+    null, { timeout: 180_000, polling: 50 });
   const courtyard = await page.evaluate(() => {
+    /* 24 fixed steps = 0.4 s of active simulation, in the same band the old
+     * free-running boots reached (2-10 frames of clamped 0.05 s dt), so the
+     * carbine settles into its carry pose rather than capturing mid-draw —
+     * but now the count is exact on every runner. */
+    const clock = window.__SQUATCH_VISUAL_TEST__.clock;
+    for (let index = 0; index < 24; index++) clock.step(1000 / 60);
     const runtime = window.CARTEL_PALACE;
     runtime.player.yaw = -0.18;
     runtime.player.pitch = -0.04;
@@ -462,9 +501,11 @@ test('Cartel Palace courtyard checkpoint', async ({ page }) => {
       beat: runtime.snapshot().beat,
       position: runtime.player.position.toArray().map((value) => +value.toFixed(3)),
       navigationReady: runtime.palaceNavigationReady === true,
+      clock: clock.snapshot(),
     };
   });
   expect(courtyard).toMatchObject({ checkpoint: 'perimeter', beat: 'perimeter' });
+  expect(courtyard.clock).toMatchObject({ frozen: true, nativePending: 0 });
   await captureVisual(page, 'cartel-palace-courtyard', courtyard);
   assertNoVisualErrors(page);
 });

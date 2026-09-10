@@ -1661,21 +1661,130 @@ try {
     };
     requestAnimationFrame(watch);
   });
-  await page.mouse.down({ button: 'left' });
-  await page.mouse.up({ button: 'left' });
-  await page.waitForFunction(
-    (before) => window.silvercase.input.snapshot().mouseDownEvents > before,
-    couchMouseDownBefore,
-    { timeout: 30000 },
-  );
   /* The mousedown COUNTING is not the shot LANDING: scheduled run
    * 34020410281 counted the click and then waited out the full post-shot
-   * budget with Deke still alive — on the starved runner a click can reach
-   * the window listener yet miss the scene's own fire path (an instruction
-   * overlay under the cursor, or a frame that never sampled the press).
-   * Re-fire, bounded, ONLY while the ordered man still stands; a shot that
-   * lands twice is impossible past his death, so the one-shot assertions
-   * below are untouched. */
+   * budget with Deke still alive — and run 34327599387 did the same through
+   * the first fire AND three blind re-fires, then died in the 300 s receipt
+   * wait below. The scene's own route explains how every one of those
+   * presses can count yet never fire: `routes.mouseDown` sets `firePressed`
+   * ONLY while `controls.locked` (src/silvercase/main.js), the Adapter
+   * counts `mouseDownEvents` unconditionally before that gate, and losing
+   * pointer lock also pauses the scene (`onCaptureChange` → pause), which
+   * `canEnable: () => !paused` turns into routes never running at all —
+   * while every harness `tick()` bypasses the pause and keeps the
+   * surrounding checks green. So each press is now press-AND-VERIFY:
+   *   1. prove the trigger is live first (`locked` + `inputEnabled`),
+   *      re-arming through real input when it is not — Escape resumes the
+   *      scene's own pause menu (its onResume re-requests pointer lock),
+   *      and an unlocked canvas click belongs to capture, never the gun
+   *      (`if (!controls.locked) return false` runs before `firePressed`),
+   *      so re-arming can never fire a round;
+   *   2. prove the crosshair still resolves to the ordered man, restaging
+   *      with the same `aimAt('deke')` the beat staged with above;
+   *   3. arm an in-page lastShot/death receipt BEFORE the press (the same
+   *      rAF pattern as the Chester card watcher), so "press ignored" and
+   *      "shot registered somewhere else" are distinguishable facts.
+   * Re-fires stay bounded and fire ONLY while the beat still orders the
+   * shot and Deke still stands; a shot that lands twice is impossible past
+   * his death, so the one-shot assertions below keep their full force. A
+   * receipt showing a registered shot off the verified aim aborts instead
+   * of re-firing: that is the "shoot where you are aiming" production bug
+   * this mission exists to catch, and re-firing would only wound actors the
+   * later checks measure. */
+  /* Shared by the couch and chair executions below — both are real-mouse
+   * trigger pulls gated on `controls.locked`, and both die identically when
+   * the runner sheds pointer lock. */
+  const ensureTriggerLive = async () => {
+    let gate = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      gate = await page.evaluate(() => {
+        const snap = window.silvercase.input.snapshot();
+        const pauseRoot = document.querySelector('[data-scene-pause]');
+        return {
+          locked: snap.locked === true,
+          inputEnabled: snap.inputEnabled === true,
+          suspended: snap.suspended === true,
+          pauseShown: Boolean(pauseRoot && !pauseRoot.classList.contains('hidden')),
+        };
+      });
+      if (gate.locked && gate.inputEnabled) return gate;
+      if (gate.pauseShown) {
+        /* Escape is routed whether paused or not and resumes the pause
+         * menu; its onResume calls lockPointer() from the same key event. */
+        await page.keyboard.press('Escape');
+      } else {
+        /* An unlocked click is capture-only by the scene's own route. */
+        const canvasBox = await page.locator('canvas').first().boundingBox();
+        if (canvasBox) {
+          await page.mouse.click(
+            canvasBox.x + canvasBox.width / 2,
+            canvasBox.y + canvasBox.height / 2,
+          );
+        }
+      }
+      const rearmed = await page.waitForFunction(() => {
+        const snap = window.silvercase.input.snapshot();
+        return snap.locked === true && snap.inputEnabled === true;
+      }, null, { timeout: 30000 }).then(() => true, () => false);
+      if (rearmed) return { locked: true, inputEnabled: true, rearmedOnAttempt: attempt };
+    }
+    throw new Error(`couch trigger could not be re-armed through real input: ${JSON.stringify(gate)}`);
+  };
+  const fireCouchShotAtDeke = async () => {
+    await ensureTriggerLive();
+    const aimed = await page.evaluate(() => {
+      const sc = window.silvercase;
+      let state = sc.state();
+      const precondition = {
+        beat: sc.fsm.name,
+        dekeAlive: sc.cast.deke.alive,
+      };
+      if (precondition.beat !== 'COUCH_SHOOTING' || !precondition.dekeAlive) {
+        return { refused: true, ...precondition };
+      }
+      if (!(state.aim.onTarget && state.aim.ordered === 'Deke')) {
+        sc.aimAt('deke');
+        sc.tick(0.05);
+        state = sc.state();
+      }
+      /* Arm the shot receipt on the frame the mission records it. */
+      const baseline = JSON.stringify(state.mission.lastShot);
+      window.__couchShotReceipt = null;
+      const watch = () => {
+        const now = window.silvercase.state();
+        if (JSON.stringify(now.mission.lastShot) !== baseline || !now.actors.deke.alive) {
+          window.__couchShotReceipt = {
+            lastShot: now.mission.lastShot,
+            dekeAlive: now.actors.deke.alive,
+          };
+          return;
+        }
+        requestAnimationFrame(watch);
+      };
+      requestAnimationFrame(watch);
+      return {
+        refused: false,
+        ...precondition,
+        onTarget: state.aim.onTarget,
+        ordered: state.aim.ordered,
+        at: state.aim.at,
+      };
+    });
+    if (aimed.refused) return aimed;
+    if (!(aimed.onTarget && aimed.ordered === 'Deke')) {
+      throw new Error(`couch shot lost its verified aim on Deke: ${JSON.stringify(aimed)}`);
+    }
+    const before = await page.evaluate(() => window.silvercase.input.snapshot().mouseDownEvents);
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.up({ button: 'left' });
+    await page.waitForFunction(
+      (prior) => window.silvercase.input.snapshot().mouseDownEvents > prior,
+      before,
+      { timeout: 30000 },
+    );
+    return aimed;
+  };
+  await fireCouchShotAtDeke();
   for (let refire = 0; refire < 3; refire += 1) {
     const landed = await page.waitForFunction(
       () => !window.silvercase.cast.deke.alive,
@@ -1683,8 +1792,25 @@ try {
       { timeout: 45000 },
     ).then(() => true, () => false);
     if (landed) break;
-    await page.mouse.down({ button: 'left' });
-    await page.mouse.up({ button: 'left' });
+    /* `firePressed` is a latch consumed inside updateGame; a renderer that
+     * starves rAF for the whole 45 s can leave a perfectly delivered press
+     * unsampled. Fund one consumption deterministically through the same
+     * updateGame the live loop runs before judging the press lost. */
+    const consumedByTick = await page.evaluate(() => {
+      window.silvercase.tick(0.5);
+      return !window.silvercase.cast.deke.alive;
+    });
+    if (consumedByTick) break;
+    const receipt = await page.evaluate(() => window.__couchShotReceipt);
+    if (receipt && receipt.dekeAlive && receipt.lastShot
+      && receipt.lastShot.intended === 'Deke' && receipt.lastShot.actor !== 'Deke') {
+      throw new Error(`couch shot registered off the verified aim: ${JSON.stringify(receipt)}`);
+    }
+    const beat = await page.evaluate(() => window.silvercase.fsm.name);
+    if (beat !== 'COUCH_SHOOTING') {
+      throw new Error(`couch beat moved to ${beat} without Deke dead`);
+    }
+    await fireCouchShotAtDeke();
   }
   /* Capture the subtitle receipt IN-PAGE, on the frame Chester owns the
    * card. The old flow waited for his cue in the voiceLog and then read the
@@ -1987,13 +2113,74 @@ try {
       mouseDownEvents: sc.input.snapshot().mouseDownEvents,
     };
   });
-  await page.mouse.down({ button: 'left' });
-  await page.mouse.up({ button: 'left' });
-  await page.waitForFunction(() => {
+  /* Same press-and-verify as the couch shot above, for the same reason: this
+   * raw down/up timed out right here on a starved local reproduction box
+   * (2026-09-10, ~30 s with the shot never registered) after the hardened
+   * couch shot on the same run went through cleanly — the trigger gate is
+   * identical (`routes.mouseDown` requires `controls.locked`), so a shed
+   * pointer lock kills this pull the same silent way. The chair beat also
+   * has a 12 sim-second deadline (Ape finishes Chester alone past it, and
+   * the apeFinishedChester === false assertion below then fails honestly),
+   * so re-fires here are quick and stop the moment the beat stops ordering
+   * the shot. */
+  const fireChairShotAtChester = async () => {
+    await ensureTriggerLive();
+    const staged = await page.evaluate(() => {
+      const sc = window.silvercase;
+      const pre = {
+        beat: sc.fsm.name,
+        chesterAlive: sc.cast.chester.alive,
+        apeFinishedChester: sc.state().mission.flags.apeFinishedChester,
+      };
+      if (pre.beat !== 'CHAIR_SHOOTING' || !pre.chesterAlive || pre.apeFinishedChester) {
+        return { refused: true, ...pre };
+      }
+      const aim = sc.aimAt('chester');
+      sc.tick(0.05);
+      return { refused: false, ...pre, aim };
+    });
+    if (staged.refused) return staged;
+    if (staged.aim.resolvesTo !== 'chester') {
+      throw new Error(`chair shot lost its verified aim on Chester: ${JSON.stringify(staged)}`);
+    }
+    const before = await page.evaluate(() => window.silvercase.input.snapshot().mouseDownEvents);
+    await page.mouse.down({ button: 'left' });
+    await page.mouse.up({ button: 'left' });
+    await page.waitForFunction(
+      (prior) => window.silvercase.input.snapshot().mouseDownEvents > prior,
+      before,
+      { timeout: 30000 },
+    );
+    return staged;
+  };
+  const chairShotRegistered = () => {
     const state = window.silvercase.state();
     return state.mission.lastShot?.intended === 'Chester'
       && state.mission.lastShot?.onTarget === true;
-  }, null, { timeout: 30000 });
+  };
+  await fireChairShotAtChester();
+  for (let refire = 0; refire < 3; refire += 1) {
+    const registered = await page.waitForFunction(chairShotRegistered, null, { timeout: 15000 })
+      .then(() => true, () => false);
+    if (registered) break;
+    /* Same deterministic consumption nudge as the couch loop: a delivered
+     * press is a latch that still needs an updateGame pass. */
+    const consumedByTick = await page.evaluate(`(() => {
+      window.silvercase.tick(0.4);
+      return (${chairShotRegistered.toString()})();
+    })()`);
+    if (consumedByTick) break;
+    const still = await page.evaluate(() => ({
+      beat: window.silvercase.fsm.name,
+      chesterAlive: window.silvercase.cast.chester.alive,
+      apeFinishedChester: window.silvercase.state().mission.flags.apeFinishedChester,
+    }));
+    if (still.beat !== 'CHAIR_SHOOTING' || !still.chesterAlive || still.apeFinishedChester) break;
+    await fireChairShotAtChester();
+  }
+  /* The original strict wait keeps the check's authority: a chair shot that
+   * still has not registered fails here exactly as it always did. */
+  await page.waitForFunction(chairShotRegistered, null, { timeout: 30000 });
   const chairImmediately = await page.evaluate(() => ({
     state: window.silvercase.state(),
     input: window.silvercase.input.snapshot(),

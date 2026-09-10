@@ -226,7 +226,22 @@ async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null }
      * ground -- and lets an overshoot correct itself. `closest` accepts the
      * honest case where he passes through the band between two samples. */
     let closest = distance;
-    while (distance > radius && frames < limit) {
+    /* AT LEAST ONE COUNTED STEP, EVEN WHEN THE LEG IS ALREADY DONE.
+     *
+     * Between `keyboard.down('w')` and this evaluate the page's own rAF loop
+     * keeps running with W held, and on a starved runner one rendered frame's
+     * clamped dt covers real distance. Scheduled run 34327599387 measured it
+     * on the second carry: corridor leg [0.86, 6.77] started 0.256 m out and
+     * entered this loop at 0.023 m, and leg [0.98, 6.68] started 0.070 m out
+     * -- inside the 0.08 m radius before a single loop pass. The old `while`
+     * then ran zero iterations, reported `frames: 0`, and the route check's
+     * `end.frames > 0` (there to prove the leg moved through production
+     * `player.update`, not a teleport) failed a traversal that genuinely
+     * walked. A do/while keeps that proof honest on any renderer speed: every
+     * leg takes at least one steered production step, and a step of at most
+     * ~0.04 m (1/60 s at carry walk speed) from inside the radius cannot
+     * leave it -- `closest` already holds the entry distance regardless. */
+    do {
       const dx = point[0] - player.position.x;
       const dz = point[1] - player.position.z;
       player.yaw = Math.atan2(-dx, -dz);
@@ -242,7 +257,7 @@ async function walkPlayerTo(page, target, { tolerance = 0.22, maxFrames = null }
           distance,
         });
       }
-    }
+    } while (distance > radius && frames < limit);
     const feet = player.position.y - player.eyeHeight;
     const penetrations = runtime.cabin.colliders.filter((box) => {
       if (player.position.y + 0.05 < box.min.y || feet > box.max.y) return false;
