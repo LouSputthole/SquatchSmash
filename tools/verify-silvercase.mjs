@@ -2892,6 +2892,34 @@ try {
         tension: window.silvercase.state().winstonTension,
       }));
       await p.waitForTimeout(25000);
+      /* The tension rig is already wall-hardened — Actor._updateTension
+       * floors `elapsed` to monotonic wall time on every call — but it is
+       * only REWRITTEN when a rendered frame runs, so a sample taken between
+       * frames reads the previous frame's floor. Measured 2026-09-10 on this
+       * box: solo runs sampled 24.52 and 24.984 (green by 0.02 s); with a
+       * second Chromium loading the machine the last frame before the sample
+       * landed at 24.325 and the tension check below failed while the other
+       * 95 checks passed. So after the real 25-second wall wait, hold for
+       * the first frame that refloors the snapshot past the assertion line.
+       * The wait is funded by the authored window itself: the choice stays
+       * live until WINSTON_DECISION_SECONDS = 27 on the faster of wall and
+       * game clocks, leaving 2.5 live seconds (~3 frames on the starved
+       * nightly runner) for one frame to land. The terminal disjuncts and
+       * the catch keep a genuinely wedged rig from starving the gate here:
+       * a rig that stops updating, or a choice that resolves early, falls
+       * through to the sample and fails the checks below with its receipt
+       * instead of dying in a bare TimeoutError. */
+      await p.waitForFunction(
+        () => {
+          const sc = window.silvercase;
+          const tension = sc.cast.winston.tension;
+          return (tension?.elapsed ?? 0) >= 24.5
+            || tension?.active !== true
+            || sc.dialogue.choice === null;
+        },
+        null,
+        { timeout: 120000 },
+      ).catch(() => {});
       const beforeDefault = await p.evaluate((started) => ({
         elapsed: (performance.now() - started) / 1000,
         beat: window.silvercase.fsm.name,
