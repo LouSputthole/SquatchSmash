@@ -689,9 +689,26 @@ export class Radio {
     const st = this.station;
     const show = showAt(st, this.time ? this.time.hour : 9);
     if (show !== this._show) {
-      this._show = show;
-      this._queue.push({ line: showIntroLine(show), cue: 'radio.jingle' });
-      return;
+      /* The boot preload decoded the BOOT hour's show; a stay that crosses
+       * the hour would flip to a show whose takes were never fetched and
+       * caption its intro over dead air (owner, 2026-09-09: "Some radio
+       * announcements arent working playing the voices"). Kick the decode
+       * for the incoming show's whole slate and hold the flip until its
+       * intro is speakable — the outgoing show fills one more block, which
+       * is what real stations do at the top of the hour anyway. */
+      const introCue = voiceOf(showIntroLine(show))?.cue;
+      const slate = [introCue];
+      for (const exchange of show?.exchanges ?? []) {
+        for (const line of exchange) slate.push(voiceOf(line)?.cue);
+      }
+      const introReady = !introCue || !this.audio.canDecode?.(introCue)
+        || this.audio.hasSample?.(introCue);
+      this._audioReadyFor(slate);
+      if (introReady) {
+        this._show = show;
+        this._queue.push({ line: showIntroLine(show), cue: 'radio.jingle' });
+        return;
+      }
     }
 
     /* An UNHEARD news segment -- eligible, never yet heard anywhere -- jumps
@@ -954,10 +971,45 @@ export class Radio {
         || !this.hasHeardBulletin(segment.bulletinId));
   }
 
-  /** Eligible reports the player has never heard, on any receiver, oldest event first. */
+  /**
+   * True when every DECODABLE cue in the list has a decoded take, kicking a
+   * background `loadAdditional` for whatever is missing. Owner, 2026-09-09:
+   * *"Some radio announcements arent working playing the voices."* The
+   * scene's bank is a boot-time snapshot — the boot hour's shows plus the
+   * news the campaign had unlocked by then — and voice cues have no synth
+   * fallback on purpose, so anything that became airable mid-stay (a report
+   * unlocked by the job you just did, the next hour's show) captioned dead
+   * air for its whole hold. Cues with no recording anywhere are authored
+   * subtitles-only and never count as missing: holding them would silence
+   * lines that were always meant to air as text.
+   */
+  _audioReadyFor(cues) {
+    const missing = [];
+    for (const name of cues) {
+      if (!name) continue;
+      if (this.audio.hasSample?.(name)) continue;
+      if (this.audio.canDecode?.(name)) missing.push(name);
+    }
+    if (!missing.length) return true;
+    this.audio.loadAdditional?.({ names: missing })?.catch(() => {});
+    return false;
+  }
+
+  /** Every cue a news segment would put on air, in air order. */
+  _newsSegmentCues(segment) {
+    return (segment?.lines ?? []).map((line, index) => (
+      segment.clips?.[index] ?? voiceOf(line)?.cue ?? null
+    ));
+  }
+
+  /** Eligible reports the player has never heard, on any receiver, oldest
+   * event first — and only those whose recordings are decoded. A report
+   * whose takes are still downloading stays unheard and airs on a later
+   * rotation instead of captioning silence (see `_audioReadyFor`). */
   _unheardNews() {
     return this._eligibleNews()
       .filter((segment) => !this.hasHeardBulletin(segment.id))
+      .filter((segment) => this._audioReadyFor(this._newsSegmentCues(segment)))
       .sort((a, b) => (a.day ?? 0) - (b.day ?? 0));
   }
 

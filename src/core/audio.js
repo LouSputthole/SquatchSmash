@@ -1206,6 +1206,28 @@ export class AudioEngine {
     return (this.buffers.get(name)?.length ?? 0) > 0;
   }
 
+  /**
+   * Whether a cue COULD be decoded on this build: it has a manifest entry
+   * whose file the delivered index (or the bundle) actually carries. The
+   * distinction matters to anything deciding whether to WAIT for audio: a
+   * cue that is merely not decoded yet is worth a `loadAdditional` and a
+   * short hold, while a cue with no recording anywhere is authored
+   * subtitles-only and must never be held for a take that cannot arrive.
+   */
+  canDecode(name) {
+    /* Lazy name index: the manifest is immutable once loaded and this is
+     * asked per-cue at radio block cadence. Invalidated by length so a late
+     * loadManifest() replacing this.manifest rebuilds it. */
+    if (this._cueIndex?.size !== (this.manifest?.sfx?.length ?? 0)) {
+      this._cueIndex = new Map((this.manifest?.sfx || []).map((entry) => [entry.name, entry]));
+    }
+    const cue = this._cueIndex.get(name);
+    if (!cue) return false;
+    if (isBundled()) return /^data:/.test(cue.file || '');
+    if (!this._availableFiles) return true;
+    return this._availableFiles.has(cue.file || `${name}.mp3`);
+  }
+
   /** Duration of the first decoded take, used to hold subtitles to delivery. */
   sampleDuration(name) {
     return this.buffers.get(name)?.[0]?.duration ?? null;

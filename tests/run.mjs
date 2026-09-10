@@ -350,6 +350,7 @@ const TEST_MODULES = [
   './radio-tape.test.mjs',
   './radio-program.test.mjs',
   './radio-commercials.test.mjs',
+  './radio-bank-drift.test.mjs',
   './radio-voice-coverage.test.mjs',
   './radio-active-play-coverage.test.mjs',
   './radio-loudness-audit.test.mjs',
