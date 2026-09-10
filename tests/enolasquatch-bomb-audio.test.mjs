@@ -241,6 +241,93 @@ test('a fall shorter than the clip compresses it the same way — start now, end
   assert.ok(Math.abs(audio.lastFall.remainingAtCut) < 1e-9);
 });
 
+test('a starved clock cannot strand the whistle: retuning converges the clip end onto the measured impact', () => {
+  const { audio, ctx } = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
+  audio.fallingWhistle(8.758);   // the closed-form guess made at the release
+
+  /* Nightly run 34453563784's shape, replayed: the integrator crosses 8.150
+   * SIMULATED seconds while only 5.79 s of AUDIO clock pass, because the
+   * starved driver pays its dt debt in 0.4 s chunks of 1/60 sub-steps with
+   * ~0.284 s of real time between chunks. Without retuning the clip was
+   * scheduled to end 8.758 audio seconds after the release and had 2.965 s
+   * still to run at the cut. */
+  const F = 8.15;
+  const step = 1 / 60;
+  let sim = 0;
+  let subSteps = 0;
+  while (sim + step < F) {
+    sim += step;
+    audio.retuneFallingWhistle(F - sim, step);
+    subSteps += 1;
+    if (subSteps === 24) { subSteps = 0; ctx.currentTime += 0.284; }
+  }
+  // The landing sub-step: impact fires and the mission cuts the whistle.
+  ctx.currentTime += 0.012;
+  audio.endFallingWhistle(0.03);
+
+  const fall = audio.lastFall;
+  assert.ok(fall.retunes > 400, `every falling frame retunes; saw ${fall.retunes}`);
+  assert.ok(Math.abs(fall.remainingAtCut) < 0.1,
+    `the clip must end on the measured impact, well inside the gate's 0.3 s; `
+    + `remaining was ${fall.remainingAtCut}`);
+  // The rate rose to chase the fast clock, and stayed inside the same bounds
+  // _sampledFall has always enforced.
+  assert.ok(fall.rate > 4.505 / 8.758 && fall.rate <= 2.5,
+    `chasing a fast simulation means playing faster, bounded; rate was ${fall.rate}`);
+});
+
+test('at a healthy 60 fps the retune is inaudible — the authored stretch is untouched', () => {
+  const { audio, ctx } = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
+  audio.fallingWhistle(8.4);
+  const authored = audio.lastFall.rate;
+
+  // Real time: the simulation and the audio clock advance in lockstep and
+  // the release-frame prediction holds. This is the owner's 2026-08-06 /
+  // 2026-08-18 behaviour, and it must not move.
+  const step = 1 / 60;
+  for (let sim = step; sim < 8.4 - step / 2; sim += step) {
+    ctx.currentTime += step;
+    audio.retuneFallingWhistle(8.4 - sim, step);
+    assert.ok(Math.abs(audio.lastFall.rate - authored) < 1e-3,
+      `the rate must hold at the authored stretch; drifted to ${audio.lastFall.rate}`);
+  }
+  ctx.currentTime += step;
+  audio.endFallingWhistle(0.03);
+  assert.ok(Math.abs(audio.lastFall.remainingAtCut) < 0.05,
+    'and the clip still lands on the impact');
+});
+
+test('the synthesised sweep is never retuned, and a missing whistle is a no-op', () => {
+  const synth = fakeAudio();
+  synth.audio.fallingWhistle(8.4);
+  assert.equal(synth.audio.lastFall.sampled, false);
+  synth.ctx.currentTime += 1;
+  // The synth's ramps are authored once; its early cut at impact is the
+  // designed behaviour, not something to steer.
+  assert.equal(synth.audio.retuneFallingWhistle(5, 1), false);
+  assert.equal(synth.audio.lastFall.retunes ?? 0, 0);
+
+  const idle = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
+  assert.equal(idle.audio.retuneFallingWhistle(5, 1 / 60), false, 'no whistle, no work');
+  idle.audio.fallingWhistle(8.4);
+  idle.audio.endFallingWhistle(0.03);
+  assert.equal(idle.audio.retuneFallingWhistle(5, 1 / 60), false, 'a cut whistle stays cut');
+});
+
+test('the mission retunes the whistle from the same falling step that lands the bomb', () => {
+  const source = fs.readFileSync(
+    path.join(ROOT, 'src/enolasquatch/mission/MissionController.js'),
+    'utf8',
+  );
+  const stepAt = source.indexOf('this.payload.update(dt');
+  assert.ok(stepAt > 0, 'the payload integration step must remain findable');
+  const retuneAt = source.indexOf('retuneFallingWhistle', stepAt);
+  assert.ok(retuneAt > stepAt && retuneAt < source.indexOf('switch (this.phase)', stepAt),
+    'the retune must ride the per-frame payload step, before the phase dispatch');
+  assert.match(source.slice(stepAt, retuneAt + 300), /predictFall\(\)/,
+    'the retune must be fed the CURRENT prediction from the payload state, not a cached one');
+});
+
 test('the stretch is bounded, so a degenerate fall cannot mangle the recording', () => {
   const long = fakeAudio({ cues: [[FALLING_CUE, 4.505]] });
   long.audio.fallingWhistle(30);

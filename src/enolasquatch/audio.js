@@ -520,7 +520,10 @@ export class EnolaMissionAudio extends MissionAudio {
    * second note is about. So the sampled path now behaves exactly like the
    * synthesised one always has: it starts ON THE RELEASE FRAME, and the
    * whole sweep is stretched across the real fall (`playbackRate = clip
-   * length / fall time`) so its bottom still arrives with the bomb. See
+   * length / fall time`) so its bottom still arrives with the bomb — and
+   * the mission keeps re-deriving that rate from the fall it is actually
+   * integrating (`retuneFallingWhistle`), so the bottom arrives with the
+   * bomb even when the simulation and the audio clock diverge. See
    * `_sampledFall` for the rate bounds.
    *
    * Falls back to the synthesised sweep below when the recording is not
@@ -536,7 +539,11 @@ export class EnolaMissionAudio extends MissionAudio {
 
   /**
    * The delivered clip: audible from the first frame of the drop, bottoming
-   * out on the impact. @returns {boolean} started
+   * out on the impact. The rate set here is only the OPENING guess — the
+   * mission re-derives it every falling frame through
+   * `retuneFallingWhistle()`, because the bomb falls on the simulation's
+   * clock and this clip plays on the audio clock, and the two are only the
+   * same clock on a healthy machine. @returns {boolean} started
    */
   _sampledFall(seconds) {
     const ctx = this.ctx;
@@ -559,7 +566,26 @@ export class EnolaMissionAudio extends MissionAudio {
     out.gain.value = 0.9;
     src.connect(out).connect(this.engine.busSfx);
     src.start(t);
-    this._whistle = { out, sources: [src], startedAt: t, sampled: true };
+    this._whistle = {
+      out,
+      sources: [src],
+      startedAt: t,
+      sampled: true,
+      /* Live retune state — see `retuneFallingWhistle`. `consumed` is buffer
+       * seconds already played, integrated piecewise on the audio clock;
+       * `ratio` is the measured simulated-seconds-per-audio-second, 1 until
+       * the fall proves otherwise. */
+      src,
+      rate,
+      duration: dur,
+      consumed: 0,
+      lastAt: t,
+      ratio: 1,
+      ratioAt: t,
+      simSinceRatio: 0,
+      gap: 0,
+      chunk: 0,
+    };
     this.lastFall = {
       sampled: true,
       cue: FALLING_CUE,
@@ -575,7 +601,119 @@ export class EnolaMissionAudio extends MissionAudio {
        * impact; negative means it had already finished. This is the number the
        * browser check reads. */
       remainingAtCut: null,
+      /* How many times the falling frames re-derived the rate. */
+      retunes: 0,
     };
+    return true;
+  }
+
+  /**
+   * Keep the falling clip's END on the bomb the physics is flying, not on
+   * the guess made at the release.
+   *
+   * `_sampledFall` stretches the 4.505 s recording across the CLOSED-FORM
+   * fall computed once at the release frame. The bomb does not fall on that
+   * clock: `FatSquatch.update` integrates it in simulated seconds while the
+   * clip plays in AudioContext seconds, and on a starved renderer the two
+   * part company — nightly run 34453563784 measured an 8.150 s simulated
+   * fall crossing only 5.793 s of audio clock, which left 2.965 s of
+   * whistle still to run when the bomb was already in the ground (the
+   * enola-bomb-audio gate's 0.3 s tolerance is right to refuse that).
+   *
+   * So the mission calls this on every falling frame with its CURRENT
+   * time-to-impact prediction (`MissionController.predictFall`, from the
+   * payload's own position and velocity), and the playback rate is
+   * re-derived so the remaining audio spans the remaining fall:
+   *
+   *   - what the clip has consumed is integrated on the audio clock
+   *     (piecewise-constant rate, so the integral is exact);
+   *   - how fast simulated seconds cross the audio clock is MEASURED, not
+   *     assumed: sim dt accumulates between calls and is divided by the
+   *     real audio-clock gap, smoothed over ~0.33 s so one long GC pause
+   *     cannot yank the pitch — and the remaining fall is mapped onto the
+   *     audio clock through the DISCRETE frame cadence those measurements
+   *     describe, because the impact can only fire on a frame. Replaying
+   *     the nightly's own starved shape through this controller leaves
+   *     0.012 s at the cut across every chunk alignment tried (the
+   *     jittered-gap and mid-fall-recovery probes stay under 0.04 s);
+   *     without it the same replay left 2.9 s of whistle unplayed.
+   *
+   * At a healthy 60 fps the measured ratio is 1, the prediction barely
+   * refines, and the rate this computes is the rate `_sampledFall` already
+   * set — the authored whistle-spans-the-fall behaviour is unchanged. The
+   * synthesised sweep keeps its authored ramps and is not retuned; its
+   * early cut at impact was always the designed behaviour (see
+   * `_syntheticWhistle`'s own doc).
+   *
+   * @param {number} remainingSeconds predicted simulated seconds to impact
+   * @param {number} [simDt] simulated seconds the calling frame advanced
+   * @returns {boolean} whether a sampled whistle was retuned
+   */
+  retuneFallingWhistle(remainingSeconds, simDt = 0) {
+    const w = this._whistle;
+    const ctx = this.ctx;
+    if (!ctx || !w?.sampled || !w.src || !this.lastFall?.sampled) return false;
+    const now = ctx.currentTime;
+    w.consumed += w.rate * Math.max(0, now - w.lastAt);
+    w.lastAt = now;
+    const remainingBuffer = w.duration - w.consumed;
+    /* The clip has effectively finished — nothing left to steer. The impact
+     * cut still stamps what little (if anything) was left. */
+    if (!(remainingBuffer > 0.02)) return false;
+
+    w.simSinceRatio += Math.max(0, simDt);
+    const gap = now - w.ratioAt;
+    /* A starved driver pays its dt debt in bursts of sub-steps at one audio
+     * instant; the ratio is only meaningful across a real clock gap, so the
+     * burst's sim accumulates until the clock has moved. The gap and the
+     * chunk (simulated seconds per gap) are kept as well, adopted fast when
+     * frames slow down and forgiven slowly when they recover — the discrete
+     * arrival estimate below is built from them. */
+    if (gap >= 0.003 && w.simSinceRatio > 0) {
+      w.ratio += (w.simSinceRatio / gap - w.ratio) * clamp(gap * 3, 0.05, 1);
+      /* Seeded from the first measurement, never blended up from zero — a
+       * half-warm chunk doubles the discrete estimate below and the rate
+       * clamp then pins an ordinary 60 fps fall to its floor. */
+      w.gap = w.gap > 0 ? w.gap + (gap - w.gap) * (gap > w.gap ? 0.9 : 0.25) : gap;
+      w.chunk = w.chunk > 0 ? w.chunk + (w.simSinceRatio - w.chunk) * 0.5 : w.simSinceRatio;
+      w.ratioAt = now;
+      w.simSinceRatio = 0;
+    }
+
+    /* The remaining fall, converted onto the audio clock. The conversion is
+     * DISCRETE, not a division: the bomb only moves when a frame steps it,
+     * frames arrive one measured gap apart, and each carries one measured
+     * chunk of simulated seconds — so the impact can only fire a whole
+     * number of gaps from here, and the clip is aimed at that arrival. A
+     * clip aimed inside the final gap (the continuous division does exactly
+     * that whenever the last chunk is partial) dies in silence before a
+     * bomb that is still hanging in the air. At a healthy 60 fps chunk and
+     * gap are both one frame and this IS the continuous answer. The smooth
+     * ratio still backstops it while the estimates warm up, and its floor
+     * keeps a stalled simulation from dividing by nothing. */
+    const sim = Math.max(0, remainingSeconds);
+    const discrete = w.chunk > 1e-4 && w.gap > 0
+      ? Math.max(1, Math.ceil(sim / w.chunk - 1e-6)) * w.gap
+      : 0;
+    const remainingWall = Math.max(
+      sim / Math.max(0.25, w.ratio),
+      discrete,
+      0.02,
+    );
+    /* Same bounds as `_sampledFall`, for the same reason: past either bound
+     * the impact cut in `endFallingWhistle` trims what no longer lines up. */
+    const rate = clamp(remainingBuffer / remainingWall, 0.42, 2.5);
+    if (Math.abs(rate - w.rate) > 1e-3) {
+      try { w.src.playbackRate.setValueAtTime(rate, now); } catch { /* context gone */ }
+      w.rate = rate;
+    }
+    this.lastFall.rate = w.rate;
+    /* The source ends when the buffer runs out at the rate now in force —
+     * kept current so `endFallingWhistle`'s `remainingAtCut` measures the
+     * real leftover, and so the browser check reads a schedule the physics
+     * actually keeps. */
+    this.lastFall.endsAt = now + remainingBuffer / w.rate;
+    this.lastFall.retunes = (this.lastFall.retunes ?? 0) + 1;
     return true;
   }
 

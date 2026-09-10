@@ -53,7 +53,12 @@ test('no exclusion is left standing without an argument for it', () => {
 test('every gate names a known tier and carries the arithmetic that put it there', () => {
   for (const gate of SCENE_GATES) {
     assert.ok(TIERS[gate.tier], `${gate.script} is in unknown tier ${gate.tier}`);
-    assert.equal(gate.minutes, TIERS[gate.tier].minutes);
+    /* A gate may author its own measured budget above the tier default (the
+     * specialmeeting ride printed 41:29 pre-chain and blew the 45 outright
+     * with the staged chain, run 34453563784) — but never below it: a tier
+     * exists to stop a gate being cancelled cheap, not to be undercut. */
+    assert.ok(gate.minutes >= TIERS[gate.tier].minutes,
+      `${gate.script} budgets ${gate.minutes} min under its ${gate.tier} tier floor`);
     assert.ok(gate.why.length > 40, `${gate.script} has no stated cost reasoning`);
     /* The artifact upload names itself after the slug, and GitHub refuses a
      * colon in an artifact name. */

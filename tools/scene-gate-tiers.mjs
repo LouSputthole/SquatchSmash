@@ -97,6 +97,14 @@ export const SCENE_GATES = Object.freeze([
   {
     script: 'verify:specialmeeting',
     tier: 'scene',
+    /* The measurement the tier move bought is in: run 34327599387 printed
+     * 41 min 29 s for the PRE-chain ride, and run 34453563784 — the first
+     * with the staged chain business and SM-260's twelve-second silence —
+     * blew the 45-minute scene budget outright (job cancelled by its own
+     * timeout at 45:12, setup included). Seventy minutes covers the
+     * measured ride plus the ~4 minutes of checkout/install/shim and real
+     * headroom; correct it again from the next printed wall time. */
+    minutes: 70,
     /* Smoke until 2026-09-05, when the rationale ("stops at the kerb, never
      * rides out") no longer described the tool: the finale pass grew it into
      * the complete Beat 28 ride — the 228-cue decode gate, the pickup, the
@@ -362,7 +370,9 @@ export const SCENE_GATES = Object.freeze([
 ].map((gate) => Object.freeze({
   ...gate,
   slug: gate.script.replace(/^verify:/, ''),
-  minutes: TIERS[gate.tier].minutes,
+  /* A gate may author its own budget when the measured ride outgrows its
+   * tier; the tier minutes are the default, not a cap. */
+  minutes: gate.minutes ?? TIERS[gate.tier].minutes,
 })));
 
 /**

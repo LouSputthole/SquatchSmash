@@ -1553,6 +1553,19 @@ export class MissionController {
     // the constructor).
     if (this.payload.released && !this.payload.impacted) {
       this.payload.update(dt, this.getHeight || ((x) => approxGroundHeight(x)));
+      /* The whistle rides THIS integrator, not the release-frame guess.
+       * `fallingWhistle` was scheduled off `predictFall()` computed once at
+       * the release, and the bomb does not land on that schedule when the
+       * clocks diverge: nightly run 34453563784 predicted an 8.758 s fall,
+       * the steps above crossed 8.150 simulated seconds in 5.793 s of audio
+       * clock, and 2.965 s of clip were still to run at the measured impact.
+       * Re-deriving the rate from the payload's own remaining fall every
+       * falling frame is what makes the clip's end and `onPayloadImpact`'s
+       * cut the same moment — see `retuneFallingWhistle` for the arithmetic
+       * and for why a healthy 60 fps run is audibly unchanged. */
+      if (!this.payload.impacted && this.audio?.whistling) {
+        this.audio.retuneFallingWhistle?.(this.predictFall(), dt);
+      }
     }
 
     // The city's crater glow cools whether or not anybody is looking at it.
