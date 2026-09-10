@@ -133,6 +133,14 @@ const watchdog = setTimeout(() => {
 async function step(seconds = 0.1, dt = 0.05) {
   await page.evaluate(([duration, frame]) => {
     const b = window.__bing;
+    /* Every unit of game time flows through here (the real rAF loop is
+     * neutered in enterFreshRoom), so sampling the public toolSwing clock
+     * once before the first frame — a click may have started a swing
+     * synchronously since the last step — and once after every frame sees
+     * every swing transition there is. TOOL_SWING_SECONDS is 0.58 against a
+     * 0.025–0.05 s frame, so a whole swing can never hide between samples. */
+    const probe = window.__grillSwingProbe;
+    probe?.sample();
     for (let elapsed = 0; elapsed < duration; elapsed += frame) {
       b.player.update(frame);
       b.interaction.update(frame);
@@ -144,6 +152,7 @@ async function step(seconds = 0.1, dt = 0.05) {
       b.updateZones(frame);
       b.licenseToGrill.update(frame);
       for (const npc of b.cast.all) npc.update(frame, b.player.position);
+      probe?.sample();
     }
   }, [seconds, dt]);
 }
@@ -152,6 +161,25 @@ async function facts() {
   return page.evaluate(() => {
     const b = window.__bing;
     const hand = document.getElementById('hand-item');
+    /* Fold in any swing the click handler started synchronously since the
+     * last stepped frame -- `useTool()` sets `toolSwing = 0` inside the
+     * canvas mousedown route itself, between step() calls. */
+    window.__grillSwingProbe?.sample();
+    const input = b.input.snapshot();
+    /* Nightly 34453563784 lost impact 4 with hits pinned, toolSwing:-1 and
+     * every delivery receipt green: the one story fitting the receipt is a
+     * swing that STARTED and MISSED (`resolveToolSwing`'s !blondInReach()
+     * branch). blondInReach is position + player yaw against CHAIR (9.6,
+     * -12.3), WHIP_RANGE 2.5 and WHIP_ARC cos(0.9) ≈ 0.6216 — see
+     * src/bing/license-to-grill-runtime.js — so the receipt now carries the
+     * aim itself: a drifted yaw (pointer-lock mouselook eats every synthetic
+     * mousemove a CDP click makes on its way to a new pixel) is visible as
+     * chairFacingDot < 0.6216 instead of a bare "hits stayed put". */
+    const forward = b.camera.getWorldDirection(new b.THREE.Vector3());
+    const chairDx = 9.6 - b.player.position.x;
+    const chairDz = -12.3 - b.player.position.z;
+    const chairDistance = Math.hypot(chairDx, chairDz);
+    const look = { x: -Math.sin(b.player.yaw ?? 0), z: -Math.cos(b.player.yaw ?? 0) };
     return {
       phase: b.licenseToGrill.phase,
       node: b.dialogue.nodeId,
@@ -191,7 +219,30 @@ async function facts() {
       gameStarted: !!b.game.started,
       gamePaused: !!b.game.paused,
       gameOver: !!b.game.over,
-      mouseDownEvents: b.input.snapshot().mouseDownEvents,
+      mouseDownEvents: input.mouseDownEvents,
+      /* The aim at sample time, in the exact terms blondInReach judges it. */
+      playerYaw: Number((b.player.yaw ?? 0).toFixed(4)),
+      playerPitch: Number((b.player.pitch ?? 0).toFixed(4)),
+      cameraYaw: Number(Math.atan2(-forward.x, -forward.z).toFixed(4)),
+      cameraPitch: Number(Math.asin(Math.max(-1, Math.min(1, forward.y))).toFixed(4)),
+      chairDistance: Number(chairDistance.toFixed(3)),
+      chairFacingDot: chairDistance > 0.001
+        ? Number((((chairDx / chairDistance) * look.x) + ((chairDz / chairDistance) * look.z)).toFixed(4))
+        : -2,
+      /* Capture state, because pointer lock is what turns a synthetic
+       * mousemove into a look delta that can drift the yaw above. */
+      pointerLocked: input.locked === true,
+      dragging: input.dragging === true,
+      lookEvents: input.lookEvents,
+      pointerLockChanges: input.pointerLockChanges,
+      /* Derived per-route by the gate's own frame probe (installed in
+       * enterFreshRoom, sampled every stepped frame): the runtime keeps no
+       * started/missed counters for cart-tool swings, only the landed-hit
+       * count, so a swing that starts and misses was invisible until now. */
+      swingsStarted: window.__grillSwingProbe?.started ?? null,
+      swingsLanded: window.__grillSwingProbe?.landed ?? null,
+      swingsMissed: window.__grillSwingProbe?.missed ?? null,
+      swingsPutBack: window.__grillSwingProbe?.putBack ?? null,
       used: [...(b.licenseToGrill.state?.used ?? [])],
       handled: [...(b.licenseToGrill.state?.handled ?? [])],
       smashed: [...(b.licenseToGrill.state?.smashed ?? [])],
@@ -326,7 +377,7 @@ async function clickCanvas(seconds = 0.9) {
   const canvas = page.locator('#scene');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('game canvas has no bounds');
-  let lastAttempt = null;
+  const attempts = [];
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const target = await page.evaluate(({ x, y, w, h }) => {
       const scene = document.getElementById('scene');
@@ -359,13 +410,17 @@ async function clickCanvas(seconds = 0.9) {
       before,
       { timeout: 8000, polling: 50 },
     ).then(() => true, () => false);
-    lastAttempt = { attempt, target, before, received };
+    attempts.push({ attempt, target, before, received });
     if (received) {
       await step(seconds, 0.04);
-      return;
+      /* Hand the delivery story back to the caller: nightly 34453563784
+       * proved a click can be received here and STILL count for nothing
+       * (the swing it started resolved as a miss), so the fatal-route
+       * receipts keep every attempt alongside the swing counters. */
+      return attempts;
     }
   }
-  throw new Error(`left click never reached the canvas listener: ${JSON.stringify(lastAttempt)}`);
+  throw new Error(`left click never reached the canvas listener: ${JSON.stringify(attempts.at(-1))}`);
 }
 
 /** Capture the actual scene at review resolution without the preview/HUD card
@@ -511,6 +566,55 @@ async function enterFreshRoom(route, { proveShout = false } = {}) {
     window.__bingEvidenceRaf = window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame = () => 0;
     window.cancelAnimationFrame = () => {};
+    /* Swing observability, added after nightly 34453563784: the runtime
+     * counts landed hits but keeps no page-side counter for tool swings that
+     * START, nor for ones that resolve as misses (`resolveToolSwing`'s
+     * !blondInReach() branch toasts, plays CORD_MISS and resets the clock to
+     * -1 before the next harness sample). This probe derives both counts in
+     * the gate itself, purely by watching the public `toolSwing` clock and
+     * `state.hits` at every stepped frame — no scene edit. A swing whose end
+     * finds `tool` already null was cancelled by Q's putBackTool, which is
+     * neither a hit nor a miss. A landed swing is counted on the frame its
+     * hit registers, not at the clock reset — the fatal seventh swing flips
+     * phase to 'done', which freezes `toolSwing` mid-flight forever (update
+     * returns before the reset), and it still deserves its tally. Fresh per
+     * route: the page reloads here. */
+    window.__grillSwingProbe = {
+      last: -1,
+      hitsAtStart: 0,
+      counted: true,
+      started: 0,
+      landed: 0,
+      missed: 0,
+      putBack: 0,
+      sample() {
+        const q = window.__bing?.licenseToGrill;
+        if (!q) return;
+        const cur = typeof q.toolSwing === 'number' ? q.toolSwing : -1;
+        const hits = q.state?.hits ?? 0;
+        if (this.last < 0 && cur >= 0) {
+          this.started += 1;
+          this.hitsAtStart = hits;
+          this.counted = false;
+        }
+        if (cur >= 0 && !this.counted && hits > this.hitsAtStart) {
+          this.landed += 1;
+          this.counted = true;
+        }
+        if (this.last >= 0 && cur < 0 && !this.counted) {
+          /* Hits first: the fatal seventh swing lands, completes the quest
+           * and has its clock reset by the cleanup's putBackTool all inside
+           * ONE update frame (measured 2026-09-10: swingsLanded read 6 with
+           * hits at 7, the last landing misfiled as a put-back), so at this
+           * sample `tool` is already null even though the swing connected. */
+          if (hits > this.hitsAtStart) this.landed += 1;
+          else if (!q.tool) this.putBack += 1;
+          else this.missed += 1;
+          this.counted = true;
+        }
+        this.last = cur;
+      },
+    };
   });
   await page.waitForTimeout(100);
 
@@ -893,6 +997,31 @@ try {
     JSON.stringify(fatalBlondAim));
   let preGrowth = null;
   for (let wanted = 1; wanted <= 7; wanted += 1) {
+    /* Every delivered click in this impact carries its own receipt: the aim
+     * restaged immediately before it, the full facts() sample (yaw, chair
+     * distance/facing, capture state, swing counters) on both sides, and the
+     * pixel-level delivery attempts from clickCanvas. Nightly 34453563784
+     * lost impact 4 with all three deliveries green, hits pinned at 3,
+     * toolSwing already back to -1 — a swing that started and missed is the
+     * one story fitting that receipt, and these fields are what it needs to
+     * be read directly off the next red run. */
+    const clicks = [];
+    const impactClick = async (kind, seconds) => {
+      /* Re-stage the aim before EVERY delivered click, not only the first of
+       * the route: with pointer lock held, each CDP click's synthetic
+       * mousemove to a newly scanned pixel is a look delta, so three impacts
+       * of drift can walk `player.yaw` out of WHIP_ARC and convert a
+       * perfectly delivered click into resolveToolSwing()'s miss branch.
+       * Restaging is pure pose staging through the same public helper the
+       * route already trusts — it casts no click and starts no swing, so one
+       * click still equals exactly one counted hit. */
+      const aim = await stageAim('blond', { x: 9.6, z: -10.45 });
+      const before = await facts();
+      const delivery = await clickCanvas(seconds);
+      const entry = { kind, aim, before, delivery };
+      clicks.push(entry);
+      return entry;
+    };
     /* The tenderizer's authored two-bark exchange (useTenderizer ->
      * tenderizerGratin) holds 6.6 s of game time, longer when the recorded
      * takes run, and a click inside an active node belongs to the dialogue,
@@ -902,8 +1031,9 @@ try {
      * dialogue floor first -- the one-click-one-hit assertion below is
      * untouched, because the click that counts happens with no node open. */
     await waitForImpactWindow();
-    await clickCanvas(wanted === 7 ? 0.38 : 0.7);
+    await impactClick('initial', wanted === 7 ? 0.38 : 0.7);
     let hit = await waitForHits(wanted);
+    clicks.at(-1).after = hit;
     /* A starved hosted runner can land a click on the frame the Gratin bark
      * owns and the impact never registers: scheduled run 33488181465 failed
      * exactly here one hit short while the same tree passes locally every
@@ -912,12 +1042,23 @@ try {
      * two -- is untouched: a double-count still fails on the first click. */
     for (let retry = 0; retry < 2 && hit.hits < wanted; retry += 1) {
       await waitForImpactWindow();
-      await clickCanvas(0.5);
+      await impactClick(`re-click ${retry + 1}`, 0.5);
       hit = await waitForHits(wanted);
+      clicks.at(-1).after = hit;
     }
-    routeCheck(`fatal route left-click impact ${wanted} is counted once`,
-      hit.hits === wanted && (wanted < 7 ? hit.phase === 'open' : hit.phase === 'done'),
+    const countedOnce = hit.hits === wanted
+      && (wanted < 7 ? hit.phase === 'open' : hit.phase === 'done');
+    check(`fatal route left-click impact ${wanted} is counted once`, countedOnce,
       JSON.stringify(hit));
+    if (!countedOnce) {
+      /* Fail with the whole per-click story, not the final sample alone —
+       * the diff between each click's before/after swing counters says
+       * whether the loss was a swing that never started (delivery or input
+       * policy), a swing that started and missed (aim), or a hit registered
+       * somewhere the count cannot see. */
+      throw new Error(`fatal route impact ${wanted} was not counted once; `
+        + `full receipt: ${JSON.stringify({ wanted, clicks }, null, 2)}`);
+    }
     if (wanted === 7) {
       preGrowth = await page.evaluate(() => {
         const q = window.__bing.licenseToGrill;

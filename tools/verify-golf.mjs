@@ -112,6 +112,14 @@ markInputOnlyPhase('page-load');
 await page.goto(GOLF_URL, { waitUntil: 'load' });
 markInputOnlyPhase('runtime-ready');
 await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+/* The authored car-park pose, read before ANY synthetic input exists. The
+ * scene stages it at module load (yaw = atan2(playerStart − bag), pitch 0),
+ * so a scene regression that moves the bag or the spawn still shows up in
+ * this capture — and in check 1e, which measures the camera against it. */
+const authoredSpawn = await page.evaluate(() => ({
+  yaw: window.__golf.player.yaw,
+  pitch: window.__golf.player.pitch,
+}));
 let startError = '';
 try {
   markInputOnlyPhase('start-click');
@@ -168,28 +176,29 @@ check('1w. not one requested recording failed to decode (failedCues is empty)',
   voResidency.failed.length === 0,
   voResidency.failed.slice(0, 5).join(' | ') || 'failedCues empty');
 
-/* Let the opening camera SETTLE before any synthetic input exists. The boot
- * presentation eases yaw and pitch toward the authored car-park facing over
- * rendered frames — about one a second on the scheduled runner — and the
- * first canvas click ends it: run 33953123399 captured beforeRealInput at
- * yaw 0.669/pitch 0.539 with 10 click-borne look events already counted,
- * where a local box reads the settled yaw 0.137/pitch 0. The real-input
- * cleanup below restores whatever this captures, so waiting AFTER the click
- * (the previous fix) froze the mid-ease pose for the rest of the round and
- * check 1e re-measured its 0.74 forever. */
-await page.waitForFunction(() => {
+/* Sweep the start click's coordinate leak before anything samples the pose.
+ * There is NO boot camera ease — nothing in the scene ever recenters
+ * yaw/pitch, so the old 90 s "settle" wait here could never settle anything
+ * and burned its full budget on both nightly runs. What it was waiting out
+ * is now measured: boot()'s requestPointerLock succeeds mid-click, and the
+ * scheduled runner's first locked mousemove reports the #start-btn's
+ * ABSOLUTE viewport position as movementX/Y (button centre 242×245 at
+ * 480×300; sensitivity 0.0022). That is exactly the bit-identical pose both
+ * nightly runs re-measured for the rest of the round: yaw 0.6696 = authored
+ * 0.1368 + 242·0.0022, pitch 0.5401 = 245·0.0022, 1e's 0.7394 =
+ * cos(0.5325)·cos(0.5388) and 20a1's 0.8582 = cos(0.5388). A human's mouse
+ * never jumps on lock, so this is runner input plumbing, not the scene:
+ * restore the pre-click authored pose through the same seam the real-input
+ * cleanup below already uses, and sync the camera through the scene's own
+ * stepper instead of waiting for a rendered frame. */
+await page.evaluate((pose) => {
   const g = window.__golf;
-  if (Math.abs(g.player.pitch) > 0.02) return false;
-  g.camera.updateMatrixWorld();
-  const forward = new g.player.position.constructor();
-  g.camera.getWorldDirection(forward);
-  const toBag = new g.player.position.constructor(
-    g.LAYOUT.lot.bag.x - g.camera.position.x,
-    0,
-    g.LAYOUT.lot.bag.z - g.camera.position.z,
-  ).normalize();
-  return forward.dot(toBag) > 0.75;
-}, null, { timeout: 90000 }).catch(() => {});
+  g.input.clear('verifier-start-click-leak');
+  g.player.yaw = pose.yaw;
+  g.player.pitch = pose.pitch;
+  g.player.velocity.set(0, 0, 0);
+  g.step(0);
+}, authoredSpawn);
 
 /* Cross the browser-to-Player Seam before this verifier teleports or steps any
  * mission state. The canvas click is trusted browser input; mouse and W must
@@ -279,7 +288,11 @@ check('1x. real canvas click, mouse, and W input capture, look, move, and releas
     && Math.abs(afterRealInput.yaw - beforeRealInput.yaw) > 0.001,
   JSON.stringify({ beforeRealInput, heldRealInput, afterRealInput }));
 /* The receipt is already captured. Restore the authored car-park pose only
- * for deterministic framing and navigation in the rest of the full round. */
+ * for deterministic framing and navigation in the rest of the full round.
+ * `step(0)` puts the restored pose ON CAMERA through the scene's own
+ * stepper seam — without it the lens keeps the orientation of whatever real
+ * rendered frame last ran, which on the starved runner can predate this
+ * restore by many seconds. */
 await page.evaluate((origin) => {
   const golf = window.__golf;
   golf.input.clear('verifier-real-input-cleanup');
@@ -287,6 +300,7 @@ await page.evaluate((origin) => {
   golf.player.yaw = origin.yaw;
   golf.player.pitch = origin.pitch;
   golf.player.velocity.set(0, 0, 0);
+  golf.step(0);
 }, beforeRealInput);
 if (INPUT_ONLY) {
   check('focused input receipt emitted no page or console errors',
@@ -334,12 +348,14 @@ check('1d. Tab returns control to the round',
 /* Shared HUD visibility fades in; assert the settled player-facing state,
  * not an arbitrary point inside its 400 ms presentation transition. */
 await page.waitForTimeout(450);
-/* The camera holds the pose the real-input cleanup restored — the settled
- * facing captured by the pre-input wait above. Nothing eases here any
- * more (the drag's look events ended the opening ease), so this sample is
- * deterministic on any runner speed. */
+/* The camera holds the pose the real-input cleanup restored — the authored
+ * spawn facing, swept clean of the start click's coordinate leak above.
+ * `step(0)` re-applies that pose through the scene's own stepper first, so
+ * the sample never reads a lens frozen by an older rendered frame: this is
+ * deterministic on any runner speed, with zero rendered frames if need be. */
 const openingGuide = await page.evaluate(() => {
   const g = window.__golf;
+  g.step(0);
   g.camera.updateMatrixWorld();
   const forward = new g.player.position.constructor();
   g.camera.getWorldDirection(forward);
@@ -464,13 +480,17 @@ const clubArt = await page.evaluate(async () => {
     }));
 
   const golfer = g.golfers.eric;
-  /* Pin the stance before measuring. The scheduled runner renders about a
-   * frame a second, so this sample can catch Eric frozen mid-walk or
-   * mid-practice-swing, with the frozen arm pose carrying the club head
-   * through the turf: run 33953123399 measured driver clearance -0.51
-   * where a local box reads +0.11 in the idle carry stance the check is
-   * about. Save his staging, zero the rig to the idle carry pose, measure,
-   * and hand his walk and state straight back. */
+  /* Pin the stance before measuring. This sample can land mid-walk or
+   * mid-swing on a slow runner, so zero the rig to the idle carry pose the
+   * check is about, then hand his walk and state straight back. The −0.50
+   * both nightly runs measured here even WITH this pin was the shared
+   * talking gesture: one line of car-park chat ('golf.h1.eric.morning')
+   * left foreR.x at −1.0, the old _resetPose never touched the forearm the
+   * club hangs from, and the driver head measured 0.56 m under the turf —
+   * in the live game too, not just here. Fixed in the scene: golfers set
+   * `npc.carryingClub` (bing/cast.js keeps the talking gesture off that
+   * arm, same contract as the bartender's tray) and _resetPose now resets
+   * the forearms. */
   const stagedWalk = golfer._walk ?? null;
   const stagedState = golfer.state;
   golfer._walk = null;
@@ -1634,23 +1654,18 @@ check('20a. live throttle input moves the player cart before the mission can adv
   cartEvidence.beat === 'cart' && cartEvidence.drove && cartEvidence.moved > 4,
   JSON.stringify(cartEvidence));
 await page.setViewportSize({ width: 1280, height: 720 });
-/* The verification stepper owns game state, while the real animation frame
- * owns the first-person camera — and the cart view eases in over rendered
- * frames, about one a second on the scheduled runner. Two real frames (the
- * previous fix) still sampled mid-ease: runs 33605986463 and 33731301150
- * both measured forwardDot 0.86 with the radio a full screen below the
- * view, against a settled local 1.00. Wait, bounded, for the settled cart
- * facing; a view that never gets there still fails below with the truth. */
-await page.waitForFunction(() => {
-  const g = window.__golf;
-  g.camera.updateMatrixWorld();
-  const forward = g.camera.getWorldDirection(g.player.position.clone());
-  const cartForward = g.player.position.clone().set(0, 0, 1)
-    .applyQuaternion(g.carts.lead.group.quaternion).normalize();
-  return forward.dot(cartForward) > 0.94;
-}, null, { timeout: 45000 }).catch(() => {});
+/* The cart camera does not ease: `applyCartCamera` sets the lens from the
+ * cart yaw plus the driver's own look every call, and the stepper already
+ * applies it inside `step()`. The 0.8582 both nightly runs measured here —
+ * after a 45 s wait burned its full budget on the same value — was
+ * cos(0.5388): the start click's coordinate leak had baked pitch 0.5401
+ * into the pose the real-input cleanup restores, and the driver rode the
+ * whole round staring 31° over the dashboard, radio a full screen low.
+ * With the leak swept at capture time the pitch is 0 by construction, so
+ * sample through the scene's own stepper and read the truth directly. */
 const cartView = await page.evaluate(() => {
   const g = window.__golf;
+  g.step(0);
   const forward = g.camera.getWorldDirection(g.player.position.clone());
   const cartForward = g.player.position.clone().set(0, 0, 1)
     .applyQuaternion(g.carts.lead.group.quaternion).normalize();

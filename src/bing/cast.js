@@ -3833,8 +3833,15 @@ export class Npc {
       /* During Booski's delivery the bartender talks while his two hands are
        * committed to the tray. Keep the lips and head alive but do not let a
        * generic talking gesture pull his hand through the glass — or through
-       * Eric's camcorder. */
-      if (!this.pouringShot && !this.carryingShot && !this.filming) {
+       * Eric's camcorder. `carryingClub` is the same contract for Silver
+       * Pines: the golf club hangs off `foreR`, so this gesture swung it with
+       * the forearm and drove the head ~0.5 m under the turf (foreR.x −1.0
+       * measured mid-line, driver head −0.56 below ground), and the value
+       * stayed after the line because nothing in the stand idle writes
+       * foreR.x back. A man holding a driver explains with his head, not the
+       * club hand. */
+      if (!this.pouringShot && !this.carryingShot && !this.filming
+        && !this.carryingClub) {
         this.parts.armR.rotation.x = -0.35 + Math.sin(t * 4.5) * 0.14;
         this.parts.armR.rotation.z = 0.16;
         this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;

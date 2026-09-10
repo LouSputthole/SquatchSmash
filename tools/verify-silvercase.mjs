@@ -1730,87 +1730,194 @@ try {
     }
     throw new Error(`couch trigger could not be re-armed through real input: ${JSON.stringify(gate)}`);
   };
-  const fireCouchShotAtDeke = async () => {
-    await ensureTriggerLive();
-    const aimed = await page.evaluate(() => {
-      const sc = window.silvercase;
-      let state = sc.state();
-      const precondition = {
-        beat: sc.fsm.name,
-        dekeAlive: sc.cast.deke.alive,
-      };
-      if (precondition.beat !== 'COUCH_SHOOTING' || !precondition.dekeAlive) {
-        return { refused: true, ...precondition };
-      }
-      if (!(state.aim.onTarget && state.aim.ordered === 'Deke')) {
-        sc.aimAt('deke');
-        sc.tick(0.05);
-        state = sc.state();
-      }
-      /* Arm the shot receipt on the frame the mission records it. */
-      const baseline = JSON.stringify(state.mission.lastShot);
-      window.__couchShotReceipt = null;
-      const watch = () => {
-        const now = window.silvercase.state();
-        if (JSON.stringify(now.mission.lastShot) !== baseline || !now.actors.deke.alive) {
-          window.__couchShotReceipt = {
-            lastShot: now.mission.lastShot,
-            dekeAlive: now.actors.deke.alive,
-          };
-          return;
-        }
-        requestAnimationFrame(watch);
-      };
-      requestAnimationFrame(watch);
-      return {
-        refused: false,
-        ...precondition,
-        onTarget: state.aim.onTarget,
-        ordered: state.aim.ordered,
-        at: state.aim.at,
-      };
-    });
-    if (aimed.refused) return aimed;
-    if (!(aimed.onTarget && aimed.ordered === 'Deke')) {
-      throw new Error(`couch shot lost its verified aim on Deke: ${JSON.stringify(aimed)}`);
+  /* Nightly 34453563784, reconstructed from its receipts: ensureTriggerLive
+   * passed before all four presses, every press's mouseDownEvents advanced,
+   * the armed __couchShotReceipt NEVER fired, mission.lastShot never
+   * changed, and the refire loop exhausted SILENTLY into the raw 300 s
+   * TimeoutError below — which discarded every one of those facts. The
+   * leading mechanism is a lock/pause flap in the gap between
+   * ensureTriggerLive's evaluate and the actual mouse.down (a TOCTOU hole):
+   * src/silvercase/main.js routes an unlocked press to capture
+   * (`if (!controls.locked) return false` runs before `firePressed`), so it
+   * counts yet never fires, and `onCaptureChange` PAUSES the scene, which
+   * freezes the very updateGame that would consume `firePressed`. So every
+   * press is now bracketed by ONE-evaluate atomic samples of everything the
+   * trigger depends on — locked, paused, pointerLockChanges, inputEnabled —
+   * taken immediately before and immediately after the press, and a press is
+   * never spent while the pre-press sample says the trigger is dead: re-arm
+   * first, through real input, and burn nothing. The samples are the only
+   * cost a healthy run pays. */
+  const triggerGateSample = () => page.evaluate(() => {
+    const snap = window.silvercase.input.snapshot();
+    const pauseRoot = document.querySelector('[data-scene-pause]');
+    return {
+      locked: snap.locked === true,
+      paused: Boolean(pauseRoot && !pauseRoot.classList.contains('hidden')),
+      pointerLockChanges: snap.pointerLockChanges,
+      inputEnabled: snap.inputEnabled === true,
+      suspended: snap.suspended === true,
+      mouseDownEvents: snap.mouseDownEvents,
+    };
+  });
+  const triggerIsLive = (sample) => sample.locked && !sample.paused && sample.inputEnabled;
+  const couchPressReceipts = [];
+  const stageCouchAim = () => page.evaluate(() => {
+    const sc = window.silvercase;
+    let state = sc.state();
+    const precondition = {
+      beat: sc.fsm.name,
+      dekeAlive: sc.cast.deke.alive,
+    };
+    if (precondition.beat !== 'COUCH_SHOOTING' || !precondition.dekeAlive) {
+      return { refused: true, ...precondition };
     }
-    const before = await page.evaluate(() => window.silvercase.input.snapshot().mouseDownEvents);
+    if (!(state.aim.onTarget && state.aim.ordered === 'Deke')) {
+      sc.aimAt('deke');
+      sc.tick(0.05);
+      state = sc.state();
+    }
+    /* Arm the shot receipt on the frame the mission records it. */
+    const baseline = JSON.stringify(state.mission.lastShot);
+    window.__couchShotReceipt = null;
+    const watch = () => {
+      const now = window.silvercase.state();
+      if (JSON.stringify(now.mission.lastShot) !== baseline || !now.actors.deke.alive) {
+        window.__couchShotReceipt = {
+          lastShot: now.mission.lastShot,
+          dekeAlive: now.actors.deke.alive,
+        };
+        return;
+      }
+      requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+    return {
+      refused: false,
+      ...precondition,
+      onTarget: state.aim.onTarget,
+      ordered: state.aim.ordered,
+      at: state.aim.at,
+    };
+  });
+  const fireCouchShotAtDeke = async () => {
+    let aimed = null;
+    let pre = null;
+    for (let attempt = 0; attempt < 4 && !pre; attempt += 1) {
+      await ensureTriggerLive();
+      aimed = await stageCouchAim();
+      if (aimed.refused) return aimed;
+      if (!(aimed.onTarget && aimed.ordered === 'Deke')) {
+        throw new Error(`couch shot lost its verified aim on Deke: ${JSON.stringify(aimed)}`);
+      }
+      /* The atomic pre-press sample. A dead gate here is the TOCTOU flap
+       * caught in the act: loop back to re-arm and re-stage rather than
+       * burning the press on what the scene would route as a capture click. */
+      const sample = await triggerGateSample();
+      if (triggerIsLive(sample)) pre = sample;
+      else {
+        couchPressReceipts.push({
+          press: 'withheld',
+          reason: 'trigger gate dead in the pre-press atomic sample',
+          sample,
+          aimed,
+        });
+      }
+    }
+    if (!pre) {
+      throw new Error('couch trigger kept flapping before any press could be spent; '
+        + `receipts: ${JSON.stringify(couchPressReceipts, null, 2)}`);
+    }
     await page.mouse.down({ button: 'left' });
     await page.mouse.up({ button: 'left' });
     await page.waitForFunction(
       (prior) => window.silvercase.input.snapshot().mouseDownEvents > prior,
-      before,
+      pre.mouseDownEvents,
       { timeout: 30000 },
     );
+    const post = await triggerGateSample();
+    couchPressReceipts.push({
+      press: couchPressReceipts.filter((entry) => typeof entry.press === 'number').length + 1,
+      aimed: { beat: aimed.beat, onTarget: aimed.onTarget, ordered: aimed.ordered, at: aimed.at },
+      pre,
+      post,
+      /* locked -> locked with an unchanged flap counter is the only shape in
+       * which this counted press can actually have set `firePressed`. */
+      gateHeldThroughPress: triggerIsLive(post)
+        && post.pointerLockChanges === pre.pointerLockChanges,
+    });
     return aimed;
   };
   await fireCouchShotAtDeke();
-  for (let refire = 0; refire < 3; refire += 1) {
-    const landed = await page.waitForFunction(
+  let couchLanded = false;
+  for (let refire = 0; refire < 4 && !couchLanded; refire += 1) {
+    couchLanded = await page.waitForFunction(
       () => !window.silvercase.cast.deke.alive,
       null,
       { timeout: 45000 },
     ).then(() => true, () => false);
-    if (landed) break;
+    if (couchLanded) break;
     /* `firePressed` is a latch consumed inside updateGame; a renderer that
      * starves rAF for the whole 45 s can leave a perfectly delivered press
      * unsampled. Fund one consumption deterministically through the same
-     * updateGame the live loop runs before judging the press lost. */
-    const consumedByTick = await page.evaluate(() => {
-      window.silvercase.tick(0.5);
-      return !window.silvercase.cast.deke.alive;
-    });
-    if (consumedByTick) break;
+     * updateGame the live loop runs before judging the press lost — but
+     * ONLY while the same atomic sample says the scene is live. tick()
+     * calls updateGame directly, above the pause gate, and simulating a
+     * paused scene from the harness is exactly the checks-that-lie shape
+     * this gate exists to refuse; a paused scene is resumed through real
+     * input (Escape via ensureTriggerLive) on the next fire instead. */
+    const afterWait = await triggerGateSample();
+    if (triggerIsLive(afterWait)) {
+      const consumedByTick = await page.evaluate(() => {
+        window.silvercase.tick(0.5);
+        return !window.silvercase.cast.deke.alive;
+      });
+      if (consumedByTick) {
+        couchLanded = true;
+        break;
+      }
+    }
     const receipt = await page.evaluate(() => window.__couchShotReceipt);
+    /* Write this press's post-mortem onto its own receipt. The atomic
+     * samples separate the two remaining stories the raw TimeoutError used
+     * to flatten: "lock/pause flapped" (the counted mousedown was a capture
+     * click, or the pause froze the consuming update) versus "locked the
+     * whole time and still no round" (the press reached a live trigger and
+     * the fire path itself lost it — a scene bug, not a harness one). */
+    const last = couchPressReceipts.findLast((entry) => typeof entry.press === 'number');
+    if (last) {
+      last.outcome = {
+        dekeAlive: true,
+        shotReceipt: receipt,
+        sampleAfterWait: afterWait,
+        story: !last.gateHeldThroughPress || !triggerIsLive(afterWait)
+          || afterWait.pointerLockChanges !== last.post.pointerLockChanges
+          ? 'lock/pause flapped around the press — counted as capture, round never routed'
+          : 'locked and unpaused the whole way, press counted, and still no round',
+      };
+    }
     if (receipt && receipt.dekeAlive && receipt.lastShot
       && receipt.lastShot.intended === 'Deke' && receipt.lastShot.actor !== 'Deke') {
-      throw new Error(`couch shot registered off the verified aim: ${JSON.stringify(receipt)}`);
+      throw new Error('couch shot registered off the verified aim: '
+        + JSON.stringify({ receipt, presses: couchPressReceipts }, null, 2));
     }
     const beat = await page.evaluate(() => window.silvercase.fsm.name);
     if (beat !== 'COUCH_SHOOTING') {
-      throw new Error(`couch beat moved to ${beat} without Deke dead`);
+      throw new Error(`couch beat moved to ${beat} without Deke dead; `
+        + `per-press receipts: ${JSON.stringify(couchPressReceipts, null, 2)}`);
     }
-    await fireCouchShotAtDeke();
+    if (refire < 3) await fireCouchShotAtDeke();
+  }
+  if (!couchLanded) {
+    /* Refire exhaustion is a verdict now, not a hand-off: nightly
+     * 34453563784 starved through this loop into the raw 300 s Chester wait
+     * below, whose TimeoutError discarded every receipt the loop had
+     * gathered. Throw the whole accumulated story instead. */
+    throw new Error('couch shot starved: every press counted and no round ever landed; '
+      + JSON.stringify({
+        finalSample: await triggerGateSample(),
+        shotReceipt: await page.evaluate(() => window.__couchShotReceipt),
+        presses: couchPressReceipts,
+      }, null, 2));
   }
   /* Capture the subtitle receipt IN-PAGE, on the frame Chester owns the
    * card. The old flow waited for his cue in the voiceLog and then read the
@@ -2123,34 +2230,65 @@ try {
    * the apeFinishedChester === false assertion below then fails honestly),
    * so re-fires here are quick and stop the moment the beat stops ordering
    * the shot. */
+  const chairPressReceipts = [];
   const fireChairShotAtChester = async () => {
-    await ensureTriggerLive();
-    const staged = await page.evaluate(() => {
-      const sc = window.silvercase;
-      const pre = {
-        beat: sc.fsm.name,
-        chesterAlive: sc.cast.chester.alive,
-        apeFinishedChester: sc.state().mission.flags.apeFinishedChester,
-      };
-      if (pre.beat !== 'CHAIR_SHOOTING' || !pre.chesterAlive || pre.apeFinishedChester) {
-        return { refused: true, ...pre };
+    let staged = null;
+    let pre = null;
+    for (let attempt = 0; attempt < 4 && !pre; attempt += 1) {
+      await ensureTriggerLive();
+      staged = await page.evaluate(() => {
+        const sc = window.silvercase;
+        const chairPre = {
+          beat: sc.fsm.name,
+          chesterAlive: sc.cast.chester.alive,
+          apeFinishedChester: sc.state().mission.flags.apeFinishedChester,
+        };
+        if (chairPre.beat !== 'CHAIR_SHOOTING' || !chairPre.chesterAlive
+          || chairPre.apeFinishedChester) {
+          return { refused: true, ...chairPre };
+        }
+        const aim = sc.aimAt('chester');
+        sc.tick(0.05);
+        return { refused: false, ...chairPre, aim };
+      });
+      if (staged.refused) return staged;
+      if (staged.aim.resolvesTo !== 'chester') {
+        throw new Error(`chair shot lost its verified aim on Chester: ${JSON.stringify(staged)}`);
       }
-      const aim = sc.aimAt('chester');
-      sc.tick(0.05);
-      return { refused: false, ...pre, aim };
-    });
-    if (staged.refused) return staged;
-    if (staged.aim.resolvesTo !== 'chester') {
-      throw new Error(`chair shot lost its verified aim on Chester: ${JSON.stringify(staged)}`);
+      /* Same TOCTOU closure as the couch trigger: the atomic sample in the
+       * one evaluate immediately before the press, and no press spent on a
+       * gate the scene would route as a capture click. */
+      const sample = await triggerGateSample();
+      if (triggerIsLive(sample)) pre = sample;
+      else {
+        chairPressReceipts.push({
+          press: 'withheld',
+          reason: 'trigger gate dead in the pre-press atomic sample',
+          sample,
+          staged,
+        });
+      }
     }
-    const before = await page.evaluate(() => window.silvercase.input.snapshot().mouseDownEvents);
+    if (!pre) {
+      throw new Error('chair trigger kept flapping before any press could be spent; '
+        + `receipts: ${JSON.stringify(chairPressReceipts, null, 2)}`);
+    }
     await page.mouse.down({ button: 'left' });
     await page.mouse.up({ button: 'left' });
     await page.waitForFunction(
       (prior) => window.silvercase.input.snapshot().mouseDownEvents > prior,
-      before,
+      pre.mouseDownEvents,
       { timeout: 30000 },
     );
+    const post = await triggerGateSample();
+    chairPressReceipts.push({
+      press: chairPressReceipts.filter((entry) => typeof entry.press === 'number').length + 1,
+      staged: { beat: staged.beat, aim: staged.aim },
+      pre,
+      post,
+      gateHeldThroughPress: triggerIsLive(post)
+        && post.pointerLockChanges === pre.pointerLockChanges,
+    });
     return staged;
   };
   const chairShotRegistered = () => {
@@ -2159,28 +2297,53 @@ try {
       && state.mission.lastShot?.onTarget === true;
   };
   await fireChairShotAtChester();
-  for (let refire = 0; refire < 3; refire += 1) {
-    const registered = await page.waitForFunction(chairShotRegistered, null, { timeout: 15000 })
+  let chairRegistered = false;
+  for (let refire = 0; refire < 4 && !chairRegistered; refire += 1) {
+    chairRegistered = await page.waitForFunction(chairShotRegistered, null, { timeout: 15000 })
       .then(() => true, () => false);
-    if (registered) break;
+    if (chairRegistered) break;
     /* Same deterministic consumption nudge as the couch loop: a delivered
-     * press is a latch that still needs an updateGame pass. */
-    const consumedByTick = await page.evaluate(`(() => {
-      window.silvercase.tick(0.4);
-      return (${chairShotRegistered.toString()})();
-    })()`);
-    if (consumedByTick) break;
+     * press is a latch that still needs an updateGame pass — funded ONLY
+     * while the atomic sample says the scene is live, because tick() sits
+     * above the pause gate and a paused scene must resume through real
+     * input (ensureTriggerLive's Escape), never through the harness. */
+    const chairAfterWait = await triggerGateSample();
+    if (triggerIsLive(chairAfterWait)) {
+      const consumedByTick = await page.evaluate(`(() => {
+        window.silvercase.tick(0.4);
+        return (${chairShotRegistered.toString()})();
+      })()`);
+      if (consumedByTick) {
+        chairRegistered = true;
+        break;
+      }
+    }
+    const last = chairPressReceipts.findLast((entry) => typeof entry.press === 'number');
+    if (last) {
+      last.outcome = {
+        sampleAfterWait: chairAfterWait,
+        story: !last.gateHeldThroughPress || !triggerIsLive(chairAfterWait)
+          || chairAfterWait.pointerLockChanges !== last.post.pointerLockChanges
+          ? 'lock/pause flapped around the press — counted as capture, round never routed'
+          : 'locked and unpaused the whole way, press counted, and still no round',
+      };
+    }
     const still = await page.evaluate(() => ({
       beat: window.silvercase.fsm.name,
       chesterAlive: window.silvercase.cast.chester.alive,
       apeFinishedChester: window.silvercase.state().mission.flags.apeFinishedChester,
     }));
     if (still.beat !== 'CHAIR_SHOOTING' || !still.chesterAlive || still.apeFinishedChester) break;
-    await fireChairShotAtChester();
+    if (refire < 3) await fireChairShotAtChester();
   }
   /* The original strict wait keeps the check's authority: a chair shot that
-   * still has not registered fails here exactly as it always did. */
-  await page.waitForFunction(chairShotRegistered, null, { timeout: 30000 });
+   * still has not registered fails here exactly as it always did — except
+   * that it now fails carrying the per-press receipts instead of discarding
+   * them behind a bare TimeoutError. */
+  await page.waitForFunction(chairShotRegistered, null, { timeout: 30000 }).catch(() => {
+    throw new Error('chair shot never registered; '
+      + `per-press receipts: ${JSON.stringify(chairPressReceipts, null, 2)}`);
+  });
   const chairImmediately = await page.evaluate(() => ({
     state: window.silvercase.state(),
     input: window.silvercase.input.snapshot(),

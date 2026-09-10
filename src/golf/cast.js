@@ -599,6 +599,12 @@ export class Golfer {
       look: true,
       model: { ...GOLF_WARDROBE[id], role: who.role },
     });
+    /* The club hangs off the right forearm for the whole round, so the
+     * shared talking gesture may never take that arm (bing/cast.js — the
+     * bartender's tray and Eric's camcorder use the same contract). Without
+     * this, one line of car-park chat left foreR.x at −1.0 and the carried
+     * driver head measured 0.56 m under the turf, permanently. */
+    this.npc.carryingClub = true;
     this.parts = this.npc.parts;
     this.group = this.npc.group;
 
@@ -1046,8 +1052,16 @@ export class Golfer {
 
   _resetPose() {
     const p = this.parts;
-    p.armL.rotation.x = 0;
-    p.armR.rotation.x = 0;
+    /* Whole rotations, not just .x: the Npc's own animations (talking, cart
+     * sit sway) write channels the golf timeline never touches, and a stale
+     * forearm value pivots the carried club with it — the arm holding the
+     * club must come back to the authored carry exactly. The Npc idle clears
+     * arm/forearm .y/.z every update anyway, so this only widens the reset
+     * to the frames between a pose ending and the next update. */
+    p.armL.rotation.set(0, 0, 0);
+    p.armR.rotation.set(0, 0, 0);
+    p.foreL.rotation.set(0, 0, 0);
+    p.foreR.rotation.set(0, 0, 0);
     p.legL.rotation.x = 0;
     p.legR.rotation.x = 0;
     p.shinL.rotation.x = 0;

@@ -2521,6 +2521,16 @@ window.__golf = {
         player.yawOffset = 0;
       }
       applyCartCamera();
+    } else if (camMode === CAM.WALK) {
+      /* Same contract for the walking camera. `player.update(0)` integrates
+       * nothing — every rate inside it multiplies by dt — and only re-applies
+       * the camera from the live yaw/pitch, so `step()` (including a bare
+       * `step(0)`) leaves the lens on the pose the harness just staged
+       * rather than on whatever orientation the last real rendered frame
+       * happened to freeze there. On the scheduled runner that gap was the
+       * whole difference: the stepper owned game state while the camera
+       * waited for one-a-second frames. */
+      player.update(0);
     }
   },
   /* Take the transition without the fade, for a harness that runs faster than

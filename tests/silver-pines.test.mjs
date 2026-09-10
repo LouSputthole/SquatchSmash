@@ -710,6 +710,40 @@ test('a golf swing hinges the upper body at the hips instead of rotating the tor
   assert.ok(Math.abs(golfer.parts.body.rotation.y) < Math.abs(golfer.swingPivot.rotation.y));
 });
 
+test('a talking golfer never swings the carried club through the turf', () => {
+  /* The shared Npc talking gesture raises the right forearm (foreR.x to
+   * −1.0 ± 0.35) — and the golf club hangs off that forearm, so one line of
+   * car-park chat drove the carried driver head ~0.56 m under the ground
+   * and LEFT it there, because nothing in the stand idle writes foreR.x
+   * back. Both nightly Scene gates runs measured it (clearance −0.50 vs
+   * the +0.12 authored carry). Golfers commit that hand to the club, the
+   * same contract as the bartender's tray and Eric's camcorder. */
+  const scene = new THREE.Scene();
+  const golfer = new Golfer(scene, CHARACTER_IDS.PROSPECT, { x: 0, z: 0 });
+  assert.equal(golfer.npc.carryingClub, true,
+    'a golfer must declare the club hand so the talking gesture leaves it alone');
+
+  golfer.setClub('driver');
+  golfer.say(3);                                    // a line is playing
+  golfer.update(0.4, new THREE.Vector3(2, 1.6, 2)); // mid-line frame
+  assert.equal(golfer.parts.foreR.rotation.x, 0,
+    'the talking gesture must not take the forearm the club hangs from');
+
+  golfer.group.updateMatrixWorld(true);
+  const head = golfer.club.getObjectByName('club-head-driver');
+  const box = new THREE.Box3().setFromObject(head);
+  const clearance = box.min.y - golfer.group.position.y;
+  assert.ok(clearance > -0.04 && clearance < 0.20,
+    `mid-line carry clearance ${clearance.toFixed(3)} m must stay at turf height`);
+
+  // And the pin the browser gate uses must really mean the authored carry:
+  // stale residue on the forearm is exactly what _resetPose exists to clear.
+  golfer.parts.foreR.rotation.x = -1.0;
+  golfer._resetPose();
+  assert.equal(golfer.parts.foreR.rotation.x, 0,
+    '_resetPose must reset the club forearm, not just the upper arms');
+});
+
 test('the yellow landing preview follows aim and live club distance without promising a point', () => {
   const lie = lieAt(TEE);
   const aim = Math.PI / 2;
