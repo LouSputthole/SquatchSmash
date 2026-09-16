@@ -24,7 +24,8 @@ npm run verify:visual-smoke        deterministic apartment-mirror receipt
 
 The canonical 15-shot browser set is `npm run verify:visual`. It runs serially
 at a fixed viewport, DPR, seed and authored scene checkpoint, retains a
-Playwright trace on failure, and is scheduled in `verify-scenes.yml`; only the
+Playwright trace on failure, and runs from `verify-scenes.yml` on demand — the
+nightly cron was retired at the owner's wrap-up call, 2026-09-16; only the
 cheap mirror smoke belongs in the pull-request Verify job. Review a changed
 PNG. Do not refresh every baseline merely to turn a visual diff green.
 

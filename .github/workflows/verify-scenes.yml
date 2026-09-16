@@ -17,11 +17,17 @@
 # an ordinary pull request, so the per-PR wait is exactly what it was.
 #
 # WHAT RUNS WHEN
-#   weeknights   the smoke and scene tiers      (29 gates, minutes each)
-#   Sunday       the smoke and scene tiers      (the weekend hole, closed)
-#   Saturday     everything, campaign included  (43 gates, up to ~2 h each)
 #   on demand    any tier, or a named list, from the Actions tab
 #   pull request the smoke tier, every PR       (12 cheap gates)
+#
+# THE NIGHTLY CRON IS RETIRED (owner's call, 2026-09-16, at wrap-up). It ran
+# nightly tiers plus a Saturday campaign sweep from 2026-09-05 to 2026-09-16
+# and earned its keep: it caught the golf click-leak, the buried club head,
+# the falling-whistle drift and the silvercase press gates. Its last word
+# (run 26) was 29 of 33 gates green, the rest the shared runner's own
+# starvation artifacts. To bring it back, restore a `schedule:` block with
+# offset minutes (03:17-style, not on the hour) — everything else here still
+# works, and the PR smoke tier and the dispatch path never left.
 #
 # THE SMOKE TIER RUNS ON EVERY PR, SINCE 2026-08-23. It started life behind a
 # `scene-gates` label because none of these forty-three had ever run in CI, and
@@ -36,12 +42,6 @@
 name: Scene gates
 
 on:
-  schedule:
-    # 03:17 UTC rather than on the hour: the hour is when everyone else's cron
-    # fires and hosted runners queue.
-    - cron: '17 3 * * 1-5'
-    - cron: '17 3 * * 6'
-    - cron: '17 3 * * 0'
   workflow_dispatch:
     inputs:
       tiers:
