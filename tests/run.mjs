@@ -419,6 +419,9 @@ const TEST_MODULES = [
   './radio-audit-portability.test.mjs',
   './source-line-endings.test.mjs',
   './test-registry.test.mjs',
+  './deadgiveaway-table-media.test.mjs',
+  './deadgiveaway-dg-client.test.mjs',
+  './deadgiveaway-face-video.test.mjs',
   './deadgiveaway-world.test.mjs',
 ];
 

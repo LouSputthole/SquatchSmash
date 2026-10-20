@@ -133,6 +133,29 @@ forever with 1–10 s backoff; on reconnect call `room:join` with the token, the
 latest `media:state`, then the media engine re-emits `rtc:hello` (engine listens for
 'reconnect').
 
+Added by the implementation (all additive):
+
+```js
+client.serverUrl / client.clientId / client.socket / client.connected
+client.replaced                         // true after room:closed {reason:'replaced'}: this client is finished
+client.request(event, payload, { timeout = 8000 })   // also rejects Error('timeout'); err.code, err.detail (server message)
+client.savedSession() → { code, playerId, token, name, character } | null   // for a "rejoin?" prompt
+client.rememberServer(url)              // writes localStorage dg.server ('' forgets it)
+// events: 'connect' {first}, 'disconnect' {reason}, 'reconnect' {rejoined, state, error?}
+// test seams: connectDeadGiveaway({ io, local, session, location, timeoutMs, setTimeout, clearTimeout })
+```
+- `dg.session` also keeps `name` and `character`: every token rejoin sends them (the server
+  ignores them on a valid token and falls back to a fresh join on a stale one).
+- Fire-and-forget `emit` returns `false` and **drops** the event while the socket is down
+  or the rejoin is in flight (socket.io would otherwise replay a stale burst ahead of
+  `room:join`, all rejected). `media:state` is still remembered for the rejoin. `pose` goes
+  `volatile`.
+- `room:closed` clears the session. With `reason:'replaced'` the socket is also shut and
+  never reconnects (the other socket owns the seat).
+- An `error {code:'bad_target'}` after an `rtc:signal` just means that player dropped:
+  the UI should not toast it.
+- Nothing emits `room:leave` on unload: a reload must be able to `resume()`.
+
 ### `src/core/online/table-media.js`
 
 ```js
@@ -157,6 +180,36 @@ user gesture if it rejects) with a per-player GainNode/StereoPannerNode graph wh
 AudioContext is available. Voice must win the mix: the scene's `AudioEngine` music and
 ambience buses are ducked while anyone is speaking.
 
+Added by the implementation (all additive):
+
+```js
+createTableMedia({ client, selfId, onStream, onSpeaking, getState? /* () => roster snapshot, default client.state */ })
+media.start({ micId, camId, outId, framing, mic = true, cam = false })   // mic: initial enabled; cam: open the camera now
+media.level() → 0..255                  // the local mean level the VAD compares (lobby "test level" meter)
+media.framing() → whatever start() was given (the engine does not use it)
+media.peerStats(playerId) → Promise<{ audioPackets, videoPackets, videoFrames, rttMs, jitter, lossRate, quality, … }|null>
+media.refresh()                         // re-run the roster cam:true rule now (it also runs on every 'state')
+media.debug()                           // internals for verifiers only
+```
+- The engine plays remote audio itself. `onStream`'s `audio` is for information (a level
+  meter); do **not** attach it to another element or the voice doubles. Video is reported
+  only while that player's roster entry says `cam:true` AND the track is actually flowing.
+- Engine created → it answers offers at once (receive-only until `start()`); `start()` is
+  what sends `rtc:hello`. Create it after `join`/`resume` so `client.me` exists.
+- It listens for `room:closed` and closes itself. Build a new engine after a new join.
+- Signaling extras inside the opaque `data`: every signal carries `pid` (the PC instance id,
+  minted by its initiator) so answers/candidates for a torn-down PC are dropped. The
+  offerer always offers one audio + one video m-line (video `recvonly` while its camera
+  is off); camera toggles are `replaceTrack` + `direction` on that transceiver plus a
+  renegotiation offer from the camera owner. Crossed hellos (two players starting at the
+  same instant) resolve like crossed offers: lower `joinSeq` keeps offering.
+- Remote audio graph: `<audio autoplay>` (kept playing, muted, because Chrome feeds a remote
+  stream to WebAudio only while an element plays it) → `MediaStreamSource` → Gain →
+  StereoPanner → engine master → its own AudioContext's destination. Until that context
+  runs (no gesture yet) the element plays unmuted at `audio.volume`. Output device:
+  `setSinkId` on the elements and on the AudioContext where supported.
+- Ducking is the scene's job: drive `AudioEngine` from `onSpeaking`.
+
 ### `src/core/online/face-video.js`
 
 ```js
@@ -170,6 +223,29 @@ the character WITH a 1×1 neutral canvas as `face` so the photo-skull path exist
 the procedural look by leaving the map alone until video attaches. Use `THREE.VideoTexture`
 on a `<video muted playsInline autoplay>`; cover-fit the video to the face box aspect and
 apply `faceCropFor`. Head rotation comes free because the skull is a child of `head`.
+
+Added by the implementation (all additive):
+
+```js
+handle.attached                 // false: no photo skull, or no stream — every method is then a no-op
+handle.texture / handle.video   // the THREE.VideoTexture and its <video>
+handle.setFraming({ zoom, x, y, mirror? })   // live; mirror only for the self-preview
+handle.setStream(stream)        // swap the source in place when a remote's video stream object changes
+export function findPhotoSkull(person) → Mesh|null
+export function neutralFaceUrl(hex = 0xd9a97f) → data URL    // pass as makePerson({ face }) for a photo-less character
+export const FACE_ASPECT        // 0.162 / 0.212
+faceCropFor({ zoom = 1 /*1..4*/, x = 0, y = 0 /*-1..1, clamped*/, aspect /*video w/h*/, faceAspect = FACE_ASPECT, mirror })
+```
+- Framing: zoom 1 = the largest cover crop; x −1/+1 = left/right edge of the leftover
+  frame, y −1/+1 = bottom/top. The crop never leaves the frame. Until the video's metadata
+  arrives the crop assumes 4:3 and re-crops on `loadedmetadata`/`resize`.
+- Attach installs a NEW material array (index 4 a clone of the photo material with the
+  video map); detach puts the ORIGINAL array object back and disposes the clone, texture
+  and element. The shared, cached photo texture is never touched.
+- Photo-less characters: `makePerson` takes `face` as a URL (TextureLoader), not a canvas
+  — pass `neutralFaceUrl(skin)`. The photo path builds no procedural eyes/brow, so that
+  head is a blank skin-toned front until video attaches; every roster character has a face
+  PNG, so this is only for test dummies or future entries.
 
 ### `src/deadgiveaway/lobby.js`, `table-ui.js`, `media-panel.js`, `main.js`
 

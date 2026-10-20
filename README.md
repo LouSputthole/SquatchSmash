@@ -498,6 +498,8 @@ src/wardrobe/           the Fitting Room outfit-preview workshop
 tools/                  static server, ElevenLabs generator, static check,
                         runtime art-placement check, single-file bundler
 vendor/                 three.js (vendored so there is no install step)
+                        and socket.io-client 4.8.3 (socket.io.esm.min.js, MIT,
+                        for Dead Giveaway; from `npm pack socket.io-client@4.8.3`)
 ```
 
 Every scene's shared-system consumption — pause menu, dialogue, combat,
