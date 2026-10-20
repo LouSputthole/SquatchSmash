@@ -149,6 +149,16 @@ export const SCENE_GATES = Object.freeze([
     why: 'One apartment boot and five state predicates on the opening.',
   },
   {
+    script: 'verify:deadgiveaway',
+    tier: 'scene',
+    /* Skips (exit 0, says why) when ../Squatch-Bunker/dead-giveaway-server is
+     * not checked out beside this repo, which is the case on every hosted
+     * runner today -- so on schedule it costs one directory probe. Run with
+     * the server present, its cost is three page boots and the server's own
+     * timed phases (DEAL 3 s, VOTE_RESULT 5 s, ROLE_REVEAL 6 s) in wall time. */
+    why: 'Starts the Dead Giveaway server, boots deadgiveaway.html in three browser contexts with fake media, and plays one whole round to RESOLVE through the real lobby, clue, vote and reveal UI; the server-timed phases are wall seconds, not rendered frames.',
+  },
+  {
     script: 'verify:cabin-browser',
     tier: 'scene',
     /* Smoke until 2026-09-05. The rationale ("no driven rendered time")

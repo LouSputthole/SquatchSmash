@@ -1,0 +1,312 @@
+/* Dead Giveaway — every piece of DOM over the card room.
+ *
+ * One rule above the rest: THE TABLE STAYS VISIBLE. Panels are translucent
+ * walnut-black, sit at the edges, and never cover the felt in the middle of
+ * the screen. The palette is the room's: brass, cream card stock, felt green,
+ * and a red that is only ever used for the Rat and the target word. */
+
+:root {
+  color-scheme: dark;
+  --dg-ink: #f1e9d8;
+  --dg-dim: #b9ad96;
+  --dg-brass: #d9b866;
+  --dg-brass-deep: #9c7d3a;
+  --dg-red: #e0402f;
+  --dg-felt: #2f6b46;
+  --dg-gold: #ffd36a;
+  --dg-panel: rgba(14, 9, 6, 0.62);
+  --dg-panel-strong: rgba(14, 9, 6, 0.78);
+  --dg-line: rgba(217, 184, 102, 0.34);
+  --dg-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #050304; color: var(--dg-ink); }
+body.deadgiveaway { font-family: Georgia, "Times New Roman", serif; user-select: none; }
+canvas#scene { position: fixed; inset: 0; display: block; width: 100%; height: 100%; outline: none; }
+.hidden { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+
+#dg-ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+#dg-ui > *, #dg-ui .dg-panel { pointer-events: auto; }
+#dg-ui .dg-toasts, #dg-ui .dg-crosshair, #dg-ui .dg-hud, #dg-ui .dg-legend { pointer-events: none; }
+
+.dg-panel {
+  background: var(--dg-panel);
+  border: 1px solid var(--dg-line);
+  border-radius: 10px;
+  box-shadow: var(--dg-shadow);
+  /* No backdrop-filter: a blur behind every panel is the room going soft
+   * exactly where the brief says it must stay readable, and in a software
+   * compositor it measured as a third of the frame. */
+}
+.dg-panel-title {
+  margin: 0 0 8px;
+  color: var(--dg-brass);
+  font: 700 11px/1.2 "Trebuchet MS", "Segoe UI", sans-serif;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+.dg-small { color: var(--dg-dim); font-size: 13px; }
+
+/* ---------------- buttons ---------------- */
+.dg-btn {
+  padding: 9px 16px;
+  border: 1px solid var(--dg-brass-deep);
+  border-radius: 7px;
+  background: rgba(30, 20, 12, 0.85);
+  color: var(--dg-ink);
+  font: 700 13px/1.1 "Trebuchet MS", "Segoe UI", sans-serif;
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.dg-btn:hover:not(:disabled) { border-color: var(--dg-brass); color: var(--dg-gold); }
+.dg-btn:disabled { opacity: .45; cursor: default; }
+.dg-btn.primary, .dg-btn.confirm { background: linear-gradient(#cfa851, #a07c33); border-color: #e3c47a; color: #1b1208; }
+.dg-btn.primary:hover:not(:disabled), .dg-btn.confirm:hover:not(:disabled) { color: #000; filter: brightness(1.08); }
+.dg-btn.host { border-color: var(--dg-felt); background: rgba(24, 52, 34, 0.9); }
+.dg-btn.on { border-color: var(--dg-gold); color: var(--dg-gold); }
+.dg-btn.quiet { background: transparent; border-color: rgba(217, 184, 102, .22); color: var(--dg-dim); font-weight: 400; }
+
+/* ---------------- HUD ---------------- */
+.dg-hud {
+  position: fixed; top: 14px; left: 50%; translate: -50% 0;
+  display: flex; align-items: center; gap: 16px;
+  max-width: min(860px, calc(100vw - 32px));
+  padding: 9px 16px;
+}
+.dg-hud-main { min-width: 0; }
+.dg-hud-phase { color: var(--dg-brass); font: 700 12px/1.2 "Trebuchet MS", sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+.dg-hud-turn { margin-top: 3px; font-size: 16px; line-height: 1.25; text-shadow: 0 1px 2px #000; }
+.dg-timer { min-width: 34px; color: var(--dg-gold); font: 700 15px "Trebuchet MS", sans-serif; text-align: center; }
+.dg-role { display: flex; flex-direction: column; gap: 2px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--dg-line); max-width: 230px; }
+.dg-role b { font: 900 14px/1 "Trebuchet MS", sans-serif; letter-spacing: .14em; }
+.dg-role span { color: var(--dg-dim); font-size: 11px; line-height: 1.25; }
+.dg-role.rat { border-color: var(--dg-red); background: rgba(120, 18, 12, .55); }
+.dg-role.rat b { color: #ff6a58; }
+.dg-role.family { border-color: var(--dg-felt); background: rgba(24, 60, 38, .5); }
+.dg-role.family b { color: #9fe0b2; }
+.dg-role.out b { color: var(--dg-dim); }
+.dg-lives { display: flex; align-items: center; gap: 4px; }
+.dg-lives .chip { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #f1e9d8 0 28%, #7a1d17 30% 62%, #f1e9d8 64% 70%, #7a1d17 72%); box-shadow: 0 1px 2px #000; }
+.dg-lives .chip.spent { opacity: .18; }
+.dg-out { margin-left: 4px; color: var(--dg-red); font: 900 11px "Trebuchet MS", sans-serif; letter-spacing: .14em; }
+
+.dg-crosshair { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(241, 233, 216, .75); box-shadow: 0 0 3px #000; }
+#dg-ui:not(.in-room) .dg-crosshair { display: none; }
+
+/* ---------------- legend ---------------- */
+.dg-legend {
+  position: fixed; left: 16px; bottom: 16px;
+  display: grid; grid-template-columns: repeat(2, auto); column-gap: 14px; row-gap: 2px;
+  padding: 8px 12px; font: 12px/1.5 "Trebuchet MS", sans-serif; color: var(--dg-dim);
+  background: rgba(14, 9, 6, .45);
+}
+.dg-legend-row { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.dg-legend kbd { display: inline-grid; place-items: center; min-width: 20px; height: 18px; padding: 0 4px; border-radius: 4px; background: rgba(217, 184, 102, .18); border: 1px solid var(--dg-line); color: var(--dg-ink); font: 700 11px "Trebuchet MS", sans-serif; }
+#dg-ui:not(.in-room) .dg-hud, #dg-ui:not(.in-room) .dg-legend { display: none; }
+
+/* ---------------- clues ---------------- */
+.dg-clues {
+  position: fixed; left: 16px; top: 96px;
+  width: min(270px, 30vw); max-height: calc(100vh - 330px); overflow: auto;
+  padding: 12px 14px;
+}
+.dg-clue-list { margin: 0; padding: 0 0 0 20px; display: grid; gap: 6px; }
+.dg-clue-list li { color: var(--dg-dim); font-size: 13px; }
+.dg-clue-list li b { display: block; color: var(--dg-brass); font: 700 11px "Trebuchet MS", sans-serif; letter-spacing: .08em; }
+.dg-clue-list li span { color: var(--dg-ink); font-size: 16px; }
+.dg-clue-list li.silent span { color: var(--dg-dim); font-style: italic; }
+.dg-clue-list li.writing span { color: var(--dg-dim); font-style: italic; }
+#dg-ui.in-lobby .dg-clues { display: none; }
+
+/* ---------------- board overlay ---------------- */
+.dg-board {
+  position: fixed; right: 16px; top: 96px;
+  width: min(460px, 38vw);
+  padding: 12px;
+  background: rgba(14, 9, 6, .66);
+}
+.dg-board-title { margin-bottom: 8px; color: var(--dg-brass); font: 700 13px "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; text-align: center; }
+.dg-board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dg-word {
+  min-height: 52px; padding: 6px 4px;
+  border: 1px solid rgba(233, 223, 200, .25); border-radius: 5px;
+  background: rgba(233, 223, 200, .88); color: #1d140c;
+  font: 700 clamp(11px, 1.15vw, 15px)/1.15 Georgia, serif; text-align: center;
+  cursor: default;
+}
+.dg-word:not(:disabled) { cursor: pointer; }
+.dg-word:not(:disabled):hover { outline: 2px solid var(--dg-brass); }
+.dg-word.dim { opacity: .45; }
+.dg-word.hl { background: #b8281b; color: #fff4e8; border-color: #ff8a70; }
+.dg-word.pick { outline: 3px solid #f4efe4; outline-offset: 1px; }
+.dg-word.reveal { background: linear-gradient(#ffe08a, #d9a83a); color: #1b1208; border-color: #fff0b8; box-shadow: 0 0 16px rgba(255, 211, 106, .7); }
+.dg-board-hint { margin-top: 8px; color: var(--dg-dim); font-size: 12px; text-align: center; min-height: 1em; }
+
+/* ---------------- chat ---------------- */
+.dg-chat {
+  position: fixed; right: 16px; bottom: 16px;
+  width: min(330px, 34vw);
+  padding: 8px 10px;
+  background: rgba(14, 9, 6, .38);
+  border-color: rgba(217, 184, 102, .16);
+  transition: background .3s;
+}
+.dg-chat.open, .dg-chat.fresh { background: var(--dg-panel); border-color: var(--dg-line); }
+.dg-chat-log { max-height: 150px; overflow: auto; font-size: 13px; line-height: 1.35; }
+.dg-chat-log:empty::before { content: "Enter to talk to the table"; color: var(--dg-dim); font-size: 12px; font-style: italic; }
+.dg-chat-line b { color: var(--dg-brass); }
+.dg-chat-input { width: 100%; margin-top: 6px; padding: 7px 9px; border: 1px solid var(--dg-brass-deep); border-radius: 6px; background: rgba(0, 0, 0, .55); outline: none; }
+#dg-ui:not(.in-room) .dg-chat { display: none; }
+
+/* ---------------- action panel ---------------- */
+.dg-action {
+  position: fixed; left: 50%; bottom: 16px; translate: -50% 0;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px;
+  width: min(600px, calc(100vw - 2 * min(330px, 34vw) - 64px));
+  min-width: 300px;
+  padding: 12px 14px;
+}
+.dg-action-title { flex-basis: 100%; text-align: center; font-size: 16px; line-height: 1.3; text-shadow: 0 1px 2px #000; }
+.dg-clue-input { flex: 1 1 100%; padding: 10px 12px; border: 1px solid var(--dg-brass); border-radius: 7px; background: rgba(233, 223, 200, .92); color: #1b1208; font: 700 18px Georgia, serif; outline: none; }
+.dg-clue-input:disabled { opacity: .6; }
+.dg-people { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; flex-basis: 100%; }
+.dg-person {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid rgba(217, 184, 102, .3); border-radius: 22px;
+  background: rgba(30, 20, 12, .8); cursor: pointer;
+  font: 700 13px "Trebuchet MS", sans-serif;
+}
+.dg-person img, .dg-person .dg-noface { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: #3a2a1e; display: grid; place-items: center; }
+.dg-person:hover { border-color: var(--dg-brass); }
+.dg-person.selected { border-color: #f4efe4; background: rgba(120, 90, 40, .85); }
+.dg-tally { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; flex-basis: 100%; font-size: 14px; }
+.dg-tally div { display: flex; gap: 6px; }
+.dg-tally .accused b { color: var(--dg-gold); }
+.dg-tally span { color: var(--dg-dim); }
+.dg-reveal { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; flex-basis: 100%; }
+.dg-reveal-row { display: flex; flex-direction: column; align-items: center; min-width: 78px; padding: 5px 8px; border-radius: 6px; border: 1px solid rgba(159, 224, 178, .35); background: rgba(24, 60, 38, .55); }
+.dg-reveal-row b { font-size: 14px; }
+.dg-reveal-row span { color: #9fe0b2; font: 900 10px "Trebuchet MS", sans-serif; letter-spacing: .14em; }
+.dg-reveal-row.rat { border-color: var(--dg-red); background: rgba(140, 22, 14, .75); }
+.dg-reveal-row.rat span { color: #ffb0a2; }
+.dg-reveal-row.accused { outline: 1px dashed var(--dg-gold); }
+.dg-word-gold { padding: 1px 8px; border-radius: 4px; background: linear-gradient(#ffe08a, #d9a83a); color: #1b1208; font-weight: 700; }
+
+/* ---------------- toasts ---------------- */
+.dg-toasts { position: fixed; top: 92px; left: 50%; translate: -50% 0; display: grid; gap: 6px; justify-items: center; z-index: 30; }
+.dg-toast { padding: 8px 14px; border-radius: 7px; background: var(--dg-panel-strong); border: 1px solid var(--dg-line); font-size: 14px; transition: opacity .5s; }
+.dg-toast.bad { border-color: var(--dg-red); }
+.dg-toast.gone { opacity: 0; }
+
+/* ---------------- lobby ---------------- */
+.dg-lobby {
+  position: fixed; left: 16px; top: 16px; bottom: 16px;
+  width: min(580px, calc(100vw - 32px));
+  overflow: auto;
+  padding: 20px 22px;
+  background: rgba(14, 9, 6, .7);
+  z-index: 20;
+}
+.dg-kicker { color: var(--dg-brass); font: 700 11px "Trebuchet MS", sans-serif; letter-spacing: .24em; text-transform: uppercase; }
+.dg-lobby h1 { margin: 4px 0 6px; font-size: clamp(34px, 5vw, 52px); line-height: .95; letter-spacing: -.02em; color: var(--dg-ink); }
+.dg-lede { margin: 0 0 16px; color: var(--dg-dim); font-size: 15px; line-height: 1.45; }
+.dg-lobby-head.compact h1 { font-size: 28px; }
+.dg-lobby-head.compact .dg-lede { display: none; }
+.dg-lobby-entry { display: grid; gap: 12px; margin-bottom: 16px; }
+.dg-field { display: grid; gap: 4px; }
+.dg-field span, .dg-media-grid label span, .dg-slider span { color: var(--dg-dim); font: 700 11px "Trebuchet MS", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.dg-lobby input[type="text"], .dg-media select {
+  padding: 9px 11px; border: 1px solid var(--dg-brass-deep); border-radius: 7px;
+  background: rgba(0, 0, 0, .5); outline: none;
+}
+.dg-lobby input[type="text"]:focus { border-color: var(--dg-brass); }
+.dg-entry-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dg-or { color: var(--dg-dim); font-style: italic; }
+.dg-code-input { width: 104px; text-transform: uppercase; letter-spacing: .2em; font-weight: 700; text-align: center; }
+.dg-lobby-message { min-height: 1.2em; margin-top: 10px; font-size: 14px; color: var(--dg-dim); }
+.dg-lobby-message.bad { color: #ff8a78; }
+.dg-character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.dg-character {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 5px 3px 6px; border: 1px solid rgba(217, 184, 102, .18); border-radius: 8px;
+  background: rgba(30, 20, 12, .6); cursor: pointer;
+}
+.dg-character img, .dg-character .dg-noface { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: #3a2a1e; display: grid; place-items: center; font-size: 22px; }
+.dg-character-name { font: 700 10px/1.15 "Trebuchet MS", sans-serif; text-align: center; color: var(--dg-dim); }
+.dg-character.chosen { border-color: var(--dg-gold); background: rgba(110, 80, 30, .7); }
+.dg-character.chosen .dg-character-name { color: var(--dg-ink); }
+.dg-character:disabled { cursor: default; opacity: .6; }
+
+.dg-room-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.dg-room-buttons { display: flex; gap: 6px; }
+.dg-room-code { display: flex; align-items: baseline; gap: 8px; }
+.dg-room-code span { color: var(--dg-dim); font: 700 11px "Trebuchet MS", sans-serif; letter-spacing: .2em; text-transform: uppercase; }
+.dg-room-code b { color: var(--dg-gold); font: 900 30px "Trebuchet MS", sans-serif; letter-spacing: .22em; user-select: text; }
+.dg-room-body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dg-seat-ring { position: relative; aspect-ratio: 1; width: 100%; max-width: 250px; margin: 0 auto; }
+.dg-seat-felt { position: absolute; inset: 26%; border-radius: 50%; background: radial-gradient(#3b7d55, #1e4a30); border: 5px solid #2a160d; display: grid; place-items: center; color: rgba(241, 233, 216, .35); font: 700 10px "Trebuchet MS", sans-serif; letter-spacing: .3em; }
+.dg-seat {
+  position: absolute; translate: -50% -50%;
+  display: grid; justify-items: center; gap: 1px;
+  width: 58px; padding: 2px; border: none; background: none; cursor: pointer;
+}
+.dg-seat img, .dg-seat .dg-noface, .dg-seat .dg-seat-n { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: #2b1510; border: 2px solid #5a3a22; font: 700 13px "Trebuchet MS", sans-serif; }
+.dg-seat-name { max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 10px "Trebuchet MS", sans-serif; color: var(--dg-dim); }
+.dg-seat:not(:disabled):hover .dg-seat-n { border-color: var(--dg-brass); color: var(--dg-gold); }
+.dg-seat.taken { cursor: default; }
+.dg-seat.mine img, .dg-seat.mine .dg-noface { border-color: var(--dg-gold); }
+.dg-seat.away { opacity: .5; }
+.dg-lobby-players { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 13px; }
+.dg-lobby-players li span { color: var(--dg-dim); font-size: 12px; }
+.dg-lobby-players li.me b { color: var(--dg-gold); }
+.dg-room-start { display: flex; align-items: center; gap: 12px; margin: 14px 0 6px; }
+.dg-room-start .dg-btn.primary { padding: 12px 30px; font-size: 16px; }
+.dg-lobby-reopen { position: fixed; left: 16px; top: 16px; z-index: 20; }
+.dg-lobby .dg-panel-title { margin-top: 14px; }
+
+/* ---------------- media ---------------- */
+.dg-media { display: grid; gap: 8px; font-size: 13px; }
+.dg-media-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dg-toggle { padding: 6px 12px; border-radius: 16px; border: 1px solid rgba(217, 184, 102, .3); background: rgba(30, 20, 12, .7); cursor: pointer; font: 700 12px "Trebuchet MS", sans-serif; }
+.dg-toggle.on { border-color: #9fe0b2; color: #9fe0b2; }
+.dg-toggle:disabled { opacity: .45; cursor: default; }
+.dg-level { width: 12px; height: 12px; border-radius: 50%; background: #3a2a1e; border: 1px solid #5a3a22; transition: background .1s; }
+.dg-level.on { background: #ffb347; box-shadow: 0 0 8px #ffb347; }
+.dg-meter { flex: 1 1 60px; min-width: 60px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .5); overflow: hidden; }
+.dg-meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #9fe0b2, #ffb347); transition: width .1s; }
+.dg-media-status { color: var(--dg-dim); font-size: 12px; }
+.dg-media-grid { display: grid; gap: 6px; }
+.dg-media-grid label { display: grid; gap: 2px; }
+.dg-media select { width: 100%; padding: 5px 7px; font-size: 12px; }
+.dg-media-preview { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: start; }
+.dg-preview-wrap { position: relative; width: 96px; aspect-ratio: 0.764; overflow: hidden; border-radius: 8px; background: #1a120c; border: 1px solid var(--dg-line); }
+.dg-preview-wrap.empty::after { content: "No camera"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--dg-dim); font-size: 11px; }
+.dg-preview { width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 50%; }
+.dg-sliders { display: grid; gap: 4px; }
+.dg-slider { display: grid; gap: 1px; }
+.dg-slider input { width: 100%; accent-color: var(--dg-brass); }
+
+/* ---------------- pause additions ---------------- */
+.dg-pause-section { margin: 0 0 22px; }
+.dg-pause-section .dg-media { margin-bottom: 16px; }
+.dg-volume { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 10px; margin-bottom: 4px; }
+
+/* ---------------- loading + boot failure ---------------- */
+#loading { position: fixed; inset: 0; z-index: 50; display: grid; place-content: center; gap: 12px; background: #050304; color: var(--dg-dim); font-style: italic; transition: opacity .6s; }
+#loading.done { opacity: 0; pointer-events: none; }
+.boot-failure { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; gap: 14px; padding: 32px; text-align: center; background: #050304; }
+.boot-failure[hidden] { display: none; }
+.boot-failure strong { color: var(--dg-brass); font-size: 28px; }
+.boot-failure .actions { display: flex; gap: 10px; justify-content: center; }
+.boot-failure button, .boot-failure a { padding: 9px 14px; border: 1px solid var(--dg-brass-deep); border-radius: 7px; background: #140d08; color: var(--dg-ink); text-decoration: none; font: 700 12px "Trebuchet MS", sans-serif; }
+
+@media (max-width: 760px) {
+  .dg-room-body { grid-template-columns: 1fr; }
+  .dg-clues, .dg-board { top: auto; bottom: 200px; width: calc(50vw - 24px); }
+  .dg-legend { display: none; }
+  .dg-action { width: calc(100vw - 32px); bottom: 190px; }
+  .dg-chat { width: calc(100vw - 32px); }
+}

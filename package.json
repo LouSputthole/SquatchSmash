@@ -65,6 +65,7 @@
     "verify:license-to-grill": "node tools/verify-license-to-grill.mjs",
     "verify:bing-two": "node tools/verify-bing-two.mjs",
     "verify:specialmeeting": "node tools/verify-specialmeeting.mjs",
+    "verify:deadgiveaway": "node tools/verify-deadgiveaway.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "verify:motel": "node tools/verify-motel.mjs",
     "verify:no-wake": "node tools/verify-no-wake.mjs",

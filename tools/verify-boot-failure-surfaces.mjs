@@ -175,6 +175,15 @@ const CASES = [
     recovery: './preview.html',
   },
   {
+    /* Dead Giveaway: the multiplayer card room under the Bing. A tool page
+     * outside the campaign, so it recovers to the preview menu. */
+    page: 'deadgiveaway.html',
+    module: 'src/deadgiveaway/main.js',
+    scene: 'Dead Giveaway',
+    title: 'Could not load Dead Giveaway',
+    recovery: './preview.html',
+  },
+  {
     page: 'preview.html',
     scene: 'Preview launcher',
     static: true,

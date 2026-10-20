@@ -6877,6 +6877,12 @@
       "prompt": "a heavy tumbler set down firmly on a polished wooden bar, dull thud with a short glass ring, close mic"
     },
     {
+      "_comment": "Dead Giveaway (src/deadgiveaway/actions.js): a man at the card table spits into the brass spittoon by his chair. Unrecorded; the synth stands in until the sound pass.",
+      "name": "deadgiveaway.spit",
+      "duration": 0.7,
+      "prompt": "a man spits once into a brass spittoon on a wooden floor, short wet expectoration then a small hollow metallic ting, close, interior, no voice, no music"
+    },
+    {
       "name": "cork.pop",
       "duration": 0.8,
       "prompt": "champagne cork eased out of a bottle, controlled soft pop and a breath of escaping gas, close mic"
