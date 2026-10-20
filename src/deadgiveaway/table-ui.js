@@ -196,6 +196,80 @@ export function revealList(state) {
     }));
 }
 
+/* The reveal, played out one head at a time. Owner, first playtest: "The
+ * reveal should go one player at a time over their head. Reveal all the
+ * family first then last the rat." Every role is in the first ROLE_REVEAL
+ * snapshot; this is only the pacing. The server's window is ROLE_REVEAL
+ * (4 s) + REVEAL_STEP (1.5 s) per Family member, so the Rat lands with 2.4 s
+ * of his own beat left whatever the table size. */
+export const REVEAL_LEAD_MS = 700;
+export const REVEAL_STEP_MS = 1500;
+export const REVEAL_RAT_PAUSE_MS = 900;
+
+/** revealList in reveal order (the Family by seat, then the Rat), each with `at` ms after the phase began. */
+export function revealSchedule(state) {
+  const list = revealList(state);
+  const ordered = [...list.filter((r) => !r.isRat), ...list.filter((r) => r.isRat)];
+  return ordered.map((r, i) => ({ ...r, at: REVEAL_LEAD_MS + i * REVEAL_STEP_MS + (r.isRat ? REVEAL_RAT_PAUSE_MS : 0) }));
+}
+
+/** Who has shown their card `elapsedMs` into the reveal. Every role after ROLE_REVEAL; nobody before it. */
+export function revealedIds(state, elapsedMs) {
+  const schedule = revealSchedule(state);
+  if (state?.phase !== 'ROLE_REVEAL') return schedule.map((r) => r.playerId);
+  return schedule.filter((r) => r.at <= elapsedMs).map((r) => r.playerId);
+}
+
+/**
+ * The big title for a change at the table, or null. Owner: "We need more
+ * clear indications as the round progresses like big titles in the screen."
+ * `prev` is the last snapshot shown (or null on the first one).
+ */
+export function bannerFor(prev, state) {
+  if (!state || !state.phase || state.phase === 'LOBBY') return null;
+  const me = myId(state);
+  const rat = ratIdOf(state);
+  const phaseChanged = !prev || prev.phase !== state.phase || prev.round !== state.round;
+  if (state.phase === 'CLUES') {
+    const turn = playerAtSeat(state, state.turnSeat);
+    if (!turn || (!phaseChanged && prev.turnSeat === state.turnSeat)) return null;
+    if (turn.id === me) return { title: 'Your turn', sub: 'Click your card on the table and write one clue.', kind: 'you' };
+    if (phaseChanged) return { title: 'Clues', sub: `${turn.name} writes first.` };
+    return { title: turn.name, sub: 'is writing…', kind: 'small' };
+  }
+  if (!phaseChanged) return null;
+  switch (state.phase) {
+    case 'DEAL':
+      return { title: state.round > 1 ? `Round ${state.round}` : 'The Deal', sub: 'Somebody at this table is the Rat.' };
+    case 'DISCUSS':
+      return { title: 'Discussion', sub: 'Talk it over. Who did not know the word?' };
+    case 'VOTE':
+      return { title: 'The Vote', sub: 'Click the man you think is the Rat.' };
+    case 'VOTE_RESULT': {
+      const accused = state.result?.accusedId;
+      return accused
+        ? { title: accused === me ? 'They point at you' : `${nameOf(state, accused)} is accused`, sub: 'Now everybody shows their card.' }
+        : { title: 'A split table', sub: 'Nobody is accused. Now everybody shows their card.' };
+    }
+    case 'ROLE_REVEAL':
+      return { title: 'The Reveal', sub: 'Everybody shows their card.' };
+    case 'LAST_WORD':
+      return rat === me
+        ? { title: 'Your Last Word', sub: 'Click the word on the board.', kind: 'rat' }
+        : { title: 'The Last Word', sub: `${nameOf(state, rat)} gets one guess at the word.` };
+    case 'PAYBACK':
+      return rat === me
+        ? { title: 'Payback', sub: 'They got the wrong man. Click who pays for it.', kind: 'rat' }
+        : { title: 'Payback', sub: `${nameOf(state, rat)} walked. Somebody pays for that.` };
+    case 'RESOLVE':
+      return { title: 'Settled', sub: resolveText(state) };
+    case 'MATCH_OVER':
+      return { title: 'Match Over', sub: matchText(state) };
+    default:
+      return null;
+  }
+}
+
 export function voteProgress(state) {
   const voters = alivePlayers(state).filter((p) => p.connected !== false);
   return { voted: voters.filter((p) => p.hasVoted).length, total: voters.length };
@@ -254,7 +328,8 @@ export function turnText(state) {
       return accused ? `The table points at ${nameOf(state, accused)}.` : 'A split table. Nobody is accused.';
     }
     case 'ROLE_REVEAL':
-      return rat ? `${nameOf(state, rat)} was the Rat.` : 'Everybody shows their card.';
+      /* Never the Rat's name: the reveal goes head by head and he is last. */
+      return 'Everybody shows their card.';
     case 'LAST_WORD':
       return rat === me
         ? 'You have been made. Name the word and you keep your chips.'
@@ -343,6 +418,7 @@ export function legendModel(actions, keyFor) {
     ...rows,
     { kind: 'board', key: 'B', label: 'Board' },
     { kind: 'clues', key: 'C', label: 'Clues' },
+    { kind: 'zoom', key: 'RMB', label: 'Hold to zoom' },
     { kind: 'chat', key: 'Enter', label: 'Chat' },
     { kind: 'pause', key: 'Tab', label: 'Menu' },
   ];
@@ -403,17 +479,25 @@ function el(tag, attrs = {}, children = []) {
  *   onSelect(id)   the player clicked a name (vote/payback selection), so the
  *                  3D view can mark the same seat
  *   onTypingChange(bool)  chat/clue input focused, so look/keys stand down
+ *   onClueDraft(text)     the clue being written changed, so the card on the
+ *                         felt can show it as it is written
  */
-export function createTableUi({ root, faceFor = () => null, legend = [], intents = {}, onSelect = () => {}, onTypingChange = () => {} }) {
+export function createTableUi({ root, faceFor = () => null, legend = [], intents = {}, onSelect = () => {}, onTypingChange = () => {}, onClueDraft = () => {} }) {
   const ui = {
     state: null,
-    boardOpen: false,
+    /* Owner: "The cards being on the screen by default would be nice." */
+    boardOpen: true,
     boardForced: false,
     cluesOpen: true,
     chatOpen: false,
     selected: null,
     sentFor: '',
     abortArmed: null,
+    clueOpen: false,      // the writing box is out (the player clicked his card)
+    draft: '',
+    clueKey: '',          // round|turnSeat the draft belongs to
+    revealed: null,       // Set of playerIds whose card is shown, during the reveal
+    prev: null,           // { phase, round, turnSeat } of the last snapshot, for banners
   };
 
   const hud = el('div', { id: 'dg-hud', class: 'dg-panel dg-hud', 'aria-live': 'polite' });
@@ -432,7 +516,13 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
   const boardTitle = el('div', { class: 'dg-board-title' });
   const boardGrid = el('div', { class: 'dg-board-grid' });
   const boardHint = el('div', { class: 'dg-board-hint' });
-  boardEl.append(boardTitle, boardGrid, boardHint);
+  /* The Rat's confirm lives on the board itself, under the words he is
+   * choosing from, not at the bottom of the screen. */
+  const boardConfirm = el('button', {
+    type: 'button', class: 'dg-btn confirm hidden', 'data-dg': 'confirm-last-word',
+    onclick: () => { if (Number.isInteger(ui.selected)) intents.lastWord?.(ui.selected); },
+  });
+  boardEl.append(boardTitle, boardGrid, boardHint, boardConfirm);
   const boardCells = [];
   for (let i = 0; i < 16; i++) {
     const cell = el('button', {
@@ -464,8 +554,24 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
   const actionEl = el('div', { id: 'dg-action', class: 'dg-panel dg-action hidden', 'data-dg': 'action' });
   const toastEl = el('div', { id: 'dg-toasts', class: 'dg-toasts' });
   const crosshair = el('div', { id: 'dg-crosshair', class: 'dg-crosshair' });
+  const bannerEl = el('div', { id: 'dg-banner', class: 'dg-banner', 'data-dg': 'banner', 'aria-live': 'assertive' });
+  let clueClock = null;   // the seconds on the writing card, ticked by renderTimer
 
-  root.append(hud, legendEl, cluesEl, boardEl, chatEl, actionEl, toastEl, crosshair);
+  root.append(hud, legendEl, cluesEl, boardEl, chatEl, actionEl, toastEl, crosshair, bannerEl);
+
+  /** A big title across the middle of the screen for a moment. */
+  function banner(b) {
+    if (!b?.title) return;
+    bannerEl.className = `dg-banner ${b.kind ?? ''}`.trim();
+    bannerEl.replaceChildren(
+      el('div', { class: 'dg-banner-title', text: b.title }),
+      b.sub ? el('div', { class: 'dg-banner-sub', text: b.sub }) : '',
+    );
+    void bannerEl.offsetWidth;   // restart the transition when one title follows another
+    bannerEl.classList.add('show');
+    clearTimeout(banner.t);
+    banner.t = setTimeout(() => bannerEl.classList.remove('show'), b.ms ?? (b.kind === 'small' ? 1600 : 2600));
+  }
 
   function typing(on) { onTypingChange(Boolean(on)); }
   chatInput.addEventListener('focus', () => typing(true));
@@ -556,12 +662,22 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
       cell.disabled = !pickMode;
     }
     boardHint.textContent = pickMode
-      ? 'Click the word, then confirm below.'
+      ? 'Your Last Word. Click the word you think it is.'
       : b.highlightIndex !== null ? 'The red word is the one. Keep it to yourself.' : '';
-    /* The Rat's Last Word is played on this board, so it opens for him and
-     * stays open; everybody else watches it come up on the wall board. */
+    boardConfirm.classList.toggle('hidden', !pickMode);
+    boardConfirm.disabled = !Number.isInteger(ui.selected);
+    boardConfirm.textContent = Number.isInteger(ui.selected) ? `Name it: ${b.words[ui.selected]}` : 'Pick a word';
+    /* The Rat's Last Word is played on this board, so it opens for him,
+     * moves to the middle of the screen and stays there. Owner: "The card
+     * for the rat should become centered right before they have to pick a
+     * word so when they are chosing their word its obvious they just click
+     * the board." Everybody else watches it come up on the wall board. */
     ui.boardForced = pickMode;
-    boardEl.classList.toggle('hidden', !(ui.boardOpen || ui.boardForced) || !b.words.length);
+    boardEl.classList.toggle('center', pickMode);
+    /* During the reveal the corner panel steps aside: it sat over the right
+     * side of the table and hid a seat's card in the first screenshot. */
+    const aside = state.phase === 'ROLE_REVEAL';
+    boardEl.classList.toggle('hidden', !(ui.boardOpen || ui.boardForced) || !b.words.length || aside);
   }
 
   function renderClues(state) {
@@ -602,35 +718,63 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
      * rebuilding the clue box on each of those would eat what the player is
      * typing. */
     const sig = JSON.stringify([
-      phase, action, host, state.round, state.turnSeat, ui.selected, state.result, state.match,
+      phase, action, host, state.round, state.turnSeat, ui.selected, state.result, state.match, ui.clueOpen,
+      ui.revealed ? [...ui.revealed] : null,
+      ui.abortArmed,   // without it the first click arms nothing on screen and the second only re-arms
       playersOf(state).map((p) => [p.id, p.name, p.seat, p.out, p.lives, p.connected, p.readyToVote, p.hasVoted, p.character]),
     ]);
     if (sig === ui.sentFor) return;
     ui.sentFor = sig;
+    clueClock = null;
 
     if (phase === 'CLUES' && action === 'clue') {
-      const input = el('input', {
-        type: 'text', maxlength: state.settings?.clueMaxLen ?? 60, class: 'dg-clue-input',
-        placeholder: 'One clue — Enter to give it', 'aria-label': 'Your clue', 'data-dg': 'clue-input',
-      });
-      input.addEventListener('focus', () => typing(true));
-      input.addEventListener('blur', () => typing(false));
-      input.addEventListener('keydown', (event) => {
-        event.stopPropagation();
-        if (event.key === 'Enter') {
-          const text = input.value.trim();
-          if (!text) return;
-          input.disabled = true;
-          Promise.resolve(intents.clue?.(text)).then((ok) => {
-            if (ok === false) { input.disabled = false; input.focus(); }
-          });
-          event.preventDefault();
-        } else if (event.key === 'Escape') {
-          input.blur();
-        }
-      });
-      children.push(el('div', { class: 'dg-action-title', text: 'Your clue' }), input);
-      queueMicrotask(() => { if (!ui.chatOpen) input.focus(); });
+      /* Owner: "Entering your clue should also be like on the table you
+       * click on the name card which has a transparent ... symbol on it so
+       * its obvious you write on it." The card on the felt is the way in
+       * (main.js routes a click on it to openClue); this button is the same
+       * door for anybody who cannot find it. What is typed goes onto that
+       * card as it is written. */
+      const max = state.settings?.clueMaxLen ?? 50;
+      clueClock = el('span', { class: 'dg-clue-clock' });
+      if (!ui.clueOpen) {
+        children.push(
+          el('div', { class: 'dg-action-title' }, ['Your turn. Click your card on the table to write. ', clueClock]),
+          el('button', { type: 'button', class: 'dg-btn confirm', 'data-dg': 'write-clue', onclick: () => openClue() }, 'Write on my card'),
+        );
+      } else {
+        const count = el('span', { class: 'dg-clue-count', text: `${ui.draft.length}/${max}` });
+        const input = el('input', {
+          type: 'text', maxlength: max, class: 'dg-clue-input',
+          placeholder: 'One clue. Enter to put it down.', 'aria-label': 'Your clue', 'data-dg': 'clue-input',
+        });
+        input.value = ui.draft;
+        input.addEventListener('focus', () => typing(true));
+        input.addEventListener('blur', () => typing(false));
+        input.addEventListener('input', () => {
+          ui.draft = input.value.slice(0, max);
+          count.textContent = `${ui.draft.length}/${max}`;
+          onClueDraft(ui.draft);
+        });
+        input.addEventListener('keydown', (event) => {
+          event.stopPropagation();
+          if (event.key === 'Enter') {
+            const text = input.value.trim();
+            if (!text) return;
+            input.disabled = true;
+            Promise.resolve(intents.clue?.(text)).then((ok) => {
+              if (ok === false) { input.disabled = false; input.focus(); }
+            });
+            event.preventDefault();
+          } else if (event.key === 'Escape') {
+            input.blur();
+          }
+        });
+        children.push(
+          el('div', { class: 'dg-action-title' }, ['Write it on your card. ', clueClock]),
+          el('div', { class: 'dg-clue-card' }, [input, count]),
+        );
+        queueMicrotask(() => { if (!ui.chatOpen) input.focus(); });
+      }
     } else if (phase === 'DISCUSS') {
       const self = playerById(state, me);
       const { ready, total } = readyProgress(state);
@@ -669,23 +813,23 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
         el('b', { text: p.name }), el('span', { text: `${tally[p.id]} vote${tally[p.id] === 1 ? '' : 's'}` }),
       ]))));
     } else if (phase === 'ROLE_REVEAL' || phase === 'LAST_WORD' || phase === 'PAYBACK' || phase === 'RESOLVE') {
-      const list = revealList(state);
+      /* In reveal order, and during the reveal only the cards already shown:
+       * the rest wait face down. */
+      const list = revealSchedule(state);
+      const shown = (id) => phase !== 'ROLE_REVEAL' || Boolean(ui.revealed?.has(id));
       if (phase === 'ROLE_REVEAL') children.push(el('div', { class: 'dg-action-title', text: turnText(state) }));
       if (list.length) {
-        children.push(el('div', { class: 'dg-reveal', 'data-dg': 'reveal' }, list.map((r) => el('div', {
-          class: `dg-reveal-row ${r.isRat ? 'rat' : 'family'} ${r.accused ? 'accused' : ''}`,
-          'data-player': r.playerId,
-          'data-role': r.role,
-        }, [el('b', { text: r.name }), el('span', { text: r.label })]))));
+        children.push(el('div', { class: 'dg-reveal', 'data-dg': 'reveal' }, list.map((r) => (shown(r.playerId)
+          ? el('div', {
+            class: `dg-reveal-row ${r.isRat ? 'rat' : 'family'} ${r.accused ? 'accused' : ''}`,
+            'data-player': r.playerId,
+            'data-role': r.role,
+          }, [el('b', { text: r.name }), el('span', { text: r.label })])
+          : el('div', { class: 'dg-reveal-row face-down', 'data-player': r.playerId }, [el('b', { text: r.name }), el('span', { text: '?' })])))));
       }
       if (phase === 'LAST_WORD') {
         if (action === 'lastWord') {
-          const b = boardModel(state);
-          children.push(el('div', { class: 'dg-action-title', text: 'Your Last Word. Pick it on the board.' }));
-          children.push(el('button', {
-            type: 'button', class: 'dg-btn confirm', 'data-dg': 'confirm-last-word', disabled: !Number.isInteger(ui.selected),
-            onclick: () => { if (Number.isInteger(ui.selected)) intents.lastWord?.(ui.selected); },
-          }, Number.isInteger(ui.selected) ? `Name it: ${b.words[ui.selected]}` : 'Pick a word'));
+          children.push(el('div', { class: 'dg-action-title', text: 'Your Last Word. Click it on the board.' }));
         } else {
           children.push(el('div', { class: 'dg-action-title', text: turnText(state) }));
         }
@@ -754,6 +898,23 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
     const s = secondsLeft(state);
     hudTimer.textContent = s === null ? '' : `${s}s`;
     hudTimer.classList.toggle('hidden', s === null);
+    const urgent = s !== null && s <= 10 && state.phase === 'CLUES';
+    hudTimer.classList.toggle('urgent', urgent);
+    if (clueClock) {
+      clueClock.textContent = s === null ? '' : `${s}s`;
+      clueClock.classList.toggle('urgent', urgent);
+    }
+  }
+
+  function openClue() {
+    if (myAction(ui.state) !== 'clue') return false;
+    if (!ui.clueOpen) {
+      ui.clueOpen = true;
+      render();
+    } else {
+      actionEl.querySelector('[data-dg="clue-input"]')?.focus();
+    }
+    return true;
   }
 
   let lastPhaseKey = '';
@@ -766,6 +927,15 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
       ui.selected = null;
       onSelect(null);
     }
+    /* A new writer (or no writer) puts the box away and drops the draft. */
+    const clueKey = state.phase === 'CLUES' ? `${state.round}|${state.turnSeat}` : '';
+    if (clueKey !== ui.clueKey) {
+      ui.clueKey = clueKey;
+      ui.clueOpen = false;
+      if (ui.draft) { ui.draft = ''; onClueDraft(''); }
+    }
+    banner(bannerFor(ui.prev, state));
+    ui.prev = { phase: state.phase, round: state.round, turnSeat: state.turnSeat };
     const inRoom = Boolean(state.code);
     root.classList.toggle('in-room', inRoom);
     root.classList.toggle('in-lobby', state.phase === 'LOBBY');
@@ -788,6 +958,18 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
     closeChat,
     toggleBoard() { ui.boardOpen = !ui.boardOpen; render(); return ui.boardOpen; },
     toggleClues() { ui.cluesOpen = !ui.cluesOpen; render(); return ui.cluesOpen; },
+    banner,
+    /** The player clicked his card on the felt (or pressed Write). False when it is not his turn. */
+    openClue,
+    get draft() { return ui.draft; },
+    /** The reveal's pacing, from main.js's clock: the ids whose card is shown (null = all). */
+    setRevealed(ids) {
+      const next = ids ? new Set(ids) : null;
+      const same = next && ui.revealed ? next.size === ui.revealed.size && [...next].every((id) => ui.revealed.has(id)) : next === ui.revealed;
+      if (same) return;
+      ui.revealed = next;
+      render();
+    },
     /** A seat was clicked in 3D during VOTE/PAYBACK. Only candidates are accepted. */
     selectFromWorld(id) {
       const action = myAction(ui.state);
@@ -803,6 +985,11 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
     reset() {
       ui.state = null;
       ui.selected = null;
+      ui.prev = null;
+      ui.revealed = null;
+      ui.clueOpen = false;
+      ui.draft = '';
+      ui.clueKey = '';
       chatLog.replaceChildren();
       actionEl.classList.add('hidden');
       boardEl.classList.add('hidden');

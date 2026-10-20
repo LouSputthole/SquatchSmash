@@ -536,12 +536,17 @@ const CARD_FACE = 0.21;
 const CARD_LEAN = 0.26;
 const CARD_PX_W = 768;
 const CARD_PX_H = Math.round(CARD_PX_W * CARD_FACE / CARD_W);
-/* A heavy sans, not the board's serif: at 2.6 m a serif's thin strokes were
- * averaged into the card stock by the mip chain and the ink read as a pale
- * orange smear. Thick strokes survive the minification. */
-const CARD_FONT = '"Arial Black", "Helvetica Neue", Arial, sans-serif';
+/* Written by hand. Owner: "Maybe the answers could look written on the card
+ * nothing crazy just a font thats a bit more hand written." The system's own
+ * handwriting faces, boldest first, so nothing loads: Segoe Print (Windows),
+ * Marker Felt / Bradley Hand (macOS), then Comic Sans and the generic. Weight
+ * still matters: at 2.6 m a thin stroke was averaged into the card stock by
+ * the mip chain and the ink read as a pale orange smear (that is why the
+ * first cut used Arial Black), so these are drawn bold and a touch large. */
+export const CARD_FONT = '"Segoe Print", "Marker Felt", "Bradley Hand", "Comic Sans MS", cursive';
+const CARD_INK = '#14100c';
 
-function paintCard(g, text) {
+function paintCard(g, text, { pending = false } = {}) {
   const W = CARD_PX_W;
   const H = CARD_PX_H;
   g.fillStyle = '#efe6d0';
@@ -552,13 +557,26 @@ function paintCard(g, text) {
   g.strokeStyle = 'rgba(122,28,32,0.5)';
   g.lineWidth = 2;
   g.strokeRect(26, 26, W - 52, H - 52);
-  if (text == null) return;
-  const fit = fitText(g, text, { maxW: W - 90, maxLines: 3, size: 96, minSize: 40, weight: '800', family: CARD_FONT });
-  g.fillStyle = '#0c0805';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.font = `800 ${fit.size}px ${CARD_FONT}`;
-  const lh = fit.size * 1.1;
+  if (text == null || text === '') {
+    /* A blank card waiting for its writer: a faint "…" says write here. */
+    if (!pending) return;
+    /* Three drawn dots, not the "…" glyph: in the handwriting face the glyph
+     * came out as two specks a writer could not see from his own chair
+     * (verifier screenshots, both at 0.24 and at 0.42 alpha). */
+    g.fillStyle = 'rgba(20,16,12,0.4)';
+    for (const dx of [-62, 0, 62]) {
+      g.beginPath();
+      g.arc(W / 2 + dx, H / 2, 17, 0, Math.PI * 2);
+      g.fill();
+    }
+    return;
+  }
+  const fit = fitText(g, text, { maxW: W - 90, maxLines: 3, size: 100, minSize: 42, weight: '700', family: CARD_FONT });
+  g.fillStyle = CARD_INK;
+  g.font = `700 ${fit.size}px ${CARD_FONT}`;
+  const lh = fit.size * 1.12;
   const y0 = H / 2 - (lh * (fit.lines.length - 1)) / 2;
   fit.lines.forEach((l, k) => g.fillText(l, W / 2, y0 + k * lh));
 }
@@ -932,12 +950,14 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
       rear.name = `dg.seat.${s}.clue.inside`;
       rear.position.copy(face.position).multiplyScalar(0.999);
       rear.rotation.set(-CARD_LEAN, Math.PI, 0);
+      face.userData.dgClueSeat = s;
+      rear.userData.dgClueSeat = s;
       leaf.add(face, rear);
       card.add(leaf);
     }
     card.visible = false;
     add(card);
-    cards.push({ group: card, canvas: cardCanvas, g: cardG, texture: cardTex, text: null });
+    cards.push({ group: card, canvas: cardCanvas, g: cardG, texture: cardTex, mat: cardMat, text: null, pending: false, draft: '' });
   }
 
   /* ================================================================== */
@@ -1617,6 +1637,9 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
       if (!c) return;
       const t = text == null ? null : String(text).trim();
       c.text = t || null;
+      c.pending = false;
+      c.draft = '';
+      c.mat.emissiveIntensity = 0.3;
       if (!c.text) {
         c.group.visible = false;
         return;
@@ -1625,8 +1648,33 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
       c.texture.needsUpdate = true;
       c.group.visible = true;
     },
+    /**
+     * The card of the player whose turn it is: up, blank but for a faint
+     * "…", and gently pulsing, until his clue is down. `draft` is what the
+     * local writer has typed so far (only his own client knows it).
+     * textAt() stays null: nothing has been given yet.
+     */
+    pending(seat, draft = '') {
+      const c = cards[seat];
+      if (!c) return;
+      const d = String(draft ?? '').trim();
+      if (c.pending && c.draft === d) return;
+      c.text = null;
+      c.pending = true;
+      c.draft = d;
+      paintCard(c.g, d, { pending: true });
+      c.texture.needsUpdate = true;
+      c.group.visible = true;
+    },
     clear() { for (let s = 0; s < SEAT_COUNT; s++) clues.set(s, null); },
     textAt(seat) { return cards[seat]?.text ?? null; },
+    pendingAt(seat) { return Boolean(cards[seat]?.pending); },
+    /** The seat whose standing card this ray hits first, or null. */
+    pick(raycaster) {
+      const faces = [];
+      for (const c of cards) if (c.group.visible) c.group.traverse((o) => { if (o.isMesh) faces.push(o); });
+      return raycaster.intersectObjects(faces, false)[0]?.object.userData.dgClueSeat ?? null;
+    },
     cards,
   };
 
@@ -1667,6 +1715,13 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
     if (!(dt > 0)) dt = 0;
     dt = Math.min(dt, 0.1);
     clock += dt;
+
+    // The blank card waiting for its writer breathes, so it reads as "this
+    // one". It stops once there is writing on it: the glow washed a draft's
+    // ink out to orange in the verifier's clue-entry screenshot.
+    for (const c of cards) {
+      if (c.pending) c.mat.emissiveIntensity = c.draft ? 0.3 : 0.3 + 0.28 * (0.5 + 0.5 * Math.sin(clock * 4.2));
+    }
 
     // The loose bulb: steady for 4-14 s, then a 60-200 ms sag.
     for (const s of sconces) {

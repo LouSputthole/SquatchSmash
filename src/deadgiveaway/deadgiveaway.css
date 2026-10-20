@@ -29,7 +29,7 @@ button, input, select { font: inherit; color: inherit; }
 
 #dg-ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 #dg-ui > *, #dg-ui .dg-panel { pointer-events: auto; }
-#dg-ui .dg-toasts, #dg-ui .dg-crosshair, #dg-ui .dg-hud, #dg-ui .dg-legend { pointer-events: none; }
+#dg-ui .dg-toasts, #dg-ui .dg-crosshair, #dg-ui .dg-hud, #dg-ui .dg-legend, #dg-ui .dg-banner { pointer-events: none; }
 
 .dg-panel {
   background: var(--dg-panel);
@@ -79,6 +79,8 @@ button, input, select { font: inherit; color: inherit; }
 .dg-hud-phase { color: var(--dg-brass); font: 700 12px/1.2 "Trebuchet MS", sans-serif; letter-spacing: .18em; text-transform: uppercase; }
 .dg-hud-turn { margin-top: 3px; font-size: 16px; line-height: 1.25; text-shadow: 0 1px 2px #000; }
 .dg-timer { min-width: 34px; color: var(--dg-gold); font: 700 15px "Trebuchet MS", sans-serif; text-align: center; }
+.dg-timer.urgent, .dg-clue-clock.urgent { color: #ff6a58; animation: dg-pulse 1s ease-in-out infinite; }
+@keyframes dg-pulse { 50% { opacity: .45; } }
 .dg-role { display: flex; flex-direction: column; gap: 2px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--dg-line); max-width: 230px; }
 .dg-role b { font: 900 14px/1 "Trebuchet MS", sans-serif; letter-spacing: .14em; }
 .dg-role span { color: var(--dg-dim); font-size: 11px; line-height: 1.25; }
@@ -121,21 +123,40 @@ button, input, select { font: inherit; color: inherit; }
 #dg-ui.in-lobby .dg-clues { display: none; }
 
 /* ---------------- board overlay ---------------- */
+/* On screen by default now (owner: "The cards being on the screen by
+ * default would be nice"), so it sits smaller in the top-right corner, clear
+ * of the felt; B still puts it away. */
 .dg-board {
   position: fixed; right: 16px; top: 96px;
-  width: min(460px, 38vw);
-  padding: 12px;
-  background: rgba(14, 9, 6, .66);
+  width: min(380px, 30vw);
+  padding: 10px;
+  background: rgba(14, 9, 6, .6);
 }
 .dg-board-title { margin-bottom: 8px; color: var(--dg-brass); font: 700 13px "Trebuchet MS", sans-serif; letter-spacing: .14em; text-transform: uppercase; text-align: center; }
-.dg-board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dg-board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
 .dg-word {
-  min-height: 52px; padding: 6px 4px;
+  min-height: 40px; padding: 5px 3px;
   border: 1px solid rgba(233, 223, 200, .25); border-radius: 5px;
   background: rgba(233, 223, 200, .88); color: #1d140c;
-  font: 700 clamp(11px, 1.15vw, 15px)/1.15 Georgia, serif; text-align: center;
+  font: 700 clamp(10px, 1vw, 14px)/1.15 Georgia, serif; text-align: center;
   cursor: default;
 }
+/* The Rat's Last Word: the board comes to the middle and gets big, so
+ * the only thing to do is click a word on it. */
+.dg-board.center {
+  right: auto; left: 50%; top: 50%; translate: -50% -50%;
+  width: min(760px, calc(100vw - 32px));
+  padding: 18px 18px 14px;
+  z-index: 25;
+  background: rgba(14, 9, 6, .88);
+  border-color: var(--dg-red);
+  box-shadow: 0 0 0 1px rgba(224, 64, 47, .35), 0 18px 60px rgba(0, 0, 0, .7);
+}
+.dg-board.center .dg-board-title { font-size: 18px; margin-bottom: 12px; }
+.dg-board.center .dg-board-grid { gap: 8px; }
+.dg-board.center .dg-word { min-height: 72px; font-size: clamp(14px, 1.7vw, 21px); }
+.dg-board.center .dg-board-hint { font-size: 15px; color: var(--dg-ink); }
+.dg-board .dg-btn.confirm { display: block; margin: 10px auto 0; padding: 11px 26px; font-size: 15px; }
 .dg-word:not(:disabled) { cursor: pointer; }
 .dg-word:not(:disabled):hover { outline: 2px solid var(--dg-brass); }
 .dg-word.dim { opacity: .45; }
@@ -169,8 +190,23 @@ button, input, select { font: inherit; color: inherit; }
   padding: 12px 14px;
 }
 .dg-action-title { flex-basis: 100%; text-align: center; font-size: 16px; line-height: 1.3; text-shadow: 0 1px 2px #000; }
-.dg-clue-input { flex: 1 1 100%; padding: 10px 12px; border: 1px solid var(--dg-brass); border-radius: 7px; background: rgba(233, 223, 200, .92); color: #1b1208; font: 700 18px Georgia, serif; outline: none; }
+/* The writing box is the place card itself: cream stock, the red rule, and
+ * the same hand the card on the felt is written in. */
+.dg-clue-card {
+  position: relative; flex: 1 1 100%;
+  padding: 10px 14px 16px;
+  border: 3px solid #7a1c20; border-radius: 4px;
+  background: #efe6d0;
+  box-shadow: inset 0 0 0 5px #efe6d0, inset 0 0 0 7px rgba(122, 28, 32, .5), 0 6px 18px rgba(0, 0, 0, .45);
+}
+.dg-clue-input {
+  width: 100%; padding: 2px 0; border: none; background: transparent; color: #14100c; outline: none;
+  font: 700 26px/1.2 "Segoe Print", "Marker Felt", "Bradley Hand", "Comic Sans MS", cursive; text-align: center;
+}
+.dg-clue-input::placeholder { color: rgba(20, 16, 12, .3); }
 .dg-clue-input:disabled { opacity: .6; }
+.dg-clue-count { position: absolute; right: 10px; bottom: 3px; color: #7a1c20; font: 700 11px "Trebuchet MS", sans-serif; }
+.dg-clue-clock { margin-left: 4px; color: var(--dg-gold); font: 700 16px "Trebuchet MS", sans-serif; }
 .dg-people { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; flex-basis: 100%; }
 .dg-person {
   display: flex; align-items: center; gap: 7px;
@@ -193,6 +229,31 @@ button, input, select { font: inherit; color: inherit; }
 .dg-reveal-row.rat { border-color: var(--dg-red); background: rgba(140, 22, 14, .75); }
 .dg-reveal-row.rat span { color: #ffb0a2; }
 .dg-reveal-row.accused { outline: 1px dashed var(--dg-gold); }
+.dg-reveal-row.face-down { border-style: dashed; border-color: rgba(217, 184, 102, .3); background: rgba(30, 20, 12, .6); }
+.dg-reveal-row.face-down span { color: var(--dg-dim); font-size: 13px; }
+
+/* ---------------- banner ---------------- */
+/* Owner: "We need more clear indications as the round progresses like big
+ * titles in the screen." Above the felt, below the HUD, gone in a few
+ * seconds, and never in the way of a click. */
+.dg-banner {
+  position: fixed; left: 50%; top: 24%; translate: -50% 0; z-index: 28;
+  width: max-content; max-width: calc(100vw - 32px);
+  text-align: center; opacity: 0; scale: .92;
+  transition: opacity .35s ease, scale .35s ease;
+}
+.dg-banner.show { opacity: 1; scale: 1; }
+.dg-banner-title {
+  color: var(--dg-ink);
+  font: 900 clamp(38px, 6vw, 76px)/1 Georgia, "Times New Roman", serif;
+  letter-spacing: .05em; text-transform: uppercase;
+  text-shadow: 0 2px 2px #000, 0 4px 26px rgba(0, 0, 0, .85);
+}
+.dg-banner-sub { margin-top: 10px; color: var(--dg-ink); font: italic 19px/1.3 Georgia, serif; text-shadow: 0 1px 2px #000, 0 2px 14px #000; }
+.dg-banner.you .dg-banner-title { color: var(--dg-gold); }
+.dg-banner.rat .dg-banner-title { color: #ff5a48; }
+.dg-banner.small .dg-banner-title { font-size: clamp(26px, 3.6vw, 44px); }
+.dg-banner.small .dg-banner-sub { font-size: 16px; margin-top: 4px; }
 .dg-word-gold { padding: 1px 8px; border-radius: 4px; background: linear-gradient(#ffe08a, #d9a83a); color: #1b1208; font-weight: 700; }
 
 /* ---------------- toasts ---------------- */
@@ -305,7 +366,7 @@ button, input, select { font: inherit; color: inherit; }
 
 @media (max-width: 760px) {
   .dg-room-body { grid-template-columns: 1fr; }
-  .dg-clues, .dg-board { top: auto; bottom: 200px; width: calc(50vw - 24px); }
+  .dg-clues, .dg-board:not(.center) { top: auto; bottom: 200px; width: calc(50vw - 24px); }
   .dg-legend { display: none; }
   .dg-action { width: calc(100vw - 32px); bottom: 190px; }
   .dg-chat { width: calc(100vw - 32px); }

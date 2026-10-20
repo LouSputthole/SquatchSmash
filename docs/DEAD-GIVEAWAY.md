@@ -260,17 +260,25 @@ toasts from `src/core/hud.js`, `createPauseMenu`). Required flows, in order:
    (`src/core/first-person-input.js` capture mode `pointer-lock-or-drag`); `yawRange` wide
    enough to see every seat and the board. Pose sent 10 Hz.
 3. **Phase HUD** (top): phase name, round, whose turn, your role card (RAT in red / FAMILY),
-   your lives, a legend of action keys. Board overlay toggled with **B** (large 4×4 grid, same
-   highlight as the 3D board). Clues list toggled with **C**. Chat with **Enter** (text) —
-   separate from clue entry.
-4. **Clue entry**: on your turn a single-line input appears; Enter submits. Others see
-   "Lou is writing…". Submitted clue appears on the felt card (world.clues) and in the list.
+   your lives, a legend of action keys. Board overlay ON by default in the top-right corner
+   (same highlight as the 3D board), **B** puts it away. Clues list toggled with **C**. Chat
+   with **Enter** (text) — separate from clue entry. **Right mouse** held zooms (68° → 28°,
+   look slowed by the same ratio). A big title crosses the screen on every phase change and
+   every new writer (`bannerFor`), "Your turn" in gold for you.
+4. **Clue entry**: every turn has 40 s (server clock; blank on timeout, ticks in the last 5 s).
+   The writer's place card stands up blank with a faint pulsing "…" for everybody; the writer
+   clicks his own card on the felt (or "Write on my card") to open a card-styled box, and what
+   he types shows on the 3D card as he writes. 50 characters. Others see "Lou is writing…".
+   Clues are drawn in the system's handwriting face (Segoe Print / Marker Felt / Bradley Hand).
 5. **Discuss**: "Ready to vote" button (count shown), host sees "Call the vote".
 6. **Vote**: click a seat/character in the 3D view (raycast on the seat rig) or pick from a
    list; confirm. Votes shown as counts only until the result.
-7. **Vote result** → **Role reveal** (every name with RAT / FAMILY; the Rat lit red at their
-   seat) → **Your Last Word** (Rat picks on the big board; others watch the board with the
-   Rat's hover if cheap, else just the pick) or **Payback** (Rat clicks a victim).
+7. **Vote result** → **Role reveal**, one head at a time on each client's clock
+   (`revealSchedule`): the Family in seat order, a FAMILY plate popping up over each head, then
+   the Rat last with a drawn rat badge over his head, the red light and a sting. The server's
+   window is 4 s + 1.5 s per Family member. → **Your Last Word** (the board moves to the middle
+   of the Rat's screen and grows; he clicks a word and confirms under it) or **Payback** (Rat
+   clicks a victim).
 8. **Resolve**: target word revealed gold on both boards; chip removed at the loser's seat;
    host's "Deal again". **Match over**: winners named; "Back to the lobby".
 9. Pause (Tab): leave room, media settings, volume per player.

@@ -41,6 +41,93 @@ const PITCH_LIMIT = 0.6;
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
+/* The reveal's card over a head. Owner: "The reveal should go one player at
+ * a time over their head... Maybe use a rat symbol over his head." Drawn,
+ * not an emoji: an emoji is whatever the viewer's OS thinks a rat looks
+ * like, and the house rule is that nothing here winks. */
+const TAG_SIZE = { family: [0.46, 0.15], rat: [0.5, 0.55] };
+const TAG_HEIGHT = 0.42;   // metres above the head's origin, clear of hats
+
+function drawFamilyTag(g, w, h) {
+  g.fillStyle = 'rgba(20, 52, 33, 0.94)';
+  g.strokeStyle = '#9fe0b2';
+  g.lineWidth = 8;
+  g.beginPath();
+  g.roundRect(6, 6, w - 12, h - 12, 26);
+  g.fill();
+  g.stroke();
+  g.fillStyle = '#d8f5e0';
+  g.font = '900 92px "Trebuchet MS", "Segoe UI", sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('FAMILY', w / 2, h / 2 + 4);
+}
+
+function drawRatTag(g, w, h) {
+  const cx = w / 2;
+  const cy = 236;
+  g.fillStyle = '#8c160e';
+  g.strokeStyle = '#ff6a58';
+  g.lineWidth = 12;
+  g.beginPath();
+  g.arc(cx, cy, 206, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+  // The rat, in profile, nose to the left.
+  const cream = '#f1e9d8';
+  const pink = '#e3a197';
+  g.strokeStyle = cream;
+  g.lineCap = 'round';
+  g.lineWidth = 15;
+  g.beginPath();                                   // tail
+  g.moveTo(cx + 108, cy + 40);
+  g.bezierCurveTo(cx + 190, cy + 40, cx + 190, cy - 70, cx + 120, cy - 110);
+  g.stroke();
+  g.fillStyle = cream;
+  g.beginPath();                                   // body
+  g.ellipse(cx + 22, cy + 22, 118, 70, -0.06, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();                                   // head, tapering to the snout
+  g.moveTo(cx - 70, cy - 40);
+  g.quadraticCurveTo(cx - 150, cy - 18, cx - 176, cy + 24);
+  g.quadraticCurveTo(cx - 128, cy + 52, cx - 52, cy + 56);
+  g.closePath();
+  g.fill();
+  g.beginPath();                                   // ear
+  g.arc(cx - 84, cy - 52, 40, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = pink;
+  g.beginPath();
+  g.arc(cx - 84, cy - 52, 22, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();                                   // nose
+  g.arc(cx - 174, cy + 24, 11, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#2a0805';
+  g.beginPath();                                   // eye
+  g.arc(cx - 120, cy - 4, 10, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = cream;
+  for (const fx of [-40, 60]) {                    // feet
+    g.beginPath();
+    g.ellipse(cx + fx, cy + 92, 26, 11, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  // THE RAT on a red ribbon under the badge.
+  g.fillStyle = '#b3141e';
+  g.strokeStyle = '#ff8a70';
+  g.lineWidth = 6;
+  g.beginPath();
+  g.roundRect(46, h - 118, w - 92, 100, 18);
+  g.fill();
+  g.stroke();
+  g.fillStyle = '#fff4e6';
+  g.font = '900 78px "Trebuchet MS", "Segoe UI", sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('THE RAT', cx, h - 66);
+}
+
 export function createSeatRig(scene, { world, audio = null, THREE, onRebuild = () => {} }) {
   const anchors = world.anchors;
   const table = anchors.table;
@@ -62,6 +149,55 @@ export function createSeatRig(scene, { world, audio = null, THREE, onRebuild = (
 
   function seatAnchor(seat) {
     return anchors.seats.find((s) => s.seat === seat) ?? anchors.seats[seat];
+  }
+
+  /* One texture per kind, drawn on first use (there is no canvas in Node). */
+  const tagTextures = {};
+  function tagTexture(kind) {
+    if (tagTextures[kind]) return tagTextures[kind];
+    const [w, h] = kind === 'rat' ? [512, 564] : [512, 168];
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    (kind === 'rat' ? drawRatTag : drawFamilyTag)(c.getContext('2d'), w, h);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    tagTextures[kind] = tex;
+    return tex;
+  }
+
+  /** Show the reveal's card over this player's head ('family' | 'rat'), or take it down (null). */
+  function setTag(playerId, kind) {
+    const entry = byPlayer.get(playerId);
+    if (!entry || (entry.tag?.userData.kind ?? null) === (kind ?? null)) return;
+    if (entry.tag) { entry.tag.removeFromParent(); entry.tag.material.dispose(); entry.tag = null; }
+    if (!kind || entry.isSelf) return;   // first person: your own card is on the HUD
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tagTexture(kind), transparent: true, depthWrite: false }));
+    sprite.name = `deadgiveaway.seat.${entry.seat}.tag.${kind}`;
+    sprite.userData = { kind, t: 0 };
+    sprite.renderOrder = 8;
+    sprite.scale.set(0.001, 0.001, 1);
+    rig.add(sprite);
+    entry.tag = sprite;
+  }
+
+  function clearTags() {
+    for (const entry of bySeat.values()) if (entry.playerId) setTag(entry.playerId, null);
+  }
+
+  const _tagPos = new THREE.Vector3();
+  function updateTag(entry, dt) {
+    const tag = entry.tag;
+    if (!tag || !entry.npc) return;
+    tag.userData.t += dt;
+    // Pops up with a little overshoot, then sits still.
+    const k = Math.min(1, tag.userData.t / 0.35);
+    const pop = 1 + 0.18 * Math.sin(k * Math.PI) * (1 - k * 0.4);
+    const [w, h] = TAG_SIZE[tag.userData.kind];
+    tag.scale.set(w * k * pop, h * k * pop, 1);
+    entry.npc.parts.head.getWorldPosition(_tagPos);
+    tag.position.set(_tagPos.x, _tagPos.y + TAG_HEIGHT + (tag.userData.kind === 'rat' ? 0.12 : 0), _tagPos.z);
   }
 
   function makeArc(seatInfo) {
@@ -177,6 +313,7 @@ export function createSeatRig(scene, { world, audio = null, THREE, onRebuild = (
   function vacate(seat) {
     const entry = bySeat.get(seat);
     if (!entry) return;
+    if (entry.playerId) setTag(entry.playerId, null);
     removeNpc(entry);
     restoreGlass(entry);
     entry.arc.material.opacity = 0;
@@ -315,6 +452,7 @@ export function createSeatRig(scene, { world, audio = null, THREE, onRebuild = (
         parts.body.rotation.x = -0.15;
         parts.head.rotation.x += 0.2;
       }
+      updateTag(entry, dt);
     }
     if (ratEntry) {
       const s = ratEntry.seatInfo;
@@ -334,6 +472,9 @@ export function createSeatRig(scene, { world, audio = null, THREE, onRebuild = (
     setOut,
     setMark,
     clearMarks,
+    setTag,
+    clearTags,
+    tagOf: (playerId) => byPlayer.get(playerId)?.tag?.userData.kind ?? null,
     headOf,
     personOf,
     npcOf,

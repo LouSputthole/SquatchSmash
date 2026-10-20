@@ -141,10 +141,16 @@ function health(port) {
 }
 
 const port = Number(process.env.DG_PORT) || await freePort();
+/* The 40 s clue clock and the Rat's 60 s are each shorter than one
+ * software-rendered screenshot here: the first run had two writers time out
+ * to "said nothing" before the script typed, the second lost the Last Word.
+ * The real clocks are the server suite's to prove. */
+const CLUE_MS = 300000;
+const SLOW_TIMINGS = process.env.DG_TIMINGS || JSON.stringify({ CLUE: CLUE_MS, LAST_WORD: 300000, PAYBACK: 300000, RESOLVE: 300000 });
 const serverLog = [];
 const server = spawn(process.execPath, ['src/server.js'], {
   cwd: SERVER_DIR,
-  env: { ...process.env, DG_STATIC_DIR: ROOT, DG_PORT: String(port), DG_HOST: '127.0.0.1' },
+  env: { ...process.env, DG_STATIC_DIR: ROOT, DG_PORT: String(port), DG_HOST: '127.0.0.1', DG_TIMINGS: SLOW_TIMINGS },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 server.stdout.on('data', (d) => serverLog.push(String(d)));
@@ -347,6 +353,16 @@ try {
       window.__dgPhases = [];
       window.DEAD_GIVEAWAY.client.on('state', (s) => {
         if (window.__dgPhases.at(-1) !== s.phase) window.__dgPhases.push(s.phase);
+        /* The reveal's first frame, read the instant it is drawn (main.js's
+         * listener ran first): a 7 s phase is shorter than one screenshot on
+         * a software rasteriser, so the script cannot be relied on to see it. */
+        if (s.phase === 'ROLE_REVEAL' && !window.__dgRevealStart) {
+          window.__dgRevealStart = {
+            ratRows: document.querySelectorAll('[data-dg="reveal"] .dg-reveal-row.rat').length,
+            faceDown: document.querySelectorAll('[data-dg="reveal"] .dg-reveal-row.face-down').length,
+            turn: document.querySelector('[data-dg="turn"]')?.textContent ?? '',
+          };
+        }
       });
     });
   }
@@ -370,11 +386,11 @@ try {
   const rat = rats[0];
   const family = people.filter((p) => p !== rat);
   const blur = (p) => p.page.evaluate(() => document.activeElement?.blur?.());
+  const clock = await A.page.evaluate(() => window.DEAD_GIVEAWAY.state.phaseEndsAt - Date.now());
+  check('the clue turn runs on the server clock (phaseEndsAt during CLUES)', clock > 0 && clock <= CLUE_MS, `${Math.round(clock)} ms left`);
   for (const [i, p] of people.entries()) {
     const d = dealt[i];
-    /* The clue box takes focus on your turn; B is a table key, not a letter. */
-    await blur(p);
-    await p.page.keyboard.press('KeyB');
+    /* On screen by default now (owner: "The cards being on the screen by default would be nice"). */
     const overlay = await p.page.evaluate(() => ({
       hl: [...document.querySelectorAll('#dg-board .dg-word.hl')].map((c) => Number(c.dataset.index)),
       visible: !document.getElementById('dg-board').classList.contains('hidden'),
@@ -392,7 +408,6 @@ try {
   check('both Family members have the same target', targets.size === 1);
   await shot(family[0].page, '03-clues-family-board');
   await shot(rat.page, '03-clues-rat-board');
-  for (const p of people) { await blur(p); await p.page.keyboard.press('KeyB'); }
 
   /* ---------------- clues ---------------- */
   const given = [];
@@ -405,10 +420,32 @@ try {
       .then(() => true, () => false);
     check(`while ${turn.tag} has the turn the others read "${turn.name} is writing…"`, writing);
     const text = ['On the rocks', 'Top shelf', 'Neat'][n];
+    const pending = await others[0].page.waitForFunction((seat) => window.DEAD_GIVEAWAY.cluePendingAt(seat), turn.seat, { timeout: 15000 })
+      .then(() => true, () => false);
+    check(`${others[0].tag} sees ${turn.tag}'s blank card up with its "…" while he writes`, pending);
+    /* The way in is the card on the felt (owner: "you click on the name card
+     * which has a transparent ... symbol on it"); the last writer uses the
+     * button, so both doors are exercised. */
+    if (n < 2) {
+      await turn.page.waitForFunction(() => window.DEAD_GIVEAWAY.state.phase === 'CLUES', null, { timeout: STEP_TIMEOUT });
+      await turn.page.evaluate((seat) => window.DEAD_GIVEAWAY.lookAtCard(seat), turn.seat);
+      await turn.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const lockedNow = await turn.page.evaluate(() => document.pointerLockElement === window.DEAD_GIVEAWAY.renderer.domElement);
+      const at = await turn.page.evaluate((seat) => window.DEAD_GIVEAWAY.cardScreenOf(seat), turn.seat);
+      if (lockedNow) await turn.page.mouse.click(550, 310);
+      else if (at) await turn.page.mouse.click(at.x, at.y);
+      const opened = await turn.page.waitForSelector('[data-dg="clue-input"]', { timeout: 8000 }).then(() => true, () => false);
+      check(`${turn.tag} opened the writing box by clicking his own card on the felt`, opened, JSON.stringify({ at, lockedNow }));
+      if (!opened) await tap(turn.page, '[data-dg="write-clue"]');
+    } else {
+      await tap(turn.page, '[data-dg="write-clue"]');
+    }
     await turn.page.waitForSelector('[data-dg="clue-input"]', { timeout: STEP_TIMEOUT });
     await tap(turn.page, '[data-dg="clue-input"]');
     await turn.page.fill('[data-dg="clue-input"]', '');
     await turn.page.keyboard.type(text);
+    const onCard = await turn.page.evaluate((seat) => window.DEAD_GIVEAWAY.world.clues.cards[seat].draft, turn.seat);
+    check(`what ${turn.tag} types shows on his card as he writes`, onCard === text, JSON.stringify(onCard));
     if (n === 1) await shot(turn.page, '04-clue-entry');
     await turn.page.keyboard.press('Enter');
     given.push({ seat: turn.seat, text, tag: turn.tag });
@@ -470,15 +507,26 @@ try {
   check('the count does not name the Rat early (no ratId / roles yet)', !voteResult.result?.ratId && !voteResult.result?.roles);
   await shot(A.page, '07-vote-result');
 
-  const reveal = await waitPhase(A, 'ROLE_REVEAL', 30000);
+  const reveal = await waitPhase(A, ['ROLE_REVEAL', 'LAST_WORD'], 60000);
   check('the server reveals the Rat', reveal.result?.ratId === rat.id);
   for (const p of people) {
+    const early = await p.page.evaluate(() => window.__dgRevealStart ?? null);
+    check(`${p.tag}'s reveal opens face down: no Rat yet, and the HUD does not name him`,
+      early && early.ratRows === 0 && early.faceDown === 3 && !early.turn.includes(rat.name), JSON.stringify(early));
+  }
+  for (const p of people) {
     await waitPhase(p, ['ROLE_REVEAL', 'LAST_WORD']);
+    await p.page.waitForFunction(() => document.querySelectorAll('[data-dg="reveal"] .dg-reveal-row[data-role]').length === 3, null, { timeout: 30000 })
+      .catch(() => {});
     const rows = await p.page.evaluate(() => [...document.querySelectorAll('[data-dg="reveal"] .dg-reveal-row')]
       .map((r) => ({ id: r.dataset.player, role: r.dataset.role, text: r.textContent })));
     const ratRows = rows.filter((r) => r.role === 'rat');
     check(`${p.tag}'s reveal names every player and the Rat`, rows.length === 3 && ratRows.length === 1 && ratRows[0].id === rat.id && ratRows[0].text.includes(rat.name),
       JSON.stringify(rows));
+  }
+  for (const p of family) {
+    const tags = await p.page.evaluate((ids) => ids.map((id) => window.DEAD_GIVEAWAY.tagOf(id)), [rat.id, ...family.filter((q) => q !== p).map((q) => q.id)]);
+    check(`${p.tag} sees the rat over the Rat's head and FAMILY over the other Family member's`, tags[0] === 'rat' && tags.slice(1).every((t) => t === 'family'), JSON.stringify(tags));
   }
   await shot(family[1].page, '08-role-reveal');
 
@@ -491,8 +539,11 @@ try {
     const iLast = phases.indexOf('LAST_WORD');
     check(`${p.tag} saw the count, then the reveal, then the Last Word`, iResult >= 0 && iReveal > iResult && iLast > iReveal, phases.join(' > '));
   }
-  const boardOpen = await rat.page.evaluate(() => !document.getElementById('dg-board').classList.contains('hidden'));
-  check('the big board opens for the Rat to name his word', boardOpen);
+  const boardOpen = await rat.page.evaluate(() => {
+    const b = document.getElementById('dg-board');
+    return !b.classList.contains('hidden') && b.classList.contains('center');
+  });
+  check('the big board comes to the middle of the screen for the Rat to name his word', boardOpen);
   const livesBefore = Object.fromEntries((await state(A)).players.map((q) => [q.id, q.lives]));
   await tap(rat.page, '#dg-board .dg-word[data-index="0"]');
   await shot(rat.page, '09-last-word');

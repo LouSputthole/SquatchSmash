@@ -10,6 +10,7 @@ import test from 'node:test';
 import {
   phaseLabel, hudModel, whoMayAct, myAction, voteCandidates, paybackCandidates, boardModel,
   revealList, clueList, legendModel, turnText, resolveText, hostControls, roleCard, SAID_NOTHING, PHASES,
+  revealSchedule, revealedIds, bannerFor, REVEAL_LEAD_MS, REVEAL_STEP_MS,
 } from '../src/deadgiveaway/table-ui.js';
 /* actions.js's ACTIONS, restated: that module builds camera-mounted props at
  * import and needs the DOM shim, and this file is pure. The order is the
@@ -167,7 +168,43 @@ test('the role reveal names everybody, the Rat marked, before any Last Word', ()
   assert.equal(list.find((r) => r.playerId === 'a').label, 'FAMILY');
   assert.equal(list.find((r) => r.playerId === 'b').votes, 3);
   assert.ok(list.find((r) => r.playerId === 'b').accused);
-  assert.equal(turnText(s), 'B was the Rat.');
+  assert.equal(turnText(s), 'Everybody shows their card.', 'the HUD never names the Rat ahead of his turn in the reveal');
+});
+
+test('the reveal goes head by head: the Family by seat, the Rat last, all inside the server window', () => {
+  const s = snapshot('ROLE_REVEAL', {
+    result: { tally: {}, accusedId: null, caught: false, ratId: 'b', roles: { a: 'family', b: 'rat', c: 'family', d: 'family' } },
+  });
+  const order = revealSchedule(s);
+  assert.deepEqual(order.map((r) => r.playerId), ['a', 'c', 'd', 'b']);
+  assert.ok(order.every((r, i) => i === 0 || r.at > order[i - 1].at));
+  assert.equal(order[0].at, REVEAL_LEAD_MS);
+  assert.ok(order[3].at - order[2].at > REVEAL_STEP_MS, 'a beat before the Rat');
+  /* Server: ROLE_REVEAL 4 s + REVEAL_STEP 1.5 s per Family member. */
+  const window = 4000 + 3 * 1500;
+  assert.ok(window - order[3].at >= 2000, `the Rat lands with time to read it (${window - order[3].at} ms)`);
+  assert.deepEqual(revealedIds(s, 0), []);
+  assert.deepEqual(revealedIds(s, REVEAL_LEAD_MS), ['a']);
+  assert.deepEqual(revealedIds(s, order[2].at + 10), ['a', 'c', 'd']);
+  assert.deepEqual(revealedIds(s, 60_000), ['a', 'c', 'd', 'b']);
+  assert.deepEqual(revealedIds({ ...s, phase: 'LAST_WORD' }, 0), ['a', 'c', 'd', 'b'], 'after the reveal every card is up');
+  assert.deepEqual(revealedIds(snapshot('VOTE'), 99_999), [], 'nothing before the reveal');
+});
+
+test('big titles: one per phase change, one per new writer, YOUR TURN for you, nothing on a plain resend', () => {
+  const deal = snapshot('DEAL');
+  assert.equal(bannerFor(null, snapshot('LOBBY')), null);
+  assert.equal(bannerFor(null, deal).title, 'The Deal');
+  assert.equal(bannerFor(deal, deal), null, 'a resend of the same phase says nothing');
+  assert.equal(bannerFor(deal, { ...deal, round: 2 }).title, 'Round 2');
+  const first = snapshot('CLUES', { turnSeat: 1 });
+  assert.match(bannerFor(deal, first).sub, /B writes first/);
+  const mine = { ...first, turnSeat: 0 };
+  assert.deepEqual([bannerFor(first, mine).title, bannerFor(first, mine).kind], ['Your turn', 'you']);
+  assert.equal(bannerFor(mine, { ...first, turnSeat: 2 }).title, 'C');
+  const reveal = snapshot('ROLE_REVEAL', { result: { ratId: 'b', roles: { a: 'family', b: 'rat' } } });
+  assert.doesNotMatch(JSON.stringify(bannerFor(first, reveal)), /B/, 'the reveal title does not name the Rat');
+  assert.equal(bannerFor(reveal, { ...reveal, phase: 'LAST_WORD', me: { playerId: 'b', role: 'rat' } }).title, 'Your Last Word');
 });
 
 test('the resolution reads what happened, including a called-off round', () => {
@@ -184,6 +221,6 @@ test('the legend lists the eight gestures on the number row, then the table keys
   const rows = legendModel(ACTIONS, keyFor);
   assert.deepEqual(rows.slice(0, 8).map((r) => r.key), ['1', '2', '3', '4', '5', '6', '7', '8']);
   assert.deepEqual(rows.slice(0, 8).map((r) => r.kind), ACTIONS);
-  assert.deepEqual(rows.slice(8).map((r) => r.key), ['B', 'C', 'Enter', 'Tab']);
+  assert.deepEqual(rows.slice(8).map((r) => r.key), ['B', 'C', 'RMB', 'Enter', 'Tab']);
   for (const r of rows) assert.ok(r.label);
 });
