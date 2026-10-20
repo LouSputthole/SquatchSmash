@@ -327,6 +327,7 @@ export const ACTION_LABELS = Object.freeze({
   shake: 'Shake head',
   raise: 'Raise glass',
   nod: 'Nod',
+  finger: 'Middle finger',
 });
 
 /** "Digit3" -> "3", "KeyQ" -> "Q". */
