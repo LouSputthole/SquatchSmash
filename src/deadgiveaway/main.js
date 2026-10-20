@@ -516,8 +516,9 @@ function updateOrbit(dt) {
 const mediaPanel = createMediaPanel({
   getMedia: () => media,
   onStart: async (prefs) => {
-    await media.start({ micId: prefs.micId, camId: prefs.camId, outId: prefs.outId, framing: prefs.framing, mic: prefs.mic, cam: prefs.cam });
+    const got = await media.start({ micId: prefs.micId, camId: prefs.camId, outId: prefs.outId, framing: prefs.framing, mic: prefs.mic, cam: prefs.cam });
     media.setSensitivity(prefs.sensitivity);
+    return got;
   },
   onFraming: (framing) => {
     mediaPrefs.framing = framing;

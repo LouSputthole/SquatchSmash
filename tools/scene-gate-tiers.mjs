@@ -151,11 +151,13 @@ export const SCENE_GATES = Object.freeze([
   {
     script: 'verify:deadgiveaway',
     tier: 'scene',
-    /* Skips (exit 0, says why) when ../Squatch-Bunker/dead-giveaway-server is
-     * not checked out beside this repo, which is the case on every hosted
-     * runner today -- so on schedule it costs one directory probe. Run with
-     * the server present, its cost is three page boots and the server's own
-     * timed phases (DEAL 3 s, VOTE_RESULT 5 s, ROLE_REVEAL 6 s) in wall time. */
+    /* The server lives in Squatch-Bunker. The verifier uses the sibling
+     * checkout when there is one and otherwise shallow-clones the public repo
+     * into the temp dir and installs its one dependency, so a hosted runner
+     * plays the real round; a runner that can reach neither fails the gate
+     * (DG_SKIP_IF_NO_SERVER=1 is the offline-box escape). Cost: a clone and
+     * npm ci the first time, then three page boots plus the server's timed
+     * phases (DEAL 3 s, VOTE_RESULT 5 s, ROLE_REVEAL 6 s) in wall time. */
     why: 'Starts the Dead Giveaway server, boots deadgiveaway.html in three browser contexts with fake media, and plays one whole round to RESOLVE through the real lobby, clue, vote and reveal UI; the server-timed phases are wall seconds, not rendered frames.',
   },
   {

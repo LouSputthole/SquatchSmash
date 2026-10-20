@@ -160,6 +160,7 @@ export function createMediaPanel({ getMedia = () => null, onStart = async () => 
     previewWrap.classList.toggle('empty', !stream || !prefs.cam);
   }
 
+  let note = ''; // a device the engine could not open; cleared by a later successful toggle
   function renderToggles() {
     micBtn.setAttribute('aria-pressed', String(started && prefs.mic));
     camBtn.setAttribute('aria-pressed', String(started && prefs.cam));
@@ -172,7 +173,7 @@ export function createMediaPanel({ getMedia = () => null, onStart = async () => 
     status.textContent = !getMedia()
       ? 'Sit down at a table first.'
       : started
-        ? `${prefs.mic ? 'Mic on' : 'Mic muted'} · ${prefs.cam ? 'camera on' : 'camera off'}`
+        ? `${prefs.mic ? 'Mic on' : 'Mic muted'} · ${prefs.cam ? 'camera on' : 'camera off'}${note ? ` · ${note}` : ''}`
         : 'Microphone and camera are off.';
   }
 
@@ -181,10 +182,17 @@ export function createMediaPanel({ getMedia = () => null, onStart = async () => 
     busy = true;
     renderToggles();
     try {
-      await onStart({ ...prefs, framing: { ...prefs.framing } });
+      const got = await onStart({ ...prefs, framing: { ...prefs.framing } });
       started = true;
       prefs.enabled = true;
+      /* Believe the engine, not the wish: a denied or missing camera (or mic)
+       * leaves the toggle off and says so, instead of showing "camera on"
+       * while the roster says cam:false. */
+      const denied = [];
+      if (got && prefs.cam && got.cam === false) { prefs.cam = false; denied.push('camera'); }
+      if (got && prefs.mic && got.mic === false) { prefs.mic = false; denied.push('microphone'); }
       writeMediaPrefs(prefs);
+      note = denied.length ? `could not open the ${denied.join(' or ')}: check the browser permission and pick a device` : '';
       await refreshDevices();
       refreshPreview();
     } catch (error) {
@@ -205,6 +213,7 @@ export function createMediaPanel({ getMedia = () => null, onStart = async () => 
       if (kind === 'mic') await media.setMic(next);
       else await media.setCam(next);
       prefs[kind] = next;
+      note = '';
       writeMediaPrefs(prefs);
       onToggle({ mic: prefs.mic, cam: prefs.cam });
     } catch (error) {

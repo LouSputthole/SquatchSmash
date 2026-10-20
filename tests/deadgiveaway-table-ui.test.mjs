@@ -97,6 +97,15 @@ test('host is read from every snapshot, including a passed-on isHost', () => {
   assert.deepEqual(hostControls(snapshot('DISCUSS', { me: 'c' })), []);
 });
 
+test('the host can skip any stalled clue turn but their own, and abort outside the lobby', () => {
+  const stalled = snapshot('CLUES', { turnSeat: 1 });
+  assert.ok(hostControls(stalled).includes('skipTurn'), 'a connected player who sits there is still skippable');
+  const own = snapshot('CLUES', { turnSeat: 0 });
+  assert.ok(!hostControls(own).includes('skipTurn'), 'not the host\'s own turn');
+  assert.ok(hostControls(stalled).includes('abort'));
+  assert.ok(!hostControls(snapshot('LOBBY')).includes('abort'));
+});
+
 test('the vote list excludes yourself and anybody out', () => {
   const s = snapshot('VOTE');
   s.players[2].out = true;

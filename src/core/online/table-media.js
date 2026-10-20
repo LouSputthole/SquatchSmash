@@ -1040,6 +1040,10 @@ export function createTableMedia({
       emitMediaState();
       await rehello();
       if (!statsTimer) statsTimer = setInterval(pollStats, STATS_INTERVAL_MS);
+      /* What was actually acquired. A denied camera resolves (listening and
+       * talking still work) but reports cam:false so the panel does not claim
+       * a camera it never got. */
+      return { mic: Boolean(micStream), micOn: Boolean(micStream) && micOn, cam: camOn };
     },
 
     async setMic(on) {

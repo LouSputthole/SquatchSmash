@@ -9,7 +9,11 @@ most of these are lines waiting on a recording session, and
 `VOICE-LINES-TODO.md` is the queue for them. This file answers the other
 question: **which scene is silent, at which beat.**
 
-**9 silent cues across 1 scenes.**
+**10 silent cues across 2 scenes.**
+
+## deadgiveaway — 1
+
+- `deadgiveaway.spit` (0.7s) — src/deadgiveaway/actions.js, src/deadgiveaway/main.js
 
 ## world — 9
 

@@ -29,8 +29,13 @@
  *   - the media mesh connects and remote faces wear live video;
  *   - no page error on any page.
  *
- * Skips with exit 0 and a reason when the server is not checked out, so the
- * scheduled tier on a runner without it is a directory probe.
+ * The server is a separate package (Squatch-Bunker/dead-giveaway-server).
+ * Resolution order: DG_SERVER_DIR, then ../Squatch-Bunker/dead-giveaway-server
+ * beside this checkout, else a shallow sparse clone of DG_SERVER_GIT (the
+ * public Squatch-Bunker repo) into the OS temp dir, reused across runs, with
+ * `npm ci --omit=dev` run there once. A runner that can reach neither FAILS
+ * the gate: a verifier that passes without booting the scene proves nothing.
+ * DG_SKIP_IF_NO_SERVER=1 restores the old skip for an offline developer box.
  *
  *   node tools/verify-deadgiveaway.mjs
  *   DG_SHOT_DIR=/tmp/shots node tools/verify-deadgiveaway.mjs     (phase screenshots)
@@ -40,27 +45,68 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { launchChromium } from './launch-chromium.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SERVER_DIR = path.resolve(process.env.DG_SERVER_DIR || path.join(ROOT, '..', 'Squatch-Bunker', 'dead-giveaway-server'));
+const SERVER_GIT = process.env.DG_SERVER_GIT || 'https://github.com/LouSputthole/Squatch-Bunker.git';
+const SERVER_REF = process.env.DG_SERVER_REF || 'main';
+const SERVER_DIR = resolveServerDir();
 const SHOT_DIR = process.env.DG_SHOT_DIR || path.join(os.tmpdir(), 'deadgiveaway-verify');
 const BOOT_TIMEOUT = Number(process.env.DG_BOOT_TIMEOUT_MS) || 180000;
 const STEP_TIMEOUT = Number(process.env.DG_STEP_TIMEOUT_MS) || 180000;
 
-function skip(why) {
-  console.log(`verify:deadgiveaway SKIPPED — ${why}`);
-  process.exit(0);
+function giveUp(why) {
+  if (process.env.DG_SKIP_IF_NO_SERVER === '1') {
+    console.log(`verify:deadgiveaway SKIPPED (DG_SKIP_IF_NO_SERVER=1) — ${why}`);
+    process.exit(0);
+  }
+  console.error(`verify:deadgiveaway FAILED before boot — ${why}`);
+  process.exit(1);
 }
 
-if (!fs.existsSync(path.join(SERVER_DIR, 'src', 'server.js'))) {
-  skip(`no Dead Giveaway server at ${SERVER_DIR} (check out Squatch-Bunker beside this repo, or set DG_SERVER_DIR).`);
+function run(cmd, args, cwd) {
+  const r = spawnSync(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', env: process.env });
+  return { ok: r.status === 0, out: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() };
 }
-if (!fs.existsSync(path.join(SERVER_DIR, 'node_modules', 'socket.io'))) {
-  skip(`the server at ${SERVER_DIR} has no node_modules (run npm install there).`);
+
+function hasServer(dir) {
+  return fs.existsSync(path.join(dir, 'src', 'server.js'));
 }
+
+/** DG_SERVER_DIR, the sibling checkout, or a cached shallow clone of the public repo. */
+function resolveServerDir() {
+  const explicit = process.env.DG_SERVER_DIR && path.resolve(process.env.DG_SERVER_DIR);
+  if (explicit) {
+    if (!hasServer(explicit)) giveUp(`DG_SERVER_DIR=${explicit} has no src/server.js`);
+    return explicit;
+  }
+  const sibling = path.join(ROOT, '..', 'Squatch-Bunker', 'dead-giveaway-server');
+  if (hasServer(sibling)) return sibling;
+
+  const cache = path.join(os.tmpdir(), 'squatchsmash-dead-giveaway-server');
+  const pkg = path.join(cache, 'dead-giveaway-server');
+  if (!hasServer(pkg)) {
+    fs.rmSync(cache, { recursive: true, force: true });
+    console.log(`verify:deadgiveaway: no server beside this checkout; cloning ${SERVER_GIT} (${SERVER_REF}) into ${cache}`);
+    const clone = run('git', ['clone', '--depth', '1', '--filter=blob:none', '--sparse', '--branch', SERVER_REF, SERVER_GIT, cache]);
+    if (!clone.ok) giveUp(`git clone failed: ${clone.out.split('\n').slice(-3).join(' | ')}`);
+    const sparse = run('git', ['sparse-checkout', 'set', 'dead-giveaway-server'], cache);
+    if (!sparse.ok || !hasServer(pkg)) giveUp(`sparse checkout of dead-giveaway-server failed: ${sparse.out.split('\n').slice(-3).join(' | ')}`);
+  }
+  return pkg;
+}
+
+function ensureServerDeps(dir) {
+  if (fs.existsSync(path.join(dir, 'node_modules', 'socket.io'))) return;
+  console.log(`verify:deadgiveaway: installing server dependencies in ${dir}`);
+  const lock = fs.existsSync(path.join(dir, 'package-lock.json'));
+  const r = run('npm', [lock ? 'ci' : 'install', '--omit=dev', '--no-audit', '--no-fund'], dir);
+  if (!r.ok || !fs.existsSync(path.join(dir, 'node_modules', 'socket.io'))) giveUp(`npm install in ${dir} failed: ${r.out.split('\n').slice(-5).join(' | ')}`);
+}
+
+ensureServerDeps(SERVER_DIR);
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 const results = [];

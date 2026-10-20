@@ -353,8 +353,10 @@ export function hostControls(state) {
   if (!isHost(state)) return [];
   const out = [];
   if (state.phase === 'CLUES') {
+    /* CLUES has no timer, so a connected player who just sits there would
+     * hold the table forever. The host may skip any turn but their own. */
     const turn = playerAtSeat(state, state.turnSeat);
-    if (turn && turn.connected === false) out.push('skipTurn');
+    if (turn && turn.id !== hostIdOf(state)) out.push('skipTurn');
   }
   if (state.phase === 'DISCUSS') out.push('callVote');
   if (state.phase === 'RESOLVE') out.push('next');
@@ -411,6 +413,7 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
     chatOpen: false,
     selected: null,
     sentFor: '',
+    abortArmed: null,
   };
 
   const hud = el('div', { id: 'dg-hud', class: 'dg-panel dg-hud', 'aria-live': 'polite' });
@@ -725,7 +728,22 @@ export function createTableUi({ root, faceFor = () => null, legend = [], intents
     }
 
     if (host.includes('skipTurn')) {
-      children.push(el('button', { type: 'button', class: 'dg-btn host', 'data-dg': 'skip-turn', onclick: () => intents.skipTurn?.() }, 'Skip their turn'));
+      const turn = playerAtSeat(state, state.turnSeat);
+      const label = turn?.connected === false ? 'Skip their turn' : `Skip ${turn?.name ?? 'their'}'s turn`;
+      children.push(el('button', { type: 'button', class: 'dg-btn host', 'data-dg': 'skip-turn', onclick: () => intents.skipTurn?.() }, label));
+    }
+    if (host.includes('abort')) {
+      /* game:abort throws the round and every life away, so it takes two
+       * clicks: the first arms the button, the second sends. */
+      const armed = ui.abortArmed === state.round;
+      children.push(el('button', {
+        type: 'button', class: `dg-btn quiet host ${armed ? 'armed' : ''}`.trim(), 'data-dg': 'abort',
+        onclick: () => {
+          if (!armed) { ui.abortArmed = state.round; render(ui.state); return; }
+          ui.abortArmed = null;
+          intents.abort?.();
+        },
+      }, armed ? 'Sure? Back to the lobby, lives reset' : 'Call the match off'));
     }
 
     actionEl.replaceChildren(...children);
