@@ -419,6 +419,7 @@ const TEST_MODULES = [
   './radio-audit-portability.test.mjs',
   './source-line-endings.test.mjs',
   './test-registry.test.mjs',
+  './deadgiveaway-world.test.mjs',
 ];
 
 /* A module that throws while being IMPORTED used to end the run silently.
