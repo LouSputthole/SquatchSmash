@@ -33,8 +33,13 @@ const DEFAULT_KEYS = Object.freeze({
  * the head back, set it down; a smoke is to the lips, the draw, down, the
  * exhale, a tap of the ash. */
 export const ACTION_DURATION = Object.freeze({
-  drink: 2.4, smoke: 3.3, spit: 1.0, point: 1.6, lean: 2.2, shake: 1.2, raise: 1.6, nod: 1.0, finger: 1.8,
+  drink: 2.4, smoke: 3.3, spit: 1.4, point: 1.6, lean: 2.2, shake: 1.2, raise: 1.6, nod: 1.0, finger: 1.8,
 });
+
+/* The recorded hawk (deadgiveaway.spit, 1.76 s) is a hock, a beat, then the
+ * spit about 0.6 s in: the head goes back for the hock and the glob leaves
+ * on the spit, so sound and sight land together. */
+const SPIT_LAUNCH = 0.6;
 
 /* Cue names. Every one is in assets/sfx/manifest.json -- `npm run check`
  * fails on a literal that is not. */
@@ -56,6 +61,10 @@ export const ACTION_CUES = Object.freeze(Object.values(CUE));
  * bluring their view) for about a second." */
 export const SPIT_STICK = 1.0;
 export const SPIT_FADE = 0.4;
+/* Owner, 2026-10-20: "after it affects your vision it should have a cooldown
+ * for effecting your vision again of like 8 seconds." The glob still lands
+ * on you and you still hear it; only the splat over your view waits. */
+export const SPIT_VIEW_COOLDOWN = 8;
 
 /** 0 -> 1 -> 0 over a normalised action, eased at both ends. */
 function bell(k) {
@@ -433,7 +442,10 @@ export function createActions({ scene, camera, audio = null, world, seats, smoke
       s.splat = { group: splat, drip, mat: m };
       play(CUE.splat, s.head.getWorldPosition(new THREE.Vector3()), { volume: 0.9 });
     } else if (s.me) {
-      splatYourView();
+      if (time - lastViewSplat >= SPIT_VIEW_COOLDOWN) {
+        lastViewSplat = time;
+        splatYourView();
+      }
       play(CUE.splat, null, { volume: 1.0 });
     }
   }
@@ -481,6 +493,7 @@ export function createActions({ scene, camera, audio = null, world, seats, smoke
   let splatEl = null;
   let splatGlob = null;
   let splatTimer = null;
+  let lastViewSplat = -Infinity;   // `time` of the last splat over your view
   const SPLAT_INK = 'rgba(236,234,220,';
   const SPLAT_BG = [
     `radial-gradient(ellipse 10% 13% at 47% 45%, ${SPLAT_INK}0.6) 0 50%, ${SPLAT_INK}0.18) 78%, ${SPLAT_INK}0) 100%)`,
@@ -644,15 +657,17 @@ export function createActions({ scene, camera, audio = null, world, seats, smoke
           break;
         }
         case 'spit': {
-          nodX += bell(Math.min(1, k / 0.4)) * 0.12;
-          if (k > 0.22) {
+          /* Head back for the hock, then forward with the spit. */
+          once('hawk', () => play(CUE.spit, null, { volume: 0.75 }));
+          nodX -= bell(t / SPIT_LAUNCH) * 0.06;
+          nodX += bell((t - SPIT_LAUNCH + 0.15) / 0.6) * 0.12;
+          if (t > SPIT_LAUNCH) {
             once('spit', () => {
               camera.getWorldPosition(_v);
               camera.getWorldDirection(_dir);
               _v.addScaledVector(_dir, 0.18);
               _v.y -= 0.12;
               launchSpit(_v, s.target);
-              play(CUE.spit, null, { volume: 0.6 });
             });
           }
           break;
@@ -941,16 +956,18 @@ export function createActions({ scene, camera, audio = null, world, seats, smoke
             break;
           }
           case 'spit': {
-            const e = bell(Math.min(1, k / 0.45));
-            p.head.rotation.x += e * 0.22;
-            p.body.rotation.x = e * 0.1;
-            if (k > 0.25) {
+            /* Head back and chest up for the hock, then forward on the spit. */
+            once('hawk', () => play(CUE.spit, at(), { volume: 0.65 }));
+            const hock = bell(t / SPIT_LAUNCH);
+            const e = bell((t - SPIT_LAUNCH + 0.15) / 0.6);
+            p.head.rotation.x += e * 0.22 - hock * 0.16;
+            p.body.rotation.x = e * 0.1 - hock * 0.05;
+            if (t > SPIT_LAUNCH) {
               once('spit', () => {
                 mouthOf(p, _v);
                 forwardOf(p.head, _dir);
                 _v.addScaledVector(_dir, 0.06);
                 launchSpit(_v, s.target);
-                play(CUE.spit, at(), { volume: 0.5 });
               });
             }
             break;

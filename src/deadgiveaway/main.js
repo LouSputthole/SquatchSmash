@@ -28,6 +28,9 @@ import { createFirstPersonInput, FIRST_PERSON_CAPTURE_MODES } from '../core/firs
 import { createPauseMenu } from '../core/pause-menu.js';
 import { attachPixelRatio } from '../core/pixel-ratio.js';
 import { makeMaterials } from '../world/materials.js';
+import { resolveGear } from '../world/gear.js';
+import { Npc } from '../bing/cast.js';
+import { BADA_BING_BARTENDER } from '../core/wardrobe.js';
 import { connectDeadGiveaway } from '../core/online/dg-client.js';
 import { createTableMedia } from '../core/online/table-media.js';
 import { attachFaceVideo } from '../core/online/face-video.js';
@@ -75,6 +78,27 @@ scene.add(camera);
 const M = makeMaterials();
 const world = buildBackroom(scene, { renderer, M });
 const T = world.anchors.table;
+
+/* The real pictures on the walls (assets/art/manifest.json, `deadgiveaway.*`).
+ * The drawn marks hang until they load, and stay if one does not. */
+resolveGear(world.artSlots)
+  .then((gear) => world.hangArt(gear))
+  .catch((error) => console.warn('[DeadGiveaway] wall art did not load:', error));
+
+/* The bartender. Owner, 2026-10-20: "Maybe add a bartender." The Bing's own
+ * (src/core/wardrobe.js, the same body the club and Lou's mansion use), on
+ * the Bing's own 'work' cycle -- wiping, pouring, checking -- in front of the
+ * back bar and turned to the table, so the room sees a man at work rather
+ * than his back. Nobody plays him; he is set dressing with hands. */
+const BAR = world.anchors.bar;
+const bartenderAt = { x: BAR.x - 0.05, z: BAR.z + 0.55 };
+const bartender = new Npc(scene, {
+  name: 'the bartender', tier: 'hero', job: 'work',
+  x: bartenderAt.x, z: bartenderAt.z, yaw: Math.atan2(T.x - bartenderAt.x, T.z - bartenderAt.z),
+  look: false,
+  model: { ...BADA_BING_BARTENDER },
+});
+bartender.group.name = 'deadgiveaway.bartender';
 stage('Pulling out the chairs…');
 
 /* ------------------------------------------------------------------ */
@@ -89,15 +113,25 @@ const BED_VOLUME = 0.05;
 const BED_CUTOFF_HZ = 240;
 /* The second half is the round's own furniture (owner: "We need some more
  * sound effects"): cards dealt and turned, chips, the clock in the last
- * seconds of a turn, and a sting when the Rat is shown. */
+ * seconds of a turn, and the reveal -- a card and a bass note per Family
+ * head, a sting for the Rat (owner, 2026-10-20: "Better sound effects for the
+ * reveal of each player too"). */
 const CUES = ['ambience.club', 'whiskey.swig', 'glass.set', 'cig.drag', 'cig.exhale', 'deadgiveaway.spit',
-  'card.deal', 'card.flip', 'chip.stack', 'clock.tick', 'ui.select', 'ui.objective', 'sting.scene.end', 'sting.run.end'];
+  'card.deal', 'card.flip', 'chip.stack', 'clock.tick', 'ui.select', 'ui.objective', 'sting.run.end',
+  'deadgiveaway.reveal.family', 'deadgiveaway.reveal.rat'];
 /* Owner: "maybe some light intro music." The Bing store room's spy jazz,
  * low, while the table fills up; it fades when the cards go round and comes
  * back when the match is over. Ducked under voices with the bed. */
 const INTRO_KEY = 'music.intro';
 const INTRO_URL = 'assets/music/spy-jazz.mp3';
 const INTRO_VOLUME = 0.14;
+/* Owner, 2026-10-20: "Maybe some chill background music as well." While a
+ * round is on, the project's own supper-club beds one after another, low,
+ * and ducked under voices like everything else on that bus: Coco Cabana
+ * (Front & Center's dining-room bed), Daydream Diner 2, Cosmic Drift. */
+const ROUND_KEY = 'music.round';
+const ROUND_TRACKS = ['front-and-center-background-35c043f1.mp3', 'daydream-diner-2.mp3', 'cosmic-drift.mp3'];
+const ROUND_VOLUME = 0.09;
 let audioStarting = null;
 function startAudio() {
   if (audioStarting) return audioStarting;
@@ -106,19 +140,29 @@ function startAudio() {
     .then(() => {
       audio.startLoop('ambience.club', { volume: BED_VOLUME, ambience: true, fade: 3 });
       audio.setLoopCutoff(BED, BED_CUTOFF_HZ, 0.1);
-      syncIntro();
+      syncMusic();
     })
     .catch((error) => { console.warn('[DeadGiveaway] audio did not start:', error); });
   return audioStarting;
 }
 
-let introOn = false;
-function syncIntro() {
-  const want = !current || current.phase === 'LOBBY' || current.phase === 'MATCH_OVER';
-  if (!audio.ready || want === introOn) return;
-  introOn = want;
-  if (want) audio.startMusicLoop(INTRO_KEY, INTRO_URL, { volume: INTRO_VOLUME, fade: 2.5, ambience: true });
-  else audio.stopLoop(INTRO_KEY, 3.5);
+let musicMode = null;   // 'intro' | 'round' | null (not started)
+let roundTrack = 0;
+function syncMusic() {
+  const want = !current || current.phase === 'LOBBY' || current.phase === 'MATCH_OVER' ? 'intro' : 'round';
+  if (!audio.ready || want === musicMode) return;
+  if (musicMode === 'intro') audio.stopLoop(INTRO_KEY, 3.5);
+  if (musicMode === 'round') audio.stopLoop(ROUND_KEY, 3);
+  musicMode = want;
+  if (want === 'intro') audio.startMusicLoop(INTRO_KEY, INTRO_URL, { volume: INTRO_VOLUME, fade: 2.5, ambience: true });
+  else playRoundTrack();
+}
+function playRoundTrack() {
+  const file = ROUND_TRACKS[roundTrack++ % ROUND_TRACKS.length];
+  audio.replaceMusicLoop(ROUND_KEY, `assets/music/${file}`, {
+    volume: ROUND_VOLUME, fade: 3, crossfade: 2, loop: false, ambience: true,
+    onEnded: () => { if (musicMode === 'round') playRoundTrack(); },
+  });
 }
 
 /** A cue from a chair (seat anchor), or flat when seat is null. */
@@ -517,7 +561,7 @@ function updateReveal() {
     if (role === 'rat') {
       seats.setMark(id, 'rat');
       if (live) {
-        cue('sting.scene.end', { volume: 0.7 });
+        cue('deadgiveaway.reveal.rat', { volume: 0.8 });
         const me = st.me?.playerId;
         ui.banner({
           title: id === me ? 'You were the Rat' : `${p?.name ?? 'Somebody'} is the Rat`,
@@ -527,7 +571,9 @@ function updateReveal() {
         });
       }
     } else if (live) {
-      cue('card.flip', { seat: p?.seat ?? null, volume: 0.6 });
+      /* Flat, not from his chair: the recording is quiet, and two metres of
+       * positional fall-off left it under the table's talk. */
+      cue('deadgiveaway.reveal.family', { volume: 1 });
     }
   }
   ui.setRevealed(ids);
@@ -588,7 +634,7 @@ function applyState(state) {
   else seats.clearMarks('accused');
   phaseSounds(lastShown, state, clues.length);
   lastShown = { phase: state.phase, round: state.round, turnSeat: state.turnSeat, clues: clues.length };
-  syncIntro();
+  syncMusic();
 
   /* Where I sit. */
   const mine = players.find((p) => p.id === me);
@@ -761,7 +807,7 @@ function resetLocal() {
   revealShown.clear();
   revealKey = '';
   current = null;
-  syncIntro();
+  syncMusic();
   standUp();
   ui.reset();
   mediaPanel.reset();
@@ -922,6 +968,7 @@ function frame() {
   updateReveal();
   updateClock();
   seats.update(dt);
+  bartender.update(dt, null);
   actions.update(dt);
   world.update(dt, camera);
   audio.updateListener(camera);
@@ -947,7 +994,7 @@ stage('');
 
 const _p = new THREE.Vector3();
 window.DEAD_GIVEAWAY = {
-  scene, camera, renderer, world, seats, actions, player, input, audio, ui, lobby, roster: ROSTER,
+  scene, camera, renderer, world, seats, actions, player, input, audio, ui, lobby, bartender, roster: ROSTER,
   get client() { return client; },
   get media() { return media; },
   get state() { return current; },

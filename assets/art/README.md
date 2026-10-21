@@ -50,6 +50,7 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `bing.hallway.eric` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `bing.hallway.irish` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `bing.hallway.seff` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `deadgiveaway.*` (17) | Dead Giveaway card room under the Bing: n1-n4 north wall flanking the word board, s1-s8 south wall, w1-w3 west wall by the stairs door, e1-e2 east wall either side of the back bar (src/deadgiveaway/world.js `pictures`) |
 | `squatchfather.dining.coast` | Squatchfather, large framed dining-room print |
 | `squatchfather.portrait.uncle_lou` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.rippinflow` | Squatchfather, Family portrait replacing dining-room filler art |

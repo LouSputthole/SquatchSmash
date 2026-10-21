@@ -173,6 +173,9 @@ const VALID_SLOTS = (() => {
      * the manifest rows for them failed this gate as "unknown slot" for the
      * one reason this list exists -- nobody had ever read the palace. */
     'src/cartel-palace/world.js',
+    /* 2026-10-20: the Dead Giveaway card room hangs seventeen `deadgiveaway.*`
+     * frames, each row a literal `slot: '...'` in its `pictures` list. */
+    'src/deadgiveaway/world.js',
   ].map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   for (const src of sceneSources) {
     for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);

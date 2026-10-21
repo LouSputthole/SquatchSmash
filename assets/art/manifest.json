@@ -298,13 +298,13 @@
     {
       "slot": "closet.shirt.a",
       "file": "shirt-austin-front.jpg",
-      "title": "Austin jersey \u2014 front",
+      "title": "Austin jersey — front",
       "caption": "On the rail. Worn once."
     },
     {
       "slot": "closet.shirt.b",
       "file": "shirt-austin-back.jpg",
-      "title": "Austin jersey \u2014 back",
+      "title": "Austin jersey — back",
       "caption": "On the rail next to its own front."
     },
     {
@@ -1160,6 +1160,108 @@
       "file": "bing-hallway-shubenator.webp",
       "title": "The Shubenator, founder",
       "caption": "The other founder on this wall. He has never once looked at the trophy."
+    },
+    {
+      "slot": "deadgiveaway.n1",
+      "file": "silver-sasquatches/silver-sasquatches-poker-room.webp",
+      "title": "THE POKER ROOM",
+      "caption": "This room, painted from memory by somebody who was in it. Hung beside the board."
+    },
+    {
+      "slot": "deadgiveaway.n2",
+      "file": "silver-sasquatches/silver-sasquatches-house-rules.webp",
+      "title": "House rules",
+      "caption": "The other side of the board. Nobody reads them; everybody knows them."
+    },
+    {
+      "slot": "deadgiveaway.n3",
+      "file": "silver-sasquatches/silver-sasquatches-omerta.webp",
+      "title": "Omertà",
+      "caption": "Between the corner and the sconce, where the Rat has to look at it."
+    },
+    {
+      "slot": "deadgiveaway.n4",
+      "file": "silver-sasquatches/silver-sasquatches-blood-oath.webp",
+      "title": "BLOOD OATH",
+      "caption": "Right of the board. The only thing in the room nobody won at cards."
+    },
+    {
+      "slot": "deadgiveaway.s1",
+      "file": "mansion/dynasty-council.jpg",
+      "title": "The sit-down",
+      "caption": "Over the sideboard: seven of the Family round a long table, and nobody is smiling."
+    },
+    {
+      "slot": "deadgiveaway.s2",
+      "file": "bing-hallway-uncle-lou.webp",
+      "title": "Big Uncle Lou",
+      "caption": "Middle of the south wall, over the room, the way he likes it."
+    },
+    {
+      "slot": "deadgiveaway.s3",
+      "file": "goodfellas-tommy.jpg",
+      "title": "A Friend of Ours",
+      "caption": "By the safe. You don’t ask who he is. He already knows who you are."
+    },
+    {
+      "slot": "deadgiveaway.s4",
+      "file": "family-portrait-sauce.webp",
+      "title": "Sauce",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.s5",
+      "file": "bing-hallway-booskibro.webp",
+      "title": "Booskibro",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.s6",
+      "file": "bing-hallway-rippinflow.webp",
+      "title": "Rippinflow",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.s7",
+      "file": "bing-hallway-shubenator.webp",
+      "title": "Shubenator",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.s8",
+      "file": "family-portrait-lag.webp",
+      "title": "Lag",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.w1",
+      "file": "silver-sasquatches/silver-sasquatches-the-patriarch.webp",
+      "title": "THE PATRIARCH",
+      "caption": "South of the door: Lou, seated, holding a glass, behind his own bottles."
+    },
+    {
+      "slot": "deadgiveaway.w2",
+      "file": "family-portrait-seff.webp",
+      "title": "Seff",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.w3",
+      "file": "family-portrait-irish.webp",
+      "title": "Irish",
+      "caption": "A Family portrait in the card room under the Bing."
+    },
+    {
+      "slot": "deadgiveaway.e1",
+      "file": "silver-sasquatches/silver-sasquatches-inner-circle.webp",
+      "title": "INNER CIRCLE",
+      "caption": "North of the back bar. Everybody in the frame has sat at this table."
+    },
+    {
+      "slot": "deadgiveaway.e2",
+      "file": "mansion/dynasty-noir.jpg",
+      "title": "Rain, downtown",
+      "caption": "South of the back bar. Black and white, wet trench coat, one street lamp."
     }
   ]
 }

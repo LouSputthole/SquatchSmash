@@ -1405,26 +1405,47 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
   /* ================================================================== */
   /* Walls dressed: pictures, sideboard, humidor, safe, clock            */
   /* ================================================================== */
+  const artFrames = [];   // { slot, frame, w, h, maxW } -- hangArt() swaps the real picture in
   {
     const art = (key, title, footer, ink, bg) => squatchArt(`dg.${key}`, { title, footer, ink, bg });
+    /* Every frame names a slot in assets/art/manifest.json (`deadgiveaway.*`):
+     * owner, 2026-10-20, "Lets grab all real artwork from the project for the
+     * pictures on the walls." The drawn mark is what hangs until main.js has
+     * resolved the slots and called hangArt() (an image loads async; this
+     * file builds sync and is tested in Node), and what stays if a file is
+     * ever missing. Nine of these frames are new; they are 4:5, the shape of
+     * the Family's portrait prints, and sit clear of the sconces, the clock,
+     * the door casing and the bar surround. */
+    const SOUTH = R.z1 - 0.02;
+    const NORTH = R.z0 + 0.02;
     const pictures = [
       // North wall, flanking the board.
-      { key: 'n1', x: -3.05, y: 1.72, z: R.z0 + 0.02, rotY: 0, w: 0.62, h: 0.78, tex: art('n1', ['ESTABLISHED'], 'MCMLXXIV', '#c8a24a', '#1a1410') },
-      { key: 'n2', x: 3.05, y: 1.72, z: R.z0 + 0.02, rotY: 0, w: 0.62, h: 0.78, tex: art('n2', [], 'NORTH JERSEY', '#b8913e', '#14100e'), roll: 0.02 },
-      // South wall: a big one over the sideboard and a pair by the safe.
-      { key: 's1', x: -3.1, y: 1.78, z: R.z1 - 0.02, rotY: Math.PI, w: 0.9, h: 0.68, tex: printed('dg.s1', ['MAIN EVENT', 'SATURDAY SEPT. 14'], { w: 640, h: 480, bg: '#1d1712', fg: '#cdb27a', font: '700 52px Georgia, serif', border: '#6a5230' }) },
-      { key: 's2', x: 0, y: 1.8, z: R.z1 - 0.02, rotY: Math.PI, w: 0.5, h: 0.62, tex: art('s2', [], 'LOU', '#c8a24a', '#18120e') },
-      { key: 's3', x: 2.6, y: 1.74, z: R.z1 - 0.02, rotY: Math.PI, w: 0.44, h: 0.56, tex: art('s3', ['SALUTE'], null, '#a98a4a', '#1a1612'), roll: -0.03 },
-      // West wall, south of the door.
-      { key: 'w1', x: R.x0 + 0.02, y: 1.7, z: 2.15, rotY: Math.PI / 2, w: 0.56, h: 0.7, tex: art('w1', [], 'BADA BING', '#c8a24a', '#140f0c') },
+      { slot: 'deadgiveaway.n1', key: 'n1', x: -3.05, y: 1.72, z: NORTH, rotY: 0, w: 0.62, h: 0.78, tex: art('n1', ['ESTABLISHED'], 'MCMLXXIV', '#c8a24a', '#1a1410') },
+      { slot: 'deadgiveaway.n2', key: 'n2', x: 3.05, y: 1.72, z: NORTH, rotY: 0, w: 0.62, h: 0.78, tex: art('n2', [], 'NORTH JERSEY', '#b8913e', '#14100e'), roll: 0.02 },
+      { slot: 'deadgiveaway.n3', key: 'n3', x: -2.27, y: 1.76, z: NORTH, rotY: 0, w: 0.44, h: 0.55, tex: art('n3', [], null, '#b8913e', '#14100e') },
+      { slot: 'deadgiveaway.n4', key: 'n4', x: 2.27, y: 1.76, z: NORTH, rotY: 0, w: 0.44, h: 0.55, tex: art('n4', [], null, '#c8a24a', '#1a1410'), roll: -0.015 },
+      // South wall: a big one over the sideboard, the rest along the wall.
+      { slot: 'deadgiveaway.s1', key: 's1', x: -3.1, y: 1.78, z: SOUTH, rotY: Math.PI, w: 0.9, h: 0.68, maxW: 0.92, tex: printed('dg.s1', ['MAIN EVENT', 'SATURDAY SEPT. 14'], { w: 640, h: 480, bg: '#1d1712', fg: '#cdb27a', font: '700 52px Georgia, serif', border: '#6a5230' }) },
+      { slot: 'deadgiveaway.s4', key: 's4', x: -1.95, y: 1.74, z: SOUTH, rotY: Math.PI, w: 0.4, h: 0.5, tex: art('s4', [], null, '#a98a4a', '#1a1612') },
+      { slot: 'deadgiveaway.s5', key: 's5', x: -0.66, y: 1.76, z: SOUTH, rotY: Math.PI, w: 0.36, h: 0.45, tex: art('s5', [], null, '#b8913e', '#14100e') },
+      { slot: 'deadgiveaway.s2', key: 's2', x: 0, y: 1.8, z: SOUTH, rotY: Math.PI, w: 0.5, h: 0.62, tex: art('s2', [], 'LOU', '#c8a24a', '#18120e') },
+      { slot: 'deadgiveaway.s6', key: 's6', x: 0.66, y: 1.76, z: SOUTH, rotY: Math.PI, w: 0.36, h: 0.45, tex: art('s6', [], null, '#c8a24a', '#1a1410') },
+      { slot: 'deadgiveaway.s7', key: 's7', x: 1.86, y: 1.7, z: SOUTH, rotY: Math.PI, w: 0.36, h: 0.45, tex: art('s7', [], null, '#b8913e', '#14100e'), roll: 0.02 },
+      { slot: 'deadgiveaway.s3', key: 's3', x: 2.6, y: 1.74, z: SOUTH, rotY: Math.PI, w: 0.44, h: 0.56, tex: art('s3', ['SALUTE'], null, '#a98a4a', '#1a1612'), roll: -0.03 },
+      { slot: 'deadgiveaway.s8', key: 's8', x: 3.62, y: 1.78, z: SOUTH, rotY: Math.PI, w: 0.44, h: 0.55, tex: art('s8', [], null, '#c8a24a', '#18120e') },
+      // West wall: one south of the door, two north of it.
+      { slot: 'deadgiveaway.w1', key: 'w1', x: R.x0 + 0.02, y: 1.7, z: 2.15, rotY: Math.PI / 2, w: 0.56, h: 0.7, tex: art('w1', [], 'BADA BING', '#c8a24a', '#140f0c') },
+      { slot: 'deadgiveaway.w2', key: 'w2', x: R.x0 + 0.02, y: 1.72, z: -1.42, rotY: Math.PI / 2, w: 0.44, h: 0.55, tex: art('w2', [], null, '#b8913e', '#14100e') },
+      { slot: 'deadgiveaway.w3', key: 'w3', x: R.x0 + 0.02, y: 1.72, z: -2.42, rotY: Math.PI / 2, w: 0.44, h: 0.55, tex: art('w3', [], null, '#c8a24a', '#1a1410'), roll: 0.02 },
       // East wall, either side of the back bar.
-      { key: 'e1', x: R.x1 - 0.02, y: 1.72, z: -2.15, rotY: -Math.PI / 2, w: 0.5, h: 0.62, tex: art('e1', [], 'MCMLXXXII', '#b8913e', '#14100e') },
-      { key: 'e2', x: R.x1 - 0.02, y: 1.72, z: 2.15, rotY: -Math.PI / 2, w: 0.5, h: 0.62, tex: art('e2', [], null, '#c8a24a', '#1a1410') },
+      { slot: 'deadgiveaway.e1', key: 'e1', x: R.x1 - 0.02, y: 1.72, z: -2.15, rotY: -Math.PI / 2, w: 0.5, h: 0.62, tex: art('e1', [], 'MCMLXXXII', '#b8913e', '#14100e') },
+      { slot: 'deadgiveaway.e2', key: 'e2', x: R.x1 - 0.02, y: 1.72, z: 2.15, rotY: -Math.PI / 2, w: 0.5, h: 0.62, tex: art('e2', [], null, '#c8a24a', '#1a1410') },
     ];
     for (const p of pictures) {
       const f = makeFrame(M, { x: p.x, y: p.y, z: p.z, rotY: p.rotY, w: p.w, h: p.h, texture: p.tex, tint: 0x2a1a0e, roll: p.roll ?? 0 });
       f.group.name = `dg.picture.${p.key}`;
       add(f.group);
+      artFrames.push({ slot: p.slot, frame: f, w: p.w, h: p.h, maxW: p.maxW ?? p.w * 1.1 });
     }
 
     // Sideboard, south-west: walnut credenza with the humidor and the phone.
@@ -1783,6 +1804,27 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
     motes.geo.attributes.position.needsUpdate = true;
   }
 
+  /**
+   * Hang the real pictures: `gear` is src/world/gear.js resolveGear(artSlots).
+   * A slot whose file did not load keeps its drawn mark. The frame keeps its
+   * height and takes the picture's own width, within maxW, so a portrait is
+   * never stretched to fill a frame drawn for something else. Returns how
+   * many were hung.
+   */
+  function hangArt(gear) {
+    let hung = 0;
+    for (const a of artFrames) {
+      const g = gear?.get?.(a.slot);
+      if (!g?.real || !g.texture) continue;
+      a.frame.artMat.map = g.texture;
+      a.frame.artMat.needsUpdate = true;
+      const w = Math.min(a.maxW, Math.max(a.w * 0.6, a.h * (g.aspect || a.w / a.h)));
+      a.frame.panel.scale.x = w / a.w;
+      hung++;
+    }
+    return hung;
+  }
+
   /** Floor height: zero in the room, the tread on the stairs. */
   function groundAt(x, z) {
     if (x < R.x0 && z >= STAIRS.z0 && z <= STAIRS.z1) {
@@ -1825,6 +1867,8 @@ export function buildBackroom(scene, { renderer = null, M } = {}) {
       all: glasses,
     },
     chairs,
+    artSlots: artFrames.map((a) => a.slot),
+    hangArt,
     haze,
     lights: { spot: lamp.spot, faces: lamp.faceLight, sconces: sconces.map((s) => s.light) },
     update,
