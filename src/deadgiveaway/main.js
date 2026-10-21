@@ -34,7 +34,7 @@ import { attachFaceVideo } from '../core/online/face-video.js';
 import { buildBackroom, SEAT_COUNT } from './world.js';
 import { ROSTER, characterById } from './characters.js';
 import { createSeatRig } from './seats.js';
-import { createActions, ACTIONS } from './actions.js';
+import { createActions, ACTIONS, ACTION_CUES } from './actions.js';
 import { createLobby } from './lobby.js';
 import { createMediaPanel } from './media-panel.js';
 import {
@@ -102,7 +102,7 @@ let audioStarting = null;
 function startAudio() {
   if (audioStarting) return audioStarting;
   audioStarting = audio.init()
-    .then(() => audio.loadManifest({ names: CUES }))
+    .then(() => audio.loadManifest({ names: [...CUES, ...ACTION_CUES] }))
     .then(() => {
       audio.startLoop('ambience.club', { volume: BED_VOLUME, ambience: true, fade: 3 });
       audio.setLoopCutoff(BED, BED_CUTOFF_HZ, 0.1);
@@ -245,7 +245,7 @@ const actions = createActions({
   smoke: world.haze,
   THREE,
   selfId: () => client?.me?.playerId ?? null,
-  send: (kind) => { client?.emit('act', { kind }); },
+  send: (kind, extra) => { client?.emit('act', { kind, ...extra }); },
 });
 
 /* ------------------------------------------------------------------ */
@@ -298,7 +298,7 @@ function connect() {
   }
   client.on('state', (state) => applyState(state));
   client.on('pose', ({ playerId, yaw, pitch } = {}) => seats.setPose(playerId, yaw, pitch));
-  client.on('act', ({ playerId, kind } = {}) => actions.remote(playerId, kind));
+  client.on('act', ({ playerId, kind, target } = {}) => actions.remote(playerId, kind, { target }));
   client.on('chat', (msg = {}) => ui.addChat({ name: msg.name ?? 'Somebody', text: String(msg.text ?? '') }));
   client.on('media:speaking', ({ playerId, speaking } = {}) => setSpeaking(playerId, speaking));
   client.on('room:closed', ({ reason } = {}) => {
