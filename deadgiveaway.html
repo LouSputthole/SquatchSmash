@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Dead Giveaway · Squatch Life</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127183;</text></svg>" />
+  <link rel="stylesheet" href="src/deadgiveaway/deadgiveaway.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="deadgiveaway">
+  <!-- The lobby card, the table HUD, the board overlay, clues and chat all
+       mount here (src/deadgiveaway/lobby.js, table-ui.js). The canvas goes
+       in front of it, behind everything. -->
+  <div id="dg-ui"></div>
+
+  <div id="loading"><span>Down the stairs under the Bada Bing…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./preview.html">PREVIEW MENU</a></div>
+  </div>
+  <!-- data-ready is the NAME OF THE GLOBAL the scene publishes, not a title. -->
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="DEAD_GIVEAWAY" data-scene="Dead Giveaway"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s&&t)s.textContent=t;};</script>
+  <script type="module" src="src/deadgiveaway/main.js" onerror="window.__squatchSceneFail('Could not load Dead Giveaway','src/deadgiveaway/main.js failed to load.')"></script>
+</body>
+</html>

@@ -6877,6 +6877,24 @@
       "prompt": "a heavy tumbler set down firmly on a polished wooden bar, dull thud with a short glass ring, close mic"
     },
     {
+      "_comment": "Dead Giveaway (src/deadgiveaway/actions.js): the hawk and the spit, at a man across the table or into the brass spittoon. Owner, 2026-10-20: \"I want a better hawk tuah sound for the spitting.\" Generated 2026-10-20 (ElevenLabs sound v2, prompt influence 0.55); the glob leaves on the spit, about 0.6 s in.",
+      "name": "deadgiveaway.spit",
+      "duration": 1.76,
+      "prompt": "a man hawks up phlegm from deep in his throat, one long rough gravelly hock, then spits hard once with a sharp wet tuah, close mic, dry small room, no words, no music"
+    },
+    {
+      "_comment": "Dead Giveaway (src/deadgiveaway/main.js): one Family card turned over in the reveal, one per head. Owner, 2026-10-20: \"Better sound effects for the reveal of each player too.\" Generated 2026-10-20.",
+      "name": "deadgiveaway.reveal.family",
+      "duration": 1.6,
+      "prompt": "a playing card slapped face-up hard on a felt card table, followed by one deep warm upright bass pluck and a soft brushed cymbal swell, noir jazz club, short, no melody, no voice"
+    },
+    {
+      "_comment": "Dead Giveaway (src/deadgiveaway/main.js): the Rat's card, last in the reveal, with the red light and the rat over his head. Generated 2026-10-20.",
+      "name": "deadgiveaway.reveal.rat",
+      "duration": 2.56,
+      "prompt": "dramatic noir crime film sting: a sharp muted trumpet stab over a low dissonant piano cluster chord and a single timpani hit, tense and accusing, short ringing decay, no voice"
+    },
+    {
       "name": "cork.pop",
       "duration": 0.8,
       "prompt": "champagne cork eased out of a bottle, controlled soft pop and a breath of escaping gas, close mic"

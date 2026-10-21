@@ -68,6 +68,9 @@ const CAMPAIGN_PAGES = Object.freeze([
 
 const NON_CAMPAIGN_ROOT_HTML = Object.freeze([
   'combatlab.html',
+  /* Dead Giveaway — the multiplayer social-deduction table under the Bing
+   * (docs/DEAD-GIVEAWAY.md). Its own match, outside the campaign route. */
+  'deadgiveaway.html',
   /* The Stranger's client — the dev-haunt join page (docs/DEV-HAUNT-SPIKE.md).
    * A tool for the owner, never a campaign page. */
   'haunt.html',

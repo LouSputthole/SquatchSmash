@@ -419,6 +419,13 @@ const TEST_MODULES = [
   './radio-audit-portability.test.mjs',
   './source-line-endings.test.mjs',
   './test-registry.test.mjs',
+  './deadgiveaway-characters.test.mjs',
+  './deadgiveaway-table-ui.test.mjs',
+  './deadgiveaway-page-contract.test.mjs',
+  './deadgiveaway-face-video.test.mjs',
+  './deadgiveaway-dg-client.test.mjs',
+  './deadgiveaway-table-media.test.mjs',
+  './deadgiveaway-world.test.mjs',
 ];
 
 /* A module that throws while being IMPORTED used to end the run silently.
